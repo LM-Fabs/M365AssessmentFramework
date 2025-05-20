@@ -8,30 +8,92 @@ on:
     types: [opened, synchronize, reopened, closed]
     branches:
       - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   build_and_deploy_job:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
-    name: Build and Deploy Job
+    name: Build and Deploy
+    timeout-minutes: 30
+    environment: production
+    
+    env:
+      NODE_VERSION: '16.x'
+      APP_LOCATION: 'm365-security-assessment/m365-assessment-framework'
+      API_LOCATION: 'm365-security-assessment/m365-assessment-framework/api'
+      OUTPUT_LOCATION: 'build'
+      
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: true
-          lfs: false
-      - name: Build And Deploy
-        id: builddeploy
+          fetch-depth: 2
+
+      - name: Azure login with OIDC
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '${{ env.APP_LOCATION }}/package-lock.json'
+
+      - name: Install Static Web Apps CLI
+        run: npm install -g @azure/static-web-apps-cli
+
+      - name: Install Dependencies
+        working-directory: ${{ env.APP_LOCATION }}
+        run: npm ci
+
+      - name: Build Application
+        working-directory: ${{ env.APP_LOCATION }}
+        run: npm run build
+        env:
+          CI: true
+          REACT_APP_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          REACT_APP_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+
+      - name: Build API
+        working-directory: ${{ env.API_LOCATION }}
+        run: |
+          if [ -f package.json ]; then
+            npm ci
+            npm run build --if-present
+          fi
+
+      - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
+        id: deploy
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_VICTORIOUS_POND_069956E03 }}
-          repo_token: ${{ secrets.GITHUB_TOKEN }} # Used for Github integrations (i.e. PR comments)
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
-          # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
-          app_location: "m365-assessment-framework" # App source code path
-          api_location: "m365-assessment-framework/api" # Api source code path - optional
-          output_location: "" # Built app content directory - optional
-          ###### End of Repository/Build Configurations ######
+          app_location: ${{ env.APP_LOCATION }}
+          api_location: ${{ env.API_LOCATION }}
+          output_location: ${{ env.OUTPUT_LOCATION }}
+          skip_app_build: true
+          skip_api_build: true
+        env:
+          IS_STATIC_EXPORT: true
+          NODE_ENV: production
+
+      - name: Build Status Check
+        if: always()
+        run: |
+          if [ "${{ steps.deploy.outcome }}" == "failure" ]; then
+            echo "Deployment failed. Check the Azure Static Web Apps logs for more details."
+            exit 1
+          fi
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
@@ -44,3 +106,7 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_VICTORIOUS_POND_069956E03 }}
           action: "close"
+
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
