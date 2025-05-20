@@ -23,6 +23,7 @@ jobs:
       APP_LOCATION: 'm365-security-assessment/m365-assessment-framework'
       API_LOCATION: 'm365-security-assessment/m365-assessment-framework/api'
       OUTPUT_LOCATION: 'build'
+      CI: false
       
     steps:
       - uses: actions/checkout@v3
@@ -58,9 +59,13 @@ jobs:
 
       - name: Build Application
         working-directory: ${{ env.APP_LOCATION }}
-        run: npm run build
+        run: |
+          echo "Starting build process..."
+          npm run build --verbose
+          echo "Build process completed"
         env:
-          CI: true
+          CI: false
+          NODE_OPTIONS: --max-old-space-size=4096
           REACT_APP_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           REACT_APP_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
 
