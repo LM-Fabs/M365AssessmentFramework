@@ -45,7 +45,7 @@ jobs:
           cache: 'npm'
           cache-dependency-path: '${{ env.APP_LOCATION }}/package-lock.json'
 
-      - name: Debug Directory Structure
+      - name: Debug Environment Setup
         run: |
           echo "Current working directory:"
           pwd
@@ -61,34 +61,48 @@ jobs:
       - name: Install Dependencies
         working-directory: ${{ env.APP_LOCATION }}
         run: |
-          npm ci --prefer-offline --no-audit
+          echo "Installing dependencies..."
+          npm ci --no-audit
+          echo "Dependencies installed successfully"
+          echo "node_modules contents:"
+          ls -la node_modules
+          echo "Number of installed packages:"
+          npm list | wc -l
 
-      - name: Debug Environment
+      - name: Debug Build Environment
         working-directory: ${{ env.APP_LOCATION }}
         run: |
-          echo "Node modules contents:"
-          ls -la node_modules
+          echo "Environment variables:"
+          env | grep -i 'node\|npm\|react'
           echo "\nPackage.json contents:"
           cat package.json
-          echo "\nReact Scripts version:"
-          npm list react-scripts
+          echo "\nInstalled packages:"
+          npm list --depth=0
 
       - name: Build Application
         working-directory: ${{ env.APP_LOCATION }}
         run: |
-          echo "Starting build process..."
-          export NODE_OPTIONS="--max-old-space-size=4096"
-          npm run build || {
-            echo "Build failed. Showing detailed error output:"
+          echo "Starting build process with verbose output..."
+          export NODE_OPTIONS="--max-old-space-size=4096 --trace-warnings"
+          set -x  # Enable command echoing
+          npm run build --verbose > >(tee build-output.log) 2> >(tee build-error.log >&2) || {
+            echo "Build failed. Full build output:"
+            cat build-output.log
+            echo "\nBuild errors:"
+            cat build-error.log
+            echo "\nNPM Debug Log (if exists):"
             cat npm-debug.log || true
             exit 1
           }
         env:
           CI: false
+          DEBUG: "*"
+          NODE_ENV: production
           REACT_APP_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           REACT_APP_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
 
       - name: Build API
+        if: success()
         working-directory: ${{ env.API_LOCATION }}
         run: |
           if [ -f package.json ]; then
@@ -97,6 +111,7 @@ jobs:
           fi
 
       - name: Deploy to Azure Static Web Apps
+        if: success()
         uses: Azure/static-web-apps-deploy@v1
         id: deploy
         with:
