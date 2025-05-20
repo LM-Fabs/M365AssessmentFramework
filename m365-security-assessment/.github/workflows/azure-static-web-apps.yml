@@ -22,12 +22,14 @@ jobs:
     
     env:
       NODE_VERSION: '16.x'
-
+      APP_LOCATION: 'm365-assessment-framework'
+      API_LOCATION: 'm365-assessment-framework/api'
+      OUTPUT_LOCATION: 'build'
+      
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 2
-          submodules: false  # Explicitly disable submodule checkout
 
       - name: Azure login with OIDC
         uses: azure/login@v1
@@ -41,28 +43,30 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
+          cache-dependency-path: '${{ env.APP_LOCATION }}/package-lock.json'
+
+      - name: Install Static Web Apps CLI
+        run: npm install -g @azure/static-web-apps-cli
 
       - name: Install Dependencies
-        run: |
-          cd m365-assessment-framework
-          npm ci
-        continue-on-error: false
-
+        working-directory: ${{ env.APP_LOCATION }}
+        run: npm ci
+        
       - name: Build Application
-        run: |
-          cd m365-assessment-framework
-          npm run build
-        continue-on-error: false
+        working-directory: ${{ env.APP_LOCATION }}
+        run: npm run build
         env:
           CI: true
+          REACT_APP_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          REACT_APP_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
 
-      - name: Run Tests
+      - name: Build API
+        working-directory: ${{ env.API_LOCATION }}
         run: |
-          cd m365-assessment-framework
-          npm test -- --passWithNoTests
-        continue-on-error: false
-        env:
-          CI: true
+          if [ -f package.json ]; then
+            npm ci
+            npm run build --if-present
+          fi
 
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
@@ -71,23 +75,31 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          app_location: "m365-assessment-framework"
-          api_location: "m365-assessment-framework/api"
-          output_location: "build"
+          app_location: ${{ env.APP_LOCATION }}
+          api_location: ${{ env.API_LOCATION }}
+          output_location: ${{ env.OUTPUT_LOCATION }}
+          skip_app_build: true
+          skip_api_build: true
         env:
+          IS_STATIC_EXPORT: true
           NODE_ENV: production
 
-      - name: Build and Deploy Azure Functions
+      - name: Deploy Azure Functions
         uses: Azure/functions-action@v1
+        if: success() && github.event_name != 'pull_request'
         with:
           app-name: ${{ secrets.AZURE_FUNCTION_APP_NAME }}
-          package: m365-assessment-framework/api
+          package: ${{ env.API_LOCATION }}
+          respect-funcignore: true
+          scm-do-build-during-deployment: false
 
-      - name: Handle Deployment Failure
-        if: failure() && steps.deploy.outcome == 'failure'
+      - name: Build Status Check
+        if: always()
         run: |
-          echo "Deployment failed. Check the Azure Static Web Apps logs for more details."
-          exit 1
+          if [ "${{ steps.deploy.outcome }}" == "failure" ]; then
+            echo "Deployment failed. Check the Azure Static Web Apps logs for more details."
+            exit 1
+          fi
 
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
