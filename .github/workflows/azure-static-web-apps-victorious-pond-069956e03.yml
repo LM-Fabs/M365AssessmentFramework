@@ -26,9 +26,12 @@ jobs:
       CI: false
       
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v3
         with:
-          fetch-depth: 2
+          fetch-depth: 1
+          submodules: false
+          persist-credentials: true
 
       - name: Azure Login
         uses: azure/login@v1
@@ -42,30 +45,46 @@ jobs:
           cache: 'npm'
           cache-dependency-path: '${{ env.APP_LOCATION }}/package-lock.json'
 
-      - name: Debug Directory
+      - name: Debug Directory Structure
         run: |
-          echo "Current directory:"
+          echo "Current working directory:"
           pwd
-          echo "Directory contents:"
+          echo "\nRepository root contents:"
           ls -la
-          echo "App location contents:"
+          echo "\nApp directory contents:"
           ls -la ${{ env.APP_LOCATION }}
+          echo "\nNode version:"
+          node --version
+          echo "\nNPM version:"
+          npm --version
 
       - name: Install Dependencies
         working-directory: ${{ env.APP_LOCATION }}
         run: |
-          npm install -g npm@8.19.4
-          npm ci --verbose
+          npm ci --prefer-offline --no-audit
+
+      - name: Debug Environment
+        working-directory: ${{ env.APP_LOCATION }}
+        run: |
+          echo "Node modules contents:"
+          ls -la node_modules
+          echo "\nPackage.json contents:"
+          cat package.json
+          echo "\nReact Scripts version:"
+          npm list react-scripts
 
       - name: Build Application
         working-directory: ${{ env.APP_LOCATION }}
         run: |
           echo "Starting build process..."
-          npm run build --verbose
-          echo "Build process completed"
+          export NODE_OPTIONS="--max-old-space-size=4096"
+          npm run build || {
+            echo "Build failed. Showing detailed error output:"
+            cat npm-debug.log || true
+            exit 1
+          }
         env:
           CI: false
-          NODE_OPTIONS: --max-old-space-size=4096
           REACT_APP_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           REACT_APP_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
 
