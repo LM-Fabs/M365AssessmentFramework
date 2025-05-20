@@ -1,0 +1,24 @@
+{
+  "name": "m365-security-assessment",
+  "version": "1.0.0",
+  "description": "A Microsoft 365 assessment framework for security consulting.",
+  "main": "src/index.tsx",
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "dependencies": {
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "react-scripts": "4.0.3",
+    "@types/react": "^17.0.2",
+    "@types/react-dom": "^17.0.2"
+  },
+  "devDependencies": {
+    "typescript": "^4.1.2"
+  },
+  "homepage": "https://your-homepage-url.com",
+  "license": "MIT"
+}

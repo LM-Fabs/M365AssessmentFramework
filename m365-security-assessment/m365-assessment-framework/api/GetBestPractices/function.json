@@ -1,0 +1,16 @@
+{
+  "bindings": [
+    {
+      "type": "httpTrigger",
+      "direction": "in",
+      "authLevel": "function",
+      "methods": ["get"],
+      "route": "bestPractices"
+    },
+    {
+      "type": "http",
+      "direction": "out"
+    }
+  ],
+  "disabled": false
+}

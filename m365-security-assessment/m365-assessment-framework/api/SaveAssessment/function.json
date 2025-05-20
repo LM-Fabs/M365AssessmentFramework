@@ -1,0 +1,16 @@
+{
+  "bindings": [
+    {
+      "type": "httpTrigger",
+      "direction": "in",
+      "authLevel": "function",
+      "methods": ["post"],
+      "route": "saveAssessment"
+    },
+    {
+      "type": "http",
+      "direction": "out"
+    }
+  ],
+  "disabled": false
+}
