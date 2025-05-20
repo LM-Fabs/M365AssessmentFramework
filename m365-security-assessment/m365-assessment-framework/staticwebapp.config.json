@@ -30,7 +30,7 @@
       "azureActiveDirectory": {
         "registration": {
           "openIdIssuer": "https://login.microsoftonline.com/{tenant}/v2.0",
-          "clientId": "%AZURE_CLIENT_ID%",
+          "clientIdSettingName": "AZURE_CLIENT_ID",
           "clientSecretSettingName": "AZURE_CLIENT_SECRET"
         },
         "userDetailsClaim": "preferred_username"
