@@ -1,0 +1,93 @@
+name: Azure Static Web Apps CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build_and_deploy_job:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: dev
+    
+    env:
+      NODE_VERSION: '16.x'
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+
+      - name: Azure login with OIDC
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: |
+          cd m365-assessment-framework
+          npm ci
+        continue-on-error: false
+
+      - name: Build Application
+        run: |
+          cd m365-assessment-framework
+          npm run build
+        continue-on-error: false
+        env:
+          CI: true
+
+      - name: Run Tests
+        run: |
+          cd m365-assessment-framework
+          npm test -- --passWithNoTests
+        continue-on-error: false
+        env:
+          CI: true
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        id: deploy
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: "upload"
+          app_location: "m365-assessment-framework"
+          api_location: "m365-assessment-framework/api"
+          output_location: "build"
+        env:
+          NODE_ENV: production
+
+      - name: Build and Deploy Azure Functions
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ secrets.AZURE_FUNCTION_APP_NAME }}
+          package: m365-assessment-framework/api
+
+      - name: Handle Deployment Failure
+        if: failure() && steps.deploy.outcome == 'failure'
+        run: |
+          echo "Deployment failed. Check the Azure Static Web Apps logs for more details."
+          exit 1
+
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
