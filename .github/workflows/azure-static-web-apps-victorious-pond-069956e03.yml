@@ -41,9 +41,20 @@ jobs:
           cache: 'npm'
           cache-dependency-path: '${{ env.APP_LOCATION }}/package-lock.json'
 
+      - name: Debug Directory
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "Directory contents:"
+          ls -la
+          echo "App location contents:"
+          ls -la ${{ env.APP_LOCATION }}
+
       - name: Install Dependencies
         working-directory: ${{ env.APP_LOCATION }}
-        run: npm ci
+        run: |
+          npm install -g npm@8.19.4
+          npm ci --verbose
 
       - name: Build Application
         working-directory: ${{ env.APP_LOCATION }}
