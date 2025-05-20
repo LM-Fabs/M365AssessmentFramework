@@ -47,9 +47,6 @@ jobs:
           cache: 'npm'
           cache-dependency-path: '${{ env.APP_LOCATION }}/package-lock.json'
 
-      - name: Install Static Web Apps CLI
-        run: npm install -g @azure/static-web-apps-cli
-
       - name: Install Dependencies
         working-directory: ${{ env.APP_LOCATION }}
         run: npm ci
@@ -80,8 +77,6 @@ jobs:
           app_location: ${{ env.APP_LOCATION }}
           api_location: ${{ env.API_LOCATION }}
           output_location: ${{ env.OUTPUT_LOCATION }}
-          skip_app_build: true
-          skip_api_build: true
         env:
           IS_STATIC_EXPORT: true
           NODE_ENV: production
