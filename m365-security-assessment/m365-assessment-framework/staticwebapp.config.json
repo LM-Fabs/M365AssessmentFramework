@@ -21,9 +21,10 @@
   "auth": {
     "identityProviders": {
       "azureActiveDirectory": {
+        "enabled": true,
         "registration": {
           "openIdIssuer": "https://login.microsoftonline.com/organizations/v2.0",
-          "clientIdSettingName": "AZURE_CLIENT_ID",
+          "clientIdSettingName": "REACT_APP_CLIENT_ID",
           "clientSecretSettingName": "AZURE_CLIENT_SECRET"
         },
         "userDetailsClaim": "preferred_username"
