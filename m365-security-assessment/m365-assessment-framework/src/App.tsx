@@ -1,12 +1,13 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { MsalProvider } from '@azure/msal-react';
-import { PublicClientApplication, EventType, EventMessage } from '@azure/msal-browser';
+import { PublicClientApplication } from '@azure/msal-browser';
 import { msalConfig } from './config/auth';
 import { useAuth } from './hooks/useAuth';
 import Dashboard from './pages/Dashboard';
 import History from './pages/History';
 import Settings from './pages/Settings';
+import Login from './pages/Login';
 
 const msalInstance = new PublicClientApplication(msalConfig);
 
@@ -16,36 +17,18 @@ msalInstance.handleRedirectPromise().catch(error => {
 });
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
-};
+  const { isAuthenticated, isLoading } = useAuth();
 
-const LoginPage: React.FC = () => {
-  const { login, error, clearError, isLoading } = useAuth();
-
-  React.useEffect(() => {
-    if (error) {
-      const timer = setTimeout(clearError, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [error, clearError]);
-
-  return (
-    <div className="login-page">
-      <div className="login-container">
-        <h1>M365 Security Assessment</h1>
-        <p>Sign in with your Microsoft account to continue</p>
-        {error && <div className="error-message">{error}</div>}
-        {isLoading ? (
-          <div className="loading-spinner">Authenticating...</div>
-        ) : (
-          <button onClick={login} disabled={isLoading}>
-            {isLoading ? 'Signing in...' : 'Sign In'}
-          </button>
-        )}
+  if (isLoading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Checking authentication...</p>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 };
 
 const Navigation: React.FC = () => {
@@ -60,7 +43,7 @@ const Navigation: React.FC = () => {
       {isAuthenticated && (
         <>
           <div className="nav-links">
-            <Link to="/dashboard">Dashboard</Link>
+            <Link to="/">Dashboard</Link>
             <Link to="/history">History</Link>
             <Link to="/settings">Settings</Link>
           </div>
@@ -82,24 +65,25 @@ const Navigation: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  const { isLoading, isAuthenticated, error } = useAuth();
+  const { isLoading, error } = useAuth();
 
-  useEffect(() => {
-    // Register redirect handlers
-    const redirectHandler = (message: EventMessage) => {
-      if (message.eventType === EventType.LOGIN_SUCCESS) {
-        console.log('Login successful');
-      }
-    };
+  if (isLoading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading application...</p>
+      </div>
+    );
+  }
 
-    const callbackId = msalInstance.addEventCallback(redirectHandler);
-
-    return () => {
-      if (callbackId) {
-        msalInstance.removeEventCallback(callbackId);
-      }
-    };
-  }, []);
+  if (error) {
+    return (
+      <div className="error-container">
+        <p className="error-message">{error}</p>
+        <button onClick={() => window.location.reload()}>Retry</button>
+      </div>
+    );
+  }
 
   return (
     <MsalProvider instance={msalInstance}>
@@ -108,216 +92,26 @@ const App: React.FC = () => {
           <Navigation />
           
           <main className="main-content">
-            {isLoading ? (
-              <div className="loading-container">
-                <div className="loading-spinner"></div>
-                <p>Loading authentication state...</p>
-              </div>
-            ) : error ? (
-              <div className="error-container">
-                <p className="error-message">{error}</p>
-              </div>
-            ) : (
-              <Routes>
-                <Route path="/login" element={<Navigate to="/.auth/login/aad" />} />
-                <Route 
-                  path="/" 
-                  element={
-                    <PrivateRoute>
-                      <Dashboard />
-                    </PrivateRoute>
-                  } 
-                />
-                <Route 
-                  path="/history" 
-                  element={
-                    <PrivateRoute>
-                      <History />
-                    </PrivateRoute>
-                  } 
-                />
-                <Route 
-                  path="/settings" 
-                  element={
-                    <PrivateRoute>
-                      <Settings />
-                    </PrivateRoute>
-                  } 
-                />
-              </Routes>
-            )}
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/" element={
+                <PrivateRoute>
+                  <Dashboard />
+                </PrivateRoute>
+              } />
+              <Route path="/history" element={
+                <PrivateRoute>
+                  <History />
+                </PrivateRoute>
+              } />
+              <Route path="/settings" element={
+                <PrivateRoute>
+                  <Settings />
+                </PrivateRoute>
+              } />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
           </main>
-
-          <style>{`
-            .app {
-              min-height: 100vh;
-              display: flex;
-              flex-direction: column;
-            }
-
-            .navigation {
-              background: #0078d4;
-              color: white;
-              padding: 1rem;
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-            }
-
-            .nav-brand {
-              font-size: 1.25rem;
-              font-weight: bold;
-            }
-
-            .nav-links {
-              display: flex;
-              gap: 1.5rem;
-            }
-
-            .nav-links a {
-              color: white;
-              text-decoration: none;
-              padding: 0.5rem;
-              border-radius: 4px;
-              transition: background-color 0.2s;
-            }
-
-            .nav-links a:hover {
-              background: rgba(255, 255, 255, 0.1);
-            }
-
-            .nav-account {
-              display: flex;
-              align-items: center;
-              gap: 1rem;
-            }
-
-            .username {
-              font-size: 0.9rem;
-              opacity: 0.9;
-            }
-
-            .main-content {
-              flex: 1;
-              padding: 2rem;
-              background: #f5f5f5;
-            }
-
-            .login-page {
-              min-height: 100vh;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              background: #f5f5f5;
-            }
-
-            .login-container {
-              background: white;
-              padding: 2rem;
-              border-radius: 8px;
-              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-              text-align: center;
-              max-width: 400px;
-              width: 100%;
-            }
-
-            .login-container h1 {
-              margin-bottom: 1rem;
-              color: #333;
-            }
-
-            .login-container p {
-              color: #666;
-              margin-bottom: 1.5rem;
-            }
-
-            button {
-              background: #0078d4;
-              color: white;
-              padding: 0.5rem 1rem;
-              border: none;
-              border-radius: 4px;
-              cursor: pointer;
-              font-size: 1rem;
-              transition: background-color 0.2s;
-            }
-
-            button:hover {
-              background: #006cbe;
-            }
-
-            button:disabled {
-              background: #cccccc;
-              cursor: not-allowed;
-            }
-
-            .error-message {
-              background: #fed9cc;
-              color: #d83b01;
-              padding: 0.75rem;
-              border-radius: 4px;
-              margin-bottom: 1rem;
-            }
-
-            .loading-container {
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: center;
-              height: 100%;
-              padding: 2rem;
-            }
-
-            .loading-spinner {
-              border: 3px solid #f3f3f3;
-              border-top: 3px solid #0078d4;
-              border-radius: 50%;
-              width: 30px;
-              height: 30px;
-              animation: spin 1s linear infinite;
-              margin-bottom: 1rem;
-            }
-
-            .loading-text {
-              color: #666;
-              font-size: 0.9rem;
-            }
-
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-
-            .error-container {
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              height: 100%;
-              padding: 2rem;
-            }
-
-            @media (max-width: 768px) {
-              .navigation {
-                flex-direction: column;
-                gap: 1rem;
-                text-align: center;
-              }
-
-              .nav-links {
-                flex-direction: column;
-                gap: 0.5rem;
-              }
-
-              .nav-account {
-                flex-direction: column;
-                gap: 0.5rem;
-              }
-
-              .main-content {
-                padding: 1rem;
-              }
-            }
-          `}</style>
         </div>
       </Router>
     </MsalProvider>

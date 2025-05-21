@@ -1,20 +1,18 @@
 {
   "routes": [
     {
+      "route": "/.auth/login/aad",
+      "statusCode": 200,
+      "allowedRoles": ["anonymous"]
+    },
+    {
       "route": "/.auth/login/aad/callback",
+      "statusCode": 200,
       "allowedRoles": ["anonymous"]
     },
     {
       "route": "/api/*",
       "allowedRoles": ["authenticated"]
-    },
-    {
-      "route": "/login",
-      "rewrite": "/.auth/login/aad"
-    },
-    {
-      "route": "/logout",
-      "rewrite": "/.auth/logout"
     },
     {
       "route": "/*",
@@ -32,16 +30,29 @@
           "clientSecretSettingName": "AZURE_CLIENT_SECRET"
         },
         "userDetailsClaim": "preferred_username",
-        "loginParameters": {
-          "prompt": "select_account"
+        "login": {
+          "loginParameters": ["scope=openid profile email"]
         }
       }
     }
   },
-  "navigationFallback": {
-    "rewrite": "/index.html",
-    "exclude": ["/images/*.{png,jpg,gif}", "/css/*", "/js/*", "/api/*"]
+  "responseOverrides": {
+    "401": {
+      "redirect": "/.auth/login/aad",
+      "statusCode": 302
+    }
   },
+  "platformErrorOverrides": [
+    {
+      "errorType": "NotFound",
+      "serve": "/index.html"
+    },
+    {
+      "errorType": "Unauthenticated",
+      "statusCode": 302,
+      "serve": "/.auth/login/aad"
+    }
+  ],
   "globalHeaders": {
     "Content-Security-Policy": "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.microsoft.com https://*.microsoftonline.com https://*.azure.com data:; img-src 'self' data: https:; connect-src 'self' https://*.microsoft.com https://*.microsoftonline.com https://*.azure.com;",
     "X-Content-Type-Options": "nosniff",
