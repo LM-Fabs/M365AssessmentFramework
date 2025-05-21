@@ -12,9 +12,17 @@ export const createEnterpriseAppHandler = app.http('createEnterpriseApp', {
     authLevel: 'function',
     handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
         try {
-            const requestBody: CreateEnterpriseAppRequest = await request.json();
-            const { targetTenantId } = requestBody;
+            const requestData = await request.json();
+            if (!requestData || typeof requestData !== 'object' || !('targetTenantId' in requestData)) {
+                return {
+                    status: 400,
+                    jsonBody: { error: "Invalid request body. Expected { targetTenantId: string }" }
+                };
+            }
             
+            const { targetTenantId } = requestData as CreateEnterpriseAppRequest;
+            context.log('CreateEnterpriseApp function processing request for tenant:', targetTenantId);
+
             if (!targetTenantId) {
                 return {
                     status: 400,
