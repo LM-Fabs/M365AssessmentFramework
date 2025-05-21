@@ -13,6 +13,12 @@ interface Recommendation {
   references: { title: string; url: string }[];
 }
 
+interface FilterState {
+  impact: string[];
+  effort: string[];
+  implemented: boolean;
+}
+
 interface RecommendationsListProps {
   assessment: Assessment;
   selectedCategory?: string;
@@ -22,9 +28,9 @@ const RecommendationsList: React.FC<RecommendationsListProps> = ({
   assessment, 
   selectedCategory 
 }) => {
-  const [filter, setFilter] = useState({
-    impact: [] as string[],
-    effort: [] as string[],
+  const [filter, setFilter] = useState<FilterState>({
+    impact: [],
+    effort: [],
     implemented: false
   });
 
@@ -91,13 +97,21 @@ const RecommendationsList: React.FC<RecommendationsListProps> = ({
     }
   };
 
-  const handleFilterChange = (type: string, value: string) => {
-    setFilter(prev => ({
-      ...prev,
-      [type]: prev[type as keyof typeof prev].includes(value)
-        ? (prev[type as keyof typeof prev] as string[]).filter(v => v !== value)
-        : [...(prev[type as keyof typeof prev] as string[]), value]
-    }));
+  const handleFilterChange = (type: keyof FilterState, value: string | boolean) => {
+    setFilter(prev => {
+      if (type === 'implemented') {
+        return {
+          ...prev,
+          [type]: value as boolean
+        };
+      }
+      return {
+        ...prev,
+        [type]: (prev[type] as string[]).includes(value as string)
+          ? (prev[type] as string[]).filter(v => v !== value)
+          : [...(prev[type] as string[]), value as string]
+      };
+    });
   };
 
   return (
