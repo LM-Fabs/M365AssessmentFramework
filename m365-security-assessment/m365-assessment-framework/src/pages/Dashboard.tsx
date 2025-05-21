@@ -52,8 +52,7 @@ const Dashboard: React.FC = () => {
       <div className="dashboard-header">
         <h1>Security Assessment Dashboard</h1>
         <div className="tenant-info">
-          <span>Tenant ID: {assessment.tenantId}</span>
-          <span>Last Updated: {assessment.lastModified.toLocaleDateString()}</span>
+          <span>Last Updated: {new Date(assessment.lastModified).toLocaleDateString()}</span>
         </div>
       </div>
 
@@ -61,34 +60,21 @@ const Dashboard: React.FC = () => {
         <div className="score-section">
           <SecurityScoreCard 
             assessment={assessment}
+            tenant={{ id: assessment.tenantId, name: assessment.tenantId }}
             onCategoryClick={handleCategoryClick}
           />
         </div>
 
         <div className="metrics-section">
-          <h2>Security Metrics {selectedCategory ? `- ${selectedCategory}` : ''}</h2>
           <MetricsDisplay 
             assessment={assessment}
-            selectedCategory={selectedCategory}
-          />
-        </div>
-
-        <div className="comparison-section">
-          <h2>Comparison with Best Practices</h2>
-          <ComparisonView 
-            assessment={assessment}
-            compareToBestPractices
           />
         </div>
 
         <div className="recommendations-section">
-          <h2>Security Recommendations</h2>
           <RecommendationsList 
             assessment={assessment}
-            onRecommendationClick={(recommendation) => {
-              // Handle recommendation click, e.g., show details modal
-              console.log('Recommendation clicked:', recommendation);
-            }}
+            selectedCategory={selectedCategory || undefined}
           />
         </div>
       </div>
@@ -101,12 +87,18 @@ const Dashboard: React.FC = () => {
         }
 
         .dashboard-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
           margin-bottom: 24px;
         }
 
+        .dashboard-header h1 {
+          margin: 0;
+          color: #333;
+        }
+
         .tenant-info {
-          display: flex;
-          gap: 16px;
           color: #666;
           font-size: 14px;
         }
@@ -114,48 +106,9 @@ const Dashboard: React.FC = () => {
         .dashboard-grid {
           display: grid;
           gap: 24px;
-          grid-template-columns: repeat(2, 1fr);
-          grid-template-areas:
-            "score metrics"
-            "comparison comparison"
-            "recommendations recommendations";
+          grid-template-columns: 1fr;
         }
 
-        .score-section {
-          grid-area: score;
-        }
-
-        .metrics-section {
-          grid-area: metrics;
-        }
-
-        .comparison-section {
-          grid-area: comparison;
-        }
-
-        .recommendations-section {
-          grid-area: recommendations;
-        }
-
-        h1 {
-          margin: 0 0 16px;
-          color: #333;
-        }
-
-        h2 {
-          margin: 0 0 16px;
-          color: #333;
-        }
-
-        .error-message {
-          color: #d83b01;
-          padding: 16px;
-          background: #fed9cc;
-          border-radius: 8px;
-          margin-bottom: 16px;
-        }
-
-        .authentication-prompt,
         .no-assessment {
           text-align: center;
           padding: 48px;
@@ -164,25 +117,46 @@ const Dashboard: React.FC = () => {
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
-        button {
+        .no-assessment h2 {
+          margin: 0 0 16px;
+          color: #333;
+        }
+
+        .no-assessment p {
+          margin: 0 0 24px;
+          color: #666;
+        }
+
+        .no-assessment button {
+          padding: 12px 24px;
           background: #0078d4;
           color: white;
-          padding: 10px 20px;
           border: none;
           border-radius: 4px;
           cursor: pointer;
           font-size: 16px;
-          margin-top: 16px;
+          font-weight: 500;
+          transition: background 0.2s;
         }
 
-        @media (max-width: 1200px) {
+        .no-assessment button:hover {
+          background: #006abc;
+        }
+
+        .error-message {
+          color: #d83b01;
+          padding: 10px;
+          background: #fed9cc;
+          border-radius: 4px;
+        }
+
+        @media (min-width: 768px) {
           .dashboard-grid {
-            grid-template-columns: 1fr;
-            grid-template-areas:
-              "score"
-              "metrics"
-              "comparison"
-              "recommendations";
+            grid-template-columns: repeat(2, 1fr);
+          }
+
+          .score-section {
+            grid-column: 1 / -1;
           }
         }
       `}</style>

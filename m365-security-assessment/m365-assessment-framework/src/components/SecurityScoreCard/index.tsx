@@ -1,81 +1,74 @@
 import React from 'react';
 import { Assessment } from '../../models/Assessment';
-import { getScoreColor, getScoreLabel } from '../../utils/scoring';
 import { SECURITY_CATEGORIES } from '../../shared/constants';
 
 interface SecurityScoreCardProps {
   assessment: Assessment;
+  tenant?: {
+    id: string;
+    name: string;
+  };
   onCategoryClick?: (category: string) => void;
 }
 
-const SecurityScoreCard: React.FC<SecurityScoreCardProps> = ({ assessment, onCategoryClick }) => {
-  const { metrics } = assessment;
+const SecurityScoreCard: React.FC<SecurityScoreCardProps> = ({ 
+  assessment,
+  tenant,
+  onCategoryClick 
+}) => {
+  const metrics = assessment.metrics;
 
-  const renderScoreGauge = (score: number) => {
-    const rotation = (score / 100) * 180;
-    const color = getScoreColor(score);
-
-    return (
-      <div className="score-gauge">
-        <div className="gauge-background">
-          <div 
-            className="gauge-fill" 
-            style={{ 
-              transform: `rotate(${rotation}deg)`,
-              backgroundColor: color
-            }} 
-          />
-          <div className="gauge-center">
-            <div className="score-value">{Math.round(score)}</div>
-            <div className="score-label">{getScoreLabel(score)}</div>
-          </div>
-        </div>
-      </div>
-    );
+  const getScoreColor = (score: number) => {
+    if (score >= 90) return '#107c10';
+    if (score >= 70) return '#ff8c00';
+    return '#d13438';
   };
 
   return (
     <div className="security-score-card">
       <div className="overall-score">
         <h2>Overall Security Score</h2>
-        {renderScoreGauge(metrics.score.overall)}
+        <div className="score-gauge">
+          <div 
+            className="gauge-background"
+            style={{ backgroundColor: getScoreColor(metrics.score.overall) }}
+          />
+          <div className="gauge-value">
+            {Math.round(metrics.score.overall)}%
+          </div>
+        </div>
       </div>
 
       <div className="category-scores">
-        {Object.entries(metrics.score).map(([category, score]) => {
-          if (category === 'overall') return null;
-
-          return (
-            <div 
-              key={category}
-              className="category-score"
-              onClick={() => onCategoryClick?.(category)}
-              role="button"
-              tabIndex={0}
-            >
-              <div className="category-header">
-                <h3>{SECURITY_CATEGORIES[category as keyof typeof SECURITY_CATEGORIES]}</h3>
-                <div className="score-badge" style={{ backgroundColor: getScoreColor(score) }}>
-                  {Math.round(score)}
-                </div>
-              </div>
-              <div className="score-bar-container">
+        {Object.entries(metrics.score)
+          .filter(([category]) => category !== 'overall')
+          .map(([category, score]) => {
+            const displayName = SECURITY_CATEGORIES[category as keyof typeof SECURITY_CATEGORIES];
+            return (
+              <div 
+                key={category}
+                className="category-score"
+                onClick={() => onCategoryClick?.(category)}
+                style={{ cursor: onCategoryClick ? 'pointer' : 'default' }}
+              >
+                <div className="category-label">{displayName}</div>
                 <div 
-                  className="score-bar" 
+                  className="score-bar"
                   style={{ 
                     width: `${score}%`,
                     backgroundColor: getScoreColor(score)
-                  }} 
-                />
+                  }}
+                >
+                  <span className="score-value">{Math.round(score)}%</span>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
       </div>
 
       <div className="assessment-info">
         <div>Last updated: {new Date(metrics.lastUpdated).toLocaleString()}</div>
-        <div>Tenant: {assessment.tenantName}</div>
+        {tenant && <div>Tenant: {tenant.name}</div>}
       </div>
 
       <style>{`
