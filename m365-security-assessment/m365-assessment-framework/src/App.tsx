@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { MsalProvider } from '@azure/msal-react';
-import { PublicClientApplication, EventType } from '@azure/msal-browser';
+import { PublicClientApplication, EventType, EventMessage, InteractionStatus } from '@azure/msal-browser';
 import { msalConfig } from './config/auth';
 import { useAuth } from './hooks/useAuth';
 import Dashboard from './pages/Dashboard';
@@ -72,16 +72,18 @@ const LoginPage: React.FC = () => {
 const App: React.FC = () => {
   useEffect(() => {
     // Register redirect handlers
-    const redirectHandler = (event: any) => {
-      if (event.eventType === EventType.LOGIN_SUCCESS) {
+    const redirectHandler = (message: EventMessage) => {
+      if (message.eventType === EventType.LOGIN_SUCCESS) {
         console.log('Login successful');
       }
     };
 
-    msalInstance.addEventCallback(redirectHandler);
+    const callbackId = msalInstance.addEventCallback(redirectHandler);
 
     return () => {
-      msalInstance.removeEventCallback(redirectHandler);
+      if (callbackId) {
+        msalInstance.removeEventCallback(callbackId);
+      }
     };
   }, []);
 

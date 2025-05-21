@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { PublicClientApplication, AccountInfo, InteractionRequiredAuthError, IPublicClientApplication } from '@azure/msal-browser';
+import { PublicClientApplication, AccountInfo, InteractionRequiredAuthError, IPublicClientApplication, AuthenticationResult } from '@azure/msal-browser';
 import { msalConfig, loginRequest } from '../config/auth';
 import { GraphService } from '../services/graphService';
 
@@ -44,10 +44,6 @@ export const useAuth = () => {
     };
 
     initializeAuth();
-
-    return () => {
-      msalInstance.logout();
-    };
   }, [msalInstance]);
 
   const login = useCallback(async () => {
@@ -56,18 +52,10 @@ export const useAuth = () => {
         ...loginRequest,
         redirectStartPage: window.location.href
       });
-      
-      if (result?.account) {
-        setAuthState({
-          isAuthenticated: true,
-          account: result.account,
-          error: null
-        });
-        msalInstance.setActiveAccount(result.account);
 
-        const graphService = GraphService.getInstance();
-        await graphService.initializeGraphClient();
-      }
+      // Note: With redirect flow, this code won't execute as the page will reload
+      // The actual auth state update happens in the useEffect above after redirect
+      
     } catch (error: any) {
       setAuthState(prev => ({
         ...prev,
@@ -112,8 +100,7 @@ export const useAuth = () => {
       return response.accessToken;
     } catch (error) {
       if (error instanceof InteractionRequiredAuthError) {
-        const response = await msalInstance.acquireTokenRedirect(loginRequest);
-        return response?.accessToken;
+        return msalInstance.acquireTokenRedirect(loginRequest);
       }
       throw error;
     }
