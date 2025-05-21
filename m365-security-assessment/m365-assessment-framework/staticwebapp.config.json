@@ -24,7 +24,7 @@
         "enabled": true,
         "registration": {
           "openIdIssuer": "https://login.microsoftonline.com/organizations/v2.0",
-          "clientIdSettingName": "REACT_APP_CLIENT_ID",
+          "clientId": "d1cc9e16-9194-4892-92c5-473c9f65dcb3",
           "clientSecretSettingName": "AZURE_CLIENT_SECRET"
         },
         "userDetailsClaim": "preferred_username"

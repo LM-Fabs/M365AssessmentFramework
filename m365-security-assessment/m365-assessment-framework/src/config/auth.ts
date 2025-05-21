@@ -1,15 +1,9 @@
 import { Configuration, LogLevel } from '@azure/msal-browser';
 import { GRAPH_SCOPES } from '../shared/constants';
 
-// Ensure client ID is available before initializing MSAL
-const clientId = process.env.REACT_APP_CLIENT_ID;
-if (!clientId) {
-  console.error('Client ID is not configured. Please set REACT_APP_CLIENT_ID environment variable.');
-}
-
 export const msalConfig: Configuration = {
   auth: {
-    clientId: clientId || '',
+    clientId: 'd1cc9e16-9194-4892-92c5-473c9f65dcb3',
     authority: 'https://login.microsoftonline.com/organizations',
     redirectUri: window.location.origin,
     postLogoutRedirectUri: window.location.origin,
@@ -17,7 +11,7 @@ export const msalConfig: Configuration = {
   },
   cache: {
     cacheLocation: 'localStorage',
-    storeAuthStateInCookie: false
+    storeAuthStateInCookie: true
   },
   system: {
     loggerOptions: {
