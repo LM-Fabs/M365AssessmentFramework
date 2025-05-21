@@ -10,38 +10,6 @@ interface ICreateAppResponse {
   tenantId: string;
 }
 
-// Function to fetch assessments from the API
-export const fetchAssessments = async (): Promise<Assessment[]> => {
-    const response = await fetch('/api/GetAssessment');
-    if (!response.ok) {
-        throw new Error('Failed to fetch assessments');
-    }
-    return response.json();
-};
-
-// Function to save a new assessment
-export const saveAssessment = async (assessment: Assessment): Promise<void> => {
-    const response = await fetch('/api/SaveAssessment', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(assessment),
-    });
-    if (!response.ok) {
-        throw new Error('Failed to save assessment');
-    }
-};
-
-// Function to get security metrics
-export const getSecurityMetrics = async (tenantId: string): Promise<Metrics> => {
-    const response = await fetch(`/api/GetMetrics?tenantId=${tenantId}`);
-    if (!response.ok) {
-        throw new Error('Failed to fetch security metrics');
-    }
-    return response.json();
-};
-
 export class AssessmentService {
   private static instance: AssessmentService;
   private baseUrl: string;
@@ -69,21 +37,21 @@ export class AssessmentService {
     }
   }
 
-  public async saveAssessment(assessmentData: any): Promise<void> {
-    try {
-      await axios.post(`${this.baseUrl}/assessment`, assessmentData);
-    } catch (error) {
-      console.error('Error saving assessment:', error);
-      throw error;
-    }
-  }
-
-  public async getAssessment(tenantId: string, assessmentId: string): Promise<any> {
+  public async getAssessment(tenantId: string, assessmentId: string): Promise<Assessment> {
     try {
       const response = await axios.get(`${this.baseUrl}/assessment/${tenantId}/${assessmentId}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching assessment:', error);
+      throw error;
+    }
+  }
+
+  public async saveAssessment(assessmentData: Assessment): Promise<void> {
+    try {
+      await axios.post(`${this.baseUrl}/assessment`, assessmentData);
+    } catch (error) {
+      console.error('Error saving assessment:', error);
       throw error;
     }
   }
@@ -94,6 +62,19 @@ export class AssessmentService {
       return response.data;
     } catch (error) {
       console.error('Error fetching best practices:', error);
+      throw error;
+    }
+  }
+
+  public async getSecurityMetrics(tenantId: string): Promise<Metrics> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/GetMetrics?tenantId=${tenantId}`);
+      if (!response.status || response.status !== 200) {
+        throw new Error('Failed to fetch security metrics');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching security metrics:', error);
       throw error;
     }
   }
