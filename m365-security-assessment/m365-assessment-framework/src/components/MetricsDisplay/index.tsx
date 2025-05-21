@@ -8,17 +8,16 @@ interface MetricsDisplayProps {
   historicalData?: Assessment[];
 }
 
-type ScoreCategory = keyof Metrics['score'];
+type MetricScoreCategory = 'overall' | 'identity' | 'dataProtection' | 'endpoint' | 'cloudApps' | 'informationProtection' | 'threatProtection';
 
 const MetricsDisplay: React.FC<MetricsDisplayProps> = ({ 
   assessment,
   historicalData = []
 }) => {
-  const renderMetricCard = (category: ScoreCategory, score: number) => {
-    const previousScore = historicalData.length > 0 
-      ? historicalData[0].metrics?.score?.[category] ?? 0 
+  const renderMetricCard = (category: MetricScoreCategory, score: number) => {
+    const trend = historicalData.length > 0
+      ? score - (historicalData[0].metrics?.score[category] ?? 0)
       : 0;
-    const trend = score - previousScore;
 
     const getScoreColor = (value: number) => {
       if (value >= 90) return '#107c10';
@@ -41,12 +40,7 @@ const MetricsDisplay: React.FC<MetricsDisplayProps> = ({
     return (
       <div className="metric-card">
         <div className="metric-header">
-          <h3>
-            {category === 'overall' 
-              ? 'Overall Security Score' 
-              : SECURITY_CATEGORIES[category as keyof typeof SECURITY_CATEGORIES]
-            }
-          </h3>
+          <h3>{SECURITY_CATEGORIES[category as keyof typeof SECURITY_CATEGORIES]}</h3>
           <div 
             className="score" 
             style={{ color: getScoreColor(score) }}
@@ -95,7 +89,7 @@ const MetricsDisplay: React.FC<MetricsDisplayProps> = ({
           .filter(([category]) => category !== 'overall')
           .map(([category, score]) => (
             <div key={category} className="category-metric">
-              {renderMetricCard(category as ScoreCategory, score)}
+              {renderMetricCard(category as MetricScoreCategory, score)}
             </div>
           ))}
       </div>
