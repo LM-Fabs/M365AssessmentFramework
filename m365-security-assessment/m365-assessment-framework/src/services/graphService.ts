@@ -5,6 +5,50 @@ import { InteractionType, PublicClientApplication } from "@azure/msal-browser";
 import { msalConfig, loginRequest } from "../config/auth";
 import { Metrics } from '../models/Metrics';
 import { AuthenticationProvider } from '@microsoft/microsoft-graph-client';
+import {
+  User as BaseUser,
+  Device as BaseDevice,
+  ConditionalAccessPolicy,
+  Alert as BaseAlert,
+  SecureScoreControlProfile as BaseSecureScoreControlProfile
+} from "@microsoft/microsoft-graph-types";
+
+interface MfaRegistrationDetail {
+  userPrincipalName: string;
+  isRegistered: boolean;
+  isEnabled: boolean;
+  isCapable: boolean;
+  isMfaRegistered: boolean;
+  methodsRegistered: string[];
+}
+
+interface DlpPolicy {
+  id: string;
+  name: string;
+  status: 'enabled' | 'disabled';
+  mode: 'enforce' | 'test' | 'audit';
+  createdDateTime: string;
+  lastModifiedDateTime: string;
+}
+
+// Extend Microsoft Graph types with additional properties
+interface User extends BaseUser {
+  isProtected?: boolean;
+  reviewedDate?: Date;
+}
+
+interface Device extends BaseDevice {
+  complianceState?: 'compliant' | 'noncompliant' | 'unknown';
+}
+
+interface Alert extends BaseAlert {
+  status: 'unknown' | 'newAlert' | 'inProgress' | 'resolved';
+}
+
+interface SecureScoreControlProfile extends BaseSecureScoreControlProfile {
+  category?: string;
+  score?: number;
+}
 
 const GRAPH_API_BASE_URL = 'https://graph.microsoft.com/v1.0';
 
@@ -115,7 +159,7 @@ export class GraphService {
     const dataProtection = {
       sensitivityLabels: {
         total: secureScoreControlProfiles.filter(p => p.category === 'DataProtection').length,
-        inUse: secureScoreControlProfiles.filter(p => p.category === 'DataProtection' && p.score > 0).length
+        inUse: secureScoreControlProfiles.filter(p => p.category === 'DataProtection' && (p.score ?? 0) > 0).length
       },
       dlpPolicies: {
         total: dlpPolicies.length,
@@ -145,7 +189,7 @@ export class GraphService {
     const cloudApps = {
       securityPolicies: {
         total: secureScoreControlProfiles.filter(p => p.category === 'CloudApps').length,
-        active: secureScoreControlProfiles.filter(p => p.category === 'CloudApps' && p.score > 0).length
+        active: secureScoreControlProfiles.filter(p => p.category === 'CloudApps' && (p.score ?? 0) > 0).length
       },
       oauthApps: {
         total: 100, // Would be fetched from OAuth apps
@@ -176,7 +220,7 @@ export class GraphService {
       },
       incidentResponse: {
         meanTimeToRespond: 24, // Would be calculated from incident response times
-        openIncidents: alerts.filter(a => a.status === 'open').length
+        openIncidents: alerts.filter(a => a.status === 'newAlert' || a.status === 'inProgress').length
       }
     };
 
@@ -199,68 +243,68 @@ export class GraphService {
     };
   }
 
-  private async getMfaReport(): Promise<any[]> {
-    const response = await this.graphClient
+  private async getMfaReport(): Promise<MfaRegistrationDetail[]> {
+    const response = await this.graphClient!
       .api('/reports/credentialUserRegistrationDetails')
       .get();
     return response.value;
   }
 
-  private async getSecureScore(): Promise<any[]> {
-    const response = await this.graphClient
+  private async getSecureScore(): Promise<SecureScoreControlProfile[]> {
+    const response = await this.graphClient!
       .api('/security/secureScoreControlProfiles')
       .get();
     return response.value;
   }
 
-  private async getDevices(): Promise<any[]> {
-    const response = await this.graphClient
+  private async getDevices(): Promise<Device[]> {
+    const response = await this.graphClient!
       .api('/devices')
       .get();
     return response.value;
   }
 
-  private async getConditionalAccessPolicies(): Promise<any[]> {
-    const response = await this.graphClient
+  private async getConditionalAccessPolicies(): Promise<ConditionalAccessPolicy[]> {
+    const response = await this.graphClient!
       .api('/identity/conditionalAccess/policies')
       .get();
     return response.value;
   }
 
-  private async getAdminUsers(): Promise<any[]> {
-    const response = await this.graphClient
+  private async getAdminUsers(): Promise<User[]> {
+    const response = await this.graphClient!
       .api('/users')
       .filter('assignedRoles/any()')
       .get();
     return response.value;
   }
 
-  private async getGuestUsers(): Promise<any[]> {
-    const response = await this.graphClient
+  private async getGuestUsers(): Promise<User[]> {
+    const response = await this.graphClient!
       .api('/users')
       .filter('userType eq \'Guest\'')
       .get();
     return response.value;
   }
 
-  private async getDlpPolicies(): Promise<any[]> {
-    const response = await this.graphClient
+  private async getDlpPolicies(): Promise<DlpPolicy[]> {
+    const response = await this.graphClient!
       .api('/security/dlpPolicies')
       .get();
     return response.value;
   }
 
-  private async getSecurityAlerts(): Promise<any[]> {
-    const response = await this.graphClient
+  private async getSecurityAlerts(): Promise<Alert[]> {
+    const response = await this.graphClient!
       .api('/security/alerts')
       .get();
     return response.value;
   }
 
-  private calculateMfaAdoption(mfaReport: any[]): number {
+  private calculateMfaAdoption(mfaReport: MfaRegistrationDetail[]): number {
     const totalUsers = mfaReport.length;
     const mfaRegisteredUsers = mfaReport.filter(user => user.isRegistered).length;
-    return mfaRegisteredUsers / totalUsers;
+    return totalUsers > 0 ? mfaRegisteredUsers / totalUsers : 0;
   }
 
   private async calculateScores(metrics: Metrics): Promise<{
