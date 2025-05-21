@@ -6,17 +6,15 @@ export const msalConfig: Configuration = {
     clientId: 'd1cc9e16-9194-4892-92c5-473c9f65dcb3',
     authority: 'https://login.microsoftonline.com/organizations',
     redirectUri: window.location.origin,
-    navigateToLoginRequestUrl: true,
-    postLogoutRedirectUri: window.location.origin
+    postLogoutRedirectUri: window.location.origin,
+    navigateToLoginRequestUrl: true
   },
   cache: {
-    cacheLocation: 'localStorage',
+    cacheLocation: 'sessionStorage',
     storeAuthStateInCookie: false
   },
   system: {
-    windowHashTimeout: 9000,
-    iframeHashTimeout: 9000,
-    loadFrameTimeout: 9000,
+    allowRedirectInIframe: false,
     loggerOptions: {
       loggerCallback: (level: LogLevel, message: string, containsPii: boolean) => {
         if (containsPii) {
@@ -39,8 +37,7 @@ export const msalConfig: Configuration = {
             return;
         }
       },
-      logLevel: LogLevel.Verbose,
-      piiLoggingEnabled: false
+      logLevel: LogLevel.Info
     }
   }
 };

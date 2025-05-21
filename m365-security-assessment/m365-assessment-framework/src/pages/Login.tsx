@@ -1,15 +1,16 @@
 import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 const Login: React.FC = () => {
-  const { isLoading, error, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const { isLoading, error, isAuthenticated, login } = useAuth();
 
   useEffect(() => {
-    // If we end up here and we're not authenticated, redirect to Azure AD login
-    if (!isLoading && !isAuthenticated) {
-      window.location.href = '/.auth/login/aad';
+    if (isAuthenticated) {
+      navigate('/');
     }
-  }, [isLoading, isAuthenticated]);
+  }, [isAuthenticated, navigate]);
 
   if (isLoading) {
     return (
@@ -24,14 +25,18 @@ const Login: React.FC = () => {
     return (
       <div className="error-container">
         <p className="error-message">{error}</p>
+        <button onClick={() => window.location.reload()}>Retry</button>
       </div>
     );
   }
 
   return (
-    <div className="loading-container">
-      <div className="loading-spinner"></div>
-      <p>Redirecting to login...</p>
+    <div className="login-container">
+      <h1>M365 Security Assessment</h1>
+      <p>Please sign in with your Microsoft account to continue</p>
+      <button onClick={login} className="login-button">
+        Sign in with Microsoft
+      </button>
     </div>
   );
 };

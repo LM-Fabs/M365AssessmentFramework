@@ -25,23 +25,29 @@ export const useAuth = () => {
   });
 
   useEffect(() => {
+    let mounted = true;
+
     const initializeAuth = async () => {
+      if (!mounted) return;
+
       try {
         await msalInstance.initialize();
         console.log('MSAL initialized successfully');
         
         const currentAccounts = msalInstance.getAllAccounts();
-        console.log('Current accounts:', currentAccounts.length ? currentAccounts : 'No accounts found');
+        console.log('Current accounts:', currentAccounts);
         
         if (currentAccounts.length > 0) {
           console.log('Active account found:', currentAccounts[0].username);
-          setAuthState({
-            isAuthenticated: true,
-            account: currentAccounts[0],
-            error: null,
-            isLoading: false
-          });
-          msalInstance.setActiveAccount(currentAccounts[0]);
+          if (mounted) {
+            setAuthState({
+              isAuthenticated: true,
+              account: currentAccounts[0],
+              error: null,
+              isLoading: false
+            });
+            msalInstance.setActiveAccount(currentAccounts[0]);
+          }
           
           try {
             const graphService = GraphService.getInstance();
@@ -52,71 +58,57 @@ export const useAuth = () => {
           }
         } else {
           console.log('No active account found');
-          setAuthState(prev => ({ ...prev, isLoading: false }));
+          if (mounted) {
+            setAuthState(prev => ({ ...prev, isLoading: false }));
+          }
         }
       } catch (error) {
         console.error('Error during authentication initialization:', error);
-        setAuthState(prev => ({
-          ...prev,
-          error: 'Failed to initialize authentication',
-          isLoading: false
-        }));
+        if (mounted) {
+          setAuthState(prev => ({
+            ...prev,
+            error: 'Failed to initialize authentication',
+            isLoading: false
+          }));
+        }
       }
     };
 
-    console.log('Starting authentication initialization');
     initializeAuth();
 
-    // Handle redirect response
-    msalInstance.handleRedirectPromise()
-      .then((response) => {
-        if (response) {
-          console.log('Redirect response received:', response);
-          const account = response.account;
-          setAuthState({
-            isAuthenticated: true,
-            account: account,
-            error: null,
-            isLoading: false
-          });
-          msalInstance.setActiveAccount(account);
-        }
-      })
-      .catch((error) => {
-        console.error('Error handling redirect:', error);
-        setAuthState(prev => ({
-          ...prev,
-          error: 'Failed to complete authentication',
-          isLoading: false
-        }));
-      });
+    return () => {
+      mounted = false;
+    };
   }, [msalInstance]);
 
   const login = useCallback(async () => {
     try {
       setAuthState(prev => ({ ...prev, isLoading: true }));
-      const result = await msalInstance.loginRedirect({
-        ...loginRequest,
-        redirectStartPage: window.location.href
-      });
-
-      // Note: With redirect flow, this code won't execute as the page will reload
-      // The actual auth state update happens in the useEffect above after redirect
+      await msalInstance.loginPopup(loginRequest);
       
+      const account = msalInstance.getAllAccounts()[0];
+      if (account) {
+        setAuthState({
+          isAuthenticated: true,
+          account: account,
+          error: null,
+          isLoading: false
+        });
+        msalInstance.setActiveAccount(account);
+      }
     } catch (error: any) {
+      console.error('Login failed:', error);
       setAuthState(prev => ({
         ...prev,
         error: error.message,
         isLoading: false
       }));
-      console.error('Login failed:', error);
     }
   }, [msalInstance]);
 
   const logout = useCallback(async () => {
     try {
-      setAuthState(prev => ({ ...prev, isLoading: true }));
-      await msalInstance.logoutRedirect({
+      await msalInstance.logoutPopup({
         postLogoutRedirectUri: window.location.origin
       });
       
@@ -127,12 +119,12 @@ export const useAuth = () => {
         isLoading: false
       });
     } catch (error: any) {
+      console.error('Logout failed:', error);
       setAuthState(prev => ({
         ...prev,
         error: error.message,
         isLoading: false
       }));
-      console.error('Logout failed:', error);
     }
   }, [msalInstance]);
 
@@ -151,7 +143,8 @@ export const useAuth = () => {
       return response.accessToken;
     } catch (error) {
       if (error instanceof InteractionRequiredAuthError) {
-        return msalInstance.acquireTokenRedirect(loginRequest);
+        const response = await msalInstance.acquireTokenPopup(loginRequest);
+        return response.accessToken;
       }
       throw error;
     }
