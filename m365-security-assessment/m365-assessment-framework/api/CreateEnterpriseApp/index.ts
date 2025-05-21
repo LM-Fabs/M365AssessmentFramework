@@ -1,20 +1,24 @@
-import { app } from '@azure/functions';
+import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { ClientSecretCredential } from '@azure/identity';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials';
 
+interface CreateEnterpriseAppRequest {
+    targetTenantId: string;
+}
+
 export const createEnterpriseAppHandler = app.http('createEnterpriseApp', {
     methods: ['POST'],
     authLevel: 'function',
-    handler: async (request, context) => {
-        const { targetTenantId } = request.body;
-        context.log('CreateEnterpriseApp function processing request for tenant:', targetTenantId);
-
+    handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
         try {
+            const requestBody: CreateEnterpriseAppRequest = await request.json();
+            const { targetTenantId } = requestBody;
+            
             if (!targetTenantId) {
                 return {
                     status: 400,
-                    body: { error: "Target tenant ID is required" }
+                    jsonBody: { error: "Target tenant ID is required" }
                 };
             }
 
@@ -79,7 +83,7 @@ export const createEnterpriseAppHandler = app.http('createEnterpriseApp', {
 
             return {
                 status: 200,
-                body: {
+                jsonBody: {
                     applicationId: application.id,
                     applicationObjectId: application.id,
                     clientId: application.appId,
@@ -88,10 +92,10 @@ export const createEnterpriseAppHandler = app.http('createEnterpriseApp', {
                 }
             };
         } catch (error: any) {
-            context.log.error('Error creating enterprise application:', error);
+            context.error('Error creating enterprise application:', error);
             return {
                 status: 500,
-                body: {
+                jsonBody: {
                     error: error.message || 'An error occurred while creating the enterprise application'
                 }
             };
