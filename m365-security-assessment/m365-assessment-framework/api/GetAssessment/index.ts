@@ -1,37 +1,27 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { app } from '@azure/functions';
 
-app.http('getAssessment', {
+export const getAssessmentHandler = app.http('getAssessment', {
     methods: ['GET'],
     authLevel: 'function',
-    handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
-        context.log('GetAssessment function processed a request.');
+    route: 'assessment/{tenantId}/{assessmentId}',
+    handler: async (request, context) => {
+        const { tenantId, assessmentId } = request.params;
+        context.log('GetAssessment function processed a request for tenant:', tenantId, 'assessment:', assessmentId);
 
         try {
-            const tenantId = request.params.tenantId;
-            const assessmentId = request.params.assessmentId;
-
-            if (!tenantId || !assessmentId) {
-                return {
-                    status: 400,
-                    jsonBody: { error: "Tenant ID and Assessment ID are required" }
-                };
-            }
-
-            // Your assessment retrieval logic here
-            const assessment = {
-                id: assessmentId,
-                tenantId: tenantId,
-                date: new Date().toISOString()
+            // TODO: Implement assessment retrieval logic
+            return { 
+                status: 200, 
+                body: {
+                    id: assessmentId,
+                    tenantId: tenantId,
+                    // Add other assessment data here
+                }
             };
-
-            return {
-                status: 200,
-                jsonBody: assessment
-            };
-        } catch (error: any) {
+        } catch (error) {
             return {
                 status: 500,
-                jsonBody: { error: error.message || "Error retrieving assessment" }
+                body: "Error retrieving assessment."
             };
         }
     }

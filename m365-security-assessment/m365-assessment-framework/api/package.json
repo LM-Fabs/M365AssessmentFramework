@@ -7,7 +7,9 @@
     "watch": "tsc -w",
     "clean": "rimraf dist",
     "prestart": "npm run clean && npm run build",
-    "start": "func start"
+    "start": "func start",
+    "test": "echo \"No tests yet...\"",
+    "preinstall": "npx only-allow npm"
   },
   "dependencies": {
     "@azure/functions": "^4.7.1-preview",
@@ -21,5 +23,7 @@
   },
   "engines": {
     "node": ">=18.0.0"
-  }
+  },
+  "main": "dist/index.js",
+  "type": "module"
 }

@@ -1,22 +1,22 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
-import { getBestPractices } from "../shared/constants";
+import { app } from '@azure/functions';
+import { getBestPractices } from '../shared/constants.js';
 
-app.http('getBestPractices', {
+export const getBestPracticesHandler = app.http('getBestPractices', {
     methods: ['GET'],
     authLevel: 'function',
-    handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
+    handler: async (request, context) => {
         context.log('GetBestPractices function processed a request.');
 
         try {
             const bestPractices = await getBestPractices();
-            return {
-                status: 200,
-                jsonBody: bestPractices
+            return { 
+                status: 200, 
+                body: bestPractices 
             };
         } catch (error) {
             return {
                 status: 500,
-                jsonBody: { error: "Error retrieving best practices." }
+                body: "Error retrieving best practices."
             };
         }
     }

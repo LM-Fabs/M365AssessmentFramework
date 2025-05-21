@@ -1,29 +1,26 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
-import { Assessment } from "../shared/types";
+import { app } from '@azure/functions';
+import { Assessment } from '../shared/types.js';
 
-app.http('saveAssessment', {
+export const saveAssessmentHandler = app.http('saveAssessment', {
     methods: ['POST'],
     authLevel: 'function',
-    handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
-        context.log('SaveAssessment function processed a request.');
+    handler: async (request, context) => {
+        const assessment = request.body as Assessment;
+        context.log('SaveAssessment function processing assessment:', assessment.id);
 
         try {
-            const assessment = await request.json() as Assessment;
-            const assessmentId = `assessment-${Date.now()}`; // Generate a unique ID
-
-            // Your assessment saving logic here
-
-            return {
+            // TODO: Implement assessment saving logic
+            return { 
                 status: 200,
-                jsonBody: {
+                body: { 
                     message: "Assessment saved successfully",
-                    assessmentId: assessmentId
+                    assessmentId: assessment.id
                 }
             };
-        } catch (error: any) {
+        } catch (error) {
             return {
                 status: 500,
-                jsonBody: { error: error.message || "Error saving assessment" }
+                body: "Error saving assessment."
             };
         }
     }

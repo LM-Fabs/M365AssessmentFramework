@@ -1,26 +1,20 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
-import { ClientSecretCredential } from "@azure/identity";
-import { Client } from "@microsoft/microsoft-graph-client";
-import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials";
+import { app } from '@azure/functions';
+import { ClientSecretCredential } from '@azure/identity';
+import { Client } from '@microsoft/microsoft-graph-client';
+import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials';
 
-interface CreateAppRequest {
-    targetTenantId: string;
-}
-
-app.http('createEnterpriseApp', {
+export const createEnterpriseAppHandler = app.http('createEnterpriseApp', {
     methods: ['POST'],
     authLevel: 'function',
-    handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
-        context.log('CreateEnterpriseApp function processed a request.');
+    handler: async (request, context) => {
+        const { targetTenantId } = request.body;
+        context.log('CreateEnterpriseApp function processing request for tenant:', targetTenantId);
 
         try {
-            const requestBody = await request.json() as CreateAppRequest;
-            const targetTenantId = requestBody.targetTenantId;
-
             if (!targetTenantId) {
                 return {
                     status: 400,
-                    jsonBody: { error: "Target tenant ID is required" }
+                    body: { error: "Target tenant ID is required" }
                 };
             }
 
@@ -60,7 +54,6 @@ app.http('createEnterpriseApp', {
                 }
             };
 
-            // Initialize Graph client with managed identity
             const credential = new ClientSecretCredential(
                 process.env.AZURE_TENANT_ID!,
                 process.env.AZURE_CLIENT_ID!,
@@ -75,34 +68,32 @@ app.http('createEnterpriseApp', {
                 authProvider: authProvider
             });
 
-            // Create the application
             const application = await graphClient.api('/applications')
                 .post(appRegistration);
 
-            // Create service principal for the application
             const servicePrincipal = await graphClient.api('/servicePrincipals')
                 .post({
                     appId: application.appId,
                     displayName: application.displayName
                 });
 
-            const result = {
-                applicationId: application.id,
-                applicationObjectId: application.id,
-                clientId: application.appId,
-                servicePrincipalId: servicePrincipal.id,
-                tenantId: targetTenantId
-            };
-
             return {
                 status: 200,
-                jsonBody: result
+                body: {
+                    applicationId: application.id,
+                    applicationObjectId: application.id,
+                    clientId: application.appId,
+                    servicePrincipalId: servicePrincipal.id,
+                    tenantId: targetTenantId
+                }
             };
         } catch (error: any) {
-            context.error('Error in createEnterpriseApp:', error);
+            context.log.error('Error creating enterprise application:', error);
             return {
                 status: 500,
-                jsonBody: { error: error.message || "Error creating enterprise application" }
+                body: {
+                    error: error.message || 'An error occurred while creating the enterprise application'
+                }
             };
         }
     }

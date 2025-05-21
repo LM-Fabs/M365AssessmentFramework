@@ -1,5 +1,5 @@
 // Import function registrations
-import './CreateEnterpriseApp';
-import './GetAssessment';
-import './GetBestPractices';
-import './SaveAssessment';
+export * from './CreateEnterpriseApp/index.js';
+export * from './GetAssessment/index.js';
+export * from './GetBestPractices/index.js';
+export * from './SaveAssessment/index.js';
