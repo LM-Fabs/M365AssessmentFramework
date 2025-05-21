@@ -47,15 +47,6 @@ export class AssessmentService {
     }
   }
 
-  public async saveAssessment(assessmentData: Assessment): Promise<void> {
-    try {
-      await axios.post(`${this.baseUrl}/assessment`, assessmentData);
-    } catch (error) {
-      console.error('Error saving assessment:', error);
-      throw error;
-    }
-  }
-
   public async getBestPractices(): Promise<any> {
     try {
       const response = await axios.get(`${this.baseUrl}/best-practices`);
@@ -75,6 +66,44 @@ export class AssessmentService {
       return response.data;
     } catch (error) {
       console.error('Error fetching security metrics:', error);
+      throw error;
+    }
+  }
+
+  public async getAssessments(): Promise<Assessment[]> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/assessments`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching assessments:', error);
+      throw error;
+    }
+  }
+
+  public async createAssessment(data: {
+    tenantName: string;
+    categories: string[];
+    thresholds: Record<string, number>;
+    notificationEmail: string;
+    scheduling?: {
+      enabled: boolean;
+      frequency: string;
+    };
+  }): Promise<Assessment> {
+    try {
+      const response = await axios.post(`${this.baseUrl}/assessment/create`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating assessment:', error);
+      throw error;
+    }
+  }
+
+  public async saveAssessment(assessment: Assessment): Promise<void> {
+    try {
+      await axios.post(`${this.baseUrl}/assessment/save`, assessment);
+    } catch (error) {
+      console.error('Error saving assessment:', error);
       throw error;
     }
   }

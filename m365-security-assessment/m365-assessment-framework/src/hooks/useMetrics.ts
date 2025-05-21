@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Metrics } from '../models/Metrics';
 import { AssessmentService } from '../services/assessmentService';
-import { GraphService } from '../services/graphService';
 
 interface UseMetricsReturn {
   metrics: Metrics | null;
@@ -17,36 +16,35 @@ export const useMetrics = (): UseMetricsReturn => {
   const [error, setError] = useState<string | null>(null);
 
   const assessmentService = AssessmentService.getInstance();
-  const graphService = GraphService.getInstance();
 
   const fetchMetrics = useCallback(async (tenantId: string) => {
     setLoading(true);
     setError(null);
     try {
-      const securityMetrics = await graphService.getSecurityMetrics();
-      setMetrics(securityMetrics);
+      const fetchedMetrics = await assessmentService.getSecurityMetrics(tenantId);
+      setMetrics(fetchedMetrics);
     } catch (error: any) {
-      setError(error.message || 'Failed to fetch security metrics');
-      setMetrics(null);
+      setError(error.message || 'Failed to fetch metrics');
+      throw error;
     } finally {
       setLoading(false);
     }
   }, []);
 
   const compareWithBestPractices = useCallback(async () => {
-    if (!metrics) {
-      setError('No metrics available for comparison');
-      return;
-    }
-
+    setLoading(true);
+    setError(null);
     try {
       const bestPractices = await assessmentService.getBestPractices();
-      // Comparison logic will be implemented here
-      // This will calculate gaps and generate recommendations
+      // Implement comparison logic here
+      return bestPractices;
     } catch (error: any) {
       setError(error.message || 'Failed to compare with best practices');
+      throw error;
+    } finally {
+      setLoading(false);
     }
-  }, [metrics]);
+  }, []);
 
   return {
     metrics,
