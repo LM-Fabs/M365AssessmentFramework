@@ -1,0 +1,25 @@
+{
+  "name": "m365-assessment-framework-api",
+  "version": "1.0.0",
+  "description": "API functions for M365 Assessment Framework",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "clean": "rimraf dist",
+    "prestart": "npm run clean && npm run build",
+    "start": "func start"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.7.1-preview",
+    "@azure/identity": "^3.2.3",
+    "@microsoft/microsoft-graph-client": "^3.0.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.48",
+    "typescript": "^4.9.5",
+    "rimraf": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
