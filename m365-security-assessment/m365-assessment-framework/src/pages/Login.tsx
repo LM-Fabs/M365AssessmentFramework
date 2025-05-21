@@ -7,10 +7,12 @@ const Login: React.FC = () => {
   const { isLoading, error, isAuthenticated, login } = useAuth();
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (!isLoading && !isAuthenticated && !error) {
+      login();
+    } else if (isAuthenticated) {
       navigate('/');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isLoading, isAuthenticated, error, login, navigate]);
 
   if (isLoading) {
     return (
@@ -25,18 +27,15 @@ const Login: React.FC = () => {
     return (
       <div className="error-container">
         <p className="error-message">{error}</p>
-        <button onClick={() => window.location.reload()}>Retry</button>
+        <button onClick={login}>Try Again</button>
       </div>
     );
   }
 
   return (
-    <div className="login-container">
-      <h1>M365 Security Assessment</h1>
-      <p>Please sign in with your Microsoft account to continue</p>
-      <button onClick={login} className="login-button">
-        Sign in with Microsoft
-      </button>
+    <div className="loading-container">
+      <div className="loading-spinner"></div>
+      <p>Redirecting to login...</p>
     </div>
   );
 };

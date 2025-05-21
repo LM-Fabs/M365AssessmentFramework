@@ -6,7 +6,6 @@ export const msalConfig: Configuration = {
     clientId: 'd1cc9e16-9194-4892-92c5-473c9f65dcb3',
     authority: 'https://login.microsoftonline.com/organizations',
     redirectUri: window.location.origin,
-    postLogoutRedirectUri: window.location.origin,
     navigateToLoginRequestUrl: true
   },
   cache: {
@@ -16,10 +15,7 @@ export const msalConfig: Configuration = {
   system: {
     allowRedirectInIframe: false,
     loggerOptions: {
-      loggerCallback: (level: LogLevel, message: string, containsPii: boolean) => {
-        if (containsPii) {
-          return;
-        }
+      loggerCallback: (level: LogLevel, message: string) => {
         switch (level) {
           case LogLevel.Error:
             console.error(message);
@@ -32,8 +28,6 @@ export const msalConfig: Configuration = {
             return;
           case LogLevel.Warning:
             console.warn(message);
-            return;
-          default:
             return;
         }
       },

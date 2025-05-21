@@ -1,21 +1,24 @@
 {
   "routes": [
     {
-      "route": "/.auth/login/aad",
-      "statusCode": 200,
-      "allowedRoles": ["anonymous"]
-    },
-    {
-      "route": "/.auth/login/aad/callback",
-      "statusCode": 200,
-      "allowedRoles": ["anonymous"]
-    },
-    {
       "route": "/api/*",
       "allowedRoles": ["authenticated"]
     },
     {
+      "route": "/.auth/login/aad",
+      "statusCode": 200
+    },
+    {
+      "route": "/.auth/login/aad/callback",
+      "statusCode": 200
+    },
+    {
+      "route": "/login",
+      "rewrite": "/.auth/login/aad"
+    },
+    {
       "route": "/*",
+      "allowedRoles": ["authenticated"],
       "serve": "/index.html",
       "statusCode": 200
     }
@@ -29,12 +32,13 @@
           "clientId": "d1cc9e16-9194-4892-92c5-473c9f65dcb3",
           "clientSecretSettingName": "AZURE_CLIENT_SECRET"
         },
-        "userDetailsClaim": "preferred_username",
-        "login": {
-          "loginParameters": ["scope=openid profile email"]
-        }
+        "userDetailsClaim": "preferred_username"
       }
     }
+  },
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/images/*.{png,jpg,gif}", "/css/*", "/js/*"]
   },
   "responseOverrides": {
     "401": {
@@ -42,34 +46,7 @@
       "statusCode": 302
     }
   },
-  "platformErrorOverrides": [
-    {
-      "errorType": "NotFound",
-      "serve": "/index.html"
-    },
-    {
-      "errorType": "Unauthenticated",
-      "statusCode": 302,
-      "serve": "/.auth/login/aad"
-    }
-  ],
   "globalHeaders": {
-    "Content-Security-Policy": "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.microsoft.com https://*.microsoftonline.com https://*.azure.com data:; img-src 'self' data: https:; connect-src 'self' https://*.microsoft.com https://*.microsoftonline.com https://*.azure.com;",
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "X-XSS-Protection": "1; mode=block"
-  },
-  "mimeTypes": {
-    ".json": "application/json",
-    ".js": "text/javascript",
-    ".css": "text/css",
-    ".html": "text/html",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".svg": "image/svg+xml"
-  },
-  "platform": {
-    "apiRuntime": "node:18",
-    "nodeVersion": "18"
+    "content-security-policy": "default-src https: 'unsafe-eval' 'unsafe-inline'; object-src 'none'"
   }
 }

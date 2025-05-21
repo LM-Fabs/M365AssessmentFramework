@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import { PublicClientApplication, AccountInfo, InteractionRequiredAuthError, IPublicClientApplication } from '@azure/msal-browser';
-import { msalConfig, loginRequest } from '../config/auth';
-import { GraphService } from '../services/graphService';
+import { PublicClientApplication, AccountInfo, InteractionRequiredAuthError } from '@azure/msal-browser';
+import { msalConfig } from '../config/auth';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -10,13 +9,14 @@ interface AuthState {
   isLoading: boolean;
 }
 
+interface ClientPrincipal {
+  identityProvider: string;
+  userId: string;
+  userDetails: string;
+  userRoles: string[];
+}
+
 export const useAuth = () => {
-  const [msalInstance] = useState<IPublicClientApplication>(() => {
-    const instance = new PublicClientApplication(msalConfig);
-    instance.enableAccountStorageEvents();
-    return instance;
-  });
-  
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
     account: null,
@@ -25,130 +25,68 @@ export const useAuth = () => {
   });
 
   useEffect(() => {
-    let mounted = true;
-
-    const initializeAuth = async () => {
-      if (!mounted) return;
-
+    const checkAuth = async () => {
       try {
-        await msalInstance.initialize();
-        console.log('MSAL initialized successfully');
+        const response = await fetch('/.auth/me');
+        const payload = await response.json();
         
-        const currentAccounts = msalInstance.getAllAccounts();
-        console.log('Current accounts:', currentAccounts);
-        
-        if (currentAccounts.length > 0) {
-          console.log('Active account found:', currentAccounts[0].username);
-          if (mounted) {
-            setAuthState({
-              isAuthenticated: true,
-              account: currentAccounts[0],
-              error: null,
-              isLoading: false
-            });
-            msalInstance.setActiveAccount(currentAccounts[0]);
-          }
-          
-          try {
-            const graphService = GraphService.getInstance();
-            await graphService.initializeGraphClient();
-            console.log('Graph client initialized successfully');
-          } catch (error) {
-            console.error('Failed to initialize Graph client:', error);
-          }
+        if (payload.clientPrincipal) {
+          const userDetails = payload.clientPrincipal as ClientPrincipal;
+          setAuthState({
+            isAuthenticated: true,
+            account: {
+              username: userDetails.userDetails,
+              environment: 'azure',
+              homeAccountId: userDetails.userId,
+              localAccountId: userDetails.userId,
+              tenantId: userDetails.userId.split('@')[1],
+              name: userDetails.userDetails
+            },
+            error: null,
+            isLoading: false
+          });
         } else {
-          console.log('No active account found');
-          if (mounted) {
-            setAuthState(prev => ({ ...prev, isLoading: false }));
-          }
-        }
-      } catch (error) {
-        console.error('Error during authentication initialization:', error);
-        if (mounted) {
           setAuthState(prev => ({
             ...prev,
-            error: 'Failed to initialize authentication',
             isLoading: false
           }));
         }
-      }
-    };
-
-    initializeAuth();
-
-    return () => {
-      mounted = false;
-    };
-  }, [msalInstance]);
-
-  const login = useCallback(async () => {
-    try {
-      setAuthState(prev => ({ ...prev, isLoading: true }));
-      await msalInstance.loginPopup(loginRequest);
-      
-      const account = msalInstance.getAllAccounts()[0];
-      if (account) {
+      } catch (error) {
+        console.error('Auth check failed:', error);
         setAuthState({
-          isAuthenticated: true,
-          account: account,
-          error: null,
+          isAuthenticated: false,
+          account: null,
+          error: 'Failed to check authentication status',
           isLoading: false
         });
-        msalInstance.setActiveAccount(account);
       }
-    } catch (error: any) {
-      console.error('Login failed:', error);
-      setAuthState(prev => ({
-        ...prev,
-        error: error.message,
-        isLoading: false
-      }));
-    }
-  }, [msalInstance]);
+    };
 
-  const logout = useCallback(async () => {
-    try {
-      await msalInstance.logoutPopup({
-        postLogoutRedirectUri: window.location.origin
-      });
-      
-      setAuthState({
-        isAuthenticated: false,
-        account: null,
-        error: null,
-        isLoading: false
-      });
-    } catch (error: any) {
-      console.error('Logout failed:', error);
-      setAuthState(prev => ({
-        ...prev,
-        error: error.message,
-        isLoading: false
-      }));
-    }
-  }, [msalInstance]);
+    checkAuth();
+  }, []);
+
+  const login = useCallback(() => {
+    window.location.href = '/.auth/login/aad';
+  }, []);
+
+  const logout = useCallback(() => {
+    window.location.href = '/.auth/logout';
+  }, []);
 
   const getToken = useCallback(async () => {
     try {
-      const account = msalInstance.getActiveAccount();
-      if (!account) {
-        throw new Error('No active account! Verify a user has been signed in and setActiveAccount has been called.');
+      const response = await fetch('/.auth/me');
+      const payload = await response.json();
+      if (payload.clientPrincipal) {
+        const tokenResponse = await fetch('/.auth/token');
+        const tokenPayload = await tokenResponse.json();
+        return tokenPayload.access_token;
       }
-
-      const response = await msalInstance.acquireTokenSilent({
-        ...loginRequest,
-        account: account
-      });
-
-      return response.accessToken;
+      throw new Error('Not authenticated');
     } catch (error) {
-      if (error instanceof InteractionRequiredAuthError) {
-        const response = await msalInstance.acquireTokenPopup(loginRequest);
-        return response.accessToken;
-      }
-      throw error;
+      throw new Error('Failed to get access token');
     }
-  }, [msalInstance]);
+  }, []);
 
   const clearError = useCallback(() => {
     setAuthState(prev => ({
