@@ -1,26 +1,25 @@
-export const API_BASE_URL = process.env.API_BASE_URL || 'https://your-api-url.azurewebsites.net/api';
-
-export const ASSESSMENT_STATUS = {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getBestPractices = exports.BEST_PRACTICES = exports.RECOMMENDATION_TYPES = exports.METRIC_CATEGORIES = exports.ASSESSMENT_STATUS = exports.API_BASE_URL = void 0;
+exports.API_BASE_URL = process.env.API_BASE_URL || 'https://your-api-url.azurewebsites.net/api';
+exports.ASSESSMENT_STATUS = {
     PENDING: 'Pending',
     IN_PROGRESS: 'In Progress',
     COMPLETED: 'Completed',
     FAILED: 'Failed',
 };
-
-export const METRIC_CATEGORIES = {
+exports.METRIC_CATEGORIES = {
     SECURITY: 'Security',
     COMPLIANCE: 'Compliance',
     PERFORMANCE: 'Performance',
 };
-
-export const RECOMMENDATION_TYPES = {
+exports.RECOMMENDATION_TYPES = {
     SECURITY: 'Security Recommendation',
     COMPLIANCE: 'Compliance Recommendation',
     PERFORMANCE: 'Performance Recommendation',
 };
-
 // Add best practices data
-export const BEST_PRACTICES = {
+exports.BEST_PRACTICES = {
     security: [
         {
             title: 'Enable MFA',
@@ -48,7 +47,8 @@ export const BEST_PRACTICES = {
         }
     ]
 };
-
-export const getBestPractices = async () => {
-    return BEST_PRACTICES;
+const getBestPractices = async () => {
+    return exports.BEST_PRACTICES;
 };
+exports.getBestPractices = getBestPractices;
+//# sourceMappingURL=constants.js.map
