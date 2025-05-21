@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { PublicClientApplication, AccountInfo, InteractionRequiredAuthError } from '@azure/msal-browser';
+import { PublicClientApplication, AccountInfo, InteractionRequiredAuthError, IPublicClientApplication } from '@azure/msal-browser';
 import { msalConfig, loginRequest } from '../config/auth';
 import { GraphService } from '../services/graphService';
 
@@ -10,7 +10,12 @@ interface AuthState {
 }
 
 export const useAuth = () => {
-  const [msalInstance] = useState(() => new PublicClientApplication(msalConfig));
+  const [msalInstance] = useState<IPublicClientApplication>(() => {
+    const instance = new PublicClientApplication(msalConfig);
+    instance.enableAccountStorageEvents();
+    return instance;
+  });
+  
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
     account: null,
@@ -18,35 +23,48 @@ export const useAuth = () => {
   });
 
   useEffect(() => {
-    const accounts = msalInstance.getAllAccounts();
-    if (accounts.length > 0) {
-      setAuthState(prev => ({
-        ...prev,
-        isAuthenticated: true,
-        account: accounts[0]
-      }));
-      msalInstance.setActiveAccount(accounts[0]);
-      
-      // Initialize Graph client
-      const graphService = GraphService.getInstance();
-      graphService.initializeGraphClient().catch(error => {
-        console.error('Failed to initialize Graph client:', error);
-      });
-    }
+    const initializeAuth = async () => {
+      await msalInstance.initialize();
+      const accounts = msalInstance.getAllAccounts();
+      if (accounts.length > 0) {
+        setAuthState({
+          isAuthenticated: true,
+          account: accounts[0],
+          error: null
+        });
+        msalInstance.setActiveAccount(accounts[0]);
+        
+        try {
+          const graphService = GraphService.getInstance();
+          await graphService.initializeGraphClient();
+        } catch (error) {
+          console.error('Failed to initialize Graph client:', error);
+        }
+      }
+    };
+
+    initializeAuth();
+
+    return () => {
+      msalInstance.logout();
+    };
   }, [msalInstance]);
 
   const login = useCallback(async () => {
     try {
-      const response = await msalInstance.loginPopup(loginRequest);
-      if (response.account) {
+      const result = await msalInstance.loginRedirect({
+        ...loginRequest,
+        redirectStartPage: window.location.href
+      });
+      
+      if (result?.account) {
         setAuthState({
           isAuthenticated: true,
-          account: response.account,
+          account: result.account,
           error: null
         });
-        msalInstance.setActiveAccount(response.account);
+        msalInstance.setActiveAccount(result.account);
 
-        // Initialize Graph client after successful login
         const graphService = GraphService.getInstance();
         await graphService.initializeGraphClient();
       }
@@ -61,7 +79,10 @@ export const useAuth = () => {
 
   const logout = useCallback(async () => {
     try {
-      await msalInstance.logoutPopup();
+      await msalInstance.logoutRedirect({
+        postLogoutRedirectUri: window.location.origin
+      });
+      
       setAuthState({
         isAuthenticated: false,
         account: null,
@@ -91,9 +112,8 @@ export const useAuth = () => {
       return response.accessToken;
     } catch (error) {
       if (error instanceof InteractionRequiredAuthError) {
-        // fallback to interaction when silent call fails
-        const response = await msalInstance.acquireTokenPopup(loginRequest);
-        return response.accessToken;
+        const response = await msalInstance.acquireTokenRedirect(loginRequest);
+        return response?.accessToken;
       }
       throw error;
     }

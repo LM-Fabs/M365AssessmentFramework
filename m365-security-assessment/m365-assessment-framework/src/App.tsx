@@ -1,7 +1,7 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { MsalProvider } from '@azure/msal-react';
-import { PublicClientApplication } from '@azure/msal-browser';
+import { PublicClientApplication, EventType } from '@azure/msal-browser';
 import { msalConfig } from './config/auth';
 import { useAuth } from './hooks/useAuth';
 import Dashboard from './pages/Dashboard';
@@ -9,6 +9,11 @@ import History from './pages/History';
 import Settings from './pages/Settings';
 
 const msalInstance = new PublicClientApplication(msalConfig);
+
+// Default to using redirect flow
+msalInstance.handleRedirectPromise().catch(error => {
+  console.error('Error handling redirect:', error);
+});
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -65,6 +70,21 @@ const LoginPage: React.FC = () => {
 };
 
 const App: React.FC = () => {
+  useEffect(() => {
+    // Register redirect handlers
+    const redirectHandler = (event: any) => {
+      if (event.eventType === EventType.LOGIN_SUCCESS) {
+        console.log('Login successful');
+      }
+    };
+
+    msalInstance.addEventCallback(redirectHandler);
+
+    return () => {
+      msalInstance.removeEventCallback(redirectHandler);
+    };
+  }, []);
+
   return (
     <MsalProvider instance={msalInstance}>
       <Router>
@@ -73,9 +93,9 @@ const App: React.FC = () => {
           
           <main className="main-content">
             <Routes>
-              <Route path="/login" element={<LoginPage />} />
+              <Route path="/login" element={<Navigate to="/.auth/login/aad" />} />
               <Route 
-                path="/dashboard" 
+                path="/" 
                 element={
                   <PrivateRoute>
                     <Dashboard />
@@ -98,7 +118,6 @@ const App: React.FC = () => {
                   </PrivateRoute>
                 } 
               />
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </main>
 

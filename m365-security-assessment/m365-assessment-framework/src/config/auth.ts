@@ -5,15 +5,17 @@ export const msalConfig: Configuration = {
   auth: {
     clientId: 'd1cc9e16-9194-4892-92c5-473c9f65dcb3',
     authority: 'https://login.microsoftonline.com/organizations',
-    redirectUri: window.location.origin,
+    redirectUri: `${window.location.origin}/.auth/login/aad/callback`,
     postLogoutRedirectUri: window.location.origin,
-    navigateToLoginRequestUrl: true
+    navigateToLoginRequestUrl: false
   },
   cache: {
-    cacheLocation: 'localStorage',
-    storeAuthStateInCookie: true
+    cacheLocation: 'sessionStorage',
+    storeAuthStateInCookie: true,
+    secureCookies: true
   },
   system: {
+    allowRedirectInIframe: true,
     loggerOptions: {
       loggerCallback: (level: LogLevel, message: string, containsPii: boolean) => {
         if (containsPii) {
@@ -42,9 +44,10 @@ export const msalConfig: Configuration = {
 };
 
 export const loginRequest = {
-  scopes: GRAPH_SCOPES
+  scopes: GRAPH_SCOPES,
+  prompt: 'select_account'
 };
 
 export const tokenRequest = {
-  scopes: GRAPH_SCOPES
+  ...loginRequest
 };

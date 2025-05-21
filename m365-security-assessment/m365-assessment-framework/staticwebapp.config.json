@@ -1,6 +1,10 @@
 {
   "routes": [
     {
+      "route": "/.auth/login/aad/callback",
+      "allowedRoles": ["anonymous"]
+    },
+    {
       "route": "/api/*",
       "allowedRoles": ["authenticated"]
     },
@@ -27,7 +31,10 @@
           "clientId": "d1cc9e16-9194-4892-92c5-473c9f65dcb3",
           "clientSecretSettingName": "AZURE_CLIENT_SECRET"
         },
-        "userDetailsClaim": "preferred_username"
+        "userDetailsClaim": "preferred_username",
+        "loginParameters": {
+          "prompt": "select_account"
+        }
       }
     }
   },
