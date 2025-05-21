@@ -50,6 +50,7 @@
     ".svg": "image/svg+xml"
   },
   "platform": {
-    "apiRuntime": "node:18"
+    "apiRuntime": "node:18",
+    "nodeVersion": "18"
   }
 }

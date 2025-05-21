@@ -21,7 +21,7 @@ jobs:
     environment: dev
     
     env:
-      NODE_VERSION: '16.x'
+      NODE_VERSION: '18.x'
       APP_LOCATION: 'm365-assessment-framework'
       API_LOCATION: 'm365-assessment-framework/api'
       OUTPUT_LOCATION: 'build'
@@ -44,9 +44,6 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: '${{ env.APP_LOCATION }}/package-lock.json'
-
-      - name: Install Static Web Apps CLI
-        run: npm install -g @azure/static-web-apps-cli
 
       - name: Install Dependencies
         working-directory: ${{ env.APP_LOCATION }}
@@ -106,6 +103,10 @@ jobs:
           package: ${{ env.API_LOCATION }}
           respect-funcignore: true
           scm-do-build-during-deployment: false
+        env:
+          WEBSITE_NODE_DEFAULT_VERSION: "~18"
+          FUNCTIONS_WORKER_RUNTIME: "node"
+          FUNCTIONS_EXTENSION_VERSION: "~4"
 
       - name: Build Status Check
         if: always()

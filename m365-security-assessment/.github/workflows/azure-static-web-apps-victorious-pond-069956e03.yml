@@ -8,23 +8,35 @@ on:
     types: [opened, synchronize, reopened, closed]
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   build_and_deploy_job:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
     name: Build and Deploy
+    timeout-minutes: 30
+    environment: production
     
     env:
-      NODE_VERSION: '16.x'
-      APP_LOCATION: 'm365-assessment-framework'
-      API_LOCATION: 'm365-assessment-framework/api'
+      NODE_VERSION: '18.x'
+      APP_LOCATION: 'm365-security-assessment/m365-assessment-framework'
+      API_LOCATION: 'm365-security-assessment/m365-assessment-framework/api'
       OUTPUT_LOCATION: 'build'
-    
+      CI: false
+      
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v3
         with:
+          fetch-depth: 1
           submodules: false
+          persist-credentials: true
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -33,20 +45,64 @@ jobs:
           cache: 'npm'
           cache-dependency-path: '${{ env.APP_LOCATION }}/package-lock.json'
 
+      - name: Debug Environment Setup
+        run: |
+          echo "Current working directory:"
+          pwd
+          echo "\nRepository root contents:"
+          ls -la
+          echo "\nApp directory contents:"
+          ls -la ${{ env.APP_LOCATION }}
+          echo "\nNode version:"
+          node --version
+          echo "\nNPM version:"
+          npm --version
+
       - name: Install Dependencies
         working-directory: ${{ env.APP_LOCATION }}
-        run: npm ci
+        run: |
+          echo "Installing dependencies..."
+          npm ci --no-audit
+          echo "Dependencies installed successfully"
+          echo "node_modules contents:"
+          ls -la node_modules
+          echo "Number of installed packages:"
+          npm list | wc -l
+
+      - name: Debug Build Environment
+        working-directory: ${{ env.APP_LOCATION }}
+        run: |
+          echo "Environment variables:"
+          env | grep -i 'node\|npm\|react'
+          echo "\nPackage.json contents:"
+          cat package.json
+          echo "\nInstalled packages:"
+          npm list --depth=0
 
       - name: Build Application
         working-directory: ${{ env.APP_LOCATION }}
-        run: npm run build
+        run: |
+          echo "Starting build process with verbose output..."
+          export NODE_OPTIONS="--max-old-space-size=4096 --trace-warnings"
+          set -x  # Enable command echoing
+          npm run build --verbose > >(tee build-output.log) 2> >(tee build-error.log >&2) || {
+            echo "Build failed. Full build output:"
+            cat build-output.log
+            echo "\nBuild errors:"
+            cat build-error.log
+            echo "\nNPM Debug Log (if exists):"
+            cat npm-debug.log || true
+            exit 1
+          }
         env:
           CI: false
+          DEBUG: "*"
           NODE_ENV: production
           REACT_APP_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           REACT_APP_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
 
       - name: Build API
+        if: success()
         working-directory: ${{ env.API_LOCATION }}
         run: |
           if [ -f package.json ]; then
@@ -54,19 +110,31 @@ jobs:
             npm run build --if-present
           fi
 
-      - name: Deploy
-        id: builddeploy
+      - name: Deploy to Azure Static Web Apps
+        if: success()
         uses: Azure/static-web-apps-deploy@v1
+        id: deploy
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_VICTORIOUS_POND_069956E03 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          app_location: "${{ env.APP_LOCATION }}"
-          api_location: "${{ env.API_LOCATION }}"
-          output_location: "${{ env.OUTPUT_LOCATION }}"
+          app_location: ${{ env.APP_LOCATION }}
+          api_location: ${{ env.API_LOCATION }}
+          output_location: ${{ env.OUTPUT_LOCATION }}
         env:
-          NODE_ENV: production
           IS_STATIC_EXPORT: true
+          NODE_ENV: production
+          WEBSITE_NODE_DEFAULT_VERSION: "~18"
+          FUNCTIONS_WORKER_RUNTIME: "node"
+          FUNCTIONS_EXTENSION_VERSION: "~4"
+
+      - name: Build Status Check
+        if: always()
+        run: |
+          if [ "${{ steps.deploy.outcome }}" == "failure" ]; then
+            echo "Deployment failed. Check the Azure Static Web Apps logs for more details."
+            exit 1
+          fi
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
@@ -77,5 +145,9 @@ jobs:
         id: closepullrequest
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_VICTORIOUS_POND_069956E03 }}
           action: "close"
+
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
