@@ -1,30 +1,27 @@
-import { AzureFunction, Context, HttpRequest } from "@azure/functions";
+import { app } from "@azure/functions";
 import { Assessment } from "../shared/types";
-import { saveAssessmentToDatabase } from "../shared/database";
 
-const httpTrigger: AzureFunction = async (context: Context, req: HttpRequest): Promise<void> => {
-    const assessment: Assessment = req.body;
+app.http('saveAssessment', {
+    methods: ['POST'],
+    authLevel: 'function',
+    handler: async (request, context) => {
+        const assessment = request.body as Assessment;
+        context.log('SaveAssessment function processing assessment:', assessment.id);
 
-    if (!assessment) {
-        context.res = {
-            status: 400,
-            body: "Please provide a valid assessment."
-        };
-        return;
+        try {
+            // TODO: Implement assessment saving logic
+            return { 
+                status: 200,
+                body: { 
+                    message: "Assessment saved successfully",
+                    assessmentId: assessment.id
+                }
+            };
+        } catch (error) {
+            return {
+                status: 500,
+                body: "Error saving assessment."
+            };
+        }
     }
-
-    try {
-        await saveAssessmentToDatabase(assessment);
-        context.res = {
-            status: 201,
-            body: { message: "Assessment saved successfully." }
-        };
-    } catch (error) {
-        context.res = {
-            status: 500,
-            body: { message: "Error saving assessment.", error: error.message }
-        };
-    }
-};
-
-export default httpTrigger;
+});

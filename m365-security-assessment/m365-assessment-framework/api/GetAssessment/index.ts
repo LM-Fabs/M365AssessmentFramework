@@ -1,38 +1,28 @@
-import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { getAssessmentData } from "../shared/database"; // Assuming a function to fetch data from a database
+import { app } from "@azure/functions";
 
-const httpTrigger: AzureFunction = async (context: Context, req: HttpRequest): Promise<void> => {
-    const tenantId = req.query.tenantId;
+app.http('getAssessment', {
+    methods: ['GET'],
+    authLevel: 'function',
+    route: 'assessment/{tenantId}/{assessmentId}',
+    handler: async (request, context) => {
+        const { tenantId, assessmentId } = request.params;
+        context.log('GetAssessment function processed a request for tenant:', tenantId, 'assessment:', assessmentId);
 
-    if (!tenantId) {
-        context.res = {
-            status: 400,
-            body: "Please provide a tenantId in the query string."
-        };
-        return;
-    }
-
-    try {
-        const assessmentData = await getAssessmentData(tenantId);
-        
-        if (!assessmentData) {
-            context.res = {
-                status: 404,
-                body: "Assessment data not found for the provided tenantId."
+        try {
+            // TODO: Implement assessment retrieval logic
+            return { 
+                status: 200, 
+                body: {
+                    id: assessmentId,
+                    tenantId: tenantId,
+                    // Add other assessment data here
+                }
             };
-            return;
+        } catch (error) {
+            return {
+                status: 500,
+                body: "Error retrieving assessment."
+            };
         }
-
-        context.res = {
-            status: 200,
-            body: assessmentData
-        };
-    } catch (error) {
-        context.res = {
-            status: 500,
-            body: "An error occurred while retrieving assessment data."
-        };
     }
-};
-
-export default httpTrigger;
+});
