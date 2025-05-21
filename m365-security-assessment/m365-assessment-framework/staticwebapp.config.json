@@ -13,16 +13,9 @@
       "rewrite": "/.auth/logout"
     },
     {
-      "route": "/dashboard",
-      "allowedRoles": ["authenticated"]
-    },
-    {
-      "route": "/settings",
-      "allowedRoles": ["authenticated"]
-    },
-    {
-      "route": "/history",
-      "allowedRoles": ["authenticated"]
+      "route": "/*",
+      "serve": "/index.html",
+      "statusCode": 200
     }
   ],
   "auth": {
@@ -42,7 +35,7 @@
     "exclude": ["/images/*.{png,jpg,gif}", "/css/*", "/js/*", "/api/*"]
   },
   "globalHeaders": {
-    "Content-Security-Policy": "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://login.microsoftonline.com https://graph.microsoft.com; img-src 'self' data: https:; connect-src 'self' https://login.microsoftonline.com https://graph.microsoft.com;",
+    "Content-Security-Policy": "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.microsoft.com https://*.microsoftonline.com https://*.azure.com data:; img-src 'self' data: https:; connect-src 'self' https://*.microsoft.com https://*.microsoftonline.com https://*.azure.com;",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "X-XSS-Protection": "1; mode=block"
@@ -55,5 +48,8 @@
     ".png": "image/png",
     ".jpg": "image/jpeg",
     ".svg": "image/svg+xml"
+  },
+  "platform": {
+    "apiRuntime": "node:16"
   }
 }
