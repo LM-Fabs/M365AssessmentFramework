@@ -66,14 +66,119 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const assessment: Partial<Assessment> = {
+    const newAssessment: Partial<Assessment> = {
+      id: crypto.randomUUID(),
       tenantId: tenant?.id,
-      categories: selectedCategories,
-      customScopes,
-      startedAt: new Date().toISOString()
+      assessmentDate: new Date(),
+      assessor: {
+        id: account?.localAccountId || '',
+        name: account?.name || '',
+        email: account?.username || ''
+      },
+      status: 'draft',
+      lastModified: new Date(),
+      recommendations: [],
+      metrics: {
+        identity: {
+          mfaAdoption: 0,
+          conditionalAccessPolicies: 0,
+          passwordPolicies: {
+            complexity: false,
+            expiration: false,
+            mfaRequired: false
+          },
+          adminAccounts: {
+            total: 0,
+            protected: 0
+          },
+          guestAccess: {
+            total: 0,
+            reviewed: 0
+          }
+        },
+        dataProtection: {
+          sensitivityLabels: {
+            total: 0,
+            inUse: 0
+          },
+          dlpPolicies: {
+            total: 0,
+            active: 0
+          },
+          sharingSettings: {
+            external: false,
+            anonymous: false,
+            restrictions: []
+          }
+        },
+        endpoint: {
+          deviceCompliance: {
+            total: 0,
+            compliant: 0
+          },
+          defenderStatus: {
+            enabled: false,
+            upToDate: false
+          },
+          updateCompliance: 0
+        },
+        cloudApps: {
+          securityPolicies: {
+            total: 0,
+            active: 0
+          },
+          oauthApps: {
+            total: 0,
+            reviewed: 0,
+            highRisk: 0
+          }
+        },
+        informationProtection: {
+          aipLabels: {
+            total: 0,
+            applied: 0
+          },
+          encryption: {
+            enabled: false,
+            usage: 0
+          }
+        },
+        threatProtection: {
+          alerts: {
+            high: 0,
+            medium: 0,
+            low: 0,
+            resolved: 0
+          },
+          incidentResponse: {
+            meanTimeToRespond: 0,
+            openIncidents: 0
+          }
+        },
+        score: {
+          overall: 0,
+          identity: 0,
+          dataProtection: 0,
+          endpoint: 0,
+          cloudApps: 0,
+          informationProtection: 0,
+          threatProtection: 0
+        },
+        lastUpdated: new Date()
+      }
     };
 
-    await onSubmit(assessment);
+    try {
+      setIsSaving(true);
+      await saveAssessment();
+      if (onComplete) {
+        onComplete(newAssessment as Assessment);
+      }
+    } catch (error) {
+      console.error('Failed to submit assessment:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCategoryToggle = (category: string) => {
@@ -182,8 +287,12 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
               <span className="value">{tenant.name}</span>
             </div>
             <div className="tenant-detail">
-              <span className="label">Domain:</span>
-              <span className="value">{tenant.defaultDomain}</span>
+              <span className="label">Security Score:</span>
+              <span className="value">{tenant.securityScore}%</span>
+            </div>
+            <div className="tenant-detail">
+              <span className="label">Last Assessment:</span>
+              <span className="value">{tenant.lastAssessmentDate.toLocaleDateString()}</span>
             </div>
           </div>
         </div>

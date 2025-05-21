@@ -101,140 +101,139 @@ const App: React.FC = () => {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </main>
+
+          <style>{`
+            .app {
+              min-height: 100vh;
+              display: flex;
+              flex-direction: column;
+            }
+
+            .navigation {
+              background: #0078d4;
+              color: white;
+              padding: 1rem;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+            }
+
+            .nav-brand {
+              font-size: 1.25rem;
+              font-weight: bold;
+            }
+
+            .nav-links {
+              display: flex;
+              gap: 1.5rem;
+            }
+
+            .nav-links a {
+              color: white;
+              text-decoration: none;
+              padding: 0.5rem;
+              border-radius: 4px;
+              transition: background-color 0.2s;
+            }
+
+            .nav-links a:hover {
+              background: rgba(255, 255, 255, 0.1);
+            }
+
+            .nav-account {
+              display: flex;
+              align-items: center;
+              gap: 1rem;
+            }
+
+            .username {
+              font-size: 0.9rem;
+              opacity: 0.9;
+            }
+
+            .main-content {
+              flex: 1;
+              padding: 2rem;
+              background: #f5f5f5;
+            }
+
+            .login-page {
+              min-height: 100vh;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              background: #f5f5f5;
+            }
+
+            .login-container {
+              background: white;
+              padding: 2rem;
+              border-radius: 8px;
+              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+              text-align: center;
+              max-width: 400px;
+              width: 100%;
+            }
+
+            .login-container h1 {
+              margin-bottom: 1rem;
+              color: #333;
+            }
+
+            .login-container p {
+              color: #666;
+              margin-bottom: 1.5rem;
+            }
+
+            button {
+              background: #0078d4;
+              color: white;
+              padding: 0.5rem 1rem;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 1rem;
+              transition: background-color 0.2s;
+            }
+
+            button:hover {
+              background: #006cbe;
+            }
+
+            .error-message {
+              background: #fed9cc;
+              color: #d83b01;
+              padding: 0.75rem;
+              border-radius: 4px;
+              margin-bottom: 1rem;
+            }
+
+            @media (max-width: 768px) {
+              .navigation {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+              }
+
+              .nav-links {
+                flex-direction: column;
+                gap: 0.5rem;
+              }
+
+              .nav-account {
+                flex-direction: column;
+                gap: 0.5rem;
+              }
+
+              .main-content {
+                padding: 1rem;
+              }
+            }
+          `}</style>
         </div>
       </Router>
-
-      <style>{`
-        .app {
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .navigation {
-          background: #0078d4;
-          color: white;
-          padding: 1rem;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .nav-brand {
-          font-size: 1.25rem;
-          font-weight: bold;
-        }
-
-        .nav-links {
-          display: flex;
-          gap: 1.5rem;
-        }
-
-        .nav-links a {
-          color: white;
-          text-decoration: none;
-          padding: 0.5rem;
-          border-radius: 4px;
-          transition: background-color 0.2s;
-        }
-
-        .nav-links a:hover {
-          background: rgba(255, 255, 255, 0.1);
-        }
-
-        .nav-account {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .username {
-          font-size: 0.9rem;
-          opacity: 0.9;
-        }
-
-        .main-content {
-          flex: 1;
-          padding: 2rem;
-          background: #f5f5f5;
-        }
-
-        .login-page {
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #f5f5f5;
-        }
-
-        .login-container {
-          background: white;
-          padding: 2rem;
-          border-radius: 8px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          text-align: center;
-          max-width: 400px;
-          width: 100%;
-        }
-
-        .login-container h1 {
-          margin-bottom: 1rem;
-          color: #333;
-        }
-
-        .login-container p {
-          color: #666;
-          margin-bottom: 1.5rem;
-        }
-
-        button {
-          background: #0078d4;
-          color: white;
-          padding: 0.5rem 1rem;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          font-size: 1rem;
-          transition: background-color 0.2s;
-        }
-
-        button:hover {
-          background: #006cbe;
-        }
-
-        .error-message {
-          background: #fed9cc;
-          color: #d83b01;
-          padding: 0.75rem;
-          border-radius: 4px;
-          margin-bottom: 1rem;
-        }
-
-        @media (max-width: 768px) {
-          .navigation {
-            flex-direction: column;
-            gap: 1rem;
-            text-align: center;
-          }
-
-          .nav-links {
-            flex-direction: column;
-            gap: 0.5rem;
-          }
-
-          .nav-account {
-            flex-direction: column;
-            gap: 0.5rem;
-          }
-
-          .main-content {
-            padding: 1rem;
-          }
-        }
-      `}</style>
-    </div>
-  </MsalProvider>
-);
+    </MsalProvider>
+  );
 };
 
 export default App;

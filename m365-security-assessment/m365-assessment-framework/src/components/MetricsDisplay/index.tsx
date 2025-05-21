@@ -13,7 +13,7 @@ const MetricsDisplay: React.FC<MetricsDisplayProps> = ({
 }) => {
   const renderMetricCard = (category: string, score: number) => {
     const trend = historicalData.length > 0
-      ? score - (historicalData[0].metrics.score[category as keyof typeof historicalData[0].metrics.score] || 0)
+      ? score - (historicalData[0].metrics?.score?.[category] ?? 0)
       : 0;
 
     const getScoreColor = (value: number) => {
