@@ -4,9 +4,11 @@ import { GRAPH_SCOPES } from '../shared/constants';
 export const msalConfig: Configuration = {
   auth: {
     clientId: process.env.REACT_APP_CLIENT_ID || '',
-    authority: `https://login.microsoftonline.com/${process.env.REACT_APP_TENANT_ID}`,
+    authority: 'https://login.microsoftonline.com/common',
     redirectUri: window.location.origin,
-    postLogoutRedirectUri: window.location.origin
+    postLogoutRedirectUri: window.location.origin,
+    validateAuthority: true,
+    navigateToLoginRequestUrl: true
   },
   cache: {
     cacheLocation: 'localStorage',
