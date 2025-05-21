@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { MsalProvider } from '@azure/msal-react';
-import { PublicClientApplication, EventType, EventMessage, InteractionStatus } from '@azure/msal-browser';
+import { PublicClientApplication, EventType, EventMessage } from '@azure/msal-browser';
 import { msalConfig } from './config/auth';
 import { useAuth } from './hooks/useAuth';
 import Dashboard from './pages/Dashboard';
@@ -20,8 +20,36 @@ const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 };
 
+const LoginPage: React.FC = () => {
+  const { login, error, clearError, isLoading } = useAuth();
+
+  React.useEffect(() => {
+    if (error) {
+      const timer = setTimeout(clearError, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, clearError]);
+
+  return (
+    <div className="login-page">
+      <div className="login-container">
+        <h1>M365 Security Assessment</h1>
+        <p>Sign in with your Microsoft account to continue</p>
+        {error && <div className="error-message">{error}</div>}
+        {isLoading ? (
+          <div className="loading-spinner">Authenticating...</div>
+        ) : (
+          <button onClick={login} disabled={isLoading}>
+            {isLoading ? 'Signing in...' : 'Sign In'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const Navigation: React.FC = () => {
-  const { isAuthenticated, logout, account } = useAuth();
+  const { isAuthenticated, logout, account, isLoading } = useAuth();
 
   return (
     <nav className="navigation">
@@ -38,8 +66,14 @@ const Navigation: React.FC = () => {
           </div>
           
           <div className="nav-account">
-            <span className="username">{account?.username}</span>
-            <button onClick={logout}>Logout</button>
+            {isLoading ? (
+              <span className="loading-text">Loading...</span>
+            ) : (
+              <>
+                <span className="username">{account?.username}</span>
+                <button onClick={logout}>Logout</button>
+              </>
+            )}
           </div>
         </>
       )}
@@ -47,29 +81,9 @@ const Navigation: React.FC = () => {
   );
 };
 
-const LoginPage: React.FC = () => {
-  const { login, error, clearError } = useAuth();
-
-  React.useEffect(() => {
-    if (error) {
-      const timer = setTimeout(clearError, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [error, clearError]);
-
-  return (
-    <div className="login-page">
-      <div className="login-container">
-        <h1>M365 Security Assessment</h1>
-        <p>Sign in with your Microsoft account to continue</p>
-        {error && <div className="error-message">{error}</div>}
-        <button onClick={login}>Sign In</button>
-      </div>
-    </div>
-  );
-};
-
 const App: React.FC = () => {
+  const { isLoading, isAuthenticated, error } = useAuth();
+
   useEffect(() => {
     // Register redirect handlers
     const redirectHandler = (message: EventMessage) => {
@@ -94,33 +108,44 @@ const App: React.FC = () => {
           <Navigation />
           
           <main className="main-content">
-            <Routes>
-              <Route path="/login" element={<Navigate to="/.auth/login/aad" />} />
-              <Route 
-                path="/" 
-                element={
-                  <PrivateRoute>
-                    <Dashboard />
-                  </PrivateRoute>
-                } 
-              />
-              <Route 
-                path="/history" 
-                element={
-                  <PrivateRoute>
-                    <History />
-                  </PrivateRoute>
-                } 
-              />
-              <Route 
-                path="/settings" 
-                element={
-                  <PrivateRoute>
-                    <Settings />
-                  </PrivateRoute>
-                } 
-              />
-            </Routes>
+            {isLoading ? (
+              <div className="loading-container">
+                <div className="loading-spinner"></div>
+                <p>Loading authentication state...</p>
+              </div>
+            ) : error ? (
+              <div className="error-container">
+                <p className="error-message">{error}</p>
+              </div>
+            ) : (
+              <Routes>
+                <Route path="/login" element={<Navigate to="/.auth/login/aad" />} />
+                <Route 
+                  path="/" 
+                  element={
+                    <PrivateRoute>
+                      <Dashboard />
+                    </PrivateRoute>
+                  } 
+                />
+                <Route 
+                  path="/history" 
+                  element={
+                    <PrivateRoute>
+                      <History />
+                    </PrivateRoute>
+                  } 
+                />
+                <Route 
+                  path="/settings" 
+                  element={
+                    <PrivateRoute>
+                      <Settings />
+                    </PrivateRoute>
+                  } 
+                />
+              </Routes>
+            )}
           </main>
 
           <style>{`
@@ -221,12 +246,54 @@ const App: React.FC = () => {
               background: #006cbe;
             }
 
+            button:disabled {
+              background: #cccccc;
+              cursor: not-allowed;
+            }
+
             .error-message {
               background: #fed9cc;
               color: #d83b01;
               padding: 0.75rem;
               border-radius: 4px;
               margin-bottom: 1rem;
+            }
+
+            .loading-container {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              height: 100%;
+              padding: 2rem;
+            }
+
+            .loading-spinner {
+              border: 3px solid #f3f3f3;
+              border-top: 3px solid #0078d4;
+              border-radius: 50%;
+              width: 30px;
+              height: 30px;
+              animation: spin 1s linear infinite;
+              margin-bottom: 1rem;
+            }
+
+            .loading-text {
+              color: #666;
+              font-size: 0.9rem;
+            }
+
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+
+            .error-container {
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              height: 100%;
+              padding: 2rem;
             }
 
             @media (max-width: 768px) {

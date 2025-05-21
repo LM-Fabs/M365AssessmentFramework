@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { PublicClientApplication, AccountInfo, InteractionRequiredAuthError, IPublicClientApplication, AuthenticationResult } from '@azure/msal-browser';
+import { PublicClientApplication, AccountInfo, InteractionRequiredAuthError, IPublicClientApplication } from '@azure/msal-browser';
 import { msalConfig, loginRequest } from '../config/auth';
 import { GraphService } from '../services/graphService';
 
@@ -7,6 +7,7 @@ interface AuthState {
   isAuthenticated: boolean;
   account: AccountInfo | null;
   error: string | null;
+  isLoading: boolean;
 }
 
 export const useAuth = () => {
@@ -19,35 +20,81 @@ export const useAuth = () => {
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
     account: null,
-    error: null
+    error: null,
+    isLoading: true
   });
 
   useEffect(() => {
     const initializeAuth = async () => {
-      await msalInstance.initialize();
-      const accounts = msalInstance.getAllAccounts();
-      if (accounts.length > 0) {
-        setAuthState({
-          isAuthenticated: true,
-          account: accounts[0],
-          error: null
-        });
-        msalInstance.setActiveAccount(accounts[0]);
+      try {
+        await msalInstance.initialize();
+        console.log('MSAL initialized successfully');
         
-        try {
-          const graphService = GraphService.getInstance();
-          await graphService.initializeGraphClient();
-        } catch (error) {
-          console.error('Failed to initialize Graph client:', error);
+        const currentAccounts = msalInstance.getAllAccounts();
+        console.log('Current accounts:', currentAccounts.length ? currentAccounts : 'No accounts found');
+        
+        if (currentAccounts.length > 0) {
+          console.log('Active account found:', currentAccounts[0].username);
+          setAuthState({
+            isAuthenticated: true,
+            account: currentAccounts[0],
+            error: null,
+            isLoading: false
+          });
+          msalInstance.setActiveAccount(currentAccounts[0]);
+          
+          try {
+            const graphService = GraphService.getInstance();
+            await graphService.initializeGraphClient();
+            console.log('Graph client initialized successfully');
+          } catch (error) {
+            console.error('Failed to initialize Graph client:', error);
+          }
+        } else {
+          console.log('No active account found');
+          setAuthState(prev => ({ ...prev, isLoading: false }));
         }
+      } catch (error) {
+        console.error('Error during authentication initialization:', error);
+        setAuthState(prev => ({
+          ...prev,
+          error: 'Failed to initialize authentication',
+          isLoading: false
+        }));
       }
     };
 
+    console.log('Starting authentication initialization');
     initializeAuth();
+
+    // Handle redirect response
+    msalInstance.handleRedirectPromise()
+      .then((response) => {
+        if (response) {
+          console.log('Redirect response received:', response);
+          const account = response.account;
+          setAuthState({
+            isAuthenticated: true,
+            account: account,
+            error: null,
+            isLoading: false
+          });
+          msalInstance.setActiveAccount(account);
+        }
+      })
+      .catch((error) => {
+        console.error('Error handling redirect:', error);
+        setAuthState(prev => ({
+          ...prev,
+          error: 'Failed to complete authentication',
+          isLoading: false
+        }));
+      });
   }, [msalInstance]);
 
   const login = useCallback(async () => {
     try {
+      setAuthState(prev => ({ ...prev, isLoading: true }));
       const result = await msalInstance.loginRedirect({
         ...loginRequest,
         redirectStartPage: window.location.href
@@ -59,7 +106,8 @@ export const useAuth = () => {
     } catch (error: any) {
       setAuthState(prev => ({
         ...prev,
-        error: error.message
+        error: error.message,
+        isLoading: false
       }));
       console.error('Login failed:', error);
     }
@@ -67,6 +115,7 @@ export const useAuth = () => {
 
   const logout = useCallback(async () => {
     try {
+      setAuthState(prev => ({ ...prev, isLoading: true }));
       await msalInstance.logoutRedirect({
         postLogoutRedirectUri: window.location.origin
       });
@@ -74,12 +123,14 @@ export const useAuth = () => {
       setAuthState({
         isAuthenticated: false,
         account: null,
-        error: null
+        error: null,
+        isLoading: false
       });
     } catch (error: any) {
       setAuthState(prev => ({
         ...prev,
-        error: error.message
+        error: error.message,
+        isLoading: false
       }));
       console.error('Logout failed:', error);
     }
