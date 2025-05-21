@@ -21,7 +21,7 @@ const Navigation: React.FC = () => {
   return (
     <nav className="navigation">
       <div className="nav-brand">
-        M365 Security Assessment
+        M365 Security Assessment v1.0.1
       </div>
       
       {isAuthenticated && (
