@@ -1,0 +1,225 @@
+/* LM-AG Brand-aligned App layout styling */
+
+/* Main app container */
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--lm-bg-light);
+}
+
+/* Navigation */
+.navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: white;
+  padding: 0.75rem 2rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  color: var(--lm-dark-blue);
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+.nav-brand img {
+  height: 36px;
+  margin-right: 0.75rem;
+}
+
+.nav-links {
+  display: flex;
+  gap: 2rem;
+}
+
+.nav-links a {
+  color: var(--lm-text-main);
+  text-decoration: none;
+  font-weight: 500;
+  padding: 0.5rem 0;
+  position: relative;
+}
+
+.nav-links a:hover {
+  color: var(--lm-primary);
+}
+
+.nav-links a::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background-color: var(--lm-primary);
+  transition: width 0.2s;
+}
+
+.nav-links a:hover::after {
+  width: 100%;
+}
+
+.nav-account {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.username {
+  color: var(--lm-text-main);
+  font-weight: 500;
+}
+
+.nav-account button {
+  background-color: transparent;
+  color: var(--lm-primary);
+  border: 1px solid var(--lm-primary);
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.nav-account button:hover {
+  background-color: var(--lm-primary);
+  color: white;
+}
+
+/* Main content area */
+.main-content {
+  flex: 1;
+  padding: 2rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .navigation {
+    flex-direction: column;
+    padding: 1rem;
+  }
+  
+  .nav-brand {
+    margin-bottom: 1rem;
+  }
+  
+  .nav-links {
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 1rem 0;
+    width: 100%;
+  }
+  
+  .nav-links a {
+    display: block;
+    width: 100%;
+    text-align: center;
+    padding: 0.75rem;
+  }
+  
+  .nav-account {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Dashboard and content areas */
+.dashboard-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.card {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.card-title {
+  color: var(--lm-dark-blue);
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.section-title {
+  color: var(--lm-dark-blue);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--lm-primary);
+}
+
+/* Buttons */
+.lm-button {
+  background-color: var(--lm-primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.lm-button:hover {
+  background-color: var(--lm-dark-blue);
+}
+
+.lm-button-secondary {
+  background-color: transparent;
+  color: var(--lm-primary);
+  border: 1px solid var(--lm-primary);
+  border-radius: 4px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.lm-button-secondary:hover {
+  background-color: var(--lm-primary);
+  color: white;
+}
+
+/* Tables */
+.lm-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.lm-table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 2px solid var(--lm-primary);
+  color: var(--lm-dark-blue);
+  font-weight: 600;
+}
+
+.lm-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #eaeaea;
+}
+
+.lm-table tr:hover {
+  background-color: rgba(0, 124, 255, 0.05);
+}

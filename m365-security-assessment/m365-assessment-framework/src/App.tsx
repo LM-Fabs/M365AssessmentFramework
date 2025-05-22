@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import History from './pages/History';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
+import './App.css';
 
 const msalInstance = new PublicClientApplication(msalConfig);
 
@@ -37,7 +38,9 @@ const Navigation: React.FC = () => {
   return (
     <nav className="navigation">
       <div className="nav-brand">
-        M365 Security Assessment v1.0.1
+        {/* Use text branding instead of logo image until logo is available */}
+        <span className="lm-logo-text">LM</span>
+        <span>M365 Security Assessment</span>
       </div>
       
       {isAuthenticated && (
@@ -54,7 +57,7 @@ const Navigation: React.FC = () => {
             ) : (
               <>
                 <span className="username">{account?.username}</span>
-                <button onClick={logout}>Logout</button>
+                <button onClick={logout} className="lm-button-secondary">Logout</button>
               </>
             )}
           </div>
@@ -80,7 +83,7 @@ const App: React.FC = () => {
     return (
       <div className="error-container">
         <p className="error-message">{error}</p>
-        <button onClick={() => window.location.reload()}>Retry</button>
+        <button onClick={() => window.location.reload()} className="lm-button">Retry</button>
       </div>
     );
   }

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import './Login.css';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -32,7 +33,7 @@ const Login: React.FC = () => {
     return (
       <div className="error-container">
         <p className="error-message">{error}</p>
-        <button onClick={login}>Try Again</button>
+        <button onClick={login} className="lm-button">Try Again</button>
       </div>
     );
   }
@@ -40,26 +41,41 @@ const Login: React.FC = () => {
   // Show a manual login button if coming from a logout
   if (noAutoLogin) {
     return (
-      <div className="login-container">
-        <h1>M365 Security Assessment</h1>
-        <p>You have been successfully logged out.</p>
-        <button
-          onClick={() => {
-            setManualLogin(true);
-            login();
-          }}
-          className="login-button"
-        >
-          Sign in
-        </button>
+      <div className="lm-login-container">
+        <div className="lm-login-card">
+          <div className="lm-logo-container">
+            {/* Use text branding instead of logo image until logo is available */}
+            <div className="lm-logo-text">LM</div>
+            <h1 className="lm-title">M365 Security Assessment</h1>
+          </div>
+          <p className="lm-subtitle">You have been successfully logged out.</p>
+          <div className="lm-button-container">
+            <button
+              onClick={() => {
+                setManualLogin(true);
+                login();
+              }}
+              className="lm-button"
+            >
+              Sign in with Microsoft
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="loading-container">
-      <div className="loading-spinner"></div>
-      <p>Redirecting to login...</p>
+    <div className="lm-login-container">
+      <div className="lm-login-card">
+        <div className="lm-logo-container">
+          {/* Use text branding instead of logo image until logo is available */}
+          <div className="lm-logo-text">LM</div>
+          <h1 className="lm-title">M365 Security Assessment</h1>
+        </div>
+        <p className="lm-subtitle">Redirecting to login...</p>
+        <div className="lm-loading-spinner"></div>
+      </div>
     </div>
   );
 };
