@@ -45,6 +45,9 @@ jobs:
           cache: 'npm'
           cache-dependency-path: '${{ env.APP_LOCATION }}/package-lock.json'
 
+      - name: Ensure .nvmrc in App Root
+        run: echo "18" > ${{ env.APP_LOCATION }}/.nvmrc
+
       - name: Build Application
         working-directory: ${{ env.APP_LOCATION }}
         run: npm run build
