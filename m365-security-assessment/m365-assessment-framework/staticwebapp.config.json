@@ -23,5 +23,9 @@
   },
   "platform": {
     "apiRuntime": "node:18"
+  },
+  "buildProperties": {
+    "skipBuild": true,
+    "nodeVersion": "18"
   }
 }

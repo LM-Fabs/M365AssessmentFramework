@@ -36,7 +36,10 @@ jobs:
         working-directory: ${{ env.APP_LOCATION }}
         run: |
           npm ci
-          npm install tailwindcss-animate --save-dev
+          npm install tailwindcss-animate --no-save
+          npm ls tailwindcss-animate || npm install tailwindcss-animate --save-dev
+          # Make sure the package is definitely installed and available
+          npm list tailwindcss-animate
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -90,6 +93,7 @@ jobs:
           api_location: ${{ env.API_LOCATION }}
           output_location: ${{ env.OUTPUT_LOCATION }}
           skip_app_build: true
+          node_version: "18"
         env:
           IS_STATIC_EXPORT: true
           NODE_ENV: production
