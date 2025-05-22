@@ -44,8 +44,7 @@ const Login: React.FC = () => {
       <div className="lm-login-container">
         <div className="lm-login-card">
           <div className="lm-logo-container">
-            {/* Use text branding instead of logo image until logo is available */}
-            <div className="lm-logo-text">LM</div>
+            <img src="/images/lm-logo.svg" alt="LM Logo" className="lm-logo" />
             <h1 className="lm-title">M365 Security Assessment</h1>
           </div>
           <p className="lm-subtitle">You have been successfully logged out.</p>
@@ -69,8 +68,7 @@ const Login: React.FC = () => {
     <div className="lm-login-container">
       <div className="lm-login-card">
         <div className="lm-logo-container">
-          {/* Use text branding instead of logo image until logo is available */}
-          <div className="lm-logo-text">LM</div>
+          <img src="/images/lm-logo.svg" alt="LM Logo" className="lm-logo" />
           <h1 className="lm-title">M365 Security Assessment</h1>
         </div>
         <p className="lm-subtitle">Redirecting to login...</p>

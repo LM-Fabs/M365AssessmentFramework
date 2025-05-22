@@ -38,8 +38,7 @@ const Navigation: React.FC = () => {
   return (
     <nav className="navigation">
       <div className="nav-brand">
-        {/* Use text branding instead of logo image until logo is available */}
-        <span className="lm-logo-text">LM</span>
+        <img src="/images/lm-logo.svg" alt="LM Logo" />
         <span>M365 Security Assessment</span>
       </div>
       
