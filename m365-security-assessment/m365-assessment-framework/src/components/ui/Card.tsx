@@ -1,69 +1,43 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 import './Card.css';
 
-interface CardProps {
-  children: React.ReactNode;
+export interface CardProps {
   title?: string;
-  description?: string;
+  subtitle?: string;
+  icon?: ReactNode;
+  children: ReactNode;
+  footer?: ReactNode;
   className?: string;
-  footer?: React.ReactNode;
-  headerAction?: React.ReactNode;
+  onClick?: () => void;
 }
-
-interface CardHeaderProps {
-  title?: string;
-  description?: string;
-  action?: React.ReactNode;
-}
-
-interface CardContentProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-interface CardFooterProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-const CardHeader: React.FC<CardHeaderProps> = ({ title, description, action }) => {
-  if (!title && !description && !action) return null;
-  
-  return (
-    <div className="card-header">
-      <div className="card-header-text">
-        {title && <h3 className="card-title">{title}</h3>}
-        {description && <p className="card-description">{description}</p>}
-      </div>
-      {action && <div className="card-header-action">{action}</div>}
-    </div>
-  );
-};
-
-const CardContent: React.FC<CardContentProps> = ({ children, className = '' }) => {
-  return <div className={`card-content ${className}`}>{children}</div>;
-};
-
-const CardFooter: React.FC<CardFooterProps> = ({ children, className = '' }) => {
-  return <div className={`card-footer ${className}`}>{children}</div>;
-};
 
 const Card: React.FC<CardProps> = ({
-  children,
   title,
-  description,
-  className = '',
+  subtitle,
+  icon,
+  children,
   footer,
-  headerAction
+  className = '',
+  onClick,
 }) => {
   return (
-    <div className={`lm-card ${className}`}>
-      <CardHeader title={title} description={description} action={headerAction} />
-      <CardContent>{children}</CardContent>
-      {footer && <CardFooter>{footer}</CardFooter>}
+    <div 
+      className={`lm-card ${onClick ? 'clickable' : ''} ${className}`}
+      onClick={onClick}
+    >
+      {(title || icon) && (
+        <div className="card-header">
+          {icon && <div className="card-icon">{icon}</div>}
+          <div className="card-title-container">
+            {title && <h3 className="card-title">{title}</h3>}
+            {subtitle && <div className="card-subtitle">{subtitle}</div>}
+          </div>
+        </div>
+      )}
+      <div className="card-content">{children}</div>
+      {footer && <div className="card-footer">{footer}</div>}
     </div>
   );
 };
 
-export { Card, CardHeader, CardContent, CardFooter };
 export default Card;

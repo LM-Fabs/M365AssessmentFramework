@@ -1,35 +1,42 @@
-/* LM-AG Brand-aligned Login Page Styling */
+/* LM-AG Login Page Styling */
 
 .lm-login-container {
   display: flex;
-  flex-direction: column;
-  align-items: center;
   justify-content: center;
+  align-items: center;
   min-height: 100vh;
-  background-color: var(--lm-bg-light);
-  padding: 2rem;
+  background: linear-gradient(135deg, #f5f7fa 0%, #eef2f7 100%);
+  padding: 1rem;
 }
 
 .lm-login-card {
-  background-color: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  padding: 2.5rem;
   width: 100%;
-  max-width: 480px;
+  max-width: 420px;
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  padding: 2.5rem;
   text-align: center;
-  position: relative;
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .lm-logo-container {
   margin-bottom: 2rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
 }
 
 .lm-logo {
-  height: 60px;
+  height: 64px;
   margin-bottom: 1rem;
 }
 
@@ -50,15 +57,15 @@
 }
 
 .lm-title {
-  color: var(--lm-dark-blue);
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   font-weight: 600;
-  margin-bottom: 0.5rem;
+  color: var(--lm-dark-blue);
+  margin: 0 0 0.5rem;
 }
 
 .lm-subtitle {
-  color: var(--lm-text-light);
   font-size: 1rem;
+  color: var(--lm-text-light);
   margin-bottom: 2rem;
 }
 
@@ -66,32 +73,91 @@
   margin-top: 1.5rem;
 }
 
+.lm-loading-spinner {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(0, 124, 255, 0.1);
+  border-radius: 50%;
+  border-top-color: var(--lm-primary);
+  animation: lm-spin 1s linear infinite;
+  margin: 1rem auto;
+}
+
+@keyframes lm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .lm-button {
-  background-color: var(--lm-primary);
+  background: linear-gradient(to right, var(--lm-primary), var(--lm-secondary));
   color: white;
   border: none;
-  border-radius: 4px;
-  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  padding: 0.875rem 2rem;
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
   width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .lm-button:hover {
-  background-color: var(--lm-dark-blue);
+  background: linear-gradient(to right, var(--lm-dark-blue), var(--lm-primary));
+  box-shadow: 0 4px 8px rgba(0, 124, 255, 0.2);
+  transform: translateY(-1px);
 }
 
-.lm-loading-spinner {
-  display: inline-block;
-  width: 2rem;
-  height: 2rem;
-  border: 2px solid rgba(0, 124, 255, 0.1);
+.lm-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 124, 255, 0.1);
+}
+
+.lm-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.error-container {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 2rem;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.error-message {
+  color: #d83b01;
+  padding: 0.75rem;
+  margin-bottom: 1.5rem;
+  background-color: rgba(216, 59, 1, 0.05);
+  border-radius: 6px;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: white;
+}
+
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(0, 124, 255, 0.1);
   border-radius: 50%;
   border-top-color: var(--lm-primary);
-  animation: spin 1s ease-in-out infinite;
-  margin: 0 auto;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1.5rem;
 }
 
 @keyframes spin {
@@ -100,44 +166,29 @@
   }
 }
 
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  background-color: var(--lm-bg-light);
-}
-
-.loading-spinner {
-  display: inline-block;
-  width: 2rem;
-  height: 2rem;
-  border: 2px solid rgba(0, 124, 255, 0.1);
-  border-radius: 50%;
-  border-top-color: var(--lm-primary);
-  animation: spin 1s ease-in-out infinite;
-  margin-bottom: 1rem;
-}
-
-.error-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  background-color: var(--lm-bg-light);
-  padding: 2rem;
-  text-align: center;
-}
-
-.error-message {
-  color: #d32f2f;
-  font-size: 1rem;
-  margin-bottom: 1.5rem;
-  padding: 1rem;
-  background-color: rgba(211, 47, 47, 0.1);
-  border-radius: 4px;
+.lm-brand-background {
+  position: absolute;
+  left: 0;
+  top: 0;
   width: 100%;
-  max-width: 480px;
+  height: 100%;
+  z-index: -1;
+  opacity: 0.03;
+  background-size: cover;
+  background-position: center;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .lm-login-card {
+    padding: 1.5rem;
+  }
+  
+  .lm-logo {
+    height: 48px;
+  }
+  
+  .lm-title {
+    font-size: 1.5rem;
+  }
 }
