@@ -1,27 +1,24 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const functions_1 = require("@azure/functions");
-functions_1.app.http('saveAssessment', {
+import { app } from '@azure/functions';
+export const saveAssessmentHandler = app.http('saveAssessment', {
     methods: ['POST'],
     authLevel: 'function',
     handler: async (request, context) => {
-        context.log('SaveAssessment function processed a request.');
         try {
             const assessment = await request.json();
-            const assessmentId = `assessment-${Date.now()}`; // Generate a unique ID
-            // Your assessment saving logic here
+            context.log('SaveAssessment function processing assessment:', assessment.id);
+            // TODO: Implement assessment saving logic
             return {
                 status: 200,
                 jsonBody: {
                     message: "Assessment saved successfully",
-                    assessmentId: assessmentId
+                    assessmentId: assessment.id
                 }
             };
         }
         catch (error) {
             return {
                 status: 500,
-                jsonBody: { error: error.message || "Error saving assessment" }
+                jsonBody: "Error saving assessment."
             };
         }
     }

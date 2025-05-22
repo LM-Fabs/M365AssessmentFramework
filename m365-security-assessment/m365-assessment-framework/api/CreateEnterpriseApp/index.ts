@@ -2,6 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/fu
 import { ClientSecretCredential } from '@azure/identity';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials';
+import { KeyVaultService } from '../shared/keyVaultService';
 
 interface CreateEnterpriseAppRequest {
     targetTenantId: string;
@@ -66,10 +67,19 @@ export const createEnterpriseAppHandler = app.http('createEnterpriseApp', {
                 }
             };
 
+            // Get secrets from Key Vault using the KeyVaultService
+            const keyVaultService = KeyVaultService.getInstance();
+            const { tenantId, clientId, clientSecret } = await keyVaultService.getGraphCredentials();
+            
+            if (!tenantId || !clientId || !clientSecret) {
+                throw new Error('Failed to retrieve required credentials from Key Vault');
+            }
+
+            // Create credentials for Microsoft Graph API
             const credential = new ClientSecretCredential(
-                process.env.AZURE_TENANT_ID!,
-                process.env.react_app_client_id!, // Updated to use the same env var as staticwebapp.config.json
-                process.env.AZURE_CLIENT_SECRET!
+                tenantId,
+                clientId,
+                clientSecret
             );
 
             const authProvider = new TokenCredentialAuthenticationProvider(credential, {

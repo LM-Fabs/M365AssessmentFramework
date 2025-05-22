@@ -1,17 +1,22 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const functions_1 = require("@azure/functions");
-const identity_1 = require("@azure/identity");
-const microsoft_graph_client_1 = require("@microsoft/microsoft-graph-client");
-const azureTokenCredentials_1 = require("@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials");
-functions_1.app.http('createEnterpriseApp', {
+import { app } from '@azure/functions';
+import { ClientSecretCredential } from '@azure/identity';
+import { Client } from '@microsoft/microsoft-graph-client';
+import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials';
+import { KeyVaultService } from '../shared/keyVaultService';
+export const createEnterpriseAppHandler = app.http('createEnterpriseApp', {
     methods: ['POST'],
     authLevel: 'function',
     handler: async (request, context) => {
-        context.log('CreateEnterpriseApp function processed a request.');
         try {
-            const requestBody = await request.json();
-            const targetTenantId = requestBody.targetTenantId;
+            const requestData = await request.json();
+            if (!requestData || typeof requestData !== 'object' || !('targetTenantId' in requestData)) {
+                return {
+                    status: 400,
+                    jsonBody: { error: "Invalid request body. Expected { targetTenantId: string }" }
+                };
+            }
+            const { targetTenantId } = requestData;
+            context.log('CreateEnterpriseApp function processing request for tenant:', targetTenantId);
             if (!targetTenantId) {
                 return {
                     status: 400,
@@ -53,40 +58,45 @@ functions_1.app.http('createEnterpriseApp', {
                     }
                 }
             };
-            // Initialize Graph client with managed identity
-            const credential = new identity_1.ClientSecretCredential(process.env.AZURE_TENANT_ID, process.env.AZURE_CLIENT_ID, process.env.AZURE_CLIENT_SECRET);
-            const authProvider = new azureTokenCredentials_1.TokenCredentialAuthenticationProvider(credential, {
+            // Get secrets from Key Vault using the KeyVaultService
+            const keyVaultService = KeyVaultService.getInstance();
+            const { tenantId, clientId, clientSecret } = await keyVaultService.getGraphCredentials();
+            if (!tenantId || !clientId || !clientSecret) {
+                throw new Error('Failed to retrieve required credentials from Key Vault');
+            }
+            // Create credentials for Microsoft Graph API
+            const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+            const authProvider = new TokenCredentialAuthenticationProvider(credential, {
                 scopes: ['https://graph.microsoft.com/.default']
             });
-            const graphClient = microsoft_graph_client_1.Client.initWithMiddleware({
+            const graphClient = Client.initWithMiddleware({
                 authProvider: authProvider
             });
-            // Create the application
             const application = await graphClient.api('/applications')
                 .post(appRegistration);
-            // Create service principal for the application
             const servicePrincipal = await graphClient.api('/servicePrincipals')
                 .post({
                 appId: application.appId,
                 displayName: application.displayName
             });
-            const result = {
-                applicationId: application.id,
-                applicationObjectId: application.id,
-                clientId: application.appId,
-                servicePrincipalId: servicePrincipal.id,
-                tenantId: targetTenantId
-            };
             return {
                 status: 200,
-                jsonBody: result
+                jsonBody: {
+                    applicationId: application.id,
+                    applicationObjectId: application.id,
+                    clientId: application.appId,
+                    servicePrincipalId: servicePrincipal.id,
+                    tenantId: targetTenantId
+                }
             };
         }
         catch (error) {
-            context.error('Error in createEnterpriseApp:', error);
+            context.error('Error creating enterprise application:', error);
             return {
                 status: 500,
-                jsonBody: { error: error.message || "Error creating enterprise application" }
+                jsonBody: {
+                    error: error.message || 'An error occurred while creating the enterprise application'
+                }
             };
         }
     }

@@ -1,14 +1,12 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const functions_1 = require("@azure/functions");
-const constants_1 = require("../shared/constants");
-functions_1.app.http('getBestPractices', {
+import { app } from '@azure/functions';
+import { getBestPractices } from '../shared/constants.js';
+export const getBestPracticesHandler = app.http('getBestPractices', {
     methods: ['GET'],
     authLevel: 'function',
     handler: async (request, context) => {
         context.log('GetBestPractices function processed a request.');
         try {
-            const bestPractices = await (0, constants_1.getBestPractices)();
+            const bestPractices = await getBestPractices();
             return {
                 status: 200,
                 jsonBody: bestPractices
@@ -17,7 +15,7 @@ functions_1.app.http('getBestPractices', {
         catch (error) {
             return {
                 status: 500,
-                jsonBody: { error: "Error retrieving best practices." }
+                jsonBody: "Error retrieving best practices."
             };
         }
     }

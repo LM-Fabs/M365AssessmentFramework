@@ -1,35 +1,27 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const functions_1 = require("@azure/functions");
-functions_1.app.http('getAssessment', {
+import { app } from '@azure/functions';
+export const getAssessmentHandler = app.http('getAssessment', {
     methods: ['GET'],
     authLevel: 'function',
+    route: 'assessment/{tenantId}/{assessmentId}',
     handler: async (request, context) => {
-        context.log('GetAssessment function processed a request.');
+        const tenantId = request.params.tenantId;
+        const assessmentId = request.params.assessmentId;
+        context.log('GetAssessment function processed a request for tenant:', tenantId, 'assessment:', assessmentId);
         try {
-            const tenantId = request.params.tenantId;
-            const assessmentId = request.params.assessmentId;
-            if (!tenantId || !assessmentId) {
-                return {
-                    status: 400,
-                    jsonBody: { error: "Tenant ID and Assessment ID are required" }
-                };
-            }
-            // Your assessment retrieval logic here
-            const assessment = {
-                id: assessmentId,
-                tenantId: tenantId,
-                date: new Date().toISOString()
-            };
+            // TODO: Implement assessment retrieval logic
             return {
                 status: 200,
-                jsonBody: assessment
+                jsonBody: {
+                    id: assessmentId,
+                    tenantId: tenantId,
+                    // Add other assessment data here
+                }
             };
         }
         catch (error) {
             return {
                 status: 500,
-                jsonBody: { error: error.message || "Error retrieving assessment" }
+                jsonBody: "Error retrieving assessment."
             };
         }
     }
