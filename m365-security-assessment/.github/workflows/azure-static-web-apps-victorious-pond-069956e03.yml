@@ -32,19 +32,18 @@ jobs:
           fetch-depth: 1
           submodules: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: '${{ env.APP_LOCATION }}/package-lock.json'
-
       - name: Install Dependencies
         working-directory: ${{ env.APP_LOCATION }}
         run: |
-          npm install -g @azure/static-web-apps-cli
           npm ci
           npm install tailwindcss-animate --save-dev
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+          cache-dependency-path: '${{ env.APP_LOCATION }}/package-lock.json'
 
       - name: Build Application
         working-directory: ${{ env.APP_LOCATION }}
