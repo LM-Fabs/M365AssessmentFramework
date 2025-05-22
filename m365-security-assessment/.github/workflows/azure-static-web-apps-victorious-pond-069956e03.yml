@@ -32,15 +32,6 @@ jobs:
           fetch-depth: 1
           submodules: false
 
-      - name: Install Dependencies
-        working-directory: ${{ env.APP_LOCATION }}
-        run: |
-          npm ci
-          npm install tailwindcss-animate --no-save
-          npm ls tailwindcss-animate || npm install tailwindcss-animate --save-dev
-          # Make sure the package is definitely installed and available
-          npm list tailwindcss-animate
-
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -50,6 +41,17 @@ jobs:
 
       - name: Ensure .nvmrc in App Root
         run: echo "18" > ${{ env.APP_LOCATION }}/.nvmrc
+
+      - name: Install Dependencies
+        working-directory: ${{ env.APP_LOCATION }}
+        run: |
+          node -v # Log Node.js version for debugging
+          npm -v # Log npm version for debugging
+          npm ci
+          npm install tailwindcss-animate --no-save
+          npm ls tailwindcss-animate || npm install tailwindcss-animate --save-dev
+          # Make sure the package is definitely installed and available
+          npm list tailwindcss-animate
 
       - name: Build Application
         working-directory: ${{ env.APP_LOCATION }}
@@ -112,6 +114,6 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_VICTORIOUS_POND_069956E03 }}
           action: "close"
 
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: true
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
