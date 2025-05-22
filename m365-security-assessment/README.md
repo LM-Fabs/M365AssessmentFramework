@@ -341,6 +341,32 @@ When adding new features, always:
    - Verify Azure credentials
    - Check resource configuration
 
+4. Node.js Version Issues
+   - This project requires Node.js >=18.0.0
+   - If using nvm, run `nvm use 18` in project directory
+   - Create an `.nvmrc` file with content "18" in the project root
+   - For GitHub Actions, ensure workflows specify Node.js 18
+   - Check both local and CI environments for consistent Node versions
+   - For macOS/Linux users, add to your shell profile:
+     ```bash
+     # Auto-use .nvmrc Node version when cd'ing into project
+     autoload -U add-zsh-hook
+     load-nvmrc() {
+       local node_version="$(nvm version)"
+       local nvmrc_path="$(nvm_find_nvmrc)"
+       if [ -n "$nvmrc_path" ]; then
+         local nvmrc_node_version=$(nvm version "$(cat "${nvmrc_path}")")
+         if [ "$nvmrc_node_version" = "N/A" ]; then
+           nvm install
+         elif [ "$nvmrc_node_version" != "$node_version" ]; then
+           nvm use
+         fi
+       fi
+     }
+     add-zsh-hook chpwd load-nvmrc
+     load-nvmrc
+     ```
+
 ## License
 
 This project is licensed under the MIT License. See the LICENSE file for details.
