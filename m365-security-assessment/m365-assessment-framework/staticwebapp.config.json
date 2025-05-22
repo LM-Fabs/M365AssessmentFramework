@@ -2,49 +2,18 @@
   "routes": [
     {
       "route": "/api/*",
-      "allowedRoles": ["authenticated"]
-    },
-    {
-      "route": "/.auth/login/aad",
-      "statusCode": 200
-    },
-    {
-      "route": "/.auth/login/aad/callback",
-      "statusCode": 200
-    },
-    {
-      "route": "/login",
-      "rewrite": "/.auth/login/aad"
+      "allowedRoles": ["anonymous"]
     },
     {
       "route": "/*",
-      "allowedRoles": ["authenticated"],
+      "allowedRoles": ["anonymous"],
       "serve": "/index.html",
       "statusCode": 200
     }
   ],
-  "auth": {
-    "identityProviders": {
-      "azureActiveDirectory": {
-        "enabled": true,
-        "registration": {
-          "openIdIssuer": "https://login.microsoftonline.com/common/v2.0",
-          "clientId": "d1cc9e16-9194-4892-92c5-473c9f65dcb3",
-          "clientSecretSettingName": "AZURE_CLIENT_SECRET"
-        },
-        "userDetailsClaim": "preferred_username"
-      }
-    }
-  },
   "navigationFallback": {
     "rewrite": "/index.html",
     "exclude": ["/images/*.{png,jpg,gif}", "/css/*", "/js/*"]
-  },
-  "responseOverrides": {
-    "401": {
-      "redirect": "/.auth/login/aad",
-      "statusCode": 302
-    }
   },
   "globalHeaders": {
     "content-security-policy": "default-src https: 'unsafe-eval' 'unsafe-inline'; object-src 'none'"
