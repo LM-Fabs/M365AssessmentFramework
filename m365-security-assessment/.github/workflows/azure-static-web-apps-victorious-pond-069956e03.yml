@@ -66,6 +66,9 @@ jobs:
             npm run build --if-present
           fi
 
+      - name: List build output
+        run: ls -l ${{ env.APP_LOCATION }}/build
+
       - name: Fetch Secrets from Azure Key Vault
         run: |
           echo "Fetching secrets from Azure Key Vault..."
