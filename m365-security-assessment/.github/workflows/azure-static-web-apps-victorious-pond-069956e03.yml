@@ -93,7 +93,6 @@ jobs:
           api_location: ${{ env.API_LOCATION }}
           output_location: ${{ env.OUTPUT_LOCATION }}
           skip_app_build: true
-          node_version: "18"
         env:
           IS_STATIC_EXPORT: true
           NODE_ENV: production

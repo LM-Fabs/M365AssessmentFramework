@@ -7,7 +7,7 @@
     {
       "route": "/*",
       "allowedRoles": ["anonymous"],
-      "serve": "/index.html",
+      "rewrite": "/index.html",
       "statusCode": 200
     }
   ],
@@ -23,9 +23,5 @@
   },
   "platform": {
     "apiRuntime": "node:18"
-  },
-  "buildProperties": {
-    "skipBuild": true,
-    "nodeVersion": "18"
   }
 }
