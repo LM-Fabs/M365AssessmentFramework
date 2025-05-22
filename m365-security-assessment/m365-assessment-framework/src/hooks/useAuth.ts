@@ -70,7 +70,10 @@ export const useAuth = () => {
   }, []);
 
   const logout = useCallback(() => {
-    window.location.href = '/.auth/logout';
+    // Add post_logout_redirect_uri to prevent automatic re-authentication
+    // This redirects to the /login page after logout without automatically triggering login
+    const logoutUrl = '/.auth/logout?post_logout_redirect_uri=/login?noauto=true';
+    window.location.href = logoutUrl;
   }, []);
 
   const getToken = useCallback(async () => {
@@ -84,6 +87,7 @@ export const useAuth = () => {
       }
       throw new Error('Not authenticated');
     } catch (error) {
+      console.error('Token acquisition failed:', error);
       throw new Error('Failed to get access token');
     }
   }, []);
