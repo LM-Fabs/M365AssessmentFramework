@@ -34,7 +34,7 @@ const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 };
 
 const App: React.FC = () => {
-  const { isLoading, error } = useAuth();
+  const { isLoading, error, logout, account } = useAuth();
 
   if (isLoading) {
     return (
@@ -58,7 +58,7 @@ const App: React.FC = () => {
     <MsalProvider instance={msalInstance}>
       <Router>
         <div className="app">
-          <Navigation />
+          <Navigation userName={account?.name} onLogout={logout} />
           
           <main className="main-content">
             <Routes>

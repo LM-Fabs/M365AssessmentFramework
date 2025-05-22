@@ -1,0 +1,13 @@
+{
+  "configurations": {
+    "app": {
+      "outputLocation": "./build",
+      "appBuildCommand": "npm run build",
+      "appLocation": "."
+    },
+    "api": {
+      "apiLocation": "api",
+      "apiLanguage": "node"
+    }
+  }
+}
