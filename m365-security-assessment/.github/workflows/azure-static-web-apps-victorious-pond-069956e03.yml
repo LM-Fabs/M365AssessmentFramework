@@ -63,6 +63,17 @@ jobs:
             npm run build --if-present
           fi
 
+      - name: Fetch Secrets from Azure Key Vault
+        run: |
+          echo "Fetching secrets from Azure Key Vault..."
+          AZURE_CLIENT_ID=$(az keyvault secret show --vault-name ${{ secrets.AZURE_KEYVAULT_NAME }} --name AZURE-CLIENT-ID --query value -o tsv)
+          AZURE_TENANT_ID=$(az keyvault secret show --vault-name ${{ secrets.AZURE_KEYVAULT_NAME }} --name AZURE-TENANT-ID --query value -o tsv)
+          AZURE_SUBSCRIPTION_ID=$(az keyvault secret show --vault-name ${{ secrets.AZURE_KEYVAULT_NAME }} --name AZURE-SUBSCRIPTION-ID --query value -o tsv)
+          AZURE_STATIC_WEB_APPS_API_TOKEN=$(az keyvault secret show --vault-name ${{ secrets.AZURE_KEYVAULT_NAME }} --name AZURE-STATIC-WEB-APPS-API-TOKEN --query value -o tsv)
+          echo "Secrets fetched successfully."
+        env:
+          AZURE_KEYVAULT_NAME: ${{ secrets.AZURE_KEYVAULT_NAME }}
+
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
         with:
