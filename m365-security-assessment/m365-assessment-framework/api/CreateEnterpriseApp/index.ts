@@ -68,7 +68,7 @@ export const createEnterpriseAppHandler = app.http('createEnterpriseApp', {
 
             const credential = new ClientSecretCredential(
                 process.env.AZURE_TENANT_ID!,
-                process.env.AZURE_CLIENT_ID!,
+                process.env.react_app_client_id!, // Updated to use the same env var as staticwebapp.config.json
                 process.env.AZURE_CLIENT_SECRET!
             );
 

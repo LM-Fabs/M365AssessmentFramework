@@ -28,8 +28,8 @@
       "azureActiveDirectory": {
         "enabled": true,
         "registration": {
-          "openIdIssuer": "https://login.microsoftonline.com/organizations/v2.0",
-          "clientId": "d1cc9e16-9194-4892-92c5-473c9f65dcb3",
+          "openIdIssuer": "https://login.microsoftonline.com/common/v2.0",
+          "clientIdSettingName": "react_app_client_id",
           "clientSecretSettingName": "AZURE_CLIENT_SECRET"
         },
         "userDetailsClaim": "preferred_username"
