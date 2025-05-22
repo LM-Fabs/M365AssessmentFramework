@@ -20,5 +20,8 @@
   },
   "mimeTypes": {
     ".css": "text/css"
+  },
+  "platform": {
+    "apiRuntime": "node:18"
   }
 }
