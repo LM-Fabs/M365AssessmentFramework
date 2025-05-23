@@ -15,34 +15,43 @@ The Microsoft 365 Security Assessment Framework is a web application designed fo
 ## Project Structure
 
 ```
-m365-assessment-framework
-├── src
-│   ├── components
-│   ├── hooks
-│   ├── models
-│   ├── pages
-│   ├── services
-│   ├── utils
-│   ├── App.tsx
-│   └── index.tsx
-├── api
-│   ├── GetAssessment
-│   ├── GetBestPractices
-│   ├── SaveAssessment
-│   └── shared
-├── .github
-│   └── workflows
-├── package.json
-├── tsconfig.json
-└── README.md
+m365-security-assessment/
+└── m365-assessment-framework/
+    ├── src/
+    │   ├── components/
+    │   ├── hooks/
+    │   ├── models/
+    │   ├── pages/
+    │   ├── services/
+    │   ├── shared/
+    │   ├── types/
+    │   ├── utils/
+    │   ├── App.tsx
+    │   └── index.tsx
+    ├── api/
+    │   ├── CreateEnterpriseApp/
+    │   ├── GetAssessment/
+    │   ├── GetBestPractices/
+    │   ├── SaveAssessment/
+    │   ├── ValidateKeyVault/
+    │   └── shared/
+    ├── public/
+    ├── build/
+    ├── package.json
+    ├── tsconfig.json
+    ├── staticwebapp.config.json
+    ├── swa-cli.config.json
+    ├── tailwind.config.js
+    ├── postcss.config.js
+    └── README.md
 ```
 
 ## Getting Started
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/m365-assessment-framework.git
-   cd m365-assessment-framework
+   git clone https://github.com/yourusername/M365AssessmentFramework.git
+   cd M365AssessmentFramework/m365-security-assessment/m365-assessment-framework
    ```
 
 2. Install dependencies:
@@ -50,10 +59,19 @@ m365-assessment-framework
    npm install
    ```
 
-3. Run the application:
+3. Set up the correct Node.js version (if needed):
    ```bash
-   npm start
+   cd ../
+   ./setup-env.sh
+   cd m365-assessment-framework
    ```
+
+4. Run the application (frontend and API together):
+   ```bash
+   npm run dev
+   ```
+
+   - This will start both the React frontend and the Azure Functions API locally.
 
 ## API Endpoints
 

@@ -2,42 +2,14 @@
 
 # M365 Security Assessment Framework
 
-A comprehensive security assessment framework for Microsoft 365 environments.
+**Note:** The main app and all development should now be done in the `m365-assessment-framework` subfolder. All code, configuration, and API logic are unified there for clarity and maintainability.
 
-## Overview
-
-This tool helps organizations evaluate and improve their Microsoft 365 security posture by providing a structured assessment framework based on Microsoft best practices.
-
-## Features
-
-- Security score assessment
-- Best practices recommendations
-- Compliance reporting
-- Remediation guidance
-
-## Deployment Status
-
-Latest deployment: May 23, 2025 - Fixed Node.js version compatibility issues.
-
-## Development
-
-This project uses Node.js 18.x and React for the frontend with Azure Functions for the backend API.
-
-## Getting Started
+## Quick Start
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/M365AssessmentFramework.git
-
-# Navigate to the project directory
-cd M365AssessmentFramework/m365-security-assessment
-
-# Set up the correct Node.js version
-./setup-env.sh
-
-# Install dependencies
+cd m365-assessment-framework
 npm install
-
-# Start the development server
 npm run dev
 ```
+
+For more details, see the README in `m365-assessment-framework/`.
