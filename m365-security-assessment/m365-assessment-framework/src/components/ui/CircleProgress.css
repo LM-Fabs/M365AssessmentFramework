@@ -1,0 +1,19 @@
+.circle-progress {
+  position: relative;
+  display: inline-block;
+}
+
+.circle-progress-svg {
+  transform: rotate(-90deg);
+}
+
+.circle-progress-background {
+  fill: none;
+  stroke: #e9ecef;
+}
+
+.circle-progress-indicator {
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease-out;
+}
