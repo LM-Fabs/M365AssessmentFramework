@@ -148,16 +148,16 @@ const Navigation: React.FC<NavigationProps> = ({ userName, onLogout }) => {
             <div className="user-profile">
               <div className="user-avatar">{getInitials(userName)}</div>
               <div className="user-info">
-                <div className="user-name">{userName || 'User'}</div>
-                <div className="user-email">{userName ? `${userName.toLowerCase()}@lm-ag.de` : ''}</div>
-                <button onClick={handleLogout} className="logout-button">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                  Sign out
-                </button>
+                <div className="user-name">{userName.split('@')[0]}</div>
+                <div className="user-email">{userName}</div>
               </div>
             </div>
+            <button onClick={handleLogout} className="logout-button">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Sign out
+            </button>
           </div>
         )}
       </nav>
