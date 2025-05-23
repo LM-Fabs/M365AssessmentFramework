@@ -131,6 +131,7 @@ const Navigation: React.FC<NavigationProps> = ({ userName, onLogout }) => {
               <div className="user-avatar">{getInitials(userName)}</div>
               <div className="user-info">
                 <div className="user-name">{userName}</div>
+                <div className="user-email">{userName?.toLowerCase()}@lm-ag.de</div>
                 <button onClick={handleLogout} className="logout-button">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -170,6 +171,52 @@ const Navigation: React.FC<NavigationProps> = ({ userName, onLogout }) => {
         style={{ display: isMenuOpen ? 'block' : 'none' }}
         onClick={() => setIsMenuOpen(false)}
       />
+      
+      <div className="mobile-menu">
+        <div className="mobile-menu-header">
+          <button className="close-mobile-menu" onClick={() => setIsMenuOpen(false)}>
+            <span className="close-icon">&times;</span>
+          </button>
+        </div>
+        
+        {userName && (
+          <div className="mobile-user-info">
+            <div className="mobile-user-avatar">{getInitials(userName)}</div>
+            <div className="mobile-user-details">
+              <div className="mobile-username">{userName}</div>
+              <div className="mobile-user-email">{userName?.toLowerCase()}@lm-ag.de</div>
+            </div>
+          </div>
+        )}
+        
+        <div className="mobile-nav-menu">
+          <ul className="mobile-nav-list">
+            {navItems.map((item) => (
+              <li key={item.path} className="mobile-nav-item">
+                <NavLink
+                  to={item.path}
+                  className={({ isActive }) => `mobile-nav-link ${isActive ? 'active' : ''}`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <span className="mobile-nav-icon">{item.icon}</span>
+                  <span className="mobile-nav-text">{item.label}</span>
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </div>
+        
+        {userName && (
+          <div className="mobile-nav-footer">
+            <button onClick={handleLogout} className="mobile-logout-button">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Sign out
+            </button>
+          </div>
+        )}
+      </div>
     </>
   );
 };

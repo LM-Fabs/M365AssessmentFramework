@@ -114,7 +114,7 @@
   align-items: flex-end;
   flex: 1;
   min-width: 0;
-  max-width: 160px;
+  max-width: 200px;
 }
 
 .username {
@@ -252,17 +252,26 @@
 .mobile-user-details {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 
 .mobile-username {
   color: var(--lm-text-main);
   font-weight: 500;
   font-size: 0.875rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  margin-bottom: 0.125rem;
 }
 
-.mobile-user-role {
+.mobile-user-email {
   color: var(--lm-text-light);
   font-size: 0.75rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
 }
 
 .mobile-nav-links {
@@ -433,7 +442,7 @@
 .user-info {
   flex: 1;
   min-width: 0;
-  max-width: 160px;
+  max-width: 200px;
 }
 
 .user-name {
@@ -445,7 +454,19 @@
   overflow: hidden;
   width: 100%;
   display: block;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.125rem;
+  line-height: 1.2;
+}
+
+.user-email {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  width: 100%;
+  display: block;
+  line-height: 1.2;
 }
 
 .logout-button {
@@ -528,6 +549,6 @@
   }
   
   .user-info {
-    max-width: 120px;
+    max-width: 160px;
   }
 }
