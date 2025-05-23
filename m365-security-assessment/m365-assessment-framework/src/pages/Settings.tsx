@@ -5,7 +5,7 @@ import { AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from '@azure/
 import { AssessmentService } from '../services/assessmentService';
 import { SECURITY_CATEGORIES } from '../shared/constants';
 
-export const Settings = () => {
+const Settings = () => {
   const { accounts } = useMsal();
   const account = accounts[0] || null;
   const navigate = useNavigate();
@@ -322,3 +322,5 @@ export const Settings = () => {
     </div>
   );
 };
+
+export default Settings;
