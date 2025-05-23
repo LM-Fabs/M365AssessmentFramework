@@ -4,6 +4,7 @@ import { Assessment } from '../shared/types.js';
 export const saveAssessmentHandler = app.http('saveAssessment', {
     methods: ['POST'],
     authLevel: 'function',
+    route: 'assessment/save', // Add specific route to match frontend expectation
     handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
         try {
             const assessment = await request.json() as Assessment;
