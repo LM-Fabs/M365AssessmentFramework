@@ -7,21 +7,7 @@
       "NODE_VERSION": "18"
     }
   },
-  "globalHeaders": {
-    "content-security-policy": "default-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline';"
-  },
-  "mimeTypes": {
-    ".json": "application/json",
-    ".js": "application/javascript",
-    ".css": "text/css"
-  },
   "routes": [
-    {
-      "route": "/static/*",
-      "headers": {
-        "cache-control": "must-revalidate, max-age=31536000"
-      }
-    },
     {
       "route": "/api/*",
       "allowedRoles": ["anonymous"]
@@ -29,23 +15,20 @@
     {
       "route": "/*",
       "allowedRoles": ["anonymous"],
-      "rewrite": "/index.html",
-      "headers": {
-        "cache-control": "no-cache"
-      }
+      "rewrite": "/index.html"
     }
   ],
   "navigationFallback": {
     "rewrite": "/index.html",
     "exclude": [
-      "/images/*.{png,jpg,gif,ico}",
-      "/css/*",
-      "/js/*",
+      "/images/*.png", 
+      "/images/*.jpg", 
+      "/images/*.gif", 
+      "/css/*", 
+      "/js/*", 
       "/static/css/*",
       "/static/js/*",
-      "/static/media/*",
-      "/manifest.json",
-      "/favicon.ico"
+      "/static/media/*"
     ]
   }
 }
