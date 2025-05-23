@@ -1,16 +1,14 @@
 // filepath: /m365-assessment-framework/m365-assessment-framework/src/pages/Settings.tsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from '@azure/msal-react';
+import { useAuth } from '../hooks/useAuth';
 import { AssessmentService } from '../services/assessmentService';
 import { SECURITY_CATEGORIES } from '../shared/constants';
 import './Settings.css';
 
 const Settings = () => {
-  const { accounts } = useMsal();
-  const account = accounts[0] || null;
+  const { isAuthenticated, account } = useAuth();
   const navigate = useNavigate();
-  const isAuthenticated = account !== null;
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
