@@ -1,28 +1,23 @@
 // filepath: /m365-assessment-framework/m365-assessment-framework/src/pages/Settings.tsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from '@azure/msal-react';
 import { AssessmentService } from '../services/assessmentService';
-import { Assessment } from '../models/Assessment';
 import { SECURITY_CATEGORIES } from '../shared/constants';
 
-const Settings: React.FC = () => {
+export const Settings = () => {
+  const { accounts } = useMsal();
+  const account = accounts[0] || null;
   const navigate = useNavigate();
-  const { isAuthenticated, account } = useAuth();
+  const isAuthenticated = account !== null;
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
   const [formData, setFormData] = useState({
     tenantName: '',
     includedCategories: Object.keys(SECURITY_CATEGORIES),
-    customThresholds: {
-      identity: 90,
-      dataProtection: 85,
-      endpoint: 85,
-      cloudApps: 85,
-      informationProtection: 85,
-      threatProtection: 90
-    },
     notificationEmail: account?.username || '',
     autoSchedule: false,
     scheduleFrequency: 'monthly'
@@ -37,16 +32,6 @@ const Settings: React.FC = () => {
     }));
   };
 
-  const handleThresholdChange = (category: string, value: number) => {
-    setFormData(prev => ({
-      ...prev,
-      customThresholds: {
-        ...prev.customThresholds,
-        [category]: value
-      }
-    }));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -58,7 +43,6 @@ const Settings: React.FC = () => {
       const assessment = await assessmentService.createAssessment({
         tenantName: formData.tenantName,
         categories: formData.includedCategories,
-        thresholds: formData.customThresholds,
         notificationEmail: formData.notificationEmail,
         scheduling: {
           enabled: formData.autoSchedule,
@@ -95,21 +79,17 @@ const Settings: React.FC = () => {
 
       <form className="settings-form" onSubmit={handleSubmit}>
         {error && <div className="error-message">{error}</div>}
-        {success && (
-          <div className="success-message">
-            Assessment created successfully! Redirecting to dashboard...
-          </div>
-        )}
+        {success && <div className="success-message">Assessment created successfully. Redirecting...</div>}
 
         <div className="form-section">
-          <h2>Tenant Information</h2>
+          <h2>Basic Information</h2>
           <div className="form-field">
             <label htmlFor="tenantName">Tenant Name</label>
             <input
               type="text"
               id="tenantName"
               value={formData.tenantName}
-              onChange={e => setFormData(prev => ({ ...prev, tenantName: e.target.value }))}
+              onChange={e => setFormData({...formData, tenantName: e.target.value})}
               required
             />
           </div>
@@ -117,42 +97,17 @@ const Settings: React.FC = () => {
 
         <div className="form-section">
           <h2>Assessment Scope</h2>
+          <p>Select security categories to include in the assessment</p>
           <div className="categories-grid">
             {Object.entries(SECURITY_CATEGORIES).map(([key, label]) => (
-              <div key={key} className="category-toggle">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={formData.includedCategories.includes(key)}
-                    onChange={() => handleCategoryToggle(key)}
-                  />
-                  <span>{label}</span>
-                </label>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="form-section">
-          <h2>Security Thresholds</h2>
-          <div className="thresholds-grid">
-            {Object.entries(formData.customThresholds).map(([category, value]) => (
-              <div key={category} className="threshold-field">
-                <label htmlFor={`threshold-${category}`}>
-                  {SECURITY_CATEGORIES[category as keyof typeof SECURITY_CATEGORIES]}
-                </label>
-                <div className="threshold-input">
-                  <input
-                    type="range"
-                    id={`threshold-${category}`}
-                    min="0"
-                    max="100"
-                    value={value}
-                    onChange={e => handleThresholdChange(category, parseInt(e.target.value))}
-                  />
-                  <span>{value}%</span>
-                </div>
-              </div>
+              <label key={key} className={`category-checkbox ${formData.includedCategories.includes(key) ? 'selected' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={formData.includedCategories.includes(key)}
+                  onChange={() => handleCategoryToggle(key)}
+                />
+                <span>{label}</span>
+              </label>
             ))}
           </div>
         </div>
@@ -165,7 +120,7 @@ const Settings: React.FC = () => {
               type="email"
               id="notificationEmail"
               value={formData.notificationEmail}
-              onChange={e => setFormData(prev => ({ ...prev, notificationEmail: e.target.value }))}
+              onChange={e => setFormData({...formData, notificationEmail: e.target.value})}
               required
             />
           </div>
@@ -178,21 +133,20 @@ const Settings: React.FC = () => {
               <input
                 type="checkbox"
                 checked={formData.autoSchedule}
-                onChange={e => setFormData(prev => ({ ...prev, autoSchedule: e.target.checked }))}
+                onChange={e => setFormData({...formData, autoSchedule: e.target.checked})}
               />
-              <span>Enable automatic assessments</span>
+              <span>Schedule Recurring Assessments</span>
             </label>
 
             {formData.autoSchedule && (
               <div className="form-field">
-                <label htmlFor="scheduleFrequency">Assessment Frequency</label>
+                <label htmlFor="scheduleFrequency">Frequency</label>
                 <select
                   id="scheduleFrequency"
                   value={formData.scheduleFrequency}
-                  onChange={e => setFormData(prev => ({ ...prev, scheduleFrequency: e.target.value }))}
+                  onChange={e => setFormData({...formData, scheduleFrequency: e.target.value})}
                 >
                   <option value="weekly">Weekly</option>
-                  <option value="biweekly">Bi-weekly</option>
                   <option value="monthly">Monthly</option>
                   <option value="quarterly">Quarterly</option>
                 </select>
@@ -202,108 +156,102 @@ const Settings: React.FC = () => {
         </div>
 
         <div className="form-actions">
-          <button type="submit" disabled={loading}>
-            {loading ? 'Creating Assessment...' : 'Start Assessment'}
+          <button type="submit" className="primary-button" disabled={loading}>
+            {loading ? 'Creating...' : 'Create Assessment'}
           </button>
         </div>
       </form>
 
-      <style>{`
+      <style jsx>{`
         .settings-page {
           max-width: 800px;
           margin: 0 auto;
-          padding: 24px;
+          padding: 2rem;
         }
 
         .settings-header {
-          margin-bottom: 32px;
+          margin-bottom: 2rem;
+          text-align: center;
         }
 
         .settings-header h1 {
-          margin: 0 0 8px;
-          color: #333;
+          margin-bottom: 0.5rem;
+          color: #1e293b;
         }
 
         .settings-header p {
-          color: #666;
-          font-size: 16px;
+          color: #64748b;
         }
 
         .settings-form {
-          background: white;
+          background-color: #fff;
           border-radius: 8px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          padding: 24px;
+          padding: 2rem;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
         .form-section {
-          margin-bottom: 32px;
+          margin-bottom: 2rem;
+          padding-bottom: 2rem;
+          border-bottom: 1px solid #e2e8f0;
+        }
+
+        .form-section:last-child {
+          margin-bottom: 0;
+          padding-bottom: 0;
+          border-bottom: none;
         }
 
         .form-section h2 {
-          font-size: 18px;
-          color: #333;
-          margin: 0 0 16px;
+          font-size: 1.25rem;
+          font-weight: 600;
+          margin-bottom: 1.25rem;
+          color: #1e293b;
         }
 
         .form-field {
-          margin-bottom: 16px;
+          margin-bottom: 1.25rem;
         }
 
         .form-field label {
           display: block;
-          margin-bottom: 8px;
-          color: #666;
+          margin-bottom: 0.5rem;
+          font-weight: 500;
+          color: #475569;
         }
 
-        input[type="text"],
-        input[type="email"],
-        select {
+        .form-field input,
+        .form-field select {
           width: 100%;
-          padding: 8px 12px;
-          border: 1px solid #ddd;
+          padding: 0.625rem;
+          border: 1px solid #cbd5e1;
           border-radius: 4px;
-          font-size: 14px;
+          font-size: 1rem;
         }
 
         .categories-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 16px;
+          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+          gap: 1rem;
         }
 
-        .category-toggle label {
+        .category-checkbox {
           display: flex;
           align-items: center;
-          gap: 8px;
+          padding: 0.75rem;
+          border: 1px solid #cbd5e1;
+          border-radius: 4px;
           cursor: pointer;
+          transition: all 0.2s ease;
         }
 
-        .thresholds-grid {
-          display: grid;
-          gap: 16px;
+        .category-checkbox.selected {
+          border-color: #3b82f6;
+          background-color: #eff6ff;
         }
 
-        .threshold-field label {
-          display: block;
-          margin-bottom: 8px;
-          color: #666;
-        }
-
-        .threshold-input {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-        }
-
-        .threshold-input input[type="range"] {
-          flex: 1;
-        }
-
-        .threshold-input span {
-          min-width: 48px;
-          text-align: right;
-          color: #333;
+        .category-checkbox input {
+          margin-right: 0.5rem;
         }
 
         .schedule-options {
@@ -333,54 +281,44 @@ const Settings: React.FC = () => {
         }
 
         .success-message {
-          background: #dff6dd;
-          color: #107c10;
+          background: #d4edda;
+          color: #155724;
           padding: 12px;
           border-radius: 4px;
           margin-bottom: 16px;
         }
 
-        button[type="submit"] {
-          background: #0078d4;
+        .primary-button {
+          background-color: #3b82f6;
           color: white;
-          padding: 12px 24px;
           border: none;
           border-radius: 4px;
+          padding: 10px 24px;
           font-size: 16px;
+          font-weight: 500;
           cursor: pointer;
           transition: background-color 0.2s;
         }
 
-        button[type="submit"]:hover {
-          background: #006cbe;
+        .primary-button:hover {
+          background-color: #2563eb;
         }
 
-        button[type="submit"]:disabled {
-          background: #ccc;
+        .primary-button:disabled {
+          background-color: #94a3b8;
           cursor: not-allowed;
         }
 
-        @media (max-width: 768px) {
-          .settings-page {
-            padding: 16px;
-          }
-
-          .categories-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .threshold-input {
-            flex-direction: column;
-            align-items: stretch;
-          }
-
-          .threshold-input span {
-            text-align: left;
-          }
+        .authentication-prompt {
+          text-align: center;
+          margin: 4rem auto;
+          max-width: 500px;
+          padding: 2rem;
+          background-color: #fff;
+          border-radius: 8px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
       `}</style>
     </div>
   );
 };
-
-export default Settings;

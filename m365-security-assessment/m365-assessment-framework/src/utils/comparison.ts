@@ -185,14 +185,44 @@ const generateReferences = (gap: ComparisonGap): Array<{ title: string, url: str
     ],
     'Protected Admin Accounts': [
       {
-        title: 'Azure AD Privileged Identity Management',
-        url: 'https://docs.microsoft.com/en-us/azure/active-directory/privileged-identity-management/pim-getting-started'
+        title: 'Securing privileged access for hybrid and cloud deployments in Azure AD',
+        url: 'https://docs.microsoft.com/en-us/azure/active-directory/roles/security-planning'
+      }
+    ],
+    'Active DLP Policies': [
+      {
+        title: 'Learn about data loss prevention',
+        url: 'https://docs.microsoft.com/en-us/microsoft-365/compliance/dlp-learn-about-dlp'
       }
     ],
     'Device Compliance': [
       {
-        title: 'Set up compliance policy in Microsoft Endpoint Manager',
-        url: 'https://docs.microsoft.com/en-us/mem/intune/protect/create-compliance-policy'
+        title: 'Use compliance policies to set rules for devices you manage with Intune',
+        url: 'https://docs.microsoft.com/en-us/mem/intune/protect/device-compliance-get-started'
+      }
+    ],
+    'Defender Status': [
+      {
+        title: 'Deploy Microsoft Defender for Endpoint',
+        url: 'https://docs.microsoft.com/en-us/microsoft-365/security/defender-endpoint/deployment-phases'
+      }
+    ],
+    'High Risk OAuth Apps': [
+      {
+        title: 'Manage app access with Microsoft Cloud App Security',
+        url: 'https://docs.microsoft.com/en-us/cloud-app-security/manage-app-permissions'
+      }
+    ],
+    'AIP Labels Usage': [
+      {
+        title: 'Learn about sensitivity labels',
+        url: 'https://docs.microsoft.com/en-us/microsoft-365/compliance/sensitivity-labels'
+      }
+    ],
+    'Alert Resolution Rate': [
+      {
+        title: 'Security operations capabilities in Microsoft 365 Defender',
+        url: 'https://docs.microsoft.com/en-us/microsoft-365/security/defender/security-operations'
       }
     ]
   };

@@ -83,7 +83,6 @@ export class AssessmentService {
   public async createAssessment(data: {
     tenantName: string;
     categories: string[];
-    thresholds: Record<string, number>;
     notificationEmail: string;
     scheduling?: {
       enabled: boolean;
