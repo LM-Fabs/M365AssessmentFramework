@@ -7,8 +7,7 @@
     {
       "route": "/*",
       "allowedRoles": ["anonymous"],
-      "rewrite": "/index.html",
-      "statusCode": 200
+      "rewrite": "/index.html"
     }
   ],
   "navigationFallback": {
