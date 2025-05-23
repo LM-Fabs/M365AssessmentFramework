@@ -13,6 +13,16 @@
       }
     },
     {
+      "route": "/api/assessment/create",
+      "methods": ["POST"],
+      "allowedRoles": ["anonymous"]
+    },
+    {
+      "route": "/api/assessment/save",
+      "methods": ["POST"],
+      "allowedRoles": ["anonymous"]
+    },
+    {
       "route": "/api/*",
       "allowedRoles": ["anonymous"]
     },
@@ -32,6 +42,7 @@
       "/static/css/*",
       "/static/js/*",
       "/static/media/*",
+      "/api/*",
       "/manifest.json",
       "/robots.txt",
       "/favicon.ico"

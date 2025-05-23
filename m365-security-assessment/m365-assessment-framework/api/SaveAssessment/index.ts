@@ -3,7 +3,7 @@ import { Assessment } from '../shared/types.js';
 
 export const saveAssessmentHandler = app.http('saveAssessment', {
     methods: ['POST'],
-    authLevel: 'function',
+    authLevel: 'anonymous', // Changed from 'function' to 'anonymous' for testing
     route: 'assessment/save', // Add specific route to match frontend expectation
     handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
         try {

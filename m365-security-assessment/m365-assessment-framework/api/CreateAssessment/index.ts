@@ -2,7 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/fu
 
 export const createAssessmentHandler = app.http('createAssessment', {
     methods: ['POST'],
-    authLevel: 'function',
+    authLevel: 'anonymous', // Changed from 'function' to 'anonymous' for testing
     route: 'assessment/create', // Set route to match frontend's expectation
     handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
         context.log('CreateAssessment function processing a request');
