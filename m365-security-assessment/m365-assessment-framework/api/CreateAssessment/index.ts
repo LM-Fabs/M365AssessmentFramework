@@ -1,5 +1,16 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 
+// Define an interface for the expected request body
+interface CreateAssessmentRequest {
+    tenantName: string;
+    categories: string[];
+    notificationEmail: string;
+    scheduling?: {
+        enabled: boolean;
+        frequency: string;
+    };
+}
+
 // Add a simple GET handler for easier testing and to verify the function is registered
 export const createAssessmentTest = app.http('createAssessmentTest', {
     methods: ['GET'],
@@ -25,7 +36,8 @@ export const createAssessmentHandler = app.http('createAssessment', {
         context.log('CreateAssessment function processing a request');
         
         try {
-            const data = await request.json();
+            // Cast the request data to the defined interface
+            const data = await request.json() as CreateAssessmentRequest;
             context.log('Creating assessment with data:', data);
 
             // Generate a unique ID for the new assessment
@@ -38,10 +50,12 @@ export const createAssessmentHandler = app.http('createAssessment', {
                 status: 200, 
                 jsonBody: {
                     id: assessmentId,
-                    tenantId: data.tenantId || 'default-tenant',
+                    tenantId: data.tenantName || 'default-tenant',
                     assessmentDate: new Date().toISOString(),
                     status: 'draft',
-                    // Return other necessary fields
+                    categories: data.categories,
+                    notificationEmail: data.notificationEmail,
+                    scheduling: data.scheduling
                 }
             };
         } catch (error) {
