@@ -95,7 +95,7 @@ const Navigation: React.FC<NavigationProps> = ({ userName, onLogout }) => {
       <nav className={`lm-navigation ${isMenuOpen ? 'menu-open' : ''}`}>
         <div className="nav-header">
           <div className="nav-logo-container">
-            <img src={`${process.env.PUBLIC_URL}/images/lm-logo.svg`} alt="LM Logo" className="nav-logo" />
+            <img src="/images/lm-logo.svg" alt="LM Logo" className="nav-logo" />
             <h1 className="nav-title">IT Security Assessment</h1>
           </div>
           <button 

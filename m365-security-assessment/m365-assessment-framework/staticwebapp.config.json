@@ -1,6 +1,12 @@
 {
   "routes": [
     {
+      "route": "/images/*",
+      "headers": {
+        "cache-control": "must-revalidate, max-age=15770000"
+      }
+    },
+    {
       "route": "/static/*",
       "headers": {
         "cache-control": "must-revalidate, max-age=15770000"
@@ -22,7 +28,7 @@
   "navigationFallback": {
     "rewrite": "/index.html",
     "exclude": [
-      "/images/*.{png,jpg,gif}",
+      "/images/*",
       "/static/css/*",
       "/static/js/*",
       "/static/media/*",

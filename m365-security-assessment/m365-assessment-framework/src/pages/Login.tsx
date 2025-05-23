@@ -30,7 +30,7 @@ const Login: React.FC = () => {
       <div className="lm-login-container">
         <div className="lm-login-card">
           <div className="lm-logo-container">
-            <img src={`${process.env.PUBLIC_URL}/images/lm-logo.svg`} alt="LM Logo" className="lm-logo" />
+            <img src="/images/lm-logo.svg" alt="LM Logo" className="lm-logo" />
             <h1 className="lm-title">M365 Security Assessment</h1>
           </div>
           <p className="lm-subtitle">Initializing authentication...</p>
@@ -45,7 +45,7 @@ const Login: React.FC = () => {
       <div className="lm-login-container">
         <div className="lm-login-card">
           <div className="lm-logo-container">
-            <img src={`${process.env.PUBLIC_URL}/images/lm-logo.svg`} alt="LM Logo" className="lm-logo" />
+            <img src="/images/lm-logo.svg" alt="LM Logo" className="lm-logo" />
             <h1 className="lm-title">M365 Security Assessment</h1>
           </div>
           <div className="error-message">{error}</div>
@@ -69,7 +69,7 @@ const Login: React.FC = () => {
         <div className="lm-brand-background"></div>
         <div className="lm-login-card">
           <div className="lm-logo-container">
-            <img src={`${process.env.PUBLIC_URL}/images/lm-logo.svg`} alt="LM Logo" className="lm-logo" />
+            <img src="/images/lm-logo.svg" alt="LM Logo" className="lm-logo" />
             <h1 className="lm-title">M365 Security Assessment</h1>
           </div>
           <p className="lm-subtitle">You have been successfully logged out.</p>
@@ -97,7 +97,7 @@ const Login: React.FC = () => {
       <div className="lm-brand-background"></div>
       <div className="lm-login-card">
         <div className="lm-logo-container">
-          <img src={`${process.env.PUBLIC_URL}/images/lm-logo.svg`} alt="LM Logo" className="lm-logo" />
+          <img src="/images/lm-logo.svg" alt="LM Logo" className="lm-logo" />
           <h1 className="lm-title">M365 Security Assessment</h1>
         </div>
         <p className="lm-subtitle">Secure assessment for your Microsoft 365 environment</p>
