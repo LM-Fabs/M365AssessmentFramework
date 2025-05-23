@@ -26,7 +26,7 @@
 }
 
 .nav-logo {
-  height: 32px;
+  height: 42px; /* Vergrößert von 28px auf 42px */
   width: auto;
   object-fit: contain;
   margin-right: 1rem;
@@ -329,7 +329,7 @@
 }
 
 .nav-logo {
-  height: 28px;
+  height: 42px; /* Vergrößert von 28px auf 42px */
   width: auto;
   margin-right: 0.75rem;
 }
