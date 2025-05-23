@@ -1,21 +1,28 @@
 {
   "routes": [
     {
+      "route": "/static/*",
+      "headers": {
+        "cache-control": "must-revalidate, max-age=15770000"
+      }
+    },
+    {
       "route": "/api/*",
       "allowedRoles": ["anonymous"]
     },
     {
       "route": "/*",
       "allowedRoles": ["anonymous"],
-      "rewrite": "/index.html"
+      "rewrite": "/index.html",
+      "headers": {
+        "cache-control": "no-cache"
+      }
     }
   ],
   "navigationFallback": {
     "rewrite": "/index.html",
     "exclude": [
-      "/images/*.png", 
-      "/images/*.jpg", 
-      "/images/*.gif",
+      "/images/*.{png,jpg,gif}",
       "/static/css/*",
       "/static/js/*",
       "/static/media/*",
@@ -25,11 +32,24 @@
     ]
   },
   "globalHeaders": {
-    "content-security-policy": "default-src https: 'unsafe-eval' 'unsafe-inline'; object-src 'none'; style-src 'self' 'unsafe-inline';"
+    "content-security-policy": "default-src 'self' https: 'unsafe-eval' 'unsafe-inline'; object-src 'none'; style-src 'self' https: 'unsafe-inline'; script-src 'self' https: 'unsafe-eval' 'unsafe-inline'; img-src 'self' https: data: blob:;",
+    "X-Content-Type-Options": "nosniff"
   },
-  "mimeTypes": { 
-    ".css": "text/css", 
-    ".js": "application/javascript" 
+  "mimeTypes": {
+    ".html": "text/html",
+    ".css": "text/css",
+    ".js": "application/javascript",
+    ".json": "application/json",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+    ".ttf": "font/ttf",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2"
   },
-  "platform": { "apiRuntime": "node:18" }
+  "platform": {
+    "apiRuntime": "node:18"
+  }
 }
