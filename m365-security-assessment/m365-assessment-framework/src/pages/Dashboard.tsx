@@ -87,6 +87,16 @@ const Dashboard: React.FC = () => {
     setSelectedCategory(category as keyof Metrics);
   };
 
+  // Create a tenant object with all required properties from the assessment
+  const tenant = {
+    id: assessment.tenantId,
+    name: assessment.tenantId,
+    securityScore: assessment.metrics.score?.overall || 0,
+    metrics: assessment.metrics || {},
+    lastAssessmentDate: new Date(assessment.lastModified),
+    recommendations: assessment.recommendations?.map(rec => rec.id) || []
+  };
+
   return (
     <div className="dashboard">
       <div className="dashboard-header">
@@ -112,7 +122,7 @@ const Dashboard: React.FC = () => {
         <div className="security-score-section">
           <SecurityScoreCard 
             assessment={assessment}
-            tenant={{ id: assessment.tenantId, name: assessment.tenantId }}
+            tenant={tenant}
             onCategoryClick={handleCategoryClick}
           />
         </div>
