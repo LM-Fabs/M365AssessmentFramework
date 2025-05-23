@@ -26,8 +26,17 @@
 }
 
 .nav-logo {
-  height: 36px;
+  height: 32px;
+  width: auto;
+  object-fit: contain;
   margin-right: 1rem;
+}
+
+.nav-logo-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
 }
 
 .brand-text {
@@ -103,12 +112,20 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  flex: 1;
+  min-width: 0;
+  max-width: 160px;
 }
 
 .username {
   color: var(--lm-text-main);
   font-weight: 500;
   font-size: 0.875rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  width: 100%;
+  display: block;
 }
 
 .user-role {
@@ -314,11 +331,15 @@
 .nav-logo-container {
   display: flex;
   align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
 }
 
 .nav-logo {
-  height: 28px;
-  margin-right: 0.75rem;
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+  margin-right: 1rem;
 }
 
 .nav-title {
@@ -412,15 +433,18 @@
 .user-info {
   flex: 1;
   min-width: 0;
+  max-width: 160px;
 }
 
 .user-name {
   font-size: 0.875rem;
   font-weight: 500;
-  color: #ffffff; /* White text for dark background */
+  color: #ffffff;
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
+  width: 100%;
+  display: block;
   margin-bottom: 0.25rem;
 }
 
@@ -501,5 +525,9 @@
   
   .nav-title {
     font-size: 1rem;
+  }
+  
+  .user-info {
+    max-width: 120px;
   }
 }
