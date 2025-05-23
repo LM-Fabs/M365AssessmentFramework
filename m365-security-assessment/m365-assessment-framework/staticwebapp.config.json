@@ -15,19 +15,15 @@
     "exclude": [
       "/images/*.png", 
       "/images/*.jpg", 
-      "/images/*.gif", 
-      "/css/*", 
-      "/js/*", 
-      "/static/css/*",
-      "/static/js/*",
-      "/static/media/*"
+      "/images/*.gif"
     ]
   },
   "globalHeaders": {
     "content-security-policy": "default-src https: 'unsafe-eval' 'unsafe-inline'; object-src 'none'; style-src 'self' 'unsafe-inline';"
   },
   "mimeTypes": {
-    ".css": "text/css"
+    ".css": "text/css",
+    ".js": "application/javascript"
   },
   "platform": {
     "apiRuntime": "node:18"
