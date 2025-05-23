@@ -7,7 +7,8 @@ interface TopRecommendationsProps {
 }
 
 const TopRecommendations: React.FC<TopRecommendationsProps> = ({ assessment }) => {
-  // This would normally come from your assessment data
+  // In a real app, you would derive these from assessment.recommendations
+  // For now, using static data as we update the component
   const recommendations = [
     {
       id: 'rec-1',
@@ -86,7 +87,7 @@ const TopRecommendations: React.FC<TopRecommendationsProps> = ({ assessment }) =
       
       <div className="view-all-recommendations">
         <button className="view-all-button">
-          View all 12 recommendations
+          View all recommendations
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="9 18 15 12 9 6"></polyline>
           </svg>

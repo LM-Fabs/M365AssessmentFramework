@@ -7,7 +7,8 @@ interface CriticalSecurityRisksProps {
 }
 
 const CriticalSecurityRisks: React.FC<CriticalSecurityRisksProps> = ({ assessment }) => {
-  // This would normally come from your assessment data
+  // In a real app, you would derive this from assessment data
+  // For now, using static data as the component is being updated
   const criticalRisks = [
     {
       id: 'risk-1',
@@ -82,7 +83,7 @@ const CriticalSecurityRisks: React.FC<CriticalSecurityRisksProps> = ({ assessmen
       
       <div className="view-all-risks">
         <button className="view-all-button">
-          View all 8 security risks
+          View all security risks
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="9 18 15 12 9 6"></polyline>
           </svg>

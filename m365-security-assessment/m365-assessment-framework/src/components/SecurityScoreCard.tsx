@@ -11,7 +11,14 @@ interface SecurityScoreCardProps {
 }
 
 const SecurityScoreCard: React.FC<SecurityScoreCardProps> = ({ assessment, tenant, onCategoryClick }) => {
-  const { overallScore, metrics } = assessment;
+  // Fix: Access the score from the correct path in the Assessment model
+  const overallScore = assessment.metrics.score?.overall || 0;
+  const metrics = {
+    identity: assessment.metrics.score?.identity || 0,
+    data: assessment.metrics.score?.dataProtection || 0,
+    devices: assessment.metrics.score?.endpoint || 0,
+    infrastructure: assessment.metrics.score?.cloudApps || 0
+  };
   
   const formatScoreChange = (change: number) => {
     if (change > 0) return `+${change}%`;
