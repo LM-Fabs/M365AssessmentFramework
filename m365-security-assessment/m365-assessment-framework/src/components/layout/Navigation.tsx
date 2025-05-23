@@ -96,7 +96,6 @@ const Navigation: React.FC<NavigationProps> = ({ userName, onLogout }) => {
         <div className="nav-header">
           <div className="nav-logo-container">
             <img src="/images/lm-logo.svg" alt="LM Logo" className="nav-logo" />
-            <h1 className="nav-title">IT Security Assessment</h1>
           </div>
           <button 
             className="mobile-menu-toggle" 
@@ -192,6 +191,9 @@ const Navigation: React.FC<NavigationProps> = ({ userName, onLogout }) => {
       
       <div className="mobile-menu">
         <div className="mobile-menu-header">
+          <div className="mobile-nav-logo">
+            <img src="/images/lm-logo.svg" alt="LM Logo" className="mobile-logo" />
+          </div>
           <button className="close-mobile-menu" onClick={() => setIsMenuOpen(false)}>
             <span className="close-icon">&times;</span>
           </button>
