@@ -15,7 +15,11 @@
     "exclude": [
       "/images/*.png", 
       "/images/*.jpg", 
-      "/images/*.gif"
+      "/images/*.gif",
+      "/static/css/*",
+      "/static/js/*",
+      "/manifest.json",
+      "/robots.txt"
     ]
   },
   "globalHeaders": {
