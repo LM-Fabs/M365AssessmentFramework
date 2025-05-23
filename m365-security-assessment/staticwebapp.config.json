@@ -20,6 +20,15 @@
   ],
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/images/*.{png,jpg,gif}", "/css/*", "/js/*", "/static/**"]
+    "exclude": [
+      "/images/*.png", 
+      "/images/*.jpg", 
+      "/images/*.gif", 
+      "/css/*", 
+      "/js/*", 
+      "/static/css/*",
+      "/static/js/*",
+      "/static/media/*"
+    ]
   }
 }
