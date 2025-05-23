@@ -1,5 +1,8 @@
-import { app } from '@azure/functions';
-export const getAssessmentHandler = app.http('getAssessment', {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getAssessmentHandler = void 0;
+const functions_1 = require("@azure/functions");
+exports.getAssessmentHandler = functions_1.app.http('getAssessment', {
     methods: ['GET'],
     authLevel: 'function',
     route: 'assessment/{tenantId}/{assessmentId}',

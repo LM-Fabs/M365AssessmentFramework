@@ -1,17 +1,20 @@
-import { KeyVaultService } from '../shared/keyVaultService';
-import { app } from '@azure/functions';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.validateKeyVaultIntegration = void 0;
+const keyVaultService_1 = require("../shared/keyVaultService");
+const functions_1 = require("@azure/functions");
 /**
  * HTTP function that validates Azure Key Vault integration
  * Tests the connection to Key Vault and retrieves secrets to ensure they are accessible
  */
-export const validateKeyVaultIntegration = app.http('validateKeyVaultIntegration', {
+exports.validateKeyVaultIntegration = functions_1.app.http('validateKeyVaultIntegration', {
     methods: ['GET'],
     authLevel: 'function',
     handler: async (request, context) => {
         try {
             context.log('Validating Key Vault integration...');
             // Initialize KeyVaultService
-            const keyVaultService = KeyVaultService.getInstance();
+            const keyVaultService = keyVaultService_1.KeyVaultService.getInstance();
             // Simple timestamp to see when validation was run
             const timestamp = new Date().toISOString();
             // Start collecting validation results

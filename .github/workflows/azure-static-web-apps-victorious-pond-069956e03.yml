@@ -24,7 +24,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18.x'
+          node-version: '20.x'
       
       - name: Build And Deploy
         id: builddeploy
@@ -37,8 +37,8 @@ jobs:
           api_location: "m365-security-assessment/m365-assessment-framework/api"
           output_location: "build"
         env:
-          NODE_VERSION: "18"
-          WEBSITE_NODE_DEFAULT_VERSION: "18"
+          NODE_VERSION: "20"
+          WEBSITE_NODE_DEFAULT_VERSION: "20"
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'

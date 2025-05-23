@@ -1,9 +1,12 @@
-import { app } from '@azure/functions';
-import { ClientSecretCredential } from '@azure/identity';
-import { Client } from '@microsoft/microsoft-graph-client';
-import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials';
-import { KeyVaultService } from '../shared/keyVaultService';
-export const createEnterpriseAppHandler = app.http('createEnterpriseApp', {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.createEnterpriseAppHandler = void 0;
+const functions_1 = require("@azure/functions");
+const identity_1 = require("@azure/identity");
+const microsoft_graph_client_1 = require("@microsoft/microsoft-graph-client");
+const azureTokenCredentials_1 = require("@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials");
+const keyVaultService_1 = require("../shared/keyVaultService");
+exports.createEnterpriseAppHandler = functions_1.app.http('createEnterpriseApp', {
     methods: ['POST'],
     authLevel: 'function',
     handler: async (request, context) => {
@@ -59,17 +62,17 @@ export const createEnterpriseAppHandler = app.http('createEnterpriseApp', {
                 }
             };
             // Get secrets from Key Vault using the KeyVaultService
-            const keyVaultService = KeyVaultService.getInstance();
+            const keyVaultService = keyVaultService_1.KeyVaultService.getInstance();
             const { tenantId, clientId, clientSecret } = await keyVaultService.getGraphCredentials();
             if (!tenantId || !clientId || !clientSecret) {
                 throw new Error('Failed to retrieve required credentials from Key Vault');
             }
             // Create credentials for Microsoft Graph API
-            const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
-            const authProvider = new TokenCredentialAuthenticationProvider(credential, {
+            const credential = new identity_1.ClientSecretCredential(tenantId, clientId, clientSecret);
+            const authProvider = new azureTokenCredentials_1.TokenCredentialAuthenticationProvider(credential, {
                 scopes: ['https://graph.microsoft.com/.default']
             });
-            const graphClient = Client.initWithMiddleware({
+            const graphClient = microsoft_graph_client_1.Client.initWithMiddleware({
                 authProvider: authProvider
             });
             const application = await graphClient.api('/applications')

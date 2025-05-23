@@ -1,7 +1,11 @@
-import { app } from '@azure/functions';
-export const saveAssessmentHandler = app.http('saveAssessment', {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.saveAssessmentHandler = void 0;
+const functions_1 = require("@azure/functions");
+exports.saveAssessmentHandler = functions_1.app.http('saveAssessment', {
     methods: ['POST'],
-    authLevel: 'function',
+    authLevel: 'anonymous',
+    route: 'assessment/save',
     handler: async (request, context) => {
         try {
             const assessment = await request.json();

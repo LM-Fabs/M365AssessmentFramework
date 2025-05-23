@@ -1,11 +1,14 @@
-import { SecretClient } from '@azure/keyvault-secrets';
-import { ClientSecretCredential } from '@azure/identity';
-import { delay } from '@azure/core-util';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.KeyVaultService = void 0;
+const keyvault_secrets_1 = require("@azure/keyvault-secrets");
+const identity_1 = require("@azure/identity");
+const core_util_1 = require("@azure/core-util");
 /**
  * Utility class for securely accessing Azure Key Vault secrets
  * This follows Azure best practices by keeping credential access in a central location
  */
-export class KeyVaultService {
+class KeyVaultService {
     constructor() {
         this.secretCache = new Map();
         this.cacheTtlMs = 30 * 60 * 1000; // 30 minutes cache TTL
@@ -21,10 +24,10 @@ export class KeyVaultService {
                 throw new Error('Missing required Key Vault access credentials in environment variables');
             }
             // Service principal authentication to Key Vault
-            const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+            const credential = new identity_1.ClientSecretCredential(tenantId, clientId, clientSecret);
             // Key Vault URL should be in environment variables in production
             const vaultUrl = process.env.KEY_VAULT_URL || 'https://m365assessmentkv.vault.azure.net/';
-            this.secretClient = new SecretClient(vaultUrl, credential);
+            this.secretClient = new keyvault_secrets_1.SecretClient(vaultUrl, credential);
             console.info('KeyVaultService initialized successfully');
         }
         catch (error) {
@@ -83,7 +86,7 @@ export class KeyVaultService {
             if (retriesLeft > 0 && this.isRetryableError(error)) {
                 const delayMs = this.initialDelayMs * Math.pow(2, this.maxRetries - retriesLeft);
                 console.warn(`Retrying secret retrieval for ${secretName} after ${delayMs}ms. Retries left: ${retriesLeft}`);
-                await delay(delayMs);
+                await (0, core_util_1.delay)(delayMs);
                 return this.getSecretWithRetry(secretName, retriesLeft - 1, fallbackValue);
             }
             // No retries left or non-retryable error
@@ -120,4 +123,5 @@ export class KeyVaultService {
         console.info('Secret cache cleared');
     }
 }
+exports.KeyVaultService = KeyVaultService;
 //# sourceMappingURL=keyVaultService.js.map

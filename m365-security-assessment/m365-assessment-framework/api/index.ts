@@ -1,7 +1,7 @@
 // Import function registrations
-export * from './CreateEnterpriseApp/index.js';
-export * from './GetAssessment/index.js';
-export * from './GetBestPractices/index.js';
-export * from './SaveAssessment/index.js';
-export * from './CreateAssessment/index.js';
-export * from './TestFunction/index.js'; // Add test function export
+export * from './CreateEnterpriseApp/index';
+export * from './GetAssessment/index';
+export * from './GetBestPractices/index';
+export * from './SaveAssessment/index';
+export * from './CreateAssessment/index';
+export * from './TestFunction/index';
