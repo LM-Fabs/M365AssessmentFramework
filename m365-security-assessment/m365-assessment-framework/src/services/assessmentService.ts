@@ -91,10 +91,38 @@ export class AssessmentService {
     };
   }): Promise<Assessment> {
     try {
+      // First try to access the test endpoint to verify API connectivity
+      try {
+        await axios.get(`${this.baseUrl}/assessment/test`);
+      } catch (testError) {
+        console.error('API test endpoint check failed, API connection might be down:', testError);
+        // Continue with the creation attempt even if test fails
+      }
+
+      console.log('Attempting to create assessment with URL:', `${this.baseUrl}/assessment/create`);
+      console.log('Data being sent:', JSON.stringify(data, null, 2));
+      
       const response = await axios.post(`${this.baseUrl}/assessment/create`, data);
+      console.log('Create assessment response:', response.status, response.statusText);
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating assessment:', error);
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          // The request was made and the server responded with a status code
+          // that falls out of the range of 2xx
+          console.error('Response error data:', error.response.data);
+          console.error('Response status:', error.response.status);
+          console.error('Response headers:', error.response.headers);
+        } else if (error.request) {
+          // The request was made but no response was received
+          console.error('No response received. Request details:', error.request);
+        } else {
+          // Something happened in setting up the request that triggered an Error
+          console.error('Error message:', error.message);
+        }
+        console.error('Error config:', error.config);
+      }
       throw error;
     }
   }

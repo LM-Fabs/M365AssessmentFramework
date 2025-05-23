@@ -1,5 +1,22 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 
+// Add a simple GET handler for easier testing and to verify the function is registered
+export const createAssessmentTest = app.http('createAssessmentTest', {
+    methods: ['GET'],
+    authLevel: 'anonymous',
+    route: 'assessment/test',
+    handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
+        context.log('Test endpoint accessed');
+        return {
+            status: 200,
+            jsonBody: {
+                message: "API route is accessible",
+                timestamp: new Date().toISOString()
+            }
+        };
+    }
+});
+
 export const createAssessmentHandler = app.http('createAssessment', {
     methods: ['POST'],
     authLevel: 'anonymous', // Changed from 'function' to 'anonymous' for testing

@@ -13,6 +13,11 @@
       }
     },
     {
+      "route": "/api/assessment/test",
+      "methods": ["GET"],
+      "allowedRoles": ["anonymous"]
+    },
+    {
       "route": "/api/assessment/create",
       "methods": ["POST"],
       "allowedRoles": ["anonymous"]
