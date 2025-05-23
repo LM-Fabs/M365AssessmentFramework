@@ -152,9 +152,10 @@ const Navigation: React.FC<NavigationProps> = ({ userName, onLogout }) => {
           left: '1rem', 
           zIndex: 99,
           display: isMenuOpen ? 'none' : 'flex',
-          backgroundColor: 'white',
+          backgroundColor: '#0e2a4d', /* LM-AG dark blue color */
+          color: 'white',
           borderRadius: '4px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
         }}
         onClick={() => setIsMenuOpen(true)}
         aria-label="Open menu"
