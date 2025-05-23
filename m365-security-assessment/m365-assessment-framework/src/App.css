@@ -3,7 +3,6 @@
 /* Main app container */
 .app {
   display: flex;
-  flex-direction: column;
   min-height: 100vh;
   background-color: var(--lm-bg-light);
 }
@@ -96,10 +95,18 @@
 /* Main content area */
 .main-content {
   flex: 1;
+  margin-left: 240px;
   padding: 2rem;
+  min-height: 100vh;
 }
 
 /* Responsive adjustments */
+@media (max-width: 992px) {
+  .main-content {
+    margin-left: 0;
+  }
+}
+
 @media (max-width: 768px) {
   .navigation {
     flex-direction: column;
@@ -127,6 +134,10 @@
   .nav-account {
     width: 100%;
     justify-content: center;
+  }
+  
+  .main-content {
+    padding: 1rem;
   }
 }
 

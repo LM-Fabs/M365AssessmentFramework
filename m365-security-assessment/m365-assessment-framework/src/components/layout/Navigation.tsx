@@ -95,8 +95,8 @@ const Navigation: React.FC<NavigationProps> = ({ userName, onLogout }) => {
       <nav className={`lm-navigation ${isMenuOpen ? 'menu-open' : ''}`}>
         <div className="nav-header">
           <div className="nav-logo-container">
-            <img src="/images/lm-logo.svg" alt="LM Logo" className="nav-logo" />
-            <h1 className="nav-title">M365 Assessment</h1>
+            <img src={process.env.PUBLIC_URL + '/images/lm-logo.svg'} alt="LM Logo" className="nav-logo" />
+            <h1 className="nav-title">IT Security Assessment</h1>
           </div>
           <button 
             className="mobile-menu-toggle" 
@@ -125,13 +125,31 @@ const Navigation: React.FC<NavigationProps> = ({ userName, onLogout }) => {
           </ul>
         </div>
         
+        <div className="recent-assessments">
+          <h2 className="recent-assessments-title">Recent Assessments</h2>
+          <ul className="recent-assessment-list">
+            <li className="recent-assessment-item">
+              <span>Contoso Ltd</span>
+              <span>2 days ago</span>
+            </li>
+            <li className="recent-assessment-item">
+              <span>Fabrikam Inc</span>
+              <span>1 week ago</span>
+            </li>
+            <li className="recent-assessment-item">
+              <span>Northwind Traders</span>
+              <span>2 weeks ago</span>
+            </li>
+          </ul>
+        </div>
+        
         {userName && (
           <div className="nav-footer">
             <div className="user-profile">
               <div className="user-avatar">{getInitials(userName)}</div>
               <div className="user-info">
-                <div className="user-name">{userName}</div>
-                <div className="user-email">{userName?.toLowerCase()}@lm-ag.de</div>
+                <div className="user-name">{userName || 'User'}</div>
+                <div className="user-email">{userName ? `${userName.toLowerCase()}@lm-ag.de` : ''}</div>
                 <button onClick={handleLogout} className="logout-button">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -183,8 +201,8 @@ const Navigation: React.FC<NavigationProps> = ({ userName, onLogout }) => {
           <div className="mobile-user-info">
             <div className="mobile-user-avatar">{getInitials(userName)}</div>
             <div className="mobile-user-details">
-              <div className="mobile-username">{userName}</div>
-              <div className="mobile-user-email">{userName?.toLowerCase()}@lm-ag.de</div>
+              <div className="mobile-username">{userName || 'User'}</div>
+              <div className="mobile-user-email">{userName ? `${userName.toLowerCase()}@lm-ag.de` : ''}</div>
             </div>
           </div>
         )}
