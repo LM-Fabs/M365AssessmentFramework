@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import History from './pages/History';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
+import AuthCallback from './pages/AuthCallback';
 import Navigation from './components/layout/Navigation';
 import './App.css';
 
@@ -78,6 +79,7 @@ const App: React.FC = () => {
                   <Settings />
                 </PrivateRoute>
               } />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </main>

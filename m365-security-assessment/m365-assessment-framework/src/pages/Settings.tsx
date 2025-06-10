@@ -44,17 +44,9 @@ const Settings = () => {
     setError(null);
 
     try {
-      // Create a generic multi-tenant application that can be used for any tenant
-      const assessmentService = AssessmentService.getInstance();
-      const appResponse = await assessmentService.createMultiTenantApp({
-        targetTenantId: 'common', // Use 'common' for multi-tenant endpoint
-        assessmentName: formData.assessmentName
-      });
-
-      setAppConfig(appResponse);
-      
-      // Immediately trigger the tenant selection login
-      await handleTenantLogin(appResponse.clientId);
+      // Instead of creating an app first, directly trigger tenant login
+      // The app will be created after we know which tenant the user selected
+      await handleTenantLogin();
       
     } catch (error: any) {
       setError(error.message || 'Failed to initialize assessment application');
@@ -62,69 +54,104 @@ const Settings = () => {
     }
   };
 
-  const handleTenantLogin = async (clientId: string) => {
+  const handleTenantLogin = async (clientId?: string) => {
     try {
-      // Create a tenant-agnostic login URL that will allow the user to choose their tenant
-      const loginUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
+      // If no clientId provided, use a generic multi-tenant login to get tenant info first
+      if (!clientId) {
+        // Create a tenant selection URL that doesn't require a specific client ID
+        const loginUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
+          new URLSearchParams({
+            client_id: '04b07795-8ddb-461a-bbee-02f9e1bf7b46', // Microsoft Graph Explorer client ID (public)
+            response_type: 'code',
+            redirect_uri: window.location.origin + '/auth/callback',
+            scope: 'openid profile',
+            prompt: 'select_account', // Force account/tenant selection
+            state: 'tenant-selection'
+          }).toString();
+
+        // Open the login in a popup window
+        const popup = window.open(
+          loginUrl,
+          'tenant-selection',
+          'width=600,height=700,scrollbars=yes,resizable=yes'
+        );
+
+        // Listen for the authentication callback
+        const checkClosed = setInterval(() => {
+          if (popup?.closed) {
+            clearInterval(checkClosed);
+            setError('Tenant selection was cancelled');
+            setLoading(false);
+          }
+        }, 1000);
+
+        // Listen for messages from the popup
+        const messageListener = (event: MessageEvent) => {
+          if (event.origin !== window.location.origin) return;
+          
+          if (event.data.type === 'TENANT_SELECTED') {
+            clearInterval(checkClosed);
+            popup?.close();
+            window.removeEventListener('message', messageListener);
+            
+            const { tenantId, tenantDomain, userInfo } = event.data;
+            
+            // Now create the application for the specific tenant
+            createTenantSpecificApp(tenantId, tenantDomain, userInfo);
+          } else if (event.data.type === 'TENANT_SELECTION_ERROR') {
+            clearInterval(checkClosed);
+            popup?.close();
+            window.removeEventListener('message', messageListener);
+            setError(event.data.error || 'Tenant selection failed');
+            setLoading(false);
+          }
+        };
+
+        window.addEventListener('message', messageListener);
+        return;
+      }
+
+      // If clientId is provided, proceed with the actual assessment login
+      const loginUrl = `https://login.microsoftonline.com/${tenantConfig.tenantId}/oauth2/v2.0/authorize?` +
         new URLSearchParams({
           client_id: clientId,
           response_type: 'code',
           redirect_uri: window.location.origin + '/auth/callback',
           scope: 'https://graph.microsoft.com/.default',
-          prompt: 'select_account', // Force account/tenant selection
+          prompt: 'consent',
           state: 'multi-tenant-assessment'
         }).toString();
 
-      // Open the login in a popup window
-      const popup = window.open(
-        loginUrl,
-        'tenant-login',
-        'width=600,height=700,scrollbars=yes,resizable=yes'
-      );
-
-      // Listen for the authentication callback
-      const checkClosed = setInterval(() => {
-        if (popup?.closed) {
-          clearInterval(checkClosed);
-          // Handle the case where user closed the popup
-          setError('Authentication was cancelled');
-          setLoading(false);
-        }
-      }, 1000);
-
-      // Listen for messages from the popup (if using postMessage pattern)
-      const messageListener = (event: MessageEvent) => {
-        if (event.origin !== window.location.origin) return;
-        
-        if (event.data.type === 'TENANT_AUTH_SUCCESS') {
-          clearInterval(checkClosed);
-          popup?.close();
-          window.removeEventListener('message', messageListener);
-          
-          // Extract tenant information from the authentication result
-          const { tenantId, tenantDomain, userInfo } = event.data;
-          
-          setTenantConfig({
-            tenantId: tenantId,
-            tenantDomain: tenantDomain || `${tenantId}.onmicrosoft.com`,
-            displayName: userInfo?.displayName || tenantDomain || tenantId
-          });
-
-          // Initialize the assessment context for the selected tenant
-          initializeTenantAssessment(tenantId, clientId, tenantDomain);
-        } else if (event.data.type === 'TENANT_AUTH_ERROR') {
-          clearInterval(checkClosed);
-          popup?.close();
-          window.removeEventListener('message', messageListener);
-          setError(event.data.error || 'Authentication failed');
-          setLoading(false);
-        }
-      };
-
-      window.addEventListener('message', messageListener);
+      window.location.href = loginUrl; // Direct redirect for final authentication
 
     } catch (error: any) {
       setError(error.message || 'Failed to initiate tenant login');
+      setLoading(false);
+    }
+  };
+
+  const createTenantSpecificApp = async (tenantId: string, tenantDomain: string, userInfo: any) => {
+    try {
+      // Now create the application for the specific tenant
+      const assessmentService = AssessmentService.getInstance();
+      const appResponse = await assessmentService.createMultiTenantApp({
+        targetTenantId: tenantId,
+        targetTenantDomain: tenantDomain,
+        assessmentName: formData.assessmentName
+      });
+
+      setAppConfig(appResponse);
+      setTenantConfig({
+        tenantId: tenantId,
+        tenantDomain: tenantDomain,
+        displayName: userInfo?.displayName || tenantDomain || tenantId
+      });
+
+      // Proceed with the tenant-specific authentication
+      await handleTenantLogin(appResponse.clientId);
+      
+    } catch (error: any) {
+      setError(error.message || 'Failed to create assessment application for selected tenant');
       setLoading(false);
     }
   };
@@ -219,13 +246,37 @@ const Settings = () => {
             </div>
 
             <div className="assessment-info">
-              <h3>What happens next?</h3>
-              <ul>
-                <li>You'll be prompted to sign in to the Microsoft 365 tenant you want to assess</li>
-                <li>The system will create a secure assessment application for that tenant</li>
-                <li>You'll configure which security categories to include in the assessment</li>
-                <li>The assessment will run and provide detailed security insights</li>
-              </ul>
+              <h3>🚀 What happens next?</h3>
+              <div className="process-steps">
+                <div className="step">
+                  <div className="step-number">1</div>
+                  <div className="step-content">
+                    <strong>Tenant Authentication</strong>
+                    <p>You'll be prompted to sign in to the Microsoft 365 tenant you want to assess</p>
+                  </div>
+                </div>
+                <div className="step">
+                  <div className="step-number">2</div>
+                  <div className="step-content">
+                    <strong>Secure App Creation</strong>
+                    <p>The system creates a secure assessment application with read-only permissions</p>
+                  </div>
+                </div>
+                <div className="step">
+                  <div className="step-number">3</div>
+                  <div className="step-content">
+                    <strong>Assessment Configuration</strong>
+                    <p>Configure which security categories to include in your assessment</p>
+                  </div>
+                </div>
+                <div className="step">
+                  <div className="step-number">4</div>
+                  <div className="step-content">
+                    <strong>Security Analysis</strong>
+                    <p>The assessment runs and provides detailed security insights and recommendations</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
