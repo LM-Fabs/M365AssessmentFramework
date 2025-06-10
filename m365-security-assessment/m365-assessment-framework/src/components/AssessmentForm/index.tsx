@@ -71,9 +71,9 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
       tenantId: tenant?.id,
       assessmentDate: new Date(),
       assessor: {
-        id: user?.userPrincipalId || '',
-        name: user?.userPrincipalId || 'Unknown User',
-        email: user?.userPrincipalId || ''
+        id: user?.id || '',
+        name: user?.displayName || 'Unknown User',
+        email: user?.email || ''
       },
       status: 'draft',
       lastModified: new Date(),

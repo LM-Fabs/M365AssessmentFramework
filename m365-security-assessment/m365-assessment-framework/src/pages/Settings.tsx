@@ -15,7 +15,7 @@ interface TenantConfig {
 }
 
 const Settings = () => {
-  const { isAuthenticated, account } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
@@ -35,7 +35,7 @@ const Settings = () => {
   const [formData, setFormData] = useState({
     assessmentName: 'Security Assessment',
     includedCategories: Object.keys(SECURITY_CATEGORIES),
-    notificationEmail: account?.username || '',
+    notificationEmail: user?.email || '',
     autoSchedule: false,
     scheduleFrequency: 'monthly'
   });

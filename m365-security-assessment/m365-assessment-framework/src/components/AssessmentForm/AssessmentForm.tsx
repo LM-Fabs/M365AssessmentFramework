@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { createAssessment, getCurrentAssessment } from '../../services/assessmentService';
-import { Assessment, AssessmentRequest } from '../../types/assessment';
+import { AssessmentService } from '../../services/assessmentService';
+import { Assessment } from '../../models/Assessment';
 import { BestPractice } from '../../types/bestPractices';
-import { getBestPractices } from '../../services/assessmentService';
 import './AssessmentForm.css';
 
 interface AssessmentFormProps {
@@ -34,6 +33,9 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [currentAssessment, setCurrentAssessment] = useState<Assessment | null>(null);
 
+  // Get service instance
+  const assessmentService = AssessmentService.getInstance();
+
   // Update email when user changes
   useEffect(() => {
     if (user?.email) {
@@ -45,7 +47,7 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
   useEffect(() => {
     const loadBestPractices = async () => {
       try {
-        const practices = await getBestPractices();
+        const practices = await assessmentService.getBestPractices();
         setBestPractices(practices);
       } catch (err) {
         console.error('Failed to load best practices:', err);
@@ -54,7 +56,7 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
     };
 
     loadBestPractices();
-  }, []);
+  }, [assessmentService]);
 
   // Load current assessment
   useEffect(() => {
@@ -62,7 +64,7 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
       if (!user?.tenantId) return;
 
       try {
-        const assessment = await getCurrentAssessment(user.tenantId);
+        const assessment = await assessmentService.getCurrentAssessment();
         if (assessment) {
           setCurrentAssessment(assessment);
           onCurrentAssessmentLoaded?.(assessment);
@@ -73,20 +75,17 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
     };
 
     loadCurrentAssessment();
-  }, [user?.tenantId, onCurrentAssessmentLoaded]);
+  }, [user?.tenantId, onCurrentAssessmentLoaded, assessmentService]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  const handleCategoryToggle = (category: string) => {
+    setFormData(prev => {
+      const isSelected = prev.selectedCategories.includes(category);
+      const selectedCategories = isSelected 
+        ? prev.selectedCategories.filter(c => c !== category) 
+        : [...prev.selectedCategories, category];
 
-  const handleCategoryChange = (categoryId: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      selectedCategories: checked
-        ? [...prev.selectedCategories, categoryId]
-        : prev.selectedCategories.filter(id => id !== categoryId)
-    }));
+      return { ...prev, selectedCategories };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -106,16 +105,18 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
     setError(null);
 
     try {
-      const assessmentRequest: AssessmentRequest = {
-        organizationName: formData.organizationName,
-        contactEmail: formData.contactEmail,
-        description: formData.description,
+      // Map form data to the service's expected format
+      const assessmentData = {
+        tenantName: formData.organizationName,
         categories: formData.selectedCategories,
-        userId: user.id,
-        tenantId: user.tenantId || ''
+        notificationEmail: formData.contactEmail,
+        scheduling: {
+          enabled: false,
+          frequency: 'manual'
+        }
       };
 
-      const newAssessment = await createAssessment(assessmentRequest);
+      const newAssessment = await assessmentService.createAssessment(assessmentData);
       
       if (onAssessmentCreated) {
         onAssessmentCreated(newAssessment);
@@ -137,118 +138,58 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
     }
   };
 
-  const getUniqueCategories = () => {
-    const categories = bestPractices.reduce((acc, practice) => {
-      if (!acc.find(cat => cat.id === practice.category)) {
-        acc.push({
-          id: practice.category,
-          name: practice.category.replace(/([A-Z])/g, ' $1').trim()
-        });
-      }
-      return acc;
-    }, [] as Array<{ id: string; name: string }>);
-    
-    return categories;
-  };
-
-  if (!isAuthenticated) {
-    return (
-      <div className="assessment-form-container">
-        <div className="auth-required">
-          <h2>Authentication Required</h2>
-          <p>Please log in to create a new security assessment.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="assessment-form-container">
-      <form onSubmit={handleSubmit} className="assessment-form">
-        <h2>Create New Security Assessment</h2>
-        
-        {error && (
-          <div className="error-message">
-            {error}
-          </div>
-        )}
-
-        {currentAssessment && (
-          <div className="current-assessment-notice">
-            <h3>Current Assessment</h3>
-            <p>You have an ongoing assessment for {currentAssessment.organizationName}</p>
-            <p>Status: {currentAssessment.status}</p>
-            <p>Created: {new Date(currentAssessment.createdAt).toLocaleDateString()}</p>
-          </div>
-        )}
-
+    <div className="assessment-form">
+      <h2>Create New Assessment</h2>
+      {error && <div className="error-message">{error}</div>}
+      <form onSubmit={handleSubmit}>
         <div className="form-group">
-          <label htmlFor="organizationName">Organization Name *</label>
-          <input
-            type="text"
-            id="organizationName"
-            name="organizationName"
-            value={formData.organizationName}
-            onChange={handleInputChange}
-            required
-            placeholder="Enter your organization name"
+          <label htmlFor="organizationName">Organization Name</label>
+          <input 
+            type="text" 
+            id="organizationName" 
+            value={formData.organizationName} 
+            onChange={e => setFormData({ ...formData, organizationName: e.target.value })} 
+            required 
           />
         </div>
-
         <div className="form-group">
-          <label htmlFor="contactEmail">Contact Email *</label>
-          <input
-            type="email"
-            id="contactEmail"
-            name="contactEmail"
-            value={formData.contactEmail}
-            onChange={handleInputChange}
-            required
-            placeholder="Enter contact email"
+          <label htmlFor="contactEmail">Contact Email</label>
+          <input 
+            type="email" 
+            id="contactEmail" 
+            value={formData.contactEmail} 
+            onChange={e => setFormData({ ...formData, contactEmail: e.target.value })} 
+            required 
           />
         </div>
-
         <div className="form-group">
-          <label htmlFor="description">Assessment Description</label>
-          <textarea
-            id="description"
-            name="description"
-            value={formData.description}
-            onChange={handleInputChange}
-            rows={3}
-            placeholder="Describe the purpose and scope of this assessment (optional)"
+          <label htmlFor="description">Description</label>
+          <textarea 
+            id="description" 
+            value={formData.description} 
+            onChange={e => setFormData({ ...formData, description: e.target.value })} 
           />
         </div>
-
         <div className="form-group">
-          <label>Assessment Categories *</label>
-          <div className="categories-grid">
-            {getUniqueCategories().map(category => (
-              <div key={category.id} className="category-checkbox">
-                <input
-                  type="checkbox"
-                  id={category.id}
-                  checked={formData.selectedCategories.includes(category.id)}
-                  onChange={(e) => handleCategoryChange(category.id, e.target.checked)}
+          <label>Assessment Categories</label>
+          <div className="category-list">
+            {bestPractices.map(practice => (
+              <div key={practice.category} className="category-item">
+                <input 
+                  type="checkbox" 
+                  id={`category-${practice.category}`} 
+                  checked={formData.selectedCategories.includes(practice.category)} 
+                  onChange={() => handleCategoryToggle(practice.category)} 
                 />
-                <label htmlFor={category.id}>{category.name}</label>
+                <label htmlFor={`category-${practice.category}`}>{practice.title}</label>
               </div>
             ))}
           </div>
-          {formData.selectedCategories.length === 0 && (
-            <p className="field-hint">Please select at least one category to assess</p>
-          )}
         </div>
-
-        <div className="form-actions">
-          <button
-            type="submit"
-            disabled={loading || formData.selectedCategories.length === 0}
-            className="submit-button"
-          >
-            {loading ? 'Creating Assessment...' : 'Create Assessment'}
-          </button>
-        </div>
+        <button type="submit" className="submit-button" disabled={loading}>
+          {loading ? 'Creating Assessment...' : 'Create Assessment'}
+        </button>
       </form>
     </div>
   );

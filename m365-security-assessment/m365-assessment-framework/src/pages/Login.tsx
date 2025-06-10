@@ -6,26 +6,26 @@ import './Login.css';
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isLoading, error, isAuthenticated, login } = useAuth();
+  const { loading, error, isAuthenticated, login } = useAuth();
   const [manualLogin, setManualLogin] = useState(false);
 
   // Check if this is a post-logout redirect that should not auto-login
   const noAutoLogin = new URLSearchParams(location.search).get('noauto') === 'true';
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && !error && !noAutoLogin && !manualLogin) {
+    if (!loading && !isAuthenticated && !error && !noAutoLogin && !manualLogin) {
       login();
     } else if (isAuthenticated) {
       navigate('/');
     }
-  }, [isLoading, isAuthenticated, error, login, navigate, noAutoLogin, manualLogin]);
+  }, [loading, isAuthenticated, error, login, navigate, noAutoLogin, manualLogin]);
 
   const handleLogin = () => {
     setManualLogin(true);
     login();
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="lm-login-container">
         <div className="lm-login-card">
