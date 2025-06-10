@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@azure/core-util": "^1.12.0",
+    "@azure/cosmos": "^4.1.1",
     "@azure/functions": "^4.7.1-preview",
     "@azure/identity": "^3.4.2",
     "@azure/keyvault-secrets": "^4.9.0",

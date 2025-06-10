@@ -5,6 +5,7 @@ import { useAssessment } from '../hooks/useAssessment';
 import SecurityScoreCard from '../components/SecurityScoreCard';
 import TopRecommendations from '../components/TopRecommendations';
 import CriticalSecurityRisks from '../components/CriticalSecurityRisks';
+import RecentAssessments from '../components/RecentAssessments';
 import { Card } from '../components/ui/Card';
 import { Metrics } from '../models/Metrics';
 import './Dashboard.css';
@@ -130,6 +131,11 @@ const Dashboard: React.FC = () => {
         <div className="dashboard-columns">
           <div className="dashboard-column">
             <TopRecommendations assessment={assessment} />
+            {/* Add Recent Assessments section */}
+            <RecentAssessments 
+              tenantId={assessment.tenantId} 
+              limit={5} 
+            />
           </div>
 
           <div className="dashboard-column">

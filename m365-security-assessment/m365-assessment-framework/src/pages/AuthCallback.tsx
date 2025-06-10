@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import './AuthCallback.css';
 
 interface AuthCallbackProps {}
 
@@ -239,104 +240,6 @@ const AuthCallback: React.FC<AuthCallbackProps> = () => {
           )}
         </div>
       </div>
-
-      <style jsx>{`
-        .auth-callback-page {
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-        }
-
-        .auth-callback-container {
-          background: white;
-          border-radius: 12px;
-          padding: 3rem;
-          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-          text-align: center;
-          max-width: 400px;
-          width: 90%;
-        }
-
-        .auth-status h2 {
-          margin: 1rem 0;
-          color: #1e293b;
-          font-size: 1.5rem;
-        }
-
-        .auth-status p {
-          color: #64748b;
-          margin-bottom: 1rem;
-          line-height: 1.5;
-        }
-
-        .spinner {
-          width: 40px;
-          height: 40px;
-          border: 4px solid #e2e8f0;
-          border-top: 4px solid #3b82f6;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-          margin: 0 auto 1rem auto;
-        }
-
-        .success-icon {
-          width: 60px;
-          height: 60px;
-          background: #10b981;
-          color: white;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 2rem;
-          font-weight: bold;
-          margin: 0 auto 1rem auto;
-        }
-
-        .error-icon {
-          width: 60px;
-          height: 60px;
-          background: #ef4444;
-          color: white;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 2rem;
-          font-weight: bold;
-          margin: 0 auto 1rem auto;
-        }
-
-        .retry-button {
-          background: #3b82f6;
-          color: white;
-          border: none;
-          border-radius: 6px;
-          padding: 0.75rem 1.5rem;
-          font-size: 1rem;
-          cursor: pointer;
-          transition: background 0.2s;
-          margin-top: 1rem;
-        }
-
-        .retry-button:hover {
-          background: #2563eb;
-        }
-
-        .redirect-notice {
-          font-style: italic;
-          color: #6b7280;
-          font-size: 0.875rem;
-        }
-
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 };

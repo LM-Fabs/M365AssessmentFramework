@@ -126,12 +126,40 @@ export class AssessmentService {
     }
   }
 
-  public async saveAssessment(assessment: Assessment): Promise<void> {
+  /**
+   * Save assessment and store in history
+   */
+  public async saveAssessment(assessment: Assessment): Promise<Assessment> {
     try {
-      await axios.post(`${this.baseUrl}/assessment/save`, assessment);
-    } catch (error) {
+      const response = await fetch(`${this.baseUrl}/save-assessment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getAuthHeaders()
+        },
+        body: JSON.stringify(assessment)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to save assessment: ${response.statusText}`);
+      }
+
+      const savedAssessment = await response.json();
+
+      // Store in assessment history for future comparisons
+      try {
+        const { AssessmentHistoryService } = await import('./assessmentHistoryService');
+        const historyService = AssessmentHistoryService.getInstance();
+        await historyService.storeAssessmentHistory(savedAssessment);
+      } catch (historyError) {
+        console.warn('Failed to store assessment history:', historyError);
+        // Don't fail the save operation if history storage fails
+      }
+
+      return savedAssessment;
+    } catch (error: any) {
       console.error('Error saving assessment:', error);
-      throw error;
+      throw new Error(error.message || 'Failed to save assessment');
     }
   }
 
@@ -177,5 +205,16 @@ export class AssessmentService {
       }
       throw error;
     }
+  }
+
+  private getAuthHeaders(): Record<string, string> {
+    // Add authentication headers if available
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      return {
+        'Authorization': `Bearer ${token}`
+      };
+    }
+    return {};
   }
 }

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Assessment } from '../models/Assessment';
 import { Tenant } from '../models/Tenant';
+import { AssessmentHistoryService } from '../services/assessmentHistoryService';
 import CircleProgress from './ui/CircleProgress';
 import './SecurityScoreCard.css';
 
@@ -10,8 +11,37 @@ interface SecurityScoreCardProps {
   onCategoryClick: (category: string) => void;
 }
 
+interface ScoreComparison {
+  current: number;
+  previous: number;
+  change: number;
+  changePercent: number;
+}
+
 const SecurityScoreCard: React.FC<SecurityScoreCardProps> = ({ assessment, tenant, onCategoryClick }) => {
-  // Fix: Access the score from the correct path in the Assessment model
+  const [comparison, setComparison] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  
+  const historyService = AssessmentHistoryService.getInstance();
+
+  // Load comparison data when component mounts
+  useEffect(() => {
+    const loadComparison = async () => {
+      try {
+        setLoading(true);
+        const comparisonData = await historyService.compareWithPrevious(assessment);
+        setComparison(comparisonData);
+      } catch (error) {
+        console.error('Error loading assessment comparison:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadComparison();
+  }, [assessment]);
+
+  // Access the score from the correct path in the Assessment model
   const overallScore = assessment.metrics.score?.overall || 0;
   const metrics = {
     identity: assessment.metrics.score?.identity || 0,
@@ -20,22 +50,90 @@ const SecurityScoreCard: React.FC<SecurityScoreCardProps> = ({ assessment, tenan
     infrastructure: assessment.metrics.score?.cloudApps || 0
   };
   
-  const formatScoreChange = (change: number) => {
-    if (change > 0) return `+${change}%`;
-    if (change < 0) return `${change}%`;
-    return 'No change';
+  const formatScoreChange = (change: number, changePercent: number) => {
+    if (change === 0) return 'No change';
+    const sign = change > 0 ? '+' : '';
+    return `${sign}${change}% (${sign}${changePercent}%)`;
   };
 
-  // Get score change - in a real app this would come from your assessment data
-  const scoreChange = 5; // Example: 5% improvement
+  const getChangeClass = (change: number) => {
+    if (change > 0) return 'positive';
+    if (change < 0) return 'negative';
+    return 'neutral';
+  };
+
+  const renderScoreChange = (scoreComparison: ScoreComparison | null, label: string = 'since last assessment') => {
+    if (!scoreComparison) {
+      return <div className="score-neutral">No previous assessment for comparison</div>;
+    }
+
+    const change = scoreComparison.change;
+    const changePercent = scoreComparison.changePercent;
+
+    if (change > 0) {
+      return (
+        <div className="score-improvement">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="18 15 12 9 6 15"></polyline>
+          </svg>
+          {formatScoreChange(change, changePercent)} {label}
+        </div>
+      );
+    } else if (change < 0) {
+      return (
+        <div className="score-decline">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+          {formatScoreChange(change, changePercent)} {label}
+        </div>
+      );
+    } else {
+      return <div className="score-neutral">No change {label}</div>;
+    }
+  };
+
+  const renderCategoryChange = (category: keyof typeof comparison.categories) => {
+    if (loading) {
+      return <span className="category-change loading">...</span>;
+    }
+    
+    if (!comparison || !comparison.categories[category]) {
+      return <span className="category-change neutral">New</span>;
+    }
+
+    const categoryComparison = comparison.categories[category];
+    const change = categoryComparison.change;
+    const changePercent = categoryComparison.changePercent;
+    
+    if (change === 0) {
+      return <span className="category-change neutral">0%</span>;
+    }
+
+    const sign = change > 0 ? '+' : '';
+    const className = `category-change ${getChangeClass(change)}`;
+    
+    return (
+      <span className={className}>
+        {sign}{change}%
+      </span>
+    );
+  };
 
   return (
     <div className="security-score-overview">
       <div className="score-header">
         <h2>Security Score Overview</h2>
         <div className="last-assessment">
-          Last assessment: {new Date(assessment.lastModified).toLocaleDateString()} · 
-          <span className="compare-link">Compare with previous</span>
+          Last assessment: {new Date(assessment.lastModified).toLocaleDateString()}
+          {comparison && comparison.timespan && (
+            <span> · {comparison.timespan.daysDifference} days ago</span>
+          )}
+          {comparison && (
+            <span className="compare-link" style={{ marginLeft: '10px', cursor: 'pointer' }}>
+              Compare with previous
+            </span>
+          )}
         </div>
       </div>
 
@@ -54,22 +152,10 @@ const SecurityScoreCard: React.FC<SecurityScoreCardProps> = ({ assessment, tenan
             </div>
           </div>
           <div className="score-change">
-            {scoreChange > 0 ? (
-              <div className="score-improvement">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="18 15 12 9 6 15"></polyline>
-                </svg>
-                {formatScoreChange(scoreChange)} since last assessment
-              </div>
-            ) : scoreChange < 0 ? (
-              <div className="score-decline">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-                {formatScoreChange(scoreChange)} since last assessment
-              </div>
+            {loading ? (
+              <div className="score-neutral">Loading comparison...</div>
             ) : (
-              <div className="score-neutral">No change since last assessment</div>
+              renderScoreChange(comparison?.overall, 'since last assessment')
             )}
           </div>
         </div>
@@ -85,7 +171,7 @@ const SecurityScoreCard: React.FC<SecurityScoreCardProps> = ({ assessment, tenan
             <div className="category-details">
               <span className="category-name">Identity</span>
               <span className="category-score">{metrics.identity}%</span>
-              <span className="category-change positive">+12%</span>
+              {renderCategoryChange('identity')}
             </div>
           </div>
 
@@ -100,7 +186,7 @@ const SecurityScoreCard: React.FC<SecurityScoreCardProps> = ({ assessment, tenan
             <div className="category-details">
               <span className="category-name">Data</span>
               <span className="category-score">{metrics.data}%</span>
-              <span className="category-change positive">+8%</span>
+              {renderCategoryChange('dataProtection')}
             </div>
           </div>
 
@@ -115,7 +201,7 @@ const SecurityScoreCard: React.FC<SecurityScoreCardProps> = ({ assessment, tenan
             <div className="category-details">
               <span className="category-name">Devices</span>
               <span className="category-score">{metrics.devices}%</span>
-              <span className="category-change positive">+3%</span>
+              {renderCategoryChange('endpoint')}
             </div>
           </div>
 
@@ -131,7 +217,7 @@ const SecurityScoreCard: React.FC<SecurityScoreCardProps> = ({ assessment, tenan
             <div className="category-details">
               <span className="category-name">Infrastructure</span>
               <span className="category-score">{metrics.infrastructure}%</span>
-              <span className="category-change positive">+5%</span>
+              {renderCategoryChange('cloudApps')}
             </div>
           </div>
         </div>
