@@ -179,9 +179,10 @@ export class MultiTenantGraphService {
         }
       };
 
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(`Security assessment failed for tenant ${targetTenantId}:`, error);
-      throw new Error(`Assessment failed: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown assessment error';
+      throw new Error(`Assessment failed: ${errorMessage}`);
     }
   }
 
