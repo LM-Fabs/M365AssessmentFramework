@@ -290,14 +290,14 @@ export class MultiTenantGraphService {
     const secureScore = latestSecureScore ? 
       Math.round((latestSecureScore.currentScore / latestSecureScore.maxScore) * 100) : 0;
 
-    const mfaRegisteredUsers = users.filter(u => u.isMfaRegistered).length;
+    const mfaRegisteredUsers = users.filter((u: any) => u.isMfaRegistered).length;
     const totalUsers = users.length;
     const mfaAdoption = totalUsers > 0 ? (mfaRegisteredUsers / totalUsers) * 100 : 0;
 
-    const activePolicies = conditionalAccessPolicies.filter(p => p.state === 'enabled').length;
+    const activePolicies = conditionalAccessPolicies.filter((p: any) => p.state === 'enabled').length;
     const identityScore = Math.round((mfaAdoption * 0.7) + (Math.min(activePolicies * 10, 30)));
 
-    const compliantDevices = devices.filter(d => d.complianceState === 'compliant').length;
+    const compliantDevices = devices.filter((d: any) => d.complianceState === 'compliant').length;
     const totalDevices = devices.length;
     const deviceComplianceScore = totalDevices > 0 ? 
       Math.round((compliantDevices / totalDevices) * 100) : 100;
@@ -320,7 +320,7 @@ export class MultiTenantGraphService {
     const { users, conditionalAccessPolicies, devices, securityAlerts } = data;
 
     // MFA recommendations
-    const mfaRegisteredUsers = users.filter(u => u.isMfaRegistered).length;
+    const mfaRegisteredUsers = users.filter((u: any) => u.isMfaRegistered).length;
     const totalUsers = users.length;
     if (totalUsers > 0 && (mfaRegisteredUsers / totalUsers) < 0.9) {
       recommendations.push({
@@ -333,7 +333,7 @@ export class MultiTenantGraphService {
     }
 
     // Conditional Access recommendations
-    const activePolicies = conditionalAccessPolicies.filter(p => p.state === 'enabled').length;
+    const activePolicies = conditionalAccessPolicies.filter((p: any) => p.state === 'enabled').length;
     if (activePolicies < 3) {
       recommendations.push({
         id: 'conditional-access',
@@ -345,7 +345,7 @@ export class MultiTenantGraphService {
     }
 
     // Device compliance recommendations
-    const compliantDevices = devices.filter(d => d.complianceState === 'compliant').length;
+    const compliantDevices = devices.filter((d: any) => d.complianceState === 'compliant').length;
     const totalDevices = devices.length;
     if (totalDevices > 0 && (compliantDevices / totalDevices) < 0.95) {
       recommendations.push({
@@ -358,7 +358,7 @@ export class MultiTenantGraphService {
     }
 
     // Security alerts recommendations
-    const highSeverityAlerts = securityAlerts.filter(a => a.severity === 'high').length;
+    const highSeverityAlerts = securityAlerts.filter((a: any) => a.severity === 'high').length;
     if (highSeverityAlerts > 0) {
       recommendations.push({
         id: 'high-severity-alerts',

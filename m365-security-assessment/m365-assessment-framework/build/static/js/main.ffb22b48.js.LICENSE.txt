@@ -15,7 +15,11 @@ PERFORMANCE OF THIS SOFTWARE.
 
 /*! @azure/msal-browser v2.39.0 2024-06-06 */
 
+/*! @azure/msal-browser v3.28.1 2025-01-14 */
+
 /*! @azure/msal-common v13.3.3 2024-06-06 */
+
+/*! @azure/msal-common v14.16.0 2024-11-05 */
 
 /**
  * @license React
