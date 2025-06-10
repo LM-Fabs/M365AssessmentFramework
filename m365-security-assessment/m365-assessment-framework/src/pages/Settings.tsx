@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { AssessmentService } from '../services/assessmentService';
 import { MultiTenantGraphService } from '../services/multiTenantGraphService';
 import { SECURITY_CATEGORIES } from '../shared/constants';
+import { msalConfig } from '../config/auth';
 import './Settings.css';
 
 interface TenantConfig {
@@ -61,7 +62,7 @@ const Settings = () => {
         // Create a tenant selection URL that doesn't require a specific client ID
         const loginUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
           new URLSearchParams({
-            client_id: '04b07795-8ddb-461a-bbee-02f9e1bf7b46', // Microsoft Graph Explorer client ID (public)
+            client_id: msalConfig.auth.clientId, // Use the correct client ID from auth config
             response_type: 'code',
             redirect_uri: window.location.origin + '/auth/callback',
             scope: 'openid profile',
