@@ -1,4 +1,5 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
+import { randomUUID } from 'crypto'; // Add proper crypto import
 
 // Define an interface for the expected request body
 interface CreateAssessmentRequest {
@@ -36,116 +37,39 @@ export const createAssessmentHandler = app.http('createAssessment', {
         context.log('CreateAssessment function processing a request');
         
         try {
-            // Enhanced logging for debugging
-            context.log('Request method:', request.method);
-            context.log('Request URL:', request.url);
-            context.log('Request headers:', JSON.stringify(Object.fromEntries(request.headers.entries())));
+            // Cast the request data to the defined interface
+            const data = await request.json() as CreateAssessmentRequest;
+            context.log('Creating assessment with data:', data);
+
+            // Generate a unique ID for the new assessment using proper import
+            const assessmentId = randomUUID();
             
-            // Check content type
-            const contentType = request.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                context.warn('Invalid content type:', contentType);
-                return {
-                    status: 400,
-                    jsonBody: {
-                        error: 'Content-Type must be application/json',
-                        receivedContentType: contentType
-                    }
-                };
-            }
-
-            // Parse and validate request body
-            let data: CreateAssessmentRequest;
-            try {
-                const requestText = await request.text();
-                context.log('Raw request body:', requestText);
-                
-                if (!requestText.trim()) {
-                    return {
-                        status: 400,
-                        jsonBody: {
-                            error: 'Request body is empty'
-                        }
-                    };
-                }
-                
-                data = JSON.parse(requestText) as CreateAssessmentRequest;
-                context.log('Parsed request data:', JSON.stringify(data, null, 2));
-            } catch (parseError) {
-                context.error('JSON parsing error:', parseError);
-                return {
-                    status: 400,
-                    jsonBody: {
-                        error: 'Invalid JSON in request body',
-                        details: parseError instanceof Error ? parseError.message : String(parseError)
-                    }
-                };
-            }
-
-            // Validate required fields
-            const validationErrors: string[] = [];
-            if (!data.tenantName || typeof data.tenantName !== 'string') {
-                validationErrors.push('tenantName is required and must be a string');
-            }
-            if (!Array.isArray(data.categories)) {
-                validationErrors.push('categories is required and must be an array');
-            }
-            if (!data.notificationEmail || typeof data.notificationEmail !== 'string') {
-                validationErrors.push('notificationEmail is required and must be a string');
-            }
-
-            if (validationErrors.length > 0) {
-                context.warn('Validation errors:', validationErrors);
-                return {
-                    status: 400,
-                    jsonBody: {
-                        error: 'Validation failed',
-                        details: validationErrors
-                    }
-                };
-            }
-
-            // Generate a unique ID for the new assessment
-            const assessmentId = crypto.randomUUID();
-            context.log('Generated assessment ID:', assessmentId);
-            
-            // Create the assessment response
-            const assessmentResponse = {
-                id: assessmentId,
-                tenantId: data.tenantName,
-                assessmentDate: new Date().toISOString(),
-                status: 'draft',
-                categories: data.categories,
-                notificationEmail: data.notificationEmail,
-                scheduling: data.scheduling || { enabled: false, frequency: 'monthly' }
-            };
-
-            context.log('Returning assessment response:', JSON.stringify(assessmentResponse, null, 2));
+            // TODO: Implement the actual assessment creation logic here
+            // This would typically involve storing the assessment data in a database
             
             return { 
                 status: 200, 
                 headers: {
                     'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-                },
-                jsonBody: assessmentResponse
-            };
-        } catch (error) {
-            context.error('Unexpected error in createAssessment:', error);
-            context.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace available');
-            
-            return {
-                status: 500,
-                headers: {
-                    'Content-Type': 'application/json',
                     'Access-Control-Allow-Origin': '*'
                 },
                 jsonBody: {
-                    error: "Internal server error occurred while creating assessment",
-                    details: error instanceof Error ? error.message : String(error),
-                    timestamp: new Date().toISOString()
+                    id: assessmentId,
+                    tenantId: data.tenantName || 'default-tenant',
+                    assessmentDate: new Date().toISOString(),
+                    status: 'draft',
+                    categories: data.categories,
+                    notificationEmail: data.notificationEmail,
+                    scheduling: data.scheduling
+                }
+            };
+        } catch (error) {
+            context.error('Error creating assessment:', error);
+            return {
+                status: 500,
+                jsonBody: {
+                    message: "Error creating assessment",
+                    error: error instanceof Error ? error.message : String(error)
                 }
             };
         }
