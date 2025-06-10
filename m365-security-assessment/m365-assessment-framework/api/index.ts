@@ -4,4 +4,5 @@ export * from './GetAssessment/index';
 export * from './GetBestPractices/index';
 export * from './SaveAssessment/index';
 export * from './CreateAssessment/index';
+export * from './GetCurrentAssessment/index';
 export * from './TestFunction/index';

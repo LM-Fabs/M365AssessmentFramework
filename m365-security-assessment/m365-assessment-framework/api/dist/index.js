@@ -20,5 +20,6 @@ __exportStar(require("./GetAssessment/index"), exports);
 __exportStar(require("./GetBestPractices/index"), exports);
 __exportStar(require("./SaveAssessment/index"), exports);
 __exportStar(require("./CreateAssessment/index"), exports);
+__exportStar(require("./GetCurrentAssessment/index"), exports);
 __exportStar(require("./TestFunction/index"), exports);
 //# sourceMappingURL=index.js.map

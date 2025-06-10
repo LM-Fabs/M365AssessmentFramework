@@ -134,4 +134,18 @@ export class AssessmentService {
       throw error;
     }
   }
+
+  public async getCurrentAssessment(): Promise<Assessment | null> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/assessment/current`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        // No current assessment found - this is not an error
+        return null;
+      }
+      console.error('Error fetching current assessment:', error);
+      throw error;
+    }
+  }
 }

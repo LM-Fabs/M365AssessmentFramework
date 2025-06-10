@@ -10,6 +10,7 @@ interface UseAssessmentReturn {
   createAssessment: (tenantId: string) => Promise<void>;
   saveAssessment: () => Promise<void>;
   loadAssessment: (tenantId: string, assessmentId: string) => Promise<void>;
+  refreshAssessment: () => Promise<void>;
 }
 
 export const useAssessment = (): UseAssessmentReturn => {
@@ -19,6 +20,38 @@ export const useAssessment = (): UseAssessmentReturn => {
   
   const { fetchMetrics } = useMetrics();
   const assessmentService = AssessmentService.getInstance();
+
+  // Auto-load current assessment on hook initialization
+  useEffect(() => {
+    const loadCurrentAssessment = async () => {
+      setLoading(true);
+      try {
+        const currentAssessment = await assessmentService.getCurrentAssessment();
+        setAssessment(currentAssessment);
+      } catch (error: any) {
+        console.error('Error loading current assessment:', error);
+        setError(error.message || 'Failed to load current assessment');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCurrentAssessment();
+  }, []);
+
+  const refreshAssessment = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const currentAssessment = await assessmentService.getCurrentAssessment();
+      setAssessment(currentAssessment);
+    } catch (error: any) {
+      console.error('Error refreshing assessment:', error);
+      setError(error.message || 'Failed to refresh assessment');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const createAssessment = useCallback(async (tenantId: string) => {
     setLoading(true);
@@ -90,6 +123,7 @@ export const useAssessment = (): UseAssessmentReturn => {
     error,
     createAssessment,
     saveAssessment,
-    loadAssessment
+    loadAssessment,
+    refreshAssessment
   };
 };
