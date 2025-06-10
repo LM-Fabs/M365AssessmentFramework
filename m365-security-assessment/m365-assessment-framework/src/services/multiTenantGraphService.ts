@@ -88,9 +88,10 @@ export class MultiTenantGraphService {
       console.log(`Successfully initialized assessment context for tenant: ${targetTenantId}`);
       return assessmentContext;
 
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(`Failed to initialize tenant assessment for ${targetTenantId}:`, error);
-      throw new Error(`Authentication failed for tenant ${targetTenantId}: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown authentication error';
+      throw new Error(`Authentication failed for tenant ${targetTenantId}: ${errorMessage}`);
     }
   }
 
