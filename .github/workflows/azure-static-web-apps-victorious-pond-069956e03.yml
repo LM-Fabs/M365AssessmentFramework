@@ -58,9 +58,9 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_VICTORIOUS_POND_069956E03 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          app_location: "m365-security-assessment/m365-assessment-framework"
+          app_location: "m365-security-assessment/m365-assessment-framework/build" # Point directly to the build output
           api_location: "m365-security-assessment/m365-assessment-framework/api"
-          output_location: "build"
+          output_location: "" # Empty since we're pointing directly to the build folder
           skip_app_build: true # We already built it
           skip_api_build: true # We already built it
         env:
