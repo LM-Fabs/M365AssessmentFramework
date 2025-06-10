@@ -20,7 +20,7 @@ const Settings = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [step, setStep] = useState<'tenant-selection' | 'app-creation' | 'consent' | 'assessment-config'>('tenant-selection');
+  const [step, setStep] = useState<'start-assessment' | 'tenant-login' | 'assessment-config'>('start-assessment');
   
   // Multi-tenant state
   const [tenantConfig, setTenantConfig] = useState<TenantConfig>({
@@ -39,48 +39,109 @@ const Settings = () => {
     scheduleFrequency: 'monthly'
   });
 
-  const handleTenantSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!tenantConfig.tenantId || !tenantConfig.tenantDomain) {
-      setError('Please provide both Tenant ID and Domain');
-      return;
-    }
-
+  const handleStartAssessment = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // Create multi-tenant application
+      // Create a generic multi-tenant application that can be used for any tenant
       const assessmentService = AssessmentService.getInstance();
       const appResponse = await assessmentService.createMultiTenantApp({
-        targetTenantId: tenantConfig.tenantId,
-        targetTenantDomain: tenantConfig.tenantDomain,
+        targetTenantId: 'common', // Use 'common' for multi-tenant endpoint
         assessmentName: formData.assessmentName
       });
 
       setAppConfig(appResponse);
-      setStep('consent');
+      
+      // Immediately trigger the tenant selection login
+      await handleTenantLogin(appResponse.clientId);
+      
     } catch (error: any) {
-      setError(error.message || 'Failed to create multi-tenant application');
-    } finally {
+      setError(error.message || 'Failed to initialize assessment application');
       setLoading(false);
     }
   };
 
-  const handleConsentComplete = async () => {
-    setLoading(true);
+  const handleTenantLogin = async (clientId: string) => {
+    try {
+      // Create a tenant-agnostic login URL that will allow the user to choose their tenant
+      const loginUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
+        new URLSearchParams({
+          client_id: clientId,
+          response_type: 'code',
+          redirect_uri: window.location.origin + '/auth/callback',
+          scope: 'https://graph.microsoft.com/.default',
+          prompt: 'select_account', // Force account/tenant selection
+          state: 'multi-tenant-assessment'
+        }).toString();
+
+      // Open the login in a popup window
+      const popup = window.open(
+        loginUrl,
+        'tenant-login',
+        'width=600,height=700,scrollbars=yes,resizable=yes'
+      );
+
+      // Listen for the authentication callback
+      const checkClosed = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(checkClosed);
+          // Handle the case where user closed the popup
+          setError('Authentication was cancelled');
+          setLoading(false);
+        }
+      }, 1000);
+
+      // Listen for messages from the popup (if using postMessage pattern)
+      const messageListener = (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) return;
+        
+        if (event.data.type === 'TENANT_AUTH_SUCCESS') {
+          clearInterval(checkClosed);
+          popup?.close();
+          window.removeEventListener('message', messageListener);
+          
+          // Extract tenant information from the authentication result
+          const { tenantId, tenantDomain, userInfo } = event.data;
+          
+          setTenantConfig({
+            tenantId: tenantId,
+            tenantDomain: tenantDomain || `${tenantId}.onmicrosoft.com`,
+            displayName: userInfo?.displayName || tenantDomain || tenantId
+          });
+
+          // Initialize the assessment context for the selected tenant
+          initializeTenantAssessment(tenantId, clientId, tenantDomain);
+        } else if (event.data.type === 'TENANT_AUTH_ERROR') {
+          clearInterval(checkClosed);
+          popup?.close();
+          window.removeEventListener('message', messageListener);
+          setError(event.data.error || 'Authentication failed');
+          setLoading(false);
+        }
+      };
+
+      window.addEventListener('message', messageListener);
+
+    } catch (error: any) {
+      setError(error.message || 'Failed to initiate tenant login');
+      setLoading(false);
+    }
+  };
+
+  const initializeTenantAssessment = async (tenantId: string, clientId: string, tenantDomain?: string) => {
     try {
       // Initialize tenant assessment context
       await multiTenantService.initializeTenantAssessment(
-        tenantConfig.tenantId,
-        appConfig.clientId,
-        tenantConfig.tenantDomain
+        tenantId,
+        clientId,
+        tenantDomain
       );
 
       setStep('assessment-config');
+      setLoading(false);
     } catch (error: any) {
       setError(error.message || 'Failed to initialize tenant assessment');
-    } finally {
       setLoading(false);
     }
   };
@@ -135,52 +196,15 @@ const Settings = () => {
         <p>Configure and run security assessments across different Microsoft 365 tenants</p>
       </div>
 
-      {/* Step 1: Tenant Selection */}
-      {step === 'tenant-selection' && (
-        <form className="settings-form" onSubmit={handleTenantSubmit}>
+      {/* Step 1: Start Assessment */}
+      {step === 'start-assessment' && (
+        <div className="settings-form">
           {error && <div className="error-message">{error}</div>}
           
           <div className="form-section">
-            <h2>Target Tenant Configuration</h2>
-            <p>Specify the Microsoft 365 tenant you want to assess</p>
+            <h2>Start New Assessment</h2>
+            <p>Click the button below to select a Microsoft 365 tenant and begin the security assessment process.</p>
             
-            <div className="form-field">
-              <label htmlFor="tenantId">Target Tenant ID</label>
-              <input
-                type="text"
-                id="tenantId"
-                value={tenantConfig.tenantId}
-                onChange={e => setTenantConfig({...tenantConfig, tenantId: e.target.value})}
-                placeholder="e.g., 12345678-1234-1234-1234-123456789abc"
-                required
-              />
-              <small>The Azure AD Tenant ID of the organization to assess</small>
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="tenantDomain">Target Tenant Domain</label>
-              <input
-                type="text"
-                id="tenantDomain"
-                value={tenantConfig.tenantDomain}
-                onChange={e => setTenantConfig({...tenantConfig, tenantDomain: e.target.value})}
-                placeholder="e.g., contoso.onmicrosoft.com"
-                required
-              />
-              <small>The primary domain of the target tenant</small>
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="displayName">Assessment Display Name</label>
-              <input
-                type="text"
-                id="displayName"
-                value={tenantConfig.displayName}
-                onChange={e => setTenantConfig({...tenantConfig, displayName: e.target.value})}
-                placeholder="e.g., Contoso Security Assessment"
-              />
-            </div>
-
             <div className="form-field">
               <label htmlFor="assessmentName">Assessment Name</label>
               <input
@@ -188,65 +212,58 @@ const Settings = () => {
                 id="assessmentName"
                 value={formData.assessmentName}
                 onChange={e => setFormData({...formData, assessmentName: e.target.value})}
+                placeholder="Enter a name for this assessment"
                 required
               />
+              <small>This will be used to identify the assessment in your dashboard</small>
+            </div>
+
+            <div className="assessment-info">
+              <h3>What happens next?</h3>
+              <ul>
+                <li>You'll be prompted to sign in to the Microsoft 365 tenant you want to assess</li>
+                <li>The system will create a secure assessment application for that tenant</li>
+                <li>You'll configure which security categories to include in the assessment</li>
+                <li>The assessment will run and provide detailed security insights</li>
+              </ul>
             </div>
           </div>
 
           <div className="form-actions">
-            <button type="submit" className="primary-button" disabled={loading}>
-              {loading ? 'Creating Application...' : 'Create Assessment Application'}
+            <button 
+              onClick={handleStartAssessment}
+              className="primary-button" 
+              disabled={loading}
+            >
+              {loading ? 'Initializing...' : 'Select Tenant & Start Assessment'}
             </button>
-          </div>
-        </form>
-      )}
-
-      {/* Step 2: Admin Consent */}
-      {step === 'consent' && appConfig && (
-        <div className="settings-form">
-          <div className="form-section">
-            <h2>Administrator Consent Required</h2>
-            <p>An application has been created for tenant assessment. Administrative consent is required to proceed.</p>
-            
-            <div className="consent-info">
-              <h3>Application Details</h3>
-              <ul>
-                <li><strong>Application ID:</strong> {appConfig.clientId}</li>
-                <li><strong>Target Tenant:</strong> {tenantConfig.tenantDomain}</li>
-                <li><strong>Required Permissions:</strong> Security data read access</li>
-              </ul>
-            </div>
-
-            <div className="consent-actions">
-              <a 
-                href={appConfig.consentUrl} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="primary-button"
-              >
-                Grant Admin Consent
-              </a>
-              <button 
-                onClick={handleConsentComplete}
-                className="secondary-button"
-                disabled={loading}
-              >
-                {loading ? 'Initializing...' : 'Continue After Consent'}
-              </button>
-            </div>
           </div>
         </div>
       )}
 
-      {/* Step 3: Assessment Configuration */}
+      {/* Step 2: Assessment Configuration */}
       {step === 'assessment-config' && (
         <form className="settings-form" onSubmit={handleAssessmentSubmit}>
           {error && <div className="error-message">{error}</div>}
           {success && <div className="success-message">Assessment completed successfully. Redirecting...</div>}
 
           <div className="form-section">
+            <h2>Assessment Configuration</h2>
+            <p>Assessment will be performed for: <strong>{tenantConfig.displayName || tenantConfig.tenantDomain}</strong></p>
+            
+            <div className="tenant-info">
+              <div className="info-item">
+                <strong>Tenant ID:</strong> {tenantConfig.tenantId}
+              </div>
+              <div className="info-item">
+                <strong>Domain:</strong> {tenantConfig.tenantDomain}
+              </div>
+            </div>
+          </div>
+
+          <div className="form-section">
             <h2>Assessment Scope</h2>
-            <p>Select security categories to include in the assessment for {tenantConfig.tenantDomain}</p>
+            <p>Select security categories to include in the assessment</p>
             <div className="categories-grid">
               {Object.entries(SECURITY_CATEGORIES).map(([key, label]) => (
                 <label key={key} className={`category-checkbox ${formData.includedCategories.includes(key) ? 'selected' : ''}`}>
@@ -307,10 +324,10 @@ const Settings = () => {
           <div className="form-actions">
             <button 
               type="button" 
-              onClick={() => setStep('tenant-selection')}
+              onClick={() => setStep('start-assessment')}
               className="secondary-button"
             >
-              Back to Tenant Selection
+              Start New Assessment
             </button>
             <button type="submit" className="primary-button" disabled={loading}>
               {loading ? 'Running Assessment...' : 'Run Security Assessment'}
