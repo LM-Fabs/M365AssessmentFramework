@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { msalConfig } from '../config/auth';
 import './AuthCallback.css';
 
 interface AuthCallbackProps {}
@@ -85,7 +86,7 @@ const AuthCallback: React.FC<AuthCallbackProps> = () => {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: new URLSearchParams({
-          client_id: '04b07795-8ddb-461a-bbee-02f9e1bf7b46', // Microsoft Graph Explorer client ID
+          client_id: msalConfig.auth.clientId, // Use the correct client ID from auth config
           grant_type: 'authorization_code',
           code: code,
           redirect_uri: window.location.origin + '/auth/callback',
