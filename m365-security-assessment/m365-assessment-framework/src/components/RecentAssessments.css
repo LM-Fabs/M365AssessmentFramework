@@ -90,6 +90,7 @@
 .empty-state svg {
   margin: 0 auto 1rem auto;
   opacity: 0.5;
+  color: #9ca3af;
 }
 
 .empty-state h4 {
@@ -103,6 +104,7 @@
   margin: 0;
   font-size: 0.875rem;
   line-height: 1.5;
+  color: #6b7280;
 }
 
 .assessments-list {
@@ -144,9 +146,6 @@
   flex-direction: column;
   gap: 0.25rem;
   min-width: 120px;
-}
-
-.assessment-date {
   font-size: 0.875rem;
   font-weight: 500;
   color: #374151;

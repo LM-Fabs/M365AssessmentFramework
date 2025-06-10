@@ -1,5 +1,37 @@
 {
+  "auth": {
+    "rolesSource": "/api/GetUserRoles",
+    "identityProviders": {
+      "azureActiveDirectory": {
+        "userDetailsClaim": "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
+        "registration": {
+          "openIdIssuer": "https://login.microsoftonline.com/organizations/v2.0",
+          "clientIdSettingName": "AZURE_CLIENT_ID",
+          "clientSecretSettingName": "AZURE_CLIENT_SECRET"
+        }
+      }
+    }
+  },
   "routes": [
+    {
+      "route": "/.auth/*",
+      "allowedRoles": ["anonymous"]
+    },
+    {
+      "route": "/login",
+      "allowedRoles": ["anonymous"],
+      "rewrite": "/.auth/login/aad"
+    },
+    {
+      "route": "/logout",
+      "allowedRoles": ["anonymous"],
+      "rewrite": "/.auth/logout"
+    },
+    {
+      "route": "/auth/callback",
+      "allowedRoles": ["anonymous"],
+      "rewrite": "/index.html"
+    },
     {
       "route": "/images/*",
       "headers": {
@@ -20,16 +52,16 @@
     {
       "route": "/api/assessment/create",
       "methods": ["POST"],
-      "allowedRoles": ["anonymous"]
+      "allowedRoles": ["authenticated"]
     },
     {
       "route": "/api/assessment/save",
       "methods": ["POST"],
-      "allowedRoles": ["anonymous"]
+      "allowedRoles": ["authenticated"]
     },
     {
       "route": "/api/*",
-      "allowedRoles": ["anonymous"]
+      "allowedRoles": ["authenticated"]
     },
     {
       "route": "/*",
@@ -50,11 +82,12 @@
       "/api/*",
       "/manifest.json",
       "/robots.txt",
-      "/favicon.ico"
+      "/favicon.ico",
+      "/.auth/*"
     ]
   },
   "globalHeaders": {
-    "content-security-policy": "default-src 'self' https: 'unsafe-eval' 'unsafe-inline'; object-src 'none'; style-src 'self' https: 'unsafe-inline'; script-src 'self' https: 'unsafe-eval' 'unsafe-inline'; img-src 'self' https: data: blob:;",
+    "content-security-policy": "default-src 'self' https: 'unsafe-eval' 'unsafe-inline'; object-src 'none'; style-src 'self' https: 'unsafe-inline'; script-src 'self' https: 'unsafe-eval' 'unsafe-inline'; img-src 'self' https: data: blob: login.microsoftonline.com;",
     "X-Content-Type-Options": "nosniff"
   },
   "mimeTypes": {

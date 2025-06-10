@@ -17,8 +17,6 @@
   },
   "dependencies": {
     "@azure/identity": "^3.2.3",
-    "@azure/msal-browser": "^2.38.0",
-    "@azure/msal-react": "^1.5.9",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@microsoft/microsoft-graph-types": "^2.38.0",
     "axios": "^1.4.0",

@@ -20,7 +20,7 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
   tenant,
   loading = false 
 }) => {
-  const { account } = useAuth();
+  const { user } = useAuth();
   const { 
     assessment, 
     error, 
@@ -71,9 +71,9 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
       tenantId: tenant?.id,
       assessmentDate: new Date(),
       assessor: {
-        id: account?.localAccountId || '',
-        name: account?.name || '',
-        email: account?.username || ''
+        id: user?.userPrincipalId || '',
+        name: user?.userPrincipalId || 'Unknown User',
+        email: user?.userPrincipalId || ''
       },
       status: 'draft',
       lastModified: new Date(),

@@ -1,92 +1,42 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { MsalProvider } from '@azure/msal-react';
-import { PublicClientApplication } from '@azure/msal-browser';
-import { msalConfig } from './config/auth';
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import Dashboard from './pages/Dashboard';
+import Login from './pages/Login';
 import History from './pages/History';
 import Settings from './pages/Settings';
-import Login from './pages/Login';
 import AuthCallback from './pages/AuthCallback';
-import Navigation from './components/layout/Navigation';
 import './App.css';
 
-const msalInstance = new PublicClientApplication(msalConfig);
+function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
+  );
+}
 
-// Default to using redirect flow
-msalInstance.handleRedirectPromise().catch(error => {
-  console.error('Error handling redirect:', error);
-});
+function AppContent() {
+  const { isAuthenticated, loading } = useAuth();
 
-const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth();
-
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Checking authentication...</p>
-      </div>
-    );
-  }
-
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
-};
-
-const App: React.FC = () => {
-  const { isLoading, error, logout, account } = useAuth();
-
-  if (isLoading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading application...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="error-container">
-        <p className="error-message">{error}</p>
-        <button onClick={() => window.location.reload()} className="lm-button">Retry</button>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
   return (
-    <MsalProvider instance={msalInstance}>
-      <Router>
-        <div className="app">
-          <Navigation userName={account?.name} onLogout={logout} />
-          
-          <main className="main-content">
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/" element={
-                <PrivateRoute>
-                  <Dashboard />
-                </PrivateRoute>
-              } />
-              <Route path="/history" element={
-                <PrivateRoute>
-                  <History />
-                </PrivateRoute>
-              } />
-              <Route path="/settings" element={
-                <PrivateRoute>
-                  <Settings />
-                </PrivateRoute>
-              } />
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
-          </main>
-        </div>
-      </Router>
-    </MsalProvider>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/dashboard" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
+      <Route path="/history" element={isAuthenticated ? <History /> : <Navigate to="/login" />} />
+      <Route path="/settings" element={isAuthenticated ? <Settings /> : <Navigate to="/login" />} />
+      <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />} />
+    </Routes>
   );
-};
+}
 
 export default App;

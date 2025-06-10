@@ -1,109 +1,111 @@
-import { useState, useCallback, useEffect } from 'react';
-import { PublicClientApplication, AccountInfo, InteractionRequiredAuthError } from '@azure/msal-browser';
-import { msalConfig } from '../config/auth';
+import { useState, useEffect, useCallback } from 'react';
+import { staticWebAppAuth } from '../config/auth';
+
+interface User {
+  displayName: string;
+  email: string;
+  id: string;
+  tenantId?: string;
+}
 
 interface AuthState {
   isAuthenticated: boolean;
-  account: AccountInfo | null;
+  user: User | null;
+  loading: boolean;
   error: string | null;
-  isLoading: boolean;
-}
-
-interface ClientPrincipal {
-  identityProvider: string;
-  userId: string;
-  userDetails: string;
-  userRoles: string[];
 }
 
 export const useAuth = () => {
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
-    account: null,
+    user: null,
+    loading: true,
     error: null,
-    isLoading: true
   });
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch('/.auth/me');
-        const payload = await response.json();
+  const checkAuthStatus = useCallback(async () => {
+    try {
+      setAuthState(prev => ({ ...prev, loading: true, error: null }));
+      
+      const response = await fetch(staticWebAppAuth.meUrl);
+      
+      if (response.ok) {
+        const authData = await response.json();
         
-        if (payload.clientPrincipal) {
-          const userDetails = payload.clientPrincipal as ClientPrincipal;
+        if (authData.clientPrincipal) {
+          const user: User = {
+            displayName: authData.clientPrincipal.userDetails,
+            email: authData.clientPrincipal.userDetails,
+            id: authData.clientPrincipal.userId,
+            tenantId: authData.clientPrincipal.claims?.find((claim: any) => claim.typ === 'tid')?.val
+          };
+          
           setAuthState({
             isAuthenticated: true,
-            account: {
-              username: userDetails.userDetails,
-              environment: 'azure',
-              homeAccountId: userDetails.userId,
-              localAccountId: userDetails.userId,
-              tenantId: userDetails.userId.split('@')[1],
-              name: userDetails.userDetails
-            },
+            user,
+            loading: false,
             error: null,
-            isLoading: false
           });
         } else {
-          setAuthState(prev => ({
-            ...prev,
-            isLoading: false
-          }));
+          setAuthState({
+            isAuthenticated: false,
+            user: null,
+            loading: false,
+            error: null,
+          });
         }
-      } catch (error) {
-        console.error('Auth check failed:', error);
+      } else {
         setAuthState({
           isAuthenticated: false,
-          account: null,
-          error: 'Failed to check authentication status',
-          isLoading: false
+          user: null,
+          loading: false,
+          error: null,
         });
       }
-    };
-
-    checkAuth();
-  }, []);
-
-  const login = useCallback(() => {
-    window.location.href = '/.auth/login/aad';
-  }, []);
-
-  const logout = useCallback(() => {
-    // Add post_logout_redirect_uri to prevent automatic re-authentication
-    // This redirects to the /login page after logout without automatically triggering login
-    const logoutUrl = '/.auth/logout?post_logout_redirect_uri=/login?noauto=true';
-    window.location.href = logoutUrl;
-  }, []);
-
-  const getToken = useCallback(async () => {
-    try {
-      const response = await fetch('/.auth/me');
-      const payload = await response.json();
-      if (payload.clientPrincipal) {
-        const tokenResponse = await fetch('/.auth/token');
-        const tokenPayload = await tokenResponse.json();
-        return tokenPayload.access_token;
-      }
-      throw new Error('Not authenticated');
     } catch (error) {
-      console.error('Token acquisition failed:', error);
-      throw new Error('Failed to get access token');
+      console.error('Auth check failed:', error);
+      setAuthState({
+        isAuthenticated: false,
+        user: null,
+        loading: false,
+        error: 'Failed to check authentication status',
+      });
     }
   }, []);
 
-  const clearError = useCallback(() => {
-    setAuthState(prev => ({
-      ...prev,
-      error: null
-    }));
+  useEffect(() => {
+    checkAuthStatus();
+  }, [checkAuthStatus]);
+
+  const login = useCallback(async () => {
+    window.location.href = staticWebAppAuth.loginUrl;
+  }, []);
+
+  const logout = useCallback(async () => {
+    window.location.href = staticWebAppAuth.logoutUrl;
+  }, []);
+
+  const getAccessToken = useCallback(async (): Promise<string | null> => {
+    try {
+      // For Azure Static Web Apps, we'll need to get tokens through the API
+      // This is a placeholder - actual implementation depends on your backend
+      const response = await fetch('/api/auth/token');
+      if (response.ok) {
+        const data = await response.json();
+        return data.accessToken;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to get access token:', error);
+      return null;
+    }
   }, []);
 
   return {
     ...authState,
     login,
     logout,
-    getToken,
-    clearError
+    getAccessToken,
+    checkAuthStatus,
   };
 };
