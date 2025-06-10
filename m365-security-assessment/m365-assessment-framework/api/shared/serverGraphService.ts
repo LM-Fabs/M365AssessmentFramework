@@ -21,6 +21,48 @@ interface SecurityRecommendation {
   implementationUrl?: string;
 }
 
+interface User {
+  isMfaRegistered: boolean;
+  userPrincipalName?: string;
+  id?: string;
+}
+
+interface ConditionalAccessPolicy {
+  id: string;
+  displayName?: string;
+  state: 'enabled' | 'disabled' | 'enabledForReportingButNotEnforced';
+}
+
+interface Device {
+  id: string;
+  deviceName?: string;
+  complianceState: 'compliant' | 'noncompliant' | 'unknown';
+  lastSyncDateTime?: string;
+}
+
+interface SecurityAlert {
+  id: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  status: 'active' | 'resolved' | 'investigating';
+  title?: string;
+}
+
+interface SecureScore {
+  currentScore: number;
+  maxScore: number;
+  createdDateTime: string;
+}
+
+interface SecureScoreControlProfile {
+  id: string;
+  title?: string;
+  implementationStatus?: string;
+  rank?: number;
+  controlCategory?: string;
+  userImpact?: string;
+  implementationUrl?: string;
+}
+
 export class ServerGraphService {
   private graphClient: Client;
   private credential: DefaultAzureCredential;
@@ -86,13 +128,14 @@ export class ServerGraphService {
         recommendations,
         lastUpdated: new Date().toISOString()
       };
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error fetching security assessment:', error);
-      throw new Error(`Failed to perform security assessment: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new Error(`Failed to perform security assessment: ${errorMessage}`);
     }
   }
 
-  private async getSecureScores() {
+  private async getSecureScores(): Promise<SecureScore[]> {
     try {
       const response = await this.graphClient
         .api('/security/secureScores')
@@ -107,7 +150,7 @@ export class ServerGraphService {
     }
   }
 
-  private async getSecureScoreControlProfiles() {
+  private async getSecureScoreControlProfiles(): Promise<SecureScoreControlProfile[]> {
     try {
       const response = await this.graphClient
         .api('/security/secureScoreControlProfiles')
@@ -120,7 +163,7 @@ export class ServerGraphService {
     }
   }
 
-  private async getConditionalAccessPolicies() {
+  private async getConditionalAccessPolicies(): Promise<ConditionalAccessPolicy[]> {
     try {
       const response = await this.graphClient
         .api('/identity/conditionalAccess/policies')
@@ -133,7 +176,7 @@ export class ServerGraphService {
     }
   }
 
-  private async getDeviceComplianceStatus() {
+  private async getDeviceComplianceStatus(): Promise<Device[]> {
     try {
       const response = await this.graphClient
         .api('/deviceManagement/managedDevices')
@@ -147,7 +190,7 @@ export class ServerGraphService {
     }
   }
 
-  private async getSecurityAlerts() {
+  private async getSecurityAlerts(): Promise<SecurityAlert[]> {
     try {
       const response = await this.graphClient
         .api('/security/alerts_v2')
@@ -162,7 +205,7 @@ export class ServerGraphService {
     }
   }
 
-  private async getUserMfaStatus() {
+  private async getUserMfaStatus(): Promise<User[]> {
     try {
       const response = await this.graphClient
         .api('/reports/credentialUserRegistrationDetails')
@@ -175,7 +218,13 @@ export class ServerGraphService {
     }
   }
 
-  private calculateSecurityMetrics(data: any): SecurityMetrics {
+  private calculateSecurityMetrics(data: {
+    secureScores: SecureScore[];
+    conditionalAccessPolicies: ConditionalAccessPolicy[];
+    devices: Device[];
+    alerts: SecurityAlert[];
+    users: User[];
+  }): SecurityMetrics {
     const { secureScores, conditionalAccessPolicies, devices, alerts, users } = data;
 
     // Calculate secure score from latest entry
@@ -184,14 +233,14 @@ export class ServerGraphService {
       Math.round((latestSecureScore.currentScore / latestSecureScore.maxScore) * 100) : 0;
 
     // Calculate identity score based on MFA adoption and conditional access
-    const mfaRegisteredUsers = users.filter(u => u.isMfaRegistered).length;
+    const mfaRegisteredUsers = users.filter((u: User) => u.isMfaRegistered).length;
     const totalUsers = users.length;
     const mfaAdoption = totalUsers > 0 ? (mfaRegisteredUsers / totalUsers) * 100 : 0;
-    const activePolicies = conditionalAccessPolicies.filter(p => p.state === 'enabled').length;
+    const activePolicies = conditionalAccessPolicies.filter((p: ConditionalAccessPolicy) => p.state === 'enabled').length;
     const identityScore = Math.round((mfaAdoption * 0.7) + (Math.min(activePolicies * 10, 30)));
 
     // Calculate device compliance score
-    const compliantDevices = devices.filter(d => d.complianceState === 'compliant').length;
+    const compliantDevices = devices.filter((d: Device) => d.complianceState === 'compliant').length;
     const totalDevices = devices.length;
     const deviceComplianceScore = totalDevices > 0 ? 
       Math.round((compliantDevices / totalDevices) * 100) : 100;
@@ -209,12 +258,18 @@ export class ServerGraphService {
     };
   }
 
-  private generateRecommendations(data: any): SecurityRecommendation[] {
+  private generateRecommendations(data: {
+    secureScoreControlProfiles: SecureScoreControlProfile[];
+    conditionalAccessPolicies: ConditionalAccessPolicy[];
+    devices: Device[];
+    alerts: SecurityAlert[];
+    users: User[];
+  }): SecurityRecommendation[] {
     const { secureScoreControlProfiles, conditionalAccessPolicies, devices, alerts, users } = data;
     const recommendations: SecurityRecommendation[] = [];
 
     // Check MFA registration
-    const mfaRegisteredUsers = users.filter(u => u.isMfaRegistered).length;
+    const mfaRegisteredUsers = users.filter((u: User) => u.isMfaRegistered).length;
     const totalUsers = users.length;
     if (totalUsers > 0 && (mfaRegisteredUsers / totalUsers) < 0.9) {
       recommendations.push({
@@ -228,7 +283,7 @@ export class ServerGraphService {
     }
 
     // Check conditional access policies
-    const activePolicies = conditionalAccessPolicies.filter(p => p.state === 'enabled').length;
+    const activePolicies = conditionalAccessPolicies.filter((p: ConditionalAccessPolicy) => p.state === 'enabled').length;
     if (activePolicies < 3) {
       recommendations.push({
         id: 'conditional-access',
@@ -241,7 +296,7 @@ export class ServerGraphService {
     }
 
     // Check device compliance
-    const compliantDevices = devices.filter(d => d.complianceState === 'compliant').length;
+    const compliantDevices = devices.filter((d: Device) => d.complianceState === 'compliant').length;
     const totalDevices = devices.length;
     if (totalDevices > 0 && (compliantDevices / totalDevices) < 0.95) {
       recommendations.push({
@@ -255,7 +310,7 @@ export class ServerGraphService {
     }
 
     // Check for high severity alerts
-    const highSeverityAlerts = alerts.filter(a => a.severity === 'high').length;
+    const highSeverityAlerts = alerts.filter((a: SecurityAlert) => a.severity === 'high').length;
     if (highSeverityAlerts > 0) {
       recommendations.push({
         id: 'high-severity-alerts',
@@ -269,16 +324,16 @@ export class ServerGraphService {
 
     // Add recommendations from secure score control profiles
     const incompleteControls = secureScoreControlProfiles.filter(
-      control => control.implementationStatus !== 'Implemented' && 
-                control.rank <= 10 // Focus on top 10 priority controls
+      (control: SecureScoreControlProfile) => control.implementationStatus !== 'Implemented' && 
+                (control.rank ?? 999) <= 10 // Focus on top 10 priority controls
     );
 
-    incompleteControls.forEach(control => {
+    incompleteControls.forEach((control: SecureScoreControlProfile) => {
       recommendations.push({
         id: `secure-score-${control.id}`,
         title: control.title || 'Security Control Recommendation',
-        category: this.mapControlCategory(control.controlCategory),
-        severity: this.mapControlSeverity(control.rank),
+        category: this.mapControlCategory(control.controlCategory || ''),
+        severity: this.mapControlSeverity(control.rank || 999),
         description: control.userImpact || 'Implement this security control to improve your overall security posture.',
         implementationUrl: control.implementationUrl
       });

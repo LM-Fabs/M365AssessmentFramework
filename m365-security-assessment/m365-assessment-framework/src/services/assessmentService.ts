@@ -148,4 +148,34 @@ export class AssessmentService {
       throw error;
     }
   }
+
+  public async createMultiTenantApp(data: {
+    targetTenantId: string;
+    targetTenantDomain?: string;
+    assessmentName?: string;
+  }): Promise<any> {
+    try {
+      console.log('Creating multi-tenant application with URL:', `${this.baseUrl}/enterprise-app/multi-tenant`);
+      console.log('Data being sent:', JSON.stringify(data, null, 2));
+      
+      const response = await axios.post(`${this.baseUrl}/enterprise-app/multi-tenant`, data);
+      console.log('Create multi-tenant app response:', response.status, response.statusText);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error creating multi-tenant application:', error);
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          console.error('Response error data:', error.response.data);
+          console.error('Response status:', error.response.status);
+          console.error('Response headers:', error.response.headers);
+        } else if (error.request) {
+          console.error('No response received. Request details:', error.request);
+        } else {
+          console.error('Error message:', error.message);
+        }
+        console.error('Error config:', error.config);
+      }
+      throw error;
+    }
+  }
 }
