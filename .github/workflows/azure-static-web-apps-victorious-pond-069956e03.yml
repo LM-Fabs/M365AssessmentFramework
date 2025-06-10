@@ -58,16 +58,18 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_VICTORIOUS_POND_069956E03 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          app_location: "m365-security-assessment/m365-assessment-framework/build" # Point directly to the build output
+          app_location: "m365-security-assessment/m365-assessment-framework/build"
           api_location: "m365-security-assessment/m365-assessment-framework/api"
-          output_location: "" # Empty since we're pointing directly to the build folder
-          skip_app_build: true # We already built it
-          skip_api_build: true # We already built it
+          output_location: ""
+          skip_app_build: true
+          skip_api_build: true
+          api_build_command: 'npm run build' # Explicit API build command
         env:
           NODE_VERSION: "20"
           WEBSITE_NODE_DEFAULT_VERSION: "20"
           FUNCTIONS_EXTENSION_VERSION: "~4"
           FUNCTIONS_WORKER_RUNTIME: "node"
+          AZURE_FUNCTIONS_ENVIRONMENT: "production"
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
