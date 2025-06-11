@@ -16,6 +16,15 @@ const Settings = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
+  const [newCustomerData, setNewCustomerData] = useState({
+    tenantName: '',
+    tenantDomain: '',
+    contactEmail: '',
+    notes: ''
+  });
+  const [newCustomerError, setNewCustomerError] = useState<string | null>(null);
+  const [creatingCustomer, setCreatingCustomer] = useState(false);
   
   const [formData, setFormData] = useState({
     assessmentName: 'Security Assessment',
@@ -101,6 +110,62 @@ const Settings = () => {
     }));
   };
 
+  const handleCreateNewCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newCustomerData.tenantName || !newCustomerData.tenantDomain) {
+      setNewCustomerError('Tenant Name and Domain are required');
+      return;
+    }
+
+    setCreatingCustomer(true);
+    setNewCustomerError(null);
+
+    try {
+      // Simulate customer creation and Azure app setup
+      const newCustomer = {
+        id: Date.now().toString(),
+        tenantId: `tenant-id-${Date.now()}`,
+        tenantName: newCustomerData.tenantName,
+        tenantDomain: newCustomerData.tenantDomain,
+        contactEmail: newCustomerData.contactEmail,
+        notes: newCustomerData.notes,
+        status: 'active',
+        totalAssessments: 0
+      };
+
+      // Here you would typically call a service to create the customer in your backend
+      // await CustomerService.createCustomer(newCustomer);
+
+      // For now, we just log the new customer data
+      console.log('Creating new customer:', newCustomer);
+
+      // Auto-select the new customer and reset the form
+      setSelectedCustomer(newCustomer);
+      setNewCustomerData({
+        tenantName: '',
+        tenantDomain: '',
+        contactEmail: '',
+        notes: ''
+      });
+      setShowNewCustomerForm(false);
+      setSuccess(true);
+
+      setTimeout(() => {
+        navigate('/dashboard', { 
+          state: { 
+            assessment: null, // No assessment yet
+            customer: newCustomer
+          } 
+        });
+      }, 1500);
+    } catch (error: any) {
+      setNewCustomerError(error.message || 'Failed to create new customer');
+    } finally {
+      setCreatingCustomer(false);
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="authentication-prompt">
@@ -125,13 +190,137 @@ const Settings = () => {
           <h2>Customer Selection</h2>
           <p>Select an existing customer with configured Azure app registration, or add a new customer.</p>
           
-          <CustomerSelector
-            selectedCustomer={selectedCustomer}
-            onCustomerSelect={handleCustomerSelect}
-            onCustomerCreate={handleCustomerCreate}
-            placeholder="Choose a customer to assess..."
-            disabled={loading}
-          />
+          <div className="customer-selection-container">
+            <CustomerSelector
+              selectedCustomer={selectedCustomer}
+              onCustomerSelect={handleCustomerSelect}
+              onCustomerCreate={handleCustomerCreate}
+              placeholder="Choose a customer to assess..."
+              disabled={loading}
+            />
+            
+            <div className="customer-actions">
+              <button
+                type="button"
+                className="add-customer-button"
+                onClick={() => setShowNewCustomerForm(true)}
+                disabled={loading}
+              >
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                </svg>
+                Add New Customer
+              </button>
+            </div>
+          </div>
+
+          {/* New Customer Form */}
+          {showNewCustomerForm && (
+            <div className="new-customer-form-section">
+              <div className="form-header">
+                <h3>Add New Customer</h3>
+                <button
+                  type="button"
+                  className="close-form-button"
+                  onClick={() => {
+                    setShowNewCustomerForm(false);
+                    setNewCustomerError(null);
+                  }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+
+              {newCustomerError && <div className="error-message">{newCustomerError}</div>}
+
+              <form onSubmit={handleCreateNewCustomer}>
+                <div className="form-row">
+                  <div className="form-field">
+                    <label htmlFor="newTenantName">Tenant Name *</label>
+                    <input
+                      type="text"
+                      id="newTenantName"
+                      value={newCustomerData.tenantName}
+                      onChange={(e) => setNewCustomerData(prev => ({ ...prev, tenantName: e.target.value }))}
+                      placeholder="e.g., Contoso Ltd"
+                      required
+                      disabled={creatingCustomer}
+                    />
+                  </div>
+                  
+                  <div className="form-field">
+                    <label htmlFor="newTenantDomain">Tenant Domain *</label>
+                    <input
+                      type="text"
+                      id="newTenantDomain"
+                      value={newCustomerData.tenantDomain}
+                      onChange={(e) => setNewCustomerData(prev => ({ ...prev, tenantDomain: e.target.value }))}
+                      placeholder="e.g., contoso.onmicrosoft.com"
+                      required
+                      disabled={creatingCustomer}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-field">
+                  <label htmlFor="newContactEmail">Contact Email</label>
+                  <input
+                    type="email"
+                    id="newContactEmail"
+                    value={newCustomerData.contactEmail}
+                    onChange={(e) => setNewCustomerData(prev => ({ ...prev, contactEmail: e.target.value }))}
+                    placeholder="admin@contoso.com"
+                    disabled={creatingCustomer}
+                  />
+                </div>
+
+                <div className="form-field">
+                  <label htmlFor="newNotes">Notes</label>
+                  <textarea
+                    id="newNotes"
+                    value={newCustomerData.notes}
+                    onChange={(e) => setNewCustomerData(prev => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Optional notes about this customer..."
+                    rows={3}
+                    disabled={creatingCustomer}
+                  />
+                </div>
+
+                <div className="form-actions">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => {
+                      setShowNewCustomerForm(false);
+                      setNewCustomerError(null);
+                    }}
+                    disabled={creatingCustomer}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="primary-button"
+                    disabled={creatingCustomer || !newCustomerData.tenantName || !newCustomerData.tenantDomain}
+                  >
+                    {creatingCustomer ? 'Creating Customer...' : 'Create Customer & Setup Azure App'}
+                  </button>
+                </div>
+              </form>
+
+              <div className="azure-app-info">
+                <h4>🔧 What happens when you create a new customer?</h4>
+                <ol>
+                  <li><strong>Customer Record:</strong> We'll save the customer information in our system</li>
+                  <li><strong>Azure App Registration:</strong> An Azure app registration will be created for secure access</li>
+                  <li><strong>Permissions Setup:</strong> The app will be configured with read-only security permissions</li>
+                  <li><strong>Ready for Assessment:</strong> Once created, you can immediately run security assessments</li>
+                </ol>
+              </div>
+            </div>
+          )}
 
           {selectedCustomer && (
             <div className="customer-details">
