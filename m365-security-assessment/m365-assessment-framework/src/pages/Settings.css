@@ -156,15 +156,15 @@
 
 /* Enhanced process steps styling - Horizontal orientation */
 .assessment-info {
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-  border: 1px solid #cbd5e1;
+  background: #0e2a4d; /* Match sidebar background color */
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   padding: 2rem;
   margin: 2rem 0;
 }
 
 .assessment-info h3 {
-  color: #1e293b;
+  color: #ffffff; /* White text for contrast */
   margin-bottom: 1.5rem;
   font-size: 1.25rem;
   font-weight: 600;
@@ -188,10 +188,10 @@
   min-width: 200px;
   flex: 1;
   padding: 1.5rem 1rem;
-  background: white;
+  background: rgba(255, 255, 255, 0.1); /* Semi-transparent white background */
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  border-top: 4px solid #3b82f6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-top: 4px solid #36A9E1; /* LM-AG secondary color */
   position: relative;
 }
 
@@ -202,7 +202,7 @@
   top: 50%;
   transform: translateY(-50%);
   font-size: 1.5rem;
-  color: #3b82f6;
+  color: #36A9E1; /* LM-AG secondary color */
   font-weight: bold;
   z-index: 1;
 }
@@ -213,7 +213,7 @@
   justify-content: center;
   width: 40px;
   height: 40px;
-  background: #3b82f6;
+  background: #36A9E1; /* LM-AG secondary color */
   color: white;
   border-radius: 50%;
   font-weight: 600;
@@ -231,14 +231,14 @@
 
 .step-content strong {
   display: block;
-  color: #1e293b;
+  color: #ffffff; /* White text */
   font-size: 1rem;
   margin-bottom: 0.75rem;
   font-weight: 600;
 }
 
 .step-content p {
-  color: #64748b;
+  color: rgba(255, 255, 255, 0.8); /* Semi-transparent white text */
   margin: 0;
   font-size: 0.875rem;
   line-height: 1.5;
@@ -257,8 +257,9 @@
     flex-direction: row;
     text-align: left;
     padding: 1rem;
-    border-left: 4px solid #3b82f6;
+    border-left: 4px solid #36A9E1;
     border-top: none;
+    background: rgba(255, 255, 255, 0.05);
   }
   
   .step:not(:last-child)::after {
@@ -304,4 +305,78 @@
   .step {
     min-width: 220px;
   }
+}
+
+/* Customer details section */
+.customer-details {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+}
+
+.customer-detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.customer-detail-item:last-child {
+  border-bottom: none;
+}
+
+.customer-detail-item .label {
+  font-weight: 500;
+  color: #475569;
+  font-size: 0.875rem;
+}
+
+.customer-detail-item .value {
+  color: #1e293b;
+  font-size: 0.875rem;
+  font-family: monospace;
+}
+
+.status {
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.status.active {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+.status.inactive {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.status.pending {
+  background-color: #e0f2fe;
+  color: #0369a1;
+}
+
+.secondary-button {
+  background-color: #f8fafc;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 10px 24px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-right: 1rem;
+}
+
+.secondary-button:hover {
+  background-color: #f1f5f9;
+  border-color: #94a3b8;
 }
