@@ -40,17 +40,7 @@ jobs:
         working-directory: m365-security-assessment/m365-assessment-framework/api
         run: npm ci
       
-      # Build API first to catch TypeScript errors early
-      - name: Build API
-        working-directory: m365-security-assessment/m365-assessment-framework/api
-        run: npm run build
-      
-      # Run frontend build
-      - name: Build frontend
-        working-directory: m365-security-assessment/m365-assessment-framework
-        run: npm run build
-      
-      # Deploy to Azure Static Web Apps
+      # Deploy to Azure Static Web Apps (let SWA handle all building)
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
@@ -58,18 +48,18 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_VICTORIOUS_POND_069956E03 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          app_location: "m365-security-assessment/m365-assessment-framework"  # Source folder, not build
+          app_location: "m365-security-assessment/m365-assessment-framework"
           api_location: "m365-security-assessment/m365-assessment-framework/api"
-          output_location: "build"  # Where the build output goes
-          skip_app_build: false  # Let SWA handle the build
-          skip_api_build: false  # Let SWA handle the API build
+          output_location: "build"
+          skip_app_build: false
+          skip_api_build: false  # Let SWA handle the API build completely
         env:
           NODE_VERSION: "20"
           WEBSITE_NODE_DEFAULT_VERSION: "20"
           FUNCTIONS_EXTENSION_VERSION: "~4"
           FUNCTIONS_WORKER_RUNTIME: "node"
           AZURE_FUNCTIONS_ENVIRONMENT: "production"
-          REACT_APP_API_URL: "/api"  # Ensure correct API URL for production
+          REACT_APP_API_URL: "/api"
           REACT_APP_CLIENT_ID: "d1cc9e16-9194-4892-92c5-473c9f65dcb3"
 
   close_pull_request_job:
