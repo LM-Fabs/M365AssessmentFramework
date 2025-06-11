@@ -41,21 +41,30 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({
 
   const loadCustomers = async () => {
     try {
+      console.log('🔄 CustomerSelector: Starting to load customers...');
       setLoading(true);
       setError(null);
       
       const customerList = await customerService.getCustomers();
-      setCustomers(customerList.filter(c => c.status === 'active'));
+      console.log('📋 CustomerSelector: Received customer list:', customerList);
+      
+      const activeCustomers = customerList.filter(c => c.status === 'active');
+      console.log('✅ CustomerSelector: Active customers:', activeCustomers);
+      
+      setCustomers(activeCustomers);
       
       if (customerList.length === 0) {
-        console.info('No customers found - this is normal for a new deployment');
+        console.info('ℹ️ CustomerSelector: No customers found - this is normal for a new deployment');
+      } else {
+        console.log('🎉 CustomerSelector: Successfully loaded', activeCustomers.length, 'active customers');
       }
     } catch (err) {
-      console.error('Failed to load customers:', err);
+      console.error('❌ CustomerSelector: Failed to load customers:', err);
       setError(err instanceof Error ? err.message : 'Unable to load customers. Please check your connection.');
       setCustomers([]); // Clear any existing data
     } finally {
       setLoading(false);
+      console.log('🏁 CustomerSelector: Finished loading customers');
     }
   };
 

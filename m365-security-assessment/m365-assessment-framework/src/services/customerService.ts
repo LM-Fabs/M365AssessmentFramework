@@ -54,31 +54,47 @@ export class CustomerService {
    */
   public async getCustomers(): Promise<Customer[]> {
     try {
+      console.log('🔍 CustomerService: Making API call to:', `${this.baseUrl}/customers`);
       const response = await axios.get(`${this.baseUrl}/customers`);
+      console.log('📦 CustomerService: Raw API response:', response.data);
+      console.log('📊 CustomerService: Response status:', response.status);
       
       // Handle the new API response format from GetCustomers function
       if (response.data.success && response.data.data) {
-        return response.data.data.map((customer: any) => ({
+        console.log('✅ CustomerService: Using structured response format');
+        const customers = response.data.data.map((customer: any) => ({
           ...customer,
           createdDate: new Date(customer.createdDate),
           lastAssessmentDate: customer.lastAssessmentDate ? new Date(customer.lastAssessmentDate) : undefined
         }));
+        console.log('📋 CustomerService: Processed customers:', customers);
+        return customers;
       } else if (Array.isArray(response.data)) {
+        console.log('✅ CustomerService: Using legacy array format');
         // Legacy format - direct array response
-        return response.data.map((customer: any) => ({
+        const customers = response.data.map((customer: any) => ({
           ...customer,
           createdDate: new Date(customer.createdDate),
           lastAssessmentDate: customer.lastAssessmentDate ? new Date(customer.lastAssessmentDate) : undefined
         }));
+        console.log('📋 CustomerService: Processed customers:', customers);
+        return customers;
       } else {
-        console.warn('Unexpected API response format:', response.data);
+        console.warn('⚠️ CustomerService: Unexpected API response format:', response.data);
         return [];
       }
     } catch (error) {
-      console.error('Error fetching customers:', error);
+      console.error('❌ CustomerService: Error fetching customers:', error);
       if (axios.isAxiosError(error)) {
+        console.error('🌐 CustomerService: Axios error details:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          url: error.config?.url
+        });
+        
         if (error.response?.status === 404) {
-          console.info('No customers endpoint found - this is normal for a new deployment');
+          console.info('ℹ️ CustomerService: No customers endpoint found - this is normal for a new deployment');
           return [];
         }
         if (error.response?.data?.error) {
