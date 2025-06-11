@@ -8,4 +8,3 @@ export * from './GetCurrentAssessment/index';
 export * from './TestFunction/index';
 // Customer management functions
 export * from './GetCustomers/index';
-export * from './CreateCustomer/index';
