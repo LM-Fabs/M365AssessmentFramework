@@ -89,12 +89,12 @@ export class CustomerService {
    */
   public async createCustomer(customerData: CreateCustomerRequest): Promise<Customer> {
     try {
-      // Use the main customers endpoint which handles both GET and POST
-      const response = await axios.post(`${this.baseUrl}/customers`, customerData);
+      // Use the correct CreateCustomer endpoint
+      const response = await axios.post(`${this.baseUrl}/customers/create`, customerData);
       
-      // Handle the response from GetCustomers function
-      if (response.data.success && response.data.data) {
-        const customerResponse = response.data.data.customer;
+      // Handle successful response from CreateCustomer function
+      if (response.data.customer) {
+        const customerResponse = response.data.customer;
         return {
           ...customerResponse,
           createdDate: new Date(customerResponse.createdDate),

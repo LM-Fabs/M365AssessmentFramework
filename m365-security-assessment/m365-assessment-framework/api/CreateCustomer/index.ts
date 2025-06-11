@@ -174,7 +174,7 @@ export async function createCustomer(request: HttpRequest, context: InvocationCo
 
 app.http('CreateCustomer', {
     methods: ['POST'],
-    authLevel: 'function',
+    authLevel: 'anonymous',
     route: 'customers/create',
     handler: createCustomer
 });
