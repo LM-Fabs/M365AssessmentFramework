@@ -1,14 +1,25 @@
 {
   "IsEncrypted": false,
   "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "node",
-    "AzureWebJobsStorage": "",
-    "FUNCTIONS_EXTENSION_VERSION": "~4",
-    "WEBSITE_NODE_DEFAULT_VERSION": "~20"
+    "AzureWebJobsFeatureFlags": "EnableWorkerIndexing",
+    
+    "COSMOS_DB_ENDPOINT": "https://your-cosmos-account.documents.azure.com:443/",
+    "COSMOS_DB_DATABASE_NAME": "m365assessment",
+    "COSMOS_DB_CUSTOMERS_CONTAINER": "customers",
+    "COSMOS_DB_ASSESSMENTS_CONTAINER": "assessments",
+    
+    "KEY_VAULT_URL": "https://your-keyvault.vault.azure.net/",
+    
+    "FRONTEND_URL": "https://localhost:3000",
+    "BACKEND_URL": "https://localhost:7071",
+    
+    "AZURE_CLIENT_ID": "",
+    "AZURE_CLIENT_SECRET": "",
+    "AZURE_TENANT_ID": ""
   },
   "Host": {
-    "LocalHttpPort": 7071,
-    "CORS": "*",
-    "CORSCredentials": false
+    "CORS": "*"
   }
 }

@@ -1,152 +1,245 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
-import { Customer } from "../shared/types";
-import { createCustomer } from "../CreateCustomer/index";
+import { getCosmosDbService } from "../shared/cosmosDbService";
+import { getGraphApiService } from "../shared/graphApiService";
+import { CreateCustomerRequest, Customer } from "../shared/types";
 
-// Azure Function to get all customers
-// Uses Azure Cosmos DB to store customer data securely
-// Implements proper error handling and logging
-export async function getCustomers(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log('GetCustomers function triggered');
+/**
+ * Customer Management Function - Handles both GET and POST requests
+ * GET: Retrieve all customers from Cosmos DB
+ * POST: Create new customer with Azure AD app registration
+ */
+export async function customers(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    context.log(`Processing ${request.method} request for customers`);
+
+    // CORS headers for all responses
+    const corsHeaders = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Content-Type': 'application/json'
+    };
 
     try {
-        // Set CORS headers for frontend communication
-        const headers = {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-        };
-
         // Handle preflight OPTIONS request
         if (request.method === 'OPTIONS') {
             return {
                 status: 200,
-                headers
+                headers: corsHeaders
             };
         }
 
-        // Validate HTTP method
-        if (request.method !== 'GET') {
-            return {
-                status: 405,
-                headers,
-                body: JSON.stringify({ error: 'Method not allowed' })
-            };
-        }
+        // Handle GET request - retrieve customers
+        if (request.method === 'GET') {
+            try {
+                const cosmosService = getCosmosDbService();
+                
+                // Get query parameters for filtering and pagination
+                const url = new URL(request.url);
+                const status = url.searchParams.get('status') || undefined;
+                const limit = parseInt(url.searchParams.get('limit') || '50');
+                const continuationToken = url.searchParams.get('continuationToken') || undefined;
 
-        // TODO: Implement authentication/authorization check
-        // const user = await validateUserToken(request.headers.get('authorization'));
-        // if (!user) {
-        //     return { status: 401, headers, body: JSON.stringify({ error: 'Unauthorized' }) };
-        // }
+                const result = await cosmosService.getCustomers({
+                    status,
+                    maxItemCount: Math.min(limit, 100), // Cap at 100 for performance
+                    continuationToken
+                });
 
-        // For now, return mock data until Cosmos DB is set up
-        // In production, this would query Azure Cosmos DB
-        const mockCustomers: Customer[] = [
-            {
-                id: 'customer-1',
-                tenantId: 'contoso-tenant-id-12345',
-                tenantName: 'Contoso Corporation',
-                tenantDomain: 'contoso.onmicrosoft.com',
-                applicationId: 'app-contoso-67890',
-                clientId: 'client-contoso-11111',
-                servicePrincipalId: 'sp-contoso-22222',
-                createdDate: new Date('2024-01-15T10:00:00Z'),
-                lastAssessmentDate: new Date('2024-12-01T14:30:00Z'),
-                totalAssessments: 5,
-                status: 'active',
-                permissions: ['Directory.Read.All', 'SecurityEvents.Read.All', 'Policy.Read.All'],
-                contactEmail: 'admin@contoso.com',
-                notes: 'Large enterprise customer with comprehensive security requirements'
-            },
-            {
-                id: 'customer-2',
-                tenantId: 'fabrikam-tenant-id-54321',
-                tenantName: 'Fabrikam Inc',
-                tenantDomain: 'fabrikam.onmicrosoft.com',
-                applicationId: 'app-fabrikam-09876',
-                clientId: 'client-fabrikam-33333',
-                servicePrincipalId: 'sp-fabrikam-44444',
-                createdDate: new Date('2024-02-10T09:15:00Z'),
-                lastAssessmentDate: new Date('2024-11-20T16:45:00Z'),
-                totalAssessments: 3,
-                status: 'active',
-                permissions: ['Directory.Read.All', 'SecurityEvents.Read.All'],
-                contactEmail: 'it@fabrikam.com',
-                notes: 'Medium-sized business with regular security assessments'
-            },
-            {
-                id: 'customer-3',
-                tenantId: 'adventure-tenant-id-98765',
-                tenantName: 'Adventure Works',
-                tenantDomain: 'adventureworks.onmicrosoft.com',
-                applicationId: 'app-adventure-56789',
-                clientId: 'client-adventure-55555',
-                servicePrincipalId: 'sp-adventure-66666',
-                createdDate: new Date('2024-03-05T11:20:00Z'),
-                lastAssessmentDate: undefined,
-                totalAssessments: 1,
-                status: 'active',
-                permissions: ['Directory.Read.All', 'SecurityEvents.Read.All'],
-                contactEmail: 'security@adventureworks.com',
-                notes: 'New customer, recently onboarded'
+                context.log(`Retrieved ${result.customers.length} customers from Cosmos DB`);
+
+                return {
+                    status: 200,
+                    headers: corsHeaders,
+                    body: JSON.stringify({
+                        success: true,
+                        data: result.customers,
+                        continuationToken: result.continuationToken,
+                        count: result.customers.length
+                    })
+                };
+            } catch (error) {
+                context.error('Error retrieving customers:', error);
+                return {
+                    status: 500,
+                    headers: corsHeaders,
+                    body: JSON.stringify({
+                        success: false,
+                        error: 'Failed to retrieve customers',
+                        details: (error as Error).message
+                    })
+                };
             }
-        ];
+        }
 
-        context.log(`Returning ${mockCustomers.length} customers`);
+        // Handle POST request - create new customer
+        if (request.method === 'POST') {
+            try {
+                const requestBody = await request.text();
+                if (!requestBody) {
+                    return {
+                        status: 400,
+                        headers: corsHeaders,
+                        body: JSON.stringify({
+                            success: false,
+                            error: 'Request body is required'
+                        })
+                    };
+                }
 
+                const customerData: CreateCustomerRequest = JSON.parse(requestBody);
+
+                // Validate required fields
+                if (!customerData.tenantName || !customerData.tenantDomain) {
+                    return {
+                        status: 400,
+                        headers: corsHeaders,
+                        body: JSON.stringify({
+                            success: false,
+                            error: 'tenantName and tenantDomain are required'
+                        })
+                    };
+                }
+
+                // Validate email format if provided
+                if (customerData.contactEmail && !isValidEmail(customerData.contactEmail)) {
+                    return {
+                        status: 400,
+                        headers: corsHeaders,
+                        body: JSON.stringify({
+                            success: false,
+                            error: 'Invalid email format'
+                        })
+                    };
+                }
+
+                context.log(`Creating customer for tenant: ${customerData.tenantName}`);
+
+                const cosmosService = getCosmosDbService();
+                const graphService = getGraphApiService();
+
+                // Check if customer already exists
+                const existingCustomer = await cosmosService.getCustomerByDomain(customerData.tenantDomain);
+                if (existingCustomer) {
+                    return {
+                        status: 409,
+                        headers: corsHeaders,
+                        body: JSON.stringify({
+                            success: false,
+                            error: `Customer with domain ${customerData.tenantDomain} already exists`
+                        })
+                    };
+                }
+
+                // Create Azure AD App Registration
+                context.log('Creating Azure AD app registration...');
+                const appRegistration = await graphService.createAppRegistration({
+                    tenantName: customerData.tenantName,
+                    tenantDomain: customerData.tenantDomain,
+                    contactEmail: customerData.contactEmail
+                });
+
+                // Create customer in Cosmos DB with app registration details
+                const newCustomer = await cosmosService.createCustomer(customerData, {
+                    applicationId: appRegistration.applicationId,
+                    clientId: appRegistration.clientId,
+                    servicePrincipalId: appRegistration.servicePrincipalId,
+                    permissions: [
+                        'Directory.Read.All',
+                        'SecurityEvents.Read.All',
+                        'Policy.Read.All',
+                        'Organization.Read.All'
+                    ]
+                });
+
+                context.log(`Successfully created customer: ${newCustomer.id}`);
+
+                // Generate admin consent URL for the customer
+                const consentUrl = `https://login.microsoftonline.com/common/adminconsent?client_id=${appRegistration.clientId}`;
+
+                // Return response with customer data and next steps
+                return {
+                    status: 201,
+                    headers: corsHeaders,
+                    body: JSON.stringify({
+                        success: true,
+                        data: {
+                            customer: newCustomer,
+                            appRegistration: {
+                                clientId: appRegistration.clientId,
+                                consentUrl: consentUrl
+                            },
+                            nextSteps: [
+                                "Admin consent is required for the application permissions",
+                                `Direct the customer admin to: ${consentUrl}`,
+                                "Once consent is granted, assessments can be performed"
+                            ]
+                        }
+                    })
+                };
+
+            } catch (error) {
+                context.error('Error creating customer:', error);
+                
+                // Provide more specific error messages
+                if ((error as Error).message.includes('already exists')) {
+                    return {
+                        status: 409,
+                        headers: corsHeaders,
+                        body: JSON.stringify({
+                            success: false,
+                            error: (error as Error).message
+                        })
+                    };
+                }
+
+                return {
+                    status: 500,
+                    headers: corsHeaders,
+                    body: JSON.stringify({
+                        success: false,
+                        error: 'Failed to create customer',
+                        details: (error as Error).message
+                    })
+                };
+            }
+        }
+
+        // Method not allowed
         return {
-            status: 200,
-            headers,
-            body: JSON.stringify(mockCustomers)
+            status: 405,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                success: false,
+                error: `Method ${request.method} not allowed`
+            })
         };
 
     } catch (error) {
-        context.error('Error in GetCustomers function:', error);
-        
+        context.error('Unexpected error in customers function:', error);
         return {
             status: 500,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            body: JSON.stringify({ 
+            headers: corsHeaders,
+            body: JSON.stringify({
+                success: false,
                 error: 'Internal server error',
-                message: process.env.NODE_ENV === 'development' ? (error as Error).message : 'An error occurred while fetching customers'
+                details: (error as Error).message
             })
         };
     }
 }
 
+/**
+ * Helper function to validate email format
+ */
+function isValidEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+}
+
+// Register the function
 app.http('customers', {
     methods: ['GET', 'POST', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'customers',
-    handler: async (request, context) => {
-        if (request.method === 'GET') {
-            return await getCustomers(request, context);
-        } else if (request.method === 'POST') {
-            return await createCustomer(request, context);
-        } else if (request.method === 'OPTIONS') {
-            // Handle CORS preflight for both GET and POST
-            return {
-                status: 200,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-                }
-            };
-        } else {
-            return {
-                status: 405,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                body: JSON.stringify({ error: 'Method not allowed' })
-            };
-        }
-    }
+    handler: customers
 });

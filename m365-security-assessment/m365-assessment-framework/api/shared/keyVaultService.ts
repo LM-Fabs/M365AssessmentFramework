@@ -1,148 +1,232 @@
-import { SecretClient } from '@azure/keyvault-secrets';
-import { ClientSecretCredential, DefaultAzureCredential } from '@azure/identity';
-import { delay } from '@azure/core-util';
-import { app, InvocationContext } from '@azure/functions';
+import { SecretClient } from "@azure/keyvault-secrets";
+import { DefaultAzureCredential } from "@azure/identity";
 
 /**
- * Utility class for securely accessing Azure Key Vault secrets
- * This follows Azure best practices by keeping credential access in a central location
+ * Azure Key Vault Service for secure secrets management
+ * Uses managed identity for authentication and implements proper error handling
+ * Follows Azure best practices for secrets management
  */
 export class KeyVaultService {
-  private static instance: KeyVaultService;
-  private secretClient: SecretClient;
-  private secretCache: Map<string, { value: string, timestamp: number }> = new Map();
-  private readonly cacheTtlMs = 30 * 60 * 1000; // 30 minutes cache TTL
-  private readonly maxRetries = 3;
-  private readonly initialDelayMs = 500;
-  
-  private constructor() {
-    try {
-      // Prefer environment variables for service principal credentials
-      const tenantId = process.env.KV_TENANT_ID;
-      const clientId = process.env.KV_CLIENT_ID;
-      const clientSecret = process.env.KV_CLIENT_SECRET;
-      
-      // Validate required environment variables
-      if (!tenantId || !clientId || !clientSecret) {
-        throw new Error('Missing required Key Vault access credentials in environment variables');
-      }
-      
-      // Service principal authentication to Key Vault
-      const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
-      
-      // Key Vault URL should be in environment variables in production
-      const vaultUrl = process.env.KEY_VAULT_URL || 'https://m365assessmentkv.vault.azure.net/';
-      this.secretClient = new SecretClient(vaultUrl, credential);
-      
-      console.info('KeyVaultService initialized successfully');
-    } catch (error) {
-      console.error('KeyVaultService initialization failed', error);
-      throw error; // Re-throw to prevent silent failures
-    }
-  }
-  
-  /**
-   * Get singleton instance of KeyVaultService
-   */
-  public static getInstance(): KeyVaultService {
-    if (!KeyVaultService.instance) {
-      KeyVaultService.instance = new KeyVaultService();
-    }
-    return KeyVaultService.instance;
-  }
-  
-  /**
-   * Retrieve a secret from Key Vault with caching, error handling, and retry logic
-   * @param secretName Name of the secret to retrieve
-   * @param fallbackValue Optional fallback value if secret can't be retrieved
-   * @returns Secret value or fallback value
-   */
-  public async getSecret(secretName: string, fallbackValue?: string): Promise<string | undefined> {
-    try {
-      // Check cache first
-      const cached = this.secretCache.get(secretName);
-      if (cached && (Date.now() - cached.timestamp) < this.cacheTtlMs) {
-        console.debug(`Retrieved secret ${secretName} from cache`);
-        return cached.value;
-      }
-      
-      // Not in cache or expired, retrieve from Key Vault with retry logic
-      return await this.getSecretWithRetry(secretName, this.maxRetries, fallbackValue);
-    } catch (error) {
-      console.error(`Error getting secret ${secretName}:`, error);
-      return fallbackValue;
-    }
-  }
-  
-  /**
-   * Retrieves a secret with exponential backoff retry
-   */
-  private async getSecretWithRetry(
-    secretName: string, 
-    retriesLeft: number, 
-    fallbackValue?: string
-  ): Promise<string | undefined> {
-    try {
-      const secret = await this.secretClient.getSecret(secretName);
-      
-      // Cache the result
-      if (secret.value) {
-        this.secretCache.set(secretName, {
-          value: secret.value,
-          timestamp: Date.now()
-        });
-      }
-      
-      return secret.value;
-    } catch (error: any) {
-      // If we have retries left and it's a recoverable error, retry
-      if (retriesLeft > 0 && this.isRetryableError(error)) {
-        const delayMs = this.initialDelayMs * Math.pow(2, this.maxRetries - retriesLeft);
-        console.warn(`Retrying secret retrieval for ${secretName} after ${delayMs}ms. Retries left: ${retriesLeft}`);
-        
-        await delay(delayMs);
-        return this.getSecretWithRetry(secretName, retriesLeft - 1, fallbackValue);
-      }
-      
-      // No retries left or non-retryable error
-      throw error;
-    }
-  }
-  
-  /**
-   * Determines if an error is retryable
-   */
-  private isRetryableError(error: any): boolean {
-    // Common retryable errors for Key Vault access
-    const retryableStatusCodes = [408, 429, 500, 502, 503, 504];
-    return error.statusCode && retryableStatusCodes.includes(error.statusCode);
-  }
+    private client: SecretClient;
+    private isInitialized = false;
 
-  /**
-   * Retrieve Azure credentials from Key Vault for Microsoft Graph operations
-   * @returns Object containing tenantId, clientId, and clientSecret
-   */
-  public async getGraphCredentials(): Promise<{
-    tenantId: string | undefined;
-    clientId: string | undefined;
-    clientSecret: string | undefined;
-  }> {
-    const tenantId = await this.getSecret('AZURE-TENANT-ID', process.env.AZURE_TENANT_ID);
-    const clientId = await this.getSecret('AZURE-CLIENT-ID', process.env.AZURE_CLIENT_ID);
-    const clientSecret = await this.getSecret('AZURE-CLIENT-SECRET', process.env.AZURE_CLIENT_SECRET);
-    
-    return {
-      tenantId,
-      clientId,
-      clientSecret
-    };
-  }
-  
-  /**
-   * Clear the cache if needed (for testing or critical updates)
-   */
-  public clearCache(): void {
-    this.secretCache.clear();
-    console.info('Secret cache cleared');
-  }
+    constructor() {
+        // Use managed identity for authentication (Azure best practice)
+        const credential = new DefaultAzureCredential();
+        
+        // Get Key Vault URL from environment variables
+        const keyVaultUrl = process.env.KEY_VAULT_URL;
+        if (!keyVaultUrl) {
+            throw new Error("KEY_VAULT_URL environment variable is required");
+        }
+
+        this.client = new SecretClient(keyVaultUrl, credential);
+        this.isInitialized = true;
+    }
+
+    /**
+     * Store client secret for a customer's app registration
+     * Uses proper naming convention and metadata
+     */
+    async storeClientSecret(customerId: string, tenantDomain: string, clientSecret: string): Promise<string> {
+        try {
+            const secretName = `customer-${customerId}-client-secret`;
+            
+            const secretResponse = await this.client.setSecret(secretName, clientSecret, {
+                contentType: 'application/x-client-secret',
+                tags: {
+                    customerId: customerId,
+                    tenantDomain: tenantDomain,
+                    type: 'client-secret',
+                    createdBy: 'M365AssessmentFramework'
+                },
+                expiresOn: new Date(Date.now() + (365 * 24 * 60 * 60 * 1000)) // 1 year expiry
+            });
+
+            return secretResponse.name;
+        } catch (error) {
+            throw new Error(`Failed to store client secret: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * Retrieve client secret for a customer
+     * Used during assessment operations
+     */
+    async getClientSecret(customerId: string): Promise<string> {
+        try {
+            const secretName = `customer-${customerId}-client-secret`;
+            const secretResponse = await this.client.getSecret(secretName);
+            
+            if (!secretResponse.value) {
+                throw new Error(`No secret value found for customer ${customerId}`);
+            }
+
+            return secretResponse.value;
+        } catch (error) {
+            if ((error as any).code === 'SecretNotFound') {
+                throw new Error(`Client secret not found for customer ${customerId}`);
+            }
+            throw new Error(`Failed to retrieve client secret: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * Rotate client secret for a customer
+     * Updates the stored secret with new value
+     */
+    async rotateClientSecret(customerId: string, tenantDomain: string, newClientSecret: string): Promise<void> {
+        try {
+            const secretName = `customer-${customerId}-client-secret`;
+            
+            // Update with new secret
+            await this.client.setSecret(secretName, newClientSecret, {
+                contentType: 'application/x-client-secret',
+                tags: {
+                    customerId: customerId,
+                    tenantDomain: tenantDomain,
+                    type: 'client-secret',
+                    createdBy: 'M365AssessmentFramework',
+                    rotated: 'true',
+                    rotatedDate: new Date().toISOString()
+                },
+                expiresOn: new Date(Date.now() + (365 * 24 * 60 * 60 * 1000)) // 1 year expiry
+            });
+        } catch (error) {
+            throw new Error(`Failed to rotate client secret: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * Delete client secret for a customer
+     * Used when customer is removed
+     */
+    async deleteClientSecret(customerId: string): Promise<void> {
+        try {
+            const secretName = `customer-${customerId}-client-secret`;
+            await this.client.beginDeleteSecret(secretName);
+        } catch (error) {
+            if ((error as any).code !== 'SecretNotFound') {
+                throw new Error(`Failed to delete client secret: ${(error as Error).message}`);
+            }
+        }
+    }
+
+    /**
+     * Store assessment API configuration
+     * Used for storing external API keys and configuration
+     */
+    async storeApiConfiguration(configName: string, configValue: string, metadata?: Record<string, string>): Promise<void> {
+        try {
+            const secretName = `api-config-${configName}`;
+            
+            await this.client.setSecret(secretName, configValue, {
+                contentType: 'application/x-api-config',
+                tags: {
+                    type: 'api-configuration',
+                    configName: configName,
+                    createdBy: 'M365AssessmentFramework',
+                    ...metadata
+                }
+            });
+        } catch (error) {
+            throw new Error(`Failed to store API configuration: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * Get assessment API configuration
+     * Used for retrieving external API keys and configuration
+     */
+    async getApiConfiguration(configName: string): Promise<string> {
+        try {
+            const secretName = `api-config-${configName}`;
+            const secretResponse = await this.client.getSecret(secretName);
+            
+            if (!secretResponse.value) {
+                throw new Error(`No configuration value found for ${configName}`);
+            }
+
+            return secretResponse.value;
+        } catch (error) {
+            if ((error as any).code === 'SecretNotFound') {
+                throw new Error(`API configuration not found: ${configName}`);
+            }
+            throw new Error(`Failed to retrieve API configuration: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * List all secrets for a customer
+     * Used for management and auditing
+     */
+    async listCustomerSecrets(customerId: string): Promise<string[]> {
+        try {
+            const secretNames: string[] = [];
+            
+            for await (const secretProperties of this.client.listPropertiesOfSecrets()) {
+                if (secretProperties.tags?.customerId === customerId) {
+                    secretNames.push(secretProperties.name);
+                }
+            }
+
+            return secretNames;
+        } catch (error) {
+            throw new Error(`Failed to list customer secrets: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * Health check for Key Vault connectivity
+     * Useful for monitoring and diagnostics
+     */
+    async healthCheck(): Promise<boolean> {
+        try {
+            // Try to list secret properties (minimal operation)
+            const iterator = this.client.listPropertiesOfSecrets();
+            await iterator.next();
+            return true;
+        } catch (error) {
+            console.error('Key Vault health check failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Backup customer secrets
+     * Creates a backup of all secrets for a customer
+     */
+    async backupCustomerSecrets(customerId: string): Promise<Record<string, any>> {
+        try {
+            const backup: Record<string, any> = {};
+            
+            for await (const secretProperties of this.client.listPropertiesOfSecrets()) {
+                if (secretProperties.tags?.customerId === customerId) {
+                    // Store metadata only, not the actual secret values for security
+                    backup[secretProperties.name] = {
+                        name: secretProperties.name,
+                        tags: secretProperties.tags,
+                        contentType: secretProperties.contentType,
+                        createdOn: secretProperties.createdOn,
+                        updatedOn: secretProperties.updatedOn,
+                        expiresOn: secretProperties.expiresOn
+                    };
+                }
+            }
+
+            return backup;
+        } catch (error) {
+            throw new Error(`Failed to backup customer secrets: ${(error as Error).message}`);
+        }
+    }
+}
+
+// Singleton instance for reuse across functions
+let keyVaultServiceInstance: KeyVaultService;
+
+export function getKeyVaultService(): KeyVaultService {
+    if (!keyVaultServiceInstance) {
+        keyVaultServiceInstance = new KeyVaultService();
+    }
+    return keyVaultServiceInstance;
 }

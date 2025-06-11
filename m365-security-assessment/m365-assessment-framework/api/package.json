@@ -1,31 +1,24 @@
 {
-  "name": "m365-assessment-framework-api",
+  "name": "m365-assessment-api",
   "version": "1.0.0",
-  "description": "API functions for M365 Assessment Framework",
+  "description": "M365 Security Assessment API",
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "clean": "rimraf dist",
-    "prestart": "npm run clean && npm run build",
+    "prestart": "npm run build",
     "start": "func start",
-    "test": "echo \"No tests yet...\"",
-    "preinstall": "npx only-allow npm"
+    "test": "echo \"No tests yet...\""
   },
   "dependencies": {
-    "@azure/core-util": "^1.12.0",
-    "@azure/cosmos": "^4.1.1",
-    "@azure/functions": "^4.7.1-preview",
-    "@azure/identity": "^3.4.2",
-    "@azure/keyvault-secrets": "^4.9.0",
-    "@microsoft/microsoft-graph-client": "^3.0.7"
+    "@azure/functions": "^4.0.0",
+    "@azure/cosmos": "^4.0.0",
+    "@azure/identity": "^4.0.1",
+    "@azure/keyvault-secrets": "^4.8.0",
+    "@microsoft/microsoft-graph-client": "^3.0.7",
+    "@microsoft/microsoft-graph-types": "^2.40.0"
   },
   "devDependencies": {
-    "@types/node": "^20.17.48",
-    "rimraf": "^5.0.0",
-    "typescript": "^4.9.5"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "main": "dist/index.js"
+    "@types/node": "^20.x",
+    "typescript": "^5.0.0"
+  }
 }

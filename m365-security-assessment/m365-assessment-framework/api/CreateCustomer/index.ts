@@ -1,150 +1,200 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
-import { Customer, CreateCustomerRequest } from "../shared/types";
-import { getCustomers } from "../GetCustomers/index";
+import { AzureFunction, Context, HttpRequest } from "@azure/functions";
+import { getCosmosDbService } from "../shared/cosmosDbService";
+import { getGraphApiService } from "../shared/graphApiService";
+import { getKeyVaultService } from "../shared/keyVaultService";
+import { CreateCustomerRequest, Customer } from "../shared/types";
 
-// This file now serves as the implementation for the createCustomer function
-// The actual routing is handled in GetCustomers/index.ts to avoid route conflicts
-
-// Azure Function to create new customers with Azure AD app registration
-// Integrates with Microsoft Graph API for app registration creation
-// Uses Azure Key Vault for secure credential storage
-export async function createCustomer(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log('CreateCustomer function triggered');
+const httpTrigger: AzureFunction = async function (context: Context, req: HttpRequest): Promise<void> {
+    context.log('CreateCustomer function processed a request.');
 
     try {
-        // Set CORS headers for frontend communication
-        const headers = {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-        };
-
-        // Handle preflight OPTIONS request
-        if (request.method === 'OPTIONS') {
-            return {
-                status: 200,
-                headers
-            };
-        }
-
-        // Validate HTTP method
-        if (request.method !== 'POST') {
-            return {
+        // Validate request method
+        if (req.method !== 'POST') {
+            context.res = {
                 status: 405,
-                headers,
-                body: JSON.stringify({ error: 'Method not allowed' })
+                body: { error: 'Method not allowed. Use POST.' }
             };
+            return;
         }
-
-        // TODO: Implement authentication/authorization check
-        // const user = await validateUserToken(request.headers.get('authorization'));
-        // if (!user) {
-        //     return { status: 401, headers, body: JSON.stringify({ error: 'Unauthorized' }) };
-        // }
 
         // Validate request body
-        const customerData: CreateCustomerRequest = await request.json() as CreateCustomerRequest;
+        const customerData: CreateCustomerRequest = req.body;
         if (!customerData || !customerData.tenantName || !customerData.tenantDomain) {
-            return {
+            context.res = {
                 status: 400,
-                headers,
-                body: JSON.stringify({ 
-                    error: 'Bad request',
-                    message: 'tenantName and tenantDomain are required'
-                })
+                body: { 
+                    error: 'Invalid request body. Required fields: tenantName, tenantDomain' 
+                }
             };
+            return;
+        }
+
+        // Validate email format if provided
+        if (customerData.contactEmail) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(customerData.contactEmail)) {
+                context.res = {
+                    status: 400,
+                    body: { error: 'Invalid email format' }
+                };
+                return;
+            }
         }
 
         // Validate tenant domain format
-        const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.onmicrosoft\.com$/;
+        const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}$/;
         if (!domainRegex.test(customerData.tenantDomain)) {
-            return {
+            context.res = {
                 status: 400,
-                headers,
-                body: JSON.stringify({ 
-                    error: 'Invalid domain format',
-                    message: 'Tenant domain must be in format: example.onmicrosoft.com'
-                })
+                body: { error: 'Invalid tenant domain format' }
             };
+            return;
         }
 
-        context.log(`Creating customer: ${customerData.tenantName} (${customerData.tenantDomain})`);
+        // Initialize services
+        const cosmosDbService = getCosmosDbService();
+        const graphApiService = getGraphApiService();
+        const keyVaultService = getKeyVaultService();
 
-        // TODO: Check if customer already exists in Cosmos DB
-        // const existingCustomer = await checkCustomerExists(customerData.tenantDomain);
-        // if (existingCustomer) {
-        //     return {
-        //         status: 409,
-        //         headers,
-        //         body: JSON.stringify({ error: 'Customer already exists' })
-        //     };
-        // }
+        // Initialize Cosmos DB if not already done
+        await cosmosDbService.initialize();
 
-        // TODO: Create Azure AD App Registration using Microsoft Graph API
-        // This would involve:
-        // 1. Creating the app registration
-        // 2. Setting required API permissions (Directory.Read.All, SecurityEvents.Read.All)
-        // 3. Creating a service principal
-        // 4. Generating client secret and storing in Key Vault
-        // 5. Setting up proper redirect URIs
-        
-        // For now, simulate the app registration creation
-        const appRegistrationId = `app-${customerData.tenantName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
-        const clientId = `client-${Date.now()}`;
-        const servicePrincipalId = `sp-${Date.now()}`;
+        context.log(`Creating customer for tenant: ${customerData.tenantName} (${customerData.tenantDomain})`);
 
-        // Create the customer object
-        const newCustomer: Customer = {
-            id: `customer-${Date.now()}`,
-            tenantId: `${customerData.tenantName.toLowerCase().replace(/\s+/g, '-')}-tenant`,
-            tenantName: customerData.tenantName,
-            tenantDomain: customerData.tenantDomain,
-            applicationId: appRegistrationId,
-            clientId: clientId,
-            servicePrincipalId: servicePrincipalId,
-            createdDate: new Date(),
-            lastAssessmentDate: undefined,
-            totalAssessments: 0,
-            status: 'active',
-            permissions: [
+        // Check if customer already exists
+        const existingCustomer = await cosmosDbService.getCustomerByDomain(customerData.tenantDomain);
+        if (existingCustomer && existingCustomer.status !== 'deleted') {
+            context.res = {
+                status: 409,
+                body: { 
+                    error: `Customer with domain ${customerData.tenantDomain} already exists`,
+                    existingCustomerId: existingCustomer.id
+                }
+            };
+            return;
+        }
+
+        // Create Azure AD app registration for this customer
+        context.log('Creating Azure AD app registration...');
+        const appRegistration = await graphApiService.createAppRegistration({
+            displayName: `M365 Assessment - ${customerData.tenantName}`,
+            description: `Enterprise application for M365 security assessment of ${customerData.tenantName}`,
+            requiredPermissions: [
+                // Microsoft Graph permissions for security assessment
                 'Directory.Read.All',
-                'SecurityEvents.Read.All',
                 'Policy.Read.All',
-                'Organization.Read.All'
-            ],
-            contactEmail: customerData.contactEmail,
-            notes: customerData.notes
+                'SecurityEvents.Read.All',
+                'IdentityRiskEvent.Read.All',
+                'SecurityActions.Read.All',
+                'ThreatIntelligence.Read.All',
+                'User.Read.All',
+                'Group.Read.All',
+                'Application.Read.All',
+                'DeviceManagementConfiguration.Read.All',
+                'DeviceManagementManagedDevices.Read.All'
+            ]
+        });
+
+        context.log(`App registration created with Application ID: ${appRegistration.applicationId}`);
+
+        // Generate and store client secret securely in Key Vault
+        context.log('Generating client secret...');
+        const clientSecret = await graphApiService.generateClientSecret(appRegistration.applicationId);
+        
+        // Store the client secret in Key Vault
+        const secretName = `customer-${Date.now()}-secret`;
+        await keyVaultService.setClientSecret(secretName, clientSecret.value);
+
+        // Create customer record in Cosmos DB
+        context.log('Creating customer record in Cosmos DB...');
+        const customer = await cosmosDbService.createCustomer(customerData, {
+            applicationId: appRegistration.applicationId,
+            clientId: appRegistration.clientId,
+            servicePrincipalId: appRegistration.servicePrincipalId,
+            permissions: appRegistration.permissions
+        });
+
+        // Store the secret reference in the customer record
+        await cosmosDbService.updateCustomer(customer.id, customer.tenantDomain, {
+            clientSecretKeyVaultName: secretName,
+            clientSecretExpiryDate: clientSecret.expiryDate
+        });
+
+        context.log(`Customer created successfully with ID: ${customer.id}`);
+
+        // Return customer info (without sensitive data)
+        const responseData: Partial<Customer> = {
+            id: customer.id,
+            tenantName: customer.tenantName,
+            tenantDomain: customer.tenantDomain,
+            applicationId: customer.applicationId,
+            clientId: customer.clientId,
+            servicePrincipalId: customer.servicePrincipalId,
+            createdDate: customer.createdDate,
+            status: customer.status,
+            permissions: customer.permissions,
+            contactEmail: customer.contactEmail,
+            notes: customer.notes,
+            totalAssessments: customer.totalAssessments
         };
 
-        // TODO: Save customer to Azure Cosmos DB
-        // await cosmosClient.database('m365assessment').container('customers').items.create(newCustomer);
-
-        // TODO: Store app registration secrets in Azure Key Vault
-        // await keyVaultClient.setSecret(`customer-${newCustomer.id}-client-secret`, clientSecret);
-
-        context.log(`Successfully created customer: ${newCustomer.id}`);
-
-        // Return the created customer (without sensitive data)
-        return {
+        context.res = {
             status: 201,
-            headers,
-            body: JSON.stringify(newCustomer)
+            body: {
+                message: 'Customer created successfully',
+                customer: responseData,
+                setupInstructions: {
+                    applicationId: appRegistration.applicationId,
+                    clientId: appRegistration.clientId,
+                    requiredPermissions: appRegistration.permissions,
+                    nextSteps: [
+                        'Admin consent must be granted for the enterprise application',
+                        'Verify all required permissions are granted',
+                        'Test the connection before running assessments'
+                    ]
+                }
+            },
+            headers: {
+                'Content-Type': 'application/json'
+            }
         };
 
     } catch (error) {
-        context.error('Error in CreateCustomer function:', error);
-        
-        return {
-            status: 500,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            body: JSON.stringify({ 
-                error: 'Internal server error',
-                message: process.env.NODE_ENV === 'development' ? (error as Error).message : 'An error occurred while creating the customer'
-            })
-        };
+        context.log.error('Error creating customer:', error);
+
+        // Handle specific error types
+        if (error instanceof Error) {
+            if (error.message.includes('already exists')) {
+                context.res = {
+                    status: 409,
+                    body: { error: error.message }
+                };
+            } else if (error.message.includes('authentication') || error.message.includes('unauthorized')) {
+                context.res = {
+                    status: 401,
+                    body: { error: 'Authentication failed. Please check your credentials.' }
+                };
+            } else if (error.message.includes('permission') || error.message.includes('forbidden')) {
+                context.res = {
+                    status: 403,
+                    body: { error: 'Insufficient permissions to create enterprise application.' }
+                };
+            } else {
+                context.res = {
+                    status: 500,
+                    body: { 
+                        error: 'Internal server error while creating customer',
+                        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+                    }
+                };
+            }
+        } else {
+            context.res = {
+                status: 500,
+                body: { error: 'An unexpected error occurred' }
+            };
+        }
     }
-}
+};
+
+export default httpTrigger;
