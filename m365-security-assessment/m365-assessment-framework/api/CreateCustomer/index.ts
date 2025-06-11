@@ -1,12 +1,12 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.createCustomer = createCustomer;
-const functions_1 = require("@azure/functions");
-const cosmosDbService_1 = require("../shared/cosmosDbService");
-const graphApiService_1 = require("../shared/graphApiService");
-const keyVaultService_1 = require("../shared/keyVaultService");
-async function createCustomer(request, context) {
+import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { getCosmosDbService } from "../shared/cosmosDbService";
+import { getGraphApiService } from "../shared/graphApiService";
+import { getKeyVaultService } from "../shared/keyVaultService";
+import { CreateCustomerRequest, Customer } from "../shared/types";
+
+export async function createCustomer(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('CreateCustomer function processed a request.');
+
     try {
         // Validate request method
         if (request.method !== 'POST') {
@@ -15,16 +15,18 @@ async function createCustomer(request, context) {
                 jsonBody: { error: 'Method not allowed. Use POST.' }
             };
         }
+
         // Validate request body
-        const customerData = await request.json();
+        const customerData: CreateCustomerRequest = await request.json() as CreateCustomerRequest;
         if (!customerData || !customerData.tenantName || !customerData.tenantDomain) {
             return {
                 status: 400,
-                jsonBody: {
-                    error: 'Invalid request body. Required fields: tenantName, tenantDomain'
+                jsonBody: { 
+                    error: 'Invalid request body. Required fields: tenantName, tenantDomain' 
                 }
             };
         }
+
         // Validate email format if provided
         if (customerData.contactEmail) {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -35,6 +37,7 @@ async function createCustomer(request, context) {
                 };
             }
         }
+
         // Validate tenant domain format
         const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}$/;
         if (!domainRegex.test(customerData.tenantDomain)) {
@@ -43,24 +46,29 @@ async function createCustomer(request, context) {
                 jsonBody: { error: 'Invalid tenant domain format' }
             };
         }
+
         // Initialize services
-        const cosmosDbService = (0, cosmosDbService_1.getCosmosDbService)();
-        const graphApiService = (0, graphApiService_1.getGraphApiService)();
-        const keyVaultService = (0, keyVaultService_1.getKeyVaultService)();
+        const cosmosDbService = getCosmosDbService();
+        const graphApiService = getGraphApiService();
+        const keyVaultService = getKeyVaultService();
+
         // Initialize Cosmos DB if not already done
         await cosmosDbService.initialize();
+
         context.log(`Creating customer for tenant: ${customerData.tenantName} (${customerData.tenantDomain})`);
+
         // Check if customer already exists
         const existingCustomer = await cosmosDbService.getCustomerByDomain(customerData.tenantDomain);
         if (existingCustomer && existingCustomer.status !== 'deleted') {
             return {
                 status: 409,
-                jsonBody: {
+                jsonBody: { 
                     error: `Customer with domain ${customerData.tenantDomain} already exists`,
                     existingCustomerId: existingCustomer.id
                 }
             };
         }
+
         // Create Azure AD app registration for this customer
         context.log('Creating Azure AD app registration...');
         const appRegistration = await graphApiService.createAppRegistration({
@@ -68,7 +76,9 @@ async function createCustomer(request, context) {
             tenantDomain: customerData.tenantDomain,
             contactEmail: customerData.contactEmail
         });
+
         context.log(`App registration created with Application ID: ${appRegistration.applicationId}`);
+
         // Create customer record in Cosmos DB
         context.log('Creating customer record in Cosmos DB...');
         const customer = await cosmosDbService.createCustomer(customerData, {
@@ -77,15 +87,19 @@ async function createCustomer(request, context) {
             servicePrincipalId: appRegistration.servicePrincipalId,
             permissions: []
         });
+
         // Store the client secret in Key Vault
         const secretName = await keyVaultService.storeClientSecret(customer.id, customerData.tenantDomain, appRegistration.clientSecret);
+
         // Store the secret reference in the customer record
         await cosmosDbService.updateCustomer(customer.id, customer.tenantDomain, {
-        // Remove the clientSecretExpiryDate as it's not in the Customer type
+            // Remove the clientSecretExpiryDate as it's not in the Customer type
         });
+
         context.log(`Customer created successfully with ID: ${customer.id}`);
+
         // Return customer info (without sensitive data)
-        const responseData = {
+        const responseData: Partial<Customer> = {
             id: customer.id,
             tenantName: customer.tenantName,
             tenantDomain: customer.tenantDomain,
@@ -99,6 +113,7 @@ async function createCustomer(request, context) {
             notes: customer.notes,
             totalAssessments: customer.totalAssessments
         };
+
         return {
             status: 201,
             jsonBody: {
@@ -118,9 +133,10 @@ async function createCustomer(request, context) {
                 'Content-Type': 'application/json'
             }
         };
-    }
-    catch (error) {
+
+    } catch (error) {
         context.error('Error creating customer:', error);
+
         // Handle specific error types
         if (error instanceof Error) {
             if (error.message.includes('already exists')) {
@@ -128,30 +144,26 @@ async function createCustomer(request, context) {
                     status: 409,
                     jsonBody: { error: error.message }
                 };
-            }
-            else if (error.message.includes('authentication') || error.message.includes('unauthorized')) {
+            } else if (error.message.includes('authentication') || error.message.includes('unauthorized')) {
                 return {
                     status: 401,
                     jsonBody: { error: 'Authentication failed. Please check your credentials.' }
                 };
-            }
-            else if (error.message.includes('permission') || error.message.includes('forbidden')) {
+            } else if (error.message.includes('permission') || error.message.includes('forbidden')) {
                 return {
                     status: 403,
                     jsonBody: { error: 'Insufficient permissions to create enterprise application.' }
                 };
-            }
-            else {
+            } else {
                 return {
                     status: 500,
-                    jsonBody: {
+                    jsonBody: { 
                         error: 'Internal server error while creating customer',
                         details: process.env.NODE_ENV === 'development' ? error.message : undefined
                     }
                 };
             }
-        }
-        else {
+        } else {
             return {
                 status: 500,
                 jsonBody: { error: 'An unexpected error occurred' }
@@ -159,10 +171,10 @@ async function createCustomer(request, context) {
         }
     }
 }
-functions_1.app.http('CreateCustomer', {
+
+app.http('CreateCustomer', {
     methods: ['POST'],
     authLevel: 'function',
     route: 'customers/create',
     handler: createCustomer
 });
-//# sourceMappingURL=index.js.map

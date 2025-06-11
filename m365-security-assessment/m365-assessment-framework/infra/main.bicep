@@ -4,9 +4,6 @@ param environmentName string
 @description('Primary location for all resources')
 param location string = resourceGroup().location
 
-@description('Name of the resource group')
-param resourceGroupName string
-
 @description('Azure tenant ID for Graph API access')
 param azureTenantId string = ''
 
@@ -19,7 +16,7 @@ param azureClientSecret string = ''
 
 // Generate a unique suffix based on environment and subscription
 var resourceToken = toLower(uniqueString(subscription().id, environmentName))
-var resourcePrefix = 'm365assess'
+var resourcePrefix = 'm365'
 
 // Tags for all resources
 var tags = {
@@ -61,7 +58,7 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
 
 // Storage Account for Azure Functions
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
-  name: '${resourcePrefix}st${resourceToken}'
+  name: '${resourcePrefix}${resourceToken}'
   location: location
   tags: tags
   sku: {
@@ -118,117 +115,117 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   }
 }
 
-// Cosmos DB for storing assessment data
-resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
-  name: '${resourcePrefix}-cosmos-${resourceToken}'
-  location: location
-  tags: tags
-  kind: 'GlobalDocumentDB'
-  properties: {
-    databaseAccountOfferType: 'Standard'
-    enableFreeTier: true
-    consistencyPolicy: {
-      defaultConsistencyLevel: 'Session'
-    }
-    locations: [
-      {
-        locationName: location
-        failoverPriority: 0
-        isZoneRedundant: false
-      }
-    ]
-    capabilities: [
-      {
-        name: 'EnableServerless'
-      }
-    ]
-    publicNetworkAccess: 'Enabled'
-    enableAnalyticalStorage: false
-    enableAutomaticFailover: false
-    enableMultipleWriteLocations: false
-    isVirtualNetworkFilterEnabled: false
-    virtualNetworkRules: []
-    ipRules: []
-    cors: []
-    backupPolicy: {
-      type: 'Periodic'
-      periodicModeProperties: {
-        backupIntervalInMinutes: 240
-        backupRetentionIntervalInHours: 8
-        backupStorageRedundancy: 'Local'
-      }
-    }
-  }
-}
+// Cosmos DB for storing assessment data - temporarily disabled due to resource provider registration
+// resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
+//   name: '${resourcePrefix}-cosmos-${resourceToken}'
+//   location: location
+//   tags: tags
+//   kind: 'GlobalDocumentDB'
+//   properties: {
+//     databaseAccountOfferType: 'Standard'
+//     enableFreeTier: true
+//     consistencyPolicy: {
+//       defaultConsistencyLevel: 'Session'
+//     }
+//     locations: [
+//       {
+//         locationName: location
+//         failoverPriority: 0
+//         isZoneRedundant: false
+//       }
+//     ]
+//     capabilities: [
+//       {
+//         name: 'EnableServerless'
+//       }
+//     ]
+//     publicNetworkAccess: 'Enabled'
+//     enableAnalyticalStorage: false
+//     enableAutomaticFailover: false
+//     enableMultipleWriteLocations: false
+//     isVirtualNetworkFilterEnabled: false
+//     virtualNetworkRules: []
+//     ipRules: []
+//     cors: []
+//     backupPolicy: {
+//       type: 'Periodic'
+//       periodicModeProperties: {
+//         backupIntervalInMinutes: 240
+//         backupRetentionIntervalInHours: 8
+//         backupStorageRedundancy: 'Local'
+//       }
+//     }
+//   }
+// }
 
-// Cosmos DB Database
-resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-11-15' = {
-  parent: cosmosDbAccount
-  name: 'm365assessment'
-  properties: {
-    resource: {
-      id: 'm365assessment'
-    }
-  }
-}
+// // Cosmos DB Database
+// resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-11-15' = {
+//   parent: cosmosDbAccount
+//   name: 'm365assessment'
+//   properties: {
+//     resource: {
+//       id: 'm365assessment'
+//     }
+//   }
+// }
 
-// Customers Container
-resource customersContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
-  parent: cosmosDatabase
-  name: 'customers'
-  properties: {
-    resource: {
-      id: 'customers'
-      partitionKey: {
-        paths: ['/tenantDomain']
-        kind: 'Hash'
-      }
-      indexingPolicy: {
-        indexingMode: 'consistent'
-        automatic: true
-        includedPaths: [
-          {
-            path: '/*'
-          }
-        ]
-        excludedPaths: [
-          {
-            path: '/"_etag"/?'
-          }
-        ]
-      }
-    }
-  }
-}
+// // Customers Container
+// resource customersContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+//   parent: cosmosDatabase
+//   name: 'customers'
+//   properties: {
+//     resource: {
+//       id: 'customers'
+//       partitionKey: {
+//         paths: ['/tenantDomain']
+//         kind: 'Hash'
+//       }
+//       indexingPolicy: {
+//         indexingMode: 'consistent'
+//         automatic: true
+//         includedPaths: [
+//           {
+//             path: '/*'
+//           }
+//         ]
+//         excludedPaths: [
+//           {
+//             path: '/"_etag"/?'
+//           }
+//         ]
+//       }
+//     }
+//   }
+// }
 
-// Assessments Container
-resource assessmentsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
-  parent: cosmosDatabase
-  name: 'assessments'
-  properties: {
-    resource: {
-      id: 'assessments'
-      partitionKey: {
-        paths: ['/customerId']
-        kind: 'Hash'
-      }
-      indexingPolicy: {
-        indexingMode: 'consistent'
-        automatic: true
-        includedPaths: [
-          {
-            path: '/*'
-          }
-        ]
-        excludedPaths: [
-          {
-            path: '/"_etag"/?'
-          }
-        ]
-      }
-    }
-  }
-}
+// // Assessments Container
+// resource assessmentsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+//   parent: cosmosDatabase
+//   name: 'assessments'
+//   properties: {
+//     resource: {
+//       id: 'assessments'
+//       partitionKey: {
+//         paths: ['/customerId']
+//         kind: 'Hash'
+//       }
+//       indexingPolicy: {
+//         indexingMode: 'consistent'
+//         automatic: true
+//         includedPaths: [
+//           {
+//             path: '/*'
+//           }
+//         ]
+//         excludedPaths: [
+//           {
+//             path: '/"_etag"/?'
+//           }
+//         ]
+//       }
+//     }
+//   }
+// }
 
 // User Assigned Managed Identity for Function App
 resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
@@ -251,6 +248,27 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2024-04-01' = {
   }
   properties: {
     reserved: false
+  }
+}
+
+// Static Web App for frontend
+resource staticWebApp 'Microsoft.Web/staticSites@2024-04-01' = {
+  name: '${resourcePrefix}-frontend-${resourceToken}'
+  location: location
+  tags: union(tags, {
+    'azd-service-name': 'm365-assessment-frontend'
+  })
+  sku: {
+    name: 'Free'
+    tier: 'Free'
+  }
+  properties: {
+    buildProperties: {
+      appLocation: '/'
+      apiLocation: ''
+      outputLocation: 'build'
+    }
+    enterpriseGradeCdnStatus: 'Disabled'
   }
 }
 
@@ -302,22 +320,6 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
           value: applicationInsights.properties.ConnectionString
         }
         {
-          name: 'COSMOS_DB_ENDPOINT'
-          value: cosmosDbAccount.properties.documentEndpoint
-        }
-        {
-          name: 'COSMOS_DB_DATABASE_NAME'
-          value: cosmosDatabase.name
-        }
-        {
-          name: 'COSMOS_DB_CUSTOMERS_CONTAINER'
-          value: customersContainer.name
-        }
-        {
-          name: 'COSMOS_DB_ASSESSMENTS_CONTAINER'
-          value: assessmentsContainer.name
-        }
-        {
           name: 'KEY_VAULT_URL'
           value: keyVault.properties.vaultUri
         }
@@ -337,10 +339,6 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
           name: 'FRONTEND_URL'
           value: 'https://${staticWebApp.properties.defaultHostname}'
         }
-        {
-          name: 'BACKEND_URL'
-          value: 'https://${functionApp.properties.defaultHostName}'
-        }
       ]
       cors: {
         allowedOrigins: [
@@ -355,38 +353,6 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
       use32BitWorkerProcess: false
       netFrameworkVersion: 'v6.0'
     }
-  }
-}
-
-// Static Web App for frontend
-resource staticWebApp 'Microsoft.Web/staticSites@2024-04-01' = {
-  name: '${resourcePrefix}-frontend-${resourceToken}'
-  location: location
-  tags: union(tags, {
-    'azd-service-name': 'm365-assessment-frontend'
-  })
-  sku: {
-    name: 'Free'
-    tier: 'Free'
-  }
-  properties: {
-    buildProperties: {
-      appLocation: '/'
-      apiLocation: ''
-      outputLocation: 'build'
-    }
-    enterpriseGradeCdnStatus: 'Disabled'
-  }
-}
-
-// Role assignments for Function App to access Cosmos DB
-resource cosmosDbDataContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(cosmosDbAccount.id, functionApp.id, 'b24988ac-6180-42a0-ab88-20f7382dd24c')
-  scope: cosmosDbAccount
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c') // Cosmos DB Built-in Data Contributor
-    principalId: functionApp.identity.principalId
-    principalType: 'ServicePrincipal'
   }
 }
 
@@ -435,7 +401,6 @@ output AZURE_LOCATION string = location
 output AZURE_TENANT_ID string = subscription().tenantId
 output REACT_APP_API_URL string = 'https://${functionApp.properties.defaultHostName}/api'
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = applicationInsights.properties.ConnectionString
-output COSMOS_DB_ENDPOINT string = cosmosDbAccount.properties.documentEndpoint
 output KEY_VAULT_URL string = keyVault.properties.vaultUri
 output FUNCTION_APP_NAME string = functionApp.name
 output STATIC_WEB_APP_NAME string = staticWebApp.name
