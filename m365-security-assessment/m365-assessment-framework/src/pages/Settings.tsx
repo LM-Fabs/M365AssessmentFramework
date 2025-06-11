@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { AssessmentService } from '../services/assessmentService';
-import { Customer } from '../services/customerService';
+import { Customer, CustomerService } from '../services/customerService';
 import CustomerSelector from '../components/ui/CustomerSelector';
 import { SECURITY_CATEGORIES } from '../shared/constants';
 import './Settings.css';
@@ -122,23 +122,16 @@ const Settings = () => {
     setNewCustomerError(null);
 
     try {
-      // Simulate customer creation and Azure app setup
-      const newCustomer = {
-        id: Date.now().toString(),
-        tenantId: `tenant-id-${Date.now()}`,
+      // Use the CustomerService to properly create the customer with Azure app registration
+      const customerService = CustomerService.getInstance();
+      const newCustomer = await customerService.createCustomer({
         tenantName: newCustomerData.tenantName,
         tenantDomain: newCustomerData.tenantDomain,
         contactEmail: newCustomerData.contactEmail,
-        notes: newCustomerData.notes,
-        status: 'active',
-        totalAssessments: 0
-      };
+        notes: newCustomerData.notes
+      });
 
-      // Here you would typically call a service to create the customer in your backend
-      // await CustomerService.createCustomer(newCustomer);
-
-      // For now, we just log the new customer data
-      console.log('Creating new customer:', newCustomer);
+      console.log('Successfully created new customer:', newCustomer);
 
       // Auto-select the new customer and reset the form
       setSelectedCustomer(newCustomer);
@@ -149,16 +142,17 @@ const Settings = () => {
         notes: ''
       });
       setShowNewCustomerForm(false);
-      setSuccess(true);
+      
+      // Update the assessment name with the new customer
+      setFormData(prev => ({
+        ...prev,
+        assessmentName: `Security Assessment - ${newCustomer.tenantName}`
+      }));
 
-      setTimeout(() => {
-        navigate('/dashboard', { 
-          state: { 
-            assessment: null, // No assessment yet
-            customer: newCustomer
-          } 
-        });
-      }, 1500);
+      // Show success message but don't redirect immediately since user might want to configure assessment
+      setError(null);
+      setSuccess(false); // Don't show success message that redirects
+      
     } catch (error: any) {
       setNewCustomerError(error.message || 'Failed to create new customer');
     } finally {
