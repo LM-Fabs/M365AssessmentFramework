@@ -1,5 +1,12 @@
 /* LM-AG Brand-aligned App layout styling */
 
+/* App layout with sidebar navigation */
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--lm-bg-light);
+}
+
 /* Main app container */
 .app {
   display: flex;
@@ -92,18 +99,19 @@
   color: white;
 }
 
-/* Main content area */
+/* Main content area - positioned next to sidebar */
 .main-content {
   flex: 1;
-  margin-left: 240px;
+  margin-left: 280px; /* Width of navigation sidebar */
   padding: 2rem;
   min-height: 100vh;
+  background-color: var(--lm-bg-light);
 }
 
 /* Responsive adjustments */
 @media (max-width: 992px) {
   .main-content {
-    margin-left: 0;
+    margin-left: 0; /* Full width on mobile, navigation becomes overlay */
   }
 }
 
