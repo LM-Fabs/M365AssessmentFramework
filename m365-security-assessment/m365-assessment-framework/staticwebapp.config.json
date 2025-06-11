@@ -50,6 +50,16 @@
       "allowedRoles": ["anonymous"]
     },
     {
+      "route": "/api/customers/create",
+      "methods": ["POST"],
+      "allowedRoles": ["anonymous"]
+    },
+    {
+      "route": "/api/customers",
+      "methods": ["GET"],
+      "allowedRoles": ["anonymous"]
+    },
+    {
       "route": "/api/assessment/create",
       "methods": ["POST"],
       "allowedRoles": ["authenticated"]
