@@ -18,7 +18,7 @@ exports.getCurrentAssessmentHandler = functions_1.app.http('getCurrentAssessment
             // Transform the data into the expected assessment format
             const currentAssessment = {
                 id: `assessment-${Date.now()}`,
-                tenantId: 'real-tenant', // This could be fetched from Graph as well
+                tenantId: 'real-tenant',
                 assessmentDate: new Date().toISOString(),
                 assessor: {
                     id: 'system',
@@ -31,7 +31,7 @@ exports.getCurrentAssessmentHandler = functions_1.app.http('getCurrentAssessment
                         identity: assessmentData.metrics.identityScore,
                         dataProtection: assessmentData.metrics.dataProtectionScore,
                         endpoint: assessmentData.metrics.deviceComplianceScore,
-                        cloudApps: Math.round(assessmentData.metrics.secureScore * 0.9), // Derived from secure score
+                        cloudApps: Math.round(assessmentData.metrics.secureScore * 0.9),
                         informationProtection: Math.round(assessmentData.metrics.dataProtectionScore * 0.95),
                         threatProtection: Math.max(100 - (assessmentData.metrics.alertsCount * 5), 0) // Based on alert count
                     },
@@ -106,7 +106,7 @@ exports.getCurrentAssessmentHandler = functions_1.app.http('getCurrentAssessment
                 error: error instanceof Error ? error.message : String(error)
             };
             return {
-                status: 200, // Return 200 but with error status in data
+                status: 200,
                 headers: {
                     'Content-Type': 'application/json',
                     'Access-Control-Allow-Origin': '*'

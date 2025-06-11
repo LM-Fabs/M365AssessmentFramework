@@ -4,8 +4,8 @@ exports.saveAssessmentHandler = void 0;
 const functions_1 = require("@azure/functions");
 exports.saveAssessmentHandler = functions_1.app.http('saveAssessment', {
     methods: ['POST'],
-    authLevel: 'anonymous', // Changed from 'function' to 'anonymous' for testing
-    route: 'assessment/save', // Add specific route to match frontend expectation
+    authLevel: 'anonymous',
+    route: 'assessment/save',
     handler: async (request, context) => {
         try {
             const assessment = await request.json();

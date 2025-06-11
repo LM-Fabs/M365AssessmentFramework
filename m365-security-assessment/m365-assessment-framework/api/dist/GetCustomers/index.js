@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.customers = customers;
+exports.customers = void 0;
 const functions_1 = require("@azure/functions");
 const cosmosDbService_1 = require("../shared/cosmosDbService");
 const graphApiService_1 = require("../shared/graphApiService");
@@ -37,7 +37,7 @@ async function customers(request, context) {
                 const continuationToken = url.searchParams.get('continuationToken') || undefined;
                 const result = await cosmosService.getCustomers({
                     status,
-                    maxItemCount: Math.min(limit, 100), // Cap at 100 for performance
+                    maxItemCount: Math.min(limit, 100),
                     continuationToken
                 });
                 context.log(`Retrieved ${result.customers.length} customers from Cosmos DB`);
@@ -207,6 +207,7 @@ async function customers(request, context) {
         };
     }
 }
+exports.customers = customers;
 /**
  * Helper function to validate email format
  */
