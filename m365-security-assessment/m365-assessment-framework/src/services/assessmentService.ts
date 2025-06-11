@@ -207,6 +207,56 @@ export class AssessmentService {
     }
   }
 
+  /**
+   * Create assessment for an existing customer using their saved Azure app registration
+   */
+  public async createAssessmentForCustomer(data: {
+    customerId: string;
+    tenantId: string;
+    assessmentName: string;
+    includedCategories: string[];
+    notificationEmail: string;
+    autoSchedule: boolean;
+    scheduleFrequency: string;
+  }): Promise<Assessment> {
+    try {
+      console.log('Creating assessment for customer with URL:', `${this.baseUrl}/assessment/customer`);
+      console.log('Data being sent:', JSON.stringify(data, null, 2));
+      
+      const response = await axios.post(`${this.baseUrl}/assessment/customer`, data);
+      console.log('Create customer assessment response:', response.status, response.statusText);
+      
+      const assessment = response.data;
+
+      // Store in assessment history for future comparisons
+      try {
+        const { AssessmentHistoryService } = await import('./assessmentHistoryService');
+        const historyService = AssessmentHistoryService.getInstance();
+        await historyService.storeAssessmentHistory(assessment);
+      } catch (historyError) {
+        console.warn('Failed to store assessment history:', historyError);
+        // Don't fail the assessment creation if history storage fails
+      }
+
+      return assessment;
+    } catch (error: any) {
+      console.error('Error creating customer assessment:', error);
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          console.error('Response error data:', error.response.data);
+          console.error('Response status:', error.response.status);
+          console.error('Response headers:', error.response.headers);
+        } else if (error.request) {
+          console.error('No response received. Request details:', error.request);
+        } else {
+          console.error('Error message:', error.message);
+        }
+        console.error('Error config:', error.config);
+      }
+      throw error;
+    }
+  }
+
   private getAuthHeaders(): Record<string, string> {
     // Add authentication headers if available
     const token = localStorage.getItem('access_token');

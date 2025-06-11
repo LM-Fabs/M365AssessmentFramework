@@ -5,6 +5,7 @@ import './RecentAssessments.css';
 interface RecentAssessmentsProps {
   tenantId: string;
   limit?: number;
+  customerId?: string;
 }
 
 interface AssessmentHistory {
@@ -20,7 +21,7 @@ interface AssessmentHistory {
   };
 }
 
-const RecentAssessments: React.FC<RecentAssessmentsProps> = ({ tenantId, limit = 5 }) => {
+const RecentAssessments: React.FC<RecentAssessmentsProps> = ({ tenantId, limit = 5, customerId }) => {
   const [assessments, setAssessments] = useState<AssessmentHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +38,12 @@ const RecentAssessments: React.FC<RecentAssessmentsProps> = ({ tenantId, limit =
       try {
         setLoading(true);
         setError(null);
-        const recentAssessments = await historyService.getRecentAssessments(tenantId, limit);
+        
+        // Use customerId if provided, otherwise use tenantId for backward compatibility
+        const recentAssessments = customerId 
+          ? await historyService.getCustomerAssessments(customerId, limit)
+          : await historyService.getRecentAssessments(tenantId, limit);
+          
         setAssessments(recentAssessments);
       } catch (err: any) {
         console.error('Error loading recent assessments:', err);
@@ -49,7 +55,7 @@ const RecentAssessments: React.FC<RecentAssessmentsProps> = ({ tenantId, limit =
     };
 
     loadRecentAssessments();
-  }, [tenantId, limit]);
+  }, [tenantId, limit, customerId]);
 
   const getScoreColor = (score: number): string => {
     if (score >= 80) return '#10b981'; // Green

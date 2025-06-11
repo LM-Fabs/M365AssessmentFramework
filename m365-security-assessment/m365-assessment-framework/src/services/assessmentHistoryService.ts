@@ -182,6 +182,31 @@ export class AssessmentHistoryService {
   }
 
   /**
+   * Get assessments for a specific customer
+   */
+  public async getCustomerAssessments(customerId: string, limit: number = 5): Promise<AssessmentHistory[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/assessment-history/customer/${customerId}?limit=${limit}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          return []; // No history found
+        }
+        throw new Error(`Failed to fetch customer assessment history: ${response.statusText}`);
+      }
+
+      const history = await response.json();
+      return history.map((item: any) => ({
+        ...item,
+        date: new Date(item.date)
+      }));
+    } catch (error) {
+      console.error('Error fetching customer assessment history:', error);
+      return []; // Return empty array on error to prevent UI crashes
+    }
+  }
+
+  /**
    * Delete old assessment history (for cleanup)
    */
   public async cleanupOldHistory(tenantId: string, keepDays: number = 90): Promise<void> {
