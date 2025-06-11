@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { AssessmentService } from '../../services/assessmentService';
+import { Assessment } from '../../models/Assessment';
 import './Navigation.css';
 
 interface NavItem {
@@ -14,16 +16,83 @@ interface NavigationProps {
   onLogout: () => void;
 }
 
+interface RecentAssessmentData {
+  id: string;
+  tenantName: string;
+  date: Date;
+}
+
 const Navigation: React.FC<NavigationProps> = ({ userName, onLogout }) => {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [recentAssessments, setRecentAssessments] = useState<RecentAssessmentData[]>([]);
+  const [assessmentsLoading, setAssessmentsLoading] = useState(true);
   const location = useLocation();
   
   // Close menu when route changes (on mobile)
   useEffect(() => {
     setIsMenuOpen(false);
   }, [location.pathname]);
+
+  // Load recent assessments
+  useEffect(() => {
+    const loadRecentAssessments = async () => {
+      try {
+        setAssessmentsLoading(true);
+        const assessmentService = AssessmentService.getInstance();
+        const assessments = await assessmentService.getAssessments();
+        
+        // Transform and sort assessments by date (most recent first)
+        const recentData: RecentAssessmentData[] = assessments
+          .map(assessment => ({
+            id: assessment.id,
+            tenantName: assessment.tenantId || 'Unknown Tenant',
+            date: new Date(assessment.assessmentDate)
+          }))
+          .sort((a, b) => b.date.getTime() - a.date.getTime())
+          .slice(0, 3); // Get the 3 most recent assessments
+
+        setRecentAssessments(recentData);
+      } catch (error) {
+        console.error('Failed to load recent assessments:', error);
+        // Keep empty array if fetch fails
+        setRecentAssessments([]);
+      } finally {
+        setAssessmentsLoading(false);
+      }
+    };
+
+    if (user) {
+      loadRecentAssessments();
+    }
+  }, [user]);
+
+  // Format relative time (e.g., "2 days ago")
+  const formatRelativeTime = (date: Date): string => {
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    
+    if (diffInDays === 0) {
+      const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+      if (diffInHours === 0) {
+        const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+        return diffInMinutes <= 1 ? 'Just now' : `${diffInMinutes} minutes ago`;
+      }
+      return diffInHours === 1 ? '1 hour ago' : `${diffInHours} hours ago`;
+    } else if (diffInDays === 1) {
+      return '1 day ago';
+    } else if (diffInDays < 7) {
+      return `${diffInDays} days ago`;
+    } else if (diffInDays < 30) {
+      const weeks = Math.floor(diffInDays / 7);
+      return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
+    } else {
+      const months = Math.floor(diffInDays / 30);
+      return months === 1 ? '1 month ago' : `${months} months ago`;
+    }
+  };
 
   // Get user initials for avatar
   const getInitials = (name?: string) => {
@@ -90,6 +159,10 @@ const Navigation: React.FC<NavigationProps> = ({ userName, onLogout }) => {
     navigate('/login?noauto=true');
   };
 
+  const handleAssessmentClick = (assessmentId: string) => {
+    navigate(`/assessments/${assessmentId}`);
+  };
+
   return (
     <>
       <nav className={`lm-navigation ${isMenuOpen ? 'menu-open' : ''}`}>
@@ -126,20 +199,34 @@ const Navigation: React.FC<NavigationProps> = ({ userName, onLogout }) => {
         
         <div className="recent-assessments">
           <h2 className="recent-assessments-title">Recent Assessments</h2>
-          <ul className="recent-assessment-list">
-            <li className="recent-assessment-item">
-              <span>Contoso Ltd</span>
-              <span>2 days ago</span>
-            </li>
-            <li className="recent-assessment-item">
-              <span>Fabrikam Inc</span>
-              <span>1 week ago</span>
-            </li>
-            <li className="recent-assessment-item">
-              <span>Northwind Traders</span>
-              <span>2 weeks ago</span>
-            </li>
-          </ul>
+          {assessmentsLoading ? (
+            <div className="recent-assessments-loading">
+              <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.875rem' }}>
+                Loading...
+              </span>
+            </div>
+          ) : recentAssessments.length > 0 ? (
+            <ul className="recent-assessment-list">
+              {recentAssessments.map((assessment) => (
+                <li 
+                  key={assessment.id} 
+                  className="recent-assessment-item"
+                  onClick={() => handleAssessmentClick(assessment.id)}
+                  style={{ cursor: 'pointer' }}
+                  title={`View assessment for ${assessment.tenantName}`}
+                >
+                  <span>{assessment.tenantName}</span>
+                  <span>{formatRelativeTime(assessment.date)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="no-recent-assessments">
+              <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.875rem' }}>
+                No recent assessments
+              </span>
+            </div>
+          )}
         </div>
         
         {userName && (
