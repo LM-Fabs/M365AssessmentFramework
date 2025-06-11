@@ -2,7 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/fu
 import { ClientSecretCredential } from '@azure/identity';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials';
-import { KeyVaultService } from '../shared/keyVaultService';
+import { getKeyVaultService } from '../shared/keyVaultService';
 
 interface CreateMultiTenantAppRequest {
     targetTenantId: string;
@@ -110,9 +110,11 @@ export const createMultiTenantAppHandler = app.http('createMultiTenantApp', {
             };
 
             // Get administrative credentials from Key Vault
-            const keyVaultService = KeyVaultService.getInstance();
-            const { tenantId: adminTenantId, clientId: adminClientId, clientSecret: adminClientSecret } = 
-                await keyVaultService.getGraphCredentials();
+            const keyVaultService = getKeyVaultService();
+            const adminCredentialsJson = await keyVaultService.getApiConfiguration('graph-admin-credentials');
+            const adminCredentials = JSON.parse(adminCredentialsJson);
+            
+            const { tenantId: adminTenantId, clientId: adminClientId, clientSecret: adminClientSecret } = adminCredentials;
             
             if (!adminTenantId || !adminClientId || !adminClientSecret) {
                 throw new Error('Failed to retrieve administrative credentials from Key Vault');

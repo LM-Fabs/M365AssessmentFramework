@@ -8,7 +8,7 @@ const azureTokenCredentials_1 = require("@microsoft/microsoft-graph-client/authP
 const keyVaultService_1 = require("../shared/keyVaultService");
 exports.createMultiTenantAppHandler = functions_1.app.http('createMultiTenantApp', {
     methods: ['POST'],
-    authLevel: 'anonymous',
+    authLevel: 'anonymous', // Changed to allow cross-tenant access
     route: 'enterprise-app/multi-tenant',
     handler: async (request, context) => {
         context.log('CreateMultiTenantApp function processing request');
@@ -41,22 +41,22 @@ exports.createMultiTenantAppHandler = functions_1.app.http('createMultiTenantApp
             // Enhanced app registration with multi-tenant capabilities
             const appRegistration = {
                 displayName: `${assessmentName} - ${targetTenantDomain || targetTenantId}`,
-                signInAudience: "AzureADMultipleOrgs",
+                signInAudience: "AzureADMultipleOrgs", // Multi-tenant support
                 description: `Security assessment application for tenant ${targetTenantDomain || targetTenantId}`,
                 requiredResourceAccess: [
                     {
-                        resourceAppId: "00000003-0000-0000-c000-000000000000",
+                        resourceAppId: "00000003-0000-0000-c000-000000000000", // Microsoft Graph
                         resourceAccess: [
                             // Security and compliance permissions
-                            { id: "df021288-bdef-4463-88db-98f22de89214", type: "Role" },
-                            { id: "230c1aed-a721-4c5d-9cb4-a90514e508ef", type: "Role" },
-                            { id: "7ab1d382-f21e-4acd-a863-ba3e13f7da61", type: "Role" },
-                            { id: "246dd0d5-5bd0-4def-940b-0421030a5b68", type: "Role" },
-                            { id: "bf394140-e372-4bf9-a898-299cfc7564e5", type: "Role" },
-                            { id: "dc5007c0-2d7d-4c42-879c-2dab87571379", type: "Role" },
-                            { id: "2f51be20-0bb4-4fed-bf7b-db946066c75e", type: "Role" },
+                            { id: "df021288-bdef-4463-88db-98f22de89214", type: "Role" }, // Organization.Read.All
+                            { id: "230c1aed-a721-4c5d-9cb4-a90514e508ef", type: "Role" }, // Reports.Read.All
+                            { id: "7ab1d382-f21e-4acd-a863-ba3e13f7da61", type: "Role" }, // Directory.Read.All
+                            { id: "246dd0d5-5bd0-4def-940b-0421030a5b68", type: "Role" }, // Policy.Read.All
+                            { id: "bf394140-e372-4bf9-a898-299cfc7564e5", type: "Role" }, // SecurityEvents.Read.All
+                            { id: "dc5007c0-2d7d-4c42-879c-2dab87571379", type: "Role" }, // IdentityRiskyUser.Read.All
+                            { id: "2f51be20-0bb4-4fed-bf7b-db946066c75e", type: "Role" }, // DeviceManagementManagedDevices.Read.All
                             // Additional security-specific permissions
-                            { id: "ee928332-e9d2-4747-91b6-7c2c54de8c51", type: "Role" },
+                            { id: "ee928332-e9d2-4747-91b6-7c2c54de8c51", type: "Role" }, // ThreatIndicators.Read.All
                             { id: "b0afded3-3588-46d8-8b3d-9842eff778da", type: "Role" }, // AuditLog.Read.All
                         ]
                     }
@@ -84,8 +84,10 @@ exports.createMultiTenantAppHandler = functions_1.app.http('createMultiTenantApp
                 }
             };
             // Get administrative credentials from Key Vault
-            const keyVaultService = keyVaultService_1.KeyVaultService.getInstance();
-            const { tenantId: adminTenantId, clientId: adminClientId, clientSecret: adminClientSecret } = await keyVaultService.getGraphCredentials();
+            const keyVaultService = (0, keyVaultService_1.getKeyVaultService)();
+            const adminCredentialsJson = await keyVaultService.getApiConfiguration('graph-admin-credentials');
+            const adminCredentials = JSON.parse(adminCredentialsJson);
+            const { tenantId: adminTenantId, clientId: adminClientId, clientSecret: adminClientSecret } = adminCredentials;
             if (!adminTenantId || !adminClientId || !adminClientSecret) {
                 throw new Error('Failed to retrieve administrative credentials from Key Vault');
             }

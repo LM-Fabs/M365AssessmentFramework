@@ -1,54 +1,50 @@
-import { AzureFunction, Context, HttpRequest } from "@azure/functions";
+import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getCosmosDbService } from "../shared/cosmosDbService";
 import { getGraphApiService } from "../shared/graphApiService";
 import { getKeyVaultService } from "../shared/keyVaultService";
 import { CreateCustomerRequest, Customer } from "../shared/types";
 
-const httpTrigger: AzureFunction = async function (context: Context, req: HttpRequest): Promise<void> {
+export async function createCustomer(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('CreateCustomer function processed a request.');
 
     try {
         // Validate request method
-        if (req.method !== 'POST') {
-            context.res = {
+        if (request.method !== 'POST') {
+            return {
                 status: 405,
-                body: { error: 'Method not allowed. Use POST.' }
+                jsonBody: { error: 'Method not allowed. Use POST.' }
             };
-            return;
         }
 
         // Validate request body
-        const customerData: CreateCustomerRequest = req.body;
+        const customerData: CreateCustomerRequest = await request.json() as CreateCustomerRequest;
         if (!customerData || !customerData.tenantName || !customerData.tenantDomain) {
-            context.res = {
+            return {
                 status: 400,
-                body: { 
+                jsonBody: { 
                     error: 'Invalid request body. Required fields: tenantName, tenantDomain' 
                 }
             };
-            return;
         }
 
         // Validate email format if provided
         if (customerData.contactEmail) {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailRegex.test(customerData.contactEmail)) {
-                context.res = {
+                return {
                     status: 400,
-                    body: { error: 'Invalid email format' }
+                    jsonBody: { error: 'Invalid email format' }
                 };
-                return;
             }
         }
 
         // Validate tenant domain format
         const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}$/;
         if (!domainRegex.test(customerData.tenantDomain)) {
-            context.res = {
+            return {
                 status: 400,
-                body: { error: 'Invalid tenant domain format' }
+                jsonBody: { error: 'Invalid tenant domain format' }
             };
-            return;
         }
 
         // Initialize services
@@ -64,46 +60,24 @@ const httpTrigger: AzureFunction = async function (context: Context, req: HttpRe
         // Check if customer already exists
         const existingCustomer = await cosmosDbService.getCustomerByDomain(customerData.tenantDomain);
         if (existingCustomer && existingCustomer.status !== 'deleted') {
-            context.res = {
+            return {
                 status: 409,
-                body: { 
+                jsonBody: { 
                     error: `Customer with domain ${customerData.tenantDomain} already exists`,
                     existingCustomerId: existingCustomer.id
                 }
             };
-            return;
         }
 
         // Create Azure AD app registration for this customer
         context.log('Creating Azure AD app registration...');
         const appRegistration = await graphApiService.createAppRegistration({
-            displayName: `M365 Assessment - ${customerData.tenantName}`,
-            description: `Enterprise application for M365 security assessment of ${customerData.tenantName}`,
-            requiredPermissions: [
-                // Microsoft Graph permissions for security assessment
-                'Directory.Read.All',
-                'Policy.Read.All',
-                'SecurityEvents.Read.All',
-                'IdentityRiskEvent.Read.All',
-                'SecurityActions.Read.All',
-                'ThreatIntelligence.Read.All',
-                'User.Read.All',
-                'Group.Read.All',
-                'Application.Read.All',
-                'DeviceManagementConfiguration.Read.All',
-                'DeviceManagementManagedDevices.Read.All'
-            ]
+            tenantName: customerData.tenantName,
+            tenantDomain: customerData.tenantDomain,
+            contactEmail: customerData.contactEmail
         });
 
         context.log(`App registration created with Application ID: ${appRegistration.applicationId}`);
-
-        // Generate and store client secret securely in Key Vault
-        context.log('Generating client secret...');
-        const clientSecret = await graphApiService.generateClientSecret(appRegistration.applicationId);
-        
-        // Store the client secret in Key Vault
-        const secretName = `customer-${Date.now()}-secret`;
-        await keyVaultService.setClientSecret(secretName, clientSecret.value);
 
         // Create customer record in Cosmos DB
         context.log('Creating customer record in Cosmos DB...');
@@ -111,13 +85,15 @@ const httpTrigger: AzureFunction = async function (context: Context, req: HttpRe
             applicationId: appRegistration.applicationId,
             clientId: appRegistration.clientId,
             servicePrincipalId: appRegistration.servicePrincipalId,
-            permissions: appRegistration.permissions
+            permissions: []
         });
+
+        // Store the client secret in Key Vault
+        const secretName = await keyVaultService.storeClientSecret(customer.id, customerData.tenantDomain, appRegistration.clientSecret);
 
         // Store the secret reference in the customer record
         await cosmosDbService.updateCustomer(customer.id, customer.tenantDomain, {
-            clientSecretKeyVaultName: secretName,
-            clientSecretExpiryDate: clientSecret.expiryDate
+            // Remove the clientSecretExpiryDate as it's not in the Customer type
         });
 
         context.log(`Customer created successfully with ID: ${customer.id}`);
@@ -138,15 +114,14 @@ const httpTrigger: AzureFunction = async function (context: Context, req: HttpRe
             totalAssessments: customer.totalAssessments
         };
 
-        context.res = {
+        return {
             status: 201,
-            body: {
+            jsonBody: {
                 message: 'Customer created successfully',
                 customer: responseData,
                 setupInstructions: {
                     applicationId: appRegistration.applicationId,
                     clientId: appRegistration.clientId,
-                    requiredPermissions: appRegistration.permissions,
                     nextSteps: [
                         'Admin consent must be granted for the enterprise application',
                         'Verify all required permissions are granted',
@@ -160,41 +135,45 @@ const httpTrigger: AzureFunction = async function (context: Context, req: HttpRe
         };
 
     } catch (error) {
-        context.log.error('Error creating customer:', error);
+        context.error('Error creating customer:', error);
 
         // Handle specific error types
         if (error instanceof Error) {
             if (error.message.includes('already exists')) {
-                context.res = {
+                return {
                     status: 409,
-                    body: { error: error.message }
+                    jsonBody: { error: error.message }
                 };
             } else if (error.message.includes('authentication') || error.message.includes('unauthorized')) {
-                context.res = {
+                return {
                     status: 401,
-                    body: { error: 'Authentication failed. Please check your credentials.' }
+                    jsonBody: { error: 'Authentication failed. Please check your credentials.' }
                 };
             } else if (error.message.includes('permission') || error.message.includes('forbidden')) {
-                context.res = {
+                return {
                     status: 403,
-                    body: { error: 'Insufficient permissions to create enterprise application.' }
+                    jsonBody: { error: 'Insufficient permissions to create enterprise application.' }
                 };
             } else {
-                context.res = {
+                return {
                     status: 500,
-                    body: { 
+                    jsonBody: { 
                         error: 'Internal server error while creating customer',
                         details: process.env.NODE_ENV === 'development' ? error.message : undefined
                     }
                 };
             }
         } else {
-            context.res = {
+            return {
                 status: 500,
-                body: { error: 'An unexpected error occurred' }
+                jsonBody: { error: 'An unexpected error occurred' }
             };
         }
     }
-};
+}
 
-export default httpTrigger;
+app.http('CreateCustomer', {
+    methods: ['POST'],
+    authLevel: 'function',
+    handler: createCustomer
+});

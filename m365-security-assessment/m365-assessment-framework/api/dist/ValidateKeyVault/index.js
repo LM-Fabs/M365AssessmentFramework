@@ -14,7 +14,7 @@ exports.validateKeyVaultIntegration = functions_1.app.http('validateKeyVaultInte
         try {
             context.log('Validating Key Vault integration...');
             // Initialize KeyVaultService
-            const keyVaultService = keyVaultService_1.KeyVaultService.getInstance();
+            const keyVaultService = (0, keyVaultService_1.getKeyVaultService)();
             // Simple timestamp to see when validation was run
             const timestamp = new Date().toISOString();
             // Start collecting validation results
@@ -23,30 +23,20 @@ exports.validateKeyVaultIntegration = functions_1.app.http('validateKeyVaultInte
                 status: 'success',
                 keyVaultAccess: false,
                 secretsRetrieved: false,
-                secrets: {
-                    tenantId: false,
-                    clientId: false,
-                    clientSecret: false
-                },
-                graphCredentials: false,
+                healthCheck: false,
                 errors: []
             };
             try {
-                // Test accessing a simple secret first
-                const tenantId = await keyVaultService.getSecret('AZURE-TENANT-ID');
-                validationResults.keyVaultAccess = true;
-                validationResults.secrets.tenantId = !!tenantId;
-                // Get all graph credentials
-                const clientId = await keyVaultService.getSecret('AZURE-CLIENT-ID');
-                const clientSecret = await keyVaultService.getSecret('AZURE-CLIENT-SECRET');
-                validationResults.secrets.clientId = !!clientId;
-                validationResults.secrets.clientSecret = !!clientSecret;
-                // Test getGraphCredentials method
-                const credentials = await keyVaultService.getGraphCredentials();
-                validationResults.graphCredentials = !!credentials.tenantId &&
-                    !!credentials.clientId &&
-                    !!credentials.clientSecret;
-                validationResults.secretsRetrieved = validationResults.graphCredentials;
+                // Test Key Vault health check
+                const healthCheck = await keyVaultService.healthCheck();
+                validationResults.healthCheck = healthCheck;
+                validationResults.keyVaultAccess = healthCheck;
+                if (healthCheck) {
+                    validationResults.secretsRetrieved = true;
+                }
+                else {
+                    validationResults.errors.push('Key Vault health check failed');
+                }
             }
             catch (error) {
                 validationResults.status = 'error';

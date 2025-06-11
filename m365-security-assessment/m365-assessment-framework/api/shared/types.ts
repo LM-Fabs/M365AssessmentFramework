@@ -65,7 +65,7 @@ export interface GraphApiError {
 }
 
 // Assessment-related interfaces for Cosmos DB integration
-export interface Assessment {
+export interface AssessmentDocument {
     id: string;
     customerId: string;
     tenantId: string;
