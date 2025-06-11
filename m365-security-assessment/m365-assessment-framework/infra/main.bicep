@@ -265,7 +265,7 @@ resource staticWebApp 'Microsoft.Web/staticSites@2024-04-01' = {
   properties: {
     buildProperties: {
       appLocation: '/'
-      apiLocation: ''
+      apiLocation: 'api'  // Point to the API folder
       outputLocation: 'build'
     }
     enterpriseGradeCdnStatus: 'Disabled'

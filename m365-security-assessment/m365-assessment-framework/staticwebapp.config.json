@@ -56,7 +56,12 @@
     },
     {
       "route": "/api/customers",
-      "methods": ["GET"],
+      "methods": ["GET", "POST"],
+      "allowedRoles": ["anonymous"]
+    },
+    {
+      "route": "/api/enterprise-app/multi-tenant",
+      "methods": ["POST"],
       "allowedRoles": ["anonymous"]
     },
     {
