@@ -70,3 +70,31 @@ fi
 echo "✅ Node.js environment has been forcibly set to version 18 across all components!"
 echo "✅ All node_modules have been reinstalled with the correct Node.js version!"
 echo "📋 Remember to use 'nvm use 18' before running any npm commands in this project."
+
+# Force Node.js version for Azure Functions compatibility
+# Azure Functions Core Tools v4 supports Node.js 18 and 20, but not 22
+
+echo "Checking Node.js version compatibility for Azure Functions..."
+
+NODE_VERSION=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
+
+if [ "$NODE_VERSION" -ge 22 ]; then
+    echo "❌ Node.js version $NODE_VERSION is not compatible with Azure Functions Core Tools v4"
+    echo "🔧 Azure Functions v4 supports Node.js 18 and 20"
+    echo "📝 Please use Node.js 20 for Azure Functions compatibility"
+    
+    # Check if nvm is available
+    if command -v nvm &> /dev/null; then
+        echo "🔄 Attempting to switch to Node.js 20 using nvm..."
+        nvm use 20 2>/dev/null || nvm install 20
+        echo "✅ Switched to Node.js $(node --version)"
+    else
+        echo "💡 Install nvm and run: nvm install 20 && nvm use 20"
+        echo "   Or download Node.js 20 from: https://nodejs.org/"
+        exit 1
+    fi
+elif [ "$NODE_VERSION" -eq 20 ] || [ "$NODE_VERSION" -eq 18 ]; then
+    echo "✅ Node.js version $NODE_VERSION is compatible with Azure Functions"
+else
+    echo "⚠️  Node.js version $NODE_VERSION is below recommended. Consider upgrading to Node.js 20"
+fi
