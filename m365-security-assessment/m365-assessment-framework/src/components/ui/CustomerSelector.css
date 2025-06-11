@@ -1,15 +1,7 @@
 /* Customer Selector Component Styles */
 .customer-selector {
   position: relative;
-  margin-bottom: 1.5rem;
-}
-
-.customer-selector-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: #374151;
-  font-size: 0.875rem;
+  margin-bottom: 0; /* Remove bottom margin since we removed the label */
 }
 
 .customer-selector-container {

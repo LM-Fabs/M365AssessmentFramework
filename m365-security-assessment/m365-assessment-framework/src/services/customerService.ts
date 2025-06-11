@@ -89,11 +89,11 @@ export class CustomerService {
    */
   public async createCustomer(customerData: CreateCustomerRequest): Promise<Customer> {
     try {
-      const response = await axios.post(`${this.baseUrl}/customers`, customerData);
+      const response = await axios.post(`${this.baseUrl}/customers/create`, customerData);
       return {
-        ...response.data,
-        createdDate: new Date(response.data.createdDate),
-        lastAssessmentDate: response.data.lastAssessmentDate ? new Date(response.data.lastAssessmentDate) : undefined
+        ...response.data.customer,
+        createdDate: new Date(response.data.customer.createdDate),
+        lastAssessmentDate: response.data.customer.lastAssessmentDate ? new Date(response.data.customer.lastAssessmentDate) : undefined
       };
     } catch (error) {
       console.error('Error creating customer:', error);

@@ -175,10 +175,6 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({
 
   return (
     <div className="customer-selector">
-      <label className="customer-selector-label">
-        Customer / Tenant
-      </label>
-      
       <div className={`customer-selector-container ${isDropdownOpen ? 'open' : ''}`}>
         <div 
           className={`customer-selector-input ${disabled ? 'disabled' : ''}`}
