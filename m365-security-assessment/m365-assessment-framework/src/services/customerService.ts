@@ -36,7 +36,10 @@ export class CustomerService {
   private baseUrl: string;
 
   private constructor() {
-    this.baseUrl = process.env.REACT_APP_API_URL || '/api';
+    // Use the Azure Functions API endpoint
+    // In production, this would be your deployed Azure Functions URL
+    // For local development with Azure Functions Core Tools, use localhost:7071
+    this.baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:7071/api';
   }
 
   public static getInstance(): CustomerService {

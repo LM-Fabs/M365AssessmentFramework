@@ -23,3 +23,28 @@ export interface Tenant {
     lastAssessmentDate: string;
     assessments: Assessment[];
 }
+
+// Customer management interfaces
+export interface Customer {
+    id: string;
+    tenantId: string;
+    tenantName: string;
+    tenantDomain: string;
+    applicationId: string;
+    clientId: string;
+    servicePrincipalId: string;
+    createdDate: Date;
+    lastAssessmentDate?: Date;
+    totalAssessments: number;
+    status: 'active' | 'inactive' | 'pending';
+    permissions: string[];
+    contactEmail?: string;
+    notes?: string;
+}
+
+export interface CreateCustomerRequest {
+    tenantName: string;
+    tenantDomain: string;
+    contactEmail?: string;
+    notes?: string;
+}

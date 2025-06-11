@@ -1,104 +1,185 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createEnterpriseAppHandler = void 0;
+exports.createMultiTenantAppHandler = void 0;
 const functions_1 = require("@azure/functions");
 const identity_1 = require("@azure/identity");
 const microsoft_graph_client_1 = require("@microsoft/microsoft-graph-client");
 const azureTokenCredentials_1 = require("@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials");
 const keyVaultService_1 = require("../shared/keyVaultService");
-exports.createEnterpriseAppHandler = functions_1.app.http('createEnterpriseApp', {
+exports.createMultiTenantAppHandler = functions_1.app.http('createMultiTenantApp', {
     methods: ['POST'],
-    authLevel: 'function',
+    authLevel: 'anonymous',
+    route: 'enterprise-app/multi-tenant',
     handler: async (request, context) => {
+        context.log('CreateMultiTenantApp function processing request');
         try {
+            // Enhanced request validation
             const requestData = await request.json();
-            if (!requestData || typeof requestData !== 'object' || !('targetTenantId' in requestData)) {
+            if (!requestData?.targetTenantId) {
                 return {
                     status: 400,
-                    jsonBody: { error: "Invalid request body. Expected { targetTenantId: string }" }
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    jsonBody: {
+                        error: "Target tenant ID is required",
+                        expectedFormat: "{ targetTenantId: string, targetTenantDomain?: string }"
+                    }
                 };
             }
-            const { targetTenantId } = requestData;
-            context.log('CreateEnterpriseApp function processing request for tenant:', targetTenantId);
-            if (!targetTenantId) {
-                return {
-                    status: 400,
-                    jsonBody: { error: "Target tenant ID is required" }
-                };
-            }
-            // App registration configuration
+            const { targetTenantId, targetTenantDomain, assessmentName = "M365 Security Assessment", requiredPermissions = [
+                "Organization.Read.All",
+                "Reports.Read.All",
+                "Directory.Read.All",
+                "Policy.Read.All",
+                "SecurityEvents.Read.All",
+                "IdentityRiskyUser.Read.All",
+                "DeviceManagementManagedDevices.Read.All"
+            ] } = requestData;
+            context.log(`Creating multi-tenant app for tenant: ${targetTenantId} (${targetTenantDomain || 'domain unknown'})`);
+            // Enhanced app registration with multi-tenant capabilities
             const appRegistration = {
-                displayName: "M365 Assessment Framework",
-                signInAudience: "AzureADMyOrg",
+                displayName: `${assessmentName} - ${targetTenantDomain || targetTenantId}`,
+                signInAudience: "AzureADMultipleOrgs",
+                description: `Security assessment application for tenant ${targetTenantDomain || targetTenantId}`,
                 requiredResourceAccess: [
                     {
                         resourceAppId: "00000003-0000-0000-c000-000000000000",
                         resourceAccess: [
-                            {
-                                id: "df021288-bdef-4463-88db-98f22de89214",
-                                type: "Role"
-                            },
-                            {
-                                id: "230c1aed-a721-4c5d-9cb4-a90514e508ef",
-                                type: "Role"
-                            },
-                            {
-                                id: "7ab1d382-f21e-4acd-a863-ba3e13f7da61",
-                                type: "Role"
-                            },
-                            {
-                                id: "246dd0d5-5bd0-4def-940b-0421030a5b68",
-                                type: "Role"
-                            }
+                            // Security and compliance permissions
+                            { id: "df021288-bdef-4463-88db-98f22de89214", type: "Role" },
+                            { id: "230c1aed-a721-4c5d-9cb4-a90514e508ef", type: "Role" },
+                            { id: "7ab1d382-f21e-4acd-a863-ba3e13f7da61", type: "Role" },
+                            { id: "246dd0d5-5bd0-4def-940b-0421030a5b68", type: "Role" },
+                            { id: "bf394140-e372-4bf9-a898-299cfc7564e5", type: "Role" },
+                            { id: "dc5007c0-2d7d-4c42-879c-2dab87571379", type: "Role" },
+                            { id: "2f51be20-0bb4-4fed-bf7b-db946066c75e", type: "Role" },
+                            // Additional security-specific permissions
+                            { id: "ee928332-e9d2-4747-91b6-7c2c54de8c51", type: "Role" },
+                            { id: "b0afded3-3588-46d8-8b3d-9842eff778da", type: "Role" }, // AuditLog.Read.All
                         ]
                     }
                 ],
                 web: {
-                    redirectUris: [process.env.REDIRECT_URI || "http://localhost:3000"],
+                    redirectUris: [
+                        process.env.ASSESSMENT_REDIRECT_URI || "https://localhost:3000/auth/callback",
+                        process.env.PRODUCTION_REDIRECT_URI || "https://your-swa-domain.azurestaticapps.net/auth/callback"
+                    ],
                     implicitGrantSettings: {
                         enableIdTokenIssuance: true,
-                        enableAccessTokenIssuance: true
+                        enableAccessTokenIssuance: false // Use authorization code flow for security
                     }
+                },
+                spa: {
+                    redirectUris: [
+                        process.env.ASSESSMENT_REDIRECT_URI || "https://localhost:3000/auth/callback",
+                        process.env.PRODUCTION_REDIRECT_URI || "https://your-swa-domain.azurestaticapps.net/auth/callback"
+                    ]
+                },
+                publicClient: {
+                    redirectUris: [
+                        "msal://redirect" // For mobile apps if needed
+                    ]
                 }
             };
-            // Get secrets from Key Vault using the KeyVaultService
+            // Get administrative credentials from Key Vault
             const keyVaultService = keyVaultService_1.KeyVaultService.getInstance();
-            const { tenantId, clientId, clientSecret } = await keyVaultService.getGraphCredentials();
-            if (!tenantId || !clientId || !clientSecret) {
-                throw new Error('Failed to retrieve required credentials from Key Vault');
+            const { tenantId: adminTenantId, clientId: adminClientId, clientSecret: adminClientSecret } = await keyVaultService.getGraphCredentials();
+            if (!adminTenantId || !adminClientId || !adminClientSecret) {
+                throw new Error('Failed to retrieve administrative credentials from Key Vault');
             }
-            // Create credentials for Microsoft Graph API
-            const credential = new identity_1.ClientSecretCredential(tenantId, clientId, clientSecret);
+            // Create credentials for Microsoft Graph API (using admin tenant for app creation)
+            const credential = new identity_1.ClientSecretCredential(adminTenantId, adminClientId, adminClientSecret);
             const authProvider = new azureTokenCredentials_1.TokenCredentialAuthenticationProvider(credential, {
                 scopes: ['https://graph.microsoft.com/.default']
             });
             const graphClient = microsoft_graph_client_1.Client.initWithMiddleware({
                 authProvider: authProvider
             });
+            // Create the application registration
+            context.log('Creating application registration...');
             const application = await graphClient.api('/applications')
                 .post(appRegistration);
+            // Create service principal in the admin tenant
+            context.log('Creating service principal...');
             const servicePrincipal = await graphClient.api('/servicePrincipals')
                 .post({
                 appId: application.appId,
-                displayName: application.displayName
+                displayName: application.displayName,
+                notes: `Multi-tenant assessment app for ${targetTenantDomain || targetTenantId}`
+            });
+            // Generate authentication URLs for the target tenant
+            const baseAuthUrl = `https://login.microsoftonline.com/${targetTenantId}/oauth2/v2.0/authorize`;
+            const consentUrl = `https://login.microsoftonline.com/${targetTenantId}/adminconsent`;
+            const redirectUri = appRegistration.web.redirectUris[0];
+            const authParams = new URLSearchParams({
+                client_id: application.appId,
+                response_type: 'code',
+                redirect_uri: redirectUri,
+                scope: 'https://graph.microsoft.com/.default',
+                state: targetTenantId,
+                prompt: 'consent'
+            });
+            const consentParams = new URLSearchParams({
+                client_id: application.appId,
+                state: targetTenantId,
+                redirect_uri: redirectUri
+            });
+            const response = {
+                applicationId: application.id,
+                clientId: application.appId,
+                servicePrincipalId: servicePrincipal.id,
+                tenantId: targetTenantId,
+                authUrl: `${baseAuthUrl}?${authParams.toString()}`,
+                consentUrl: `${consentUrl}?${consentParams.toString()}`,
+                redirectUri: redirectUri,
+                permissions: requiredPermissions
+            };
+            context.log('Successfully created multi-tenant application:', {
+                clientId: application.appId,
+                targetTenant: targetTenantId,
+                permissions: requiredPermissions.length
             });
             return {
                 status: 200,
-                jsonBody: {
-                    applicationId: application.id,
-                    applicationObjectId: application.id,
-                    clientId: application.appId,
-                    servicePrincipalId: servicePrincipal.id,
-                    tenantId: targetTenantId
-                }
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+                },
+                jsonBody: response
             };
         }
         catch (error) {
-            context.error('Error creating enterprise application:', error);
+            context.error('Error creating multi-tenant application:', error);
+            // Enhanced error handling with specific error types
+            let statusCode = 500;
+            let errorMessage = 'An error occurred while creating the multi-tenant application';
+            if (error.code === 'Request_BadRequest') {
+                statusCode = 400;
+                errorMessage = 'Invalid tenant ID or configuration';
+            }
+            else if (error.code === 'Forbidden') {
+                statusCode = 403;
+                errorMessage = 'Insufficient permissions to create application in target tenant';
+            }
+            else if (error.code === 'ThrottledRequest') {
+                statusCode = 429;
+                errorMessage = 'Request throttled, please retry after some time';
+            }
             return {
-                status: 500,
+                status: statusCode,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
                 jsonBody: {
-                    error: error.message || 'An error occurred while creating the enterprise application'
+                    error: errorMessage,
+                    details: error.message || error.toString(),
+                    code: error.code || 'UnknownError',
+                    timestamp: new Date().toISOString()
                 }
             };
         }
