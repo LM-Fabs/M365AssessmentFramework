@@ -22,4 +22,7 @@ __exportStar(require("./SaveAssessment/index"), exports);
 __exportStar(require("./CreateAssessment/index"), exports);
 __exportStar(require("./GetCurrentAssessment/index"), exports);
 __exportStar(require("./TestFunction/index"), exports);
+// Customer management functions
+__exportStar(require("./GetCustomers/index"), exports);
+__exportStar(require("./CreateCustomer/index"), exports);
 //# sourceMappingURL=index.js.map
