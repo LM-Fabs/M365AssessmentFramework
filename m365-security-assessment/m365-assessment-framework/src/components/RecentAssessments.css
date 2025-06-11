@@ -1,9 +1,9 @@
 .recent-assessments {
-  background: white;
+  background: #0e2a4d; /* Match sidebar background color */
   border-radius: 12px;
   padding: 1.5rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .section-header {
@@ -12,14 +12,14 @@
   align-items: center;
   margin-bottom: 1.5rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .section-header h3 {
   margin: 0;
   font-size: 1.125rem;
   font-weight: 600;
-  color: #1f2937;
+  color: #ffffff; /* White text for contrast */
 }
 
 .trend-indicator {
@@ -39,22 +39,22 @@
 }
 
 .trend-icon.up {
-  background-color: #dcfce7;
-  color: #16a34a;
+  background-color: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
 }
 
 .trend-icon.down {
-  background-color: #fef2f2;
-  color: #dc2626;
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
 }
 
 .trend-icon.stable {
-  background-color: #f3f4f6;
-  color: #6b7280;
+  background-color: rgba(156, 163, 175, 0.2);
+  color: #9ca3af;
 }
 
 .trend-text {
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.8); /* Semi-transparent white */
   font-weight: 500;
 }
 
@@ -65,14 +65,14 @@
   justify-content: center;
   gap: 0.75rem;
   padding: 3rem 1rem;
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .loading-spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid #e5e7eb;
-  border-top: 2px solid #3b82f6;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top: 2px solid #36A9E1; /* LM-AG secondary color */
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -84,27 +84,27 @@
 .empty-state {
   text-align: center;
   padding: 3rem 1rem;
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .empty-state svg {
   margin: 0 auto 1rem auto;
   opacity: 0.5;
-  color: #9ca3af;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .empty-state h4 {
   margin: 0 0 0.5rem 0;
   font-size: 1.125rem;
   font-weight: 600;
-  color: #374151;
+  color: #ffffff;
 }
 
 .empty-state p {
   margin: 0;
   font-size: 0.875rem;
   line-height: 1.5;
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .assessments-list {
@@ -118,20 +118,21 @@
   align-items: center;
   justify-content: space-between;
   padding: 1rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   transition: all 0.2s ease;
-  background: #fafafa;
+  background: rgba(255, 255, 255, 0.05); /* Very subtle white overlay */
 }
 
 .assessment-item.latest {
-  border-color: #3b82f6;
-  background: #f8faff;
+  border-color: #36A9E1; /* LM-AG secondary color */
+  background: rgba(54, 169, 225, 0.1);
 }
 
 .assessment-item:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+  border-color: #36A9E1;
+  box-shadow: 0 2px 8px rgba(54, 169, 225, 0.2);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .assessment-main {
@@ -148,13 +149,13 @@
   min-width: 120px;
   font-size: 0.875rem;
   font-weight: 500;
-  color: #374151;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .latest-badge {
   font-size: 0.75rem;
   padding: 0.125rem 0.5rem;
-  background: #3b82f6;
+  background: #36A9E1; /* LM-AG secondary color */
   color: white;
   border-radius: 12px;
   font-weight: 500;
@@ -181,7 +182,7 @@
   content: '';
   position: absolute;
   inset: 4px;
-  background: white;
+  background: #0e2a4d; /* Match the main background */
   border-radius: 50%;
 }
 
@@ -190,7 +191,7 @@
   z-index: 1;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #374151;
+  color: #ffffff;
 }
 
 .category-scores-mini {
@@ -210,27 +211,27 @@
 .category-label {
   font-size: 0.75rem;
   font-weight: 500;
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.6);
   text-transform: uppercase;
 }
 
 .category-value {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #374151;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .view-all-link {
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
   text-align: center;
 }
 
 .link-button {
   background: none;
   border: none;
-  color: #3b82f6;
+  color: #36A9E1; /* LM-AG secondary color */
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
@@ -238,7 +239,7 @@
 }
 
 .link-button:hover {
-  color: #2563eb;
+  color: #ffffff;
   text-decoration: underline;
 }
 
