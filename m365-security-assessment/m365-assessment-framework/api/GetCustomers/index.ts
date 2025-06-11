@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { Customer } from "../shared/types";
+import { createCustomer } from "../CreateCustomer/index";
 
 // Azure Function to get all customers
 // Uses Azure Cosmos DB to store customer data securely
@@ -117,9 +118,35 @@ export async function getCustomers(request: HttpRequest, context: InvocationCont
     }
 }
 
-app.http('getCustomers', {
-    methods: ['GET', 'OPTIONS'],
+app.http('customers', {
+    methods: ['GET', 'POST', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'customers',
-    handler: getCustomers
+    handler: async (request, context) => {
+        if (request.method === 'GET') {
+            return await getCustomers(request, context);
+        } else if (request.method === 'POST') {
+            return await createCustomer(request, context);
+        } else if (request.method === 'OPTIONS') {
+            // Handle CORS preflight for both GET and POST
+            return {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+                }
+            };
+        } else {
+            return {
+                status: 405,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                body: JSON.stringify({ error: 'Method not allowed' })
+            };
+        }
+    }
 });

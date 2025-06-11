@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getCustomers = void 0;
 const functions_1 = require("@azure/functions");
+const index_1 = require("../CreateCustomer/index");
 // Azure Function to get all customers
 // Uses Azure Cosmos DB to store customer data securely
 // Implements proper error handling and logging
@@ -110,10 +111,39 @@ async function getCustomers(request, context) {
     }
 }
 exports.getCustomers = getCustomers;
-functions_1.app.http('getCustomers', {
-    methods: ['GET', 'OPTIONS'],
+functions_1.app.http('customers', {
+    methods: ['GET', 'POST', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'customers',
-    handler: getCustomers
+    handler: async (request, context) => {
+        if (request.method === 'GET') {
+            return await getCustomers(request, context);
+        }
+        else if (request.method === 'POST') {
+            return await (0, index_1.createCustomer)(request, context);
+        }
+        else if (request.method === 'OPTIONS') {
+            // Handle CORS preflight for both GET and POST
+            return {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+                }
+            };
+        }
+        else {
+            return {
+                status: 405,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                body: JSON.stringify({ error: 'Method not allowed' })
+            };
+        }
+    }
 });
 //# sourceMappingURL=index.js.map

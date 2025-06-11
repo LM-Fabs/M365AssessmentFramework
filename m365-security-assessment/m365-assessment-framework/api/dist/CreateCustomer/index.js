@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createCustomer = void 0;
-const functions_1 = require("@azure/functions");
+// This file now serves as the implementation for the createCustomer function
+// The actual routing is handled in GetCustomers/index.ts to avoid route conflicts
 // Azure Function to create new customers with Azure AD app registration
 // Integrates with Microsoft Graph API for app registration creation
 // Uses Azure Key Vault for secure credential storage
@@ -130,10 +131,4 @@ async function createCustomer(request, context) {
     }
 }
 exports.createCustomer = createCustomer;
-functions_1.app.http('createCustomer', {
-    methods: ['POST', 'OPTIONS'],
-    authLevel: 'anonymous',
-    route: 'customers',
-    handler: createCustomer
-});
 //# sourceMappingURL=index.js.map

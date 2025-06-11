@@ -1,5 +1,9 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { Customer, CreateCustomerRequest } from "../shared/types";
+import { getCustomers } from "../GetCustomers/index";
+
+// This file now serves as the implementation for the createCustomer function
+// The actual routing is handled in GetCustomers/index.ts to avoid route conflicts
 
 // Azure Function to create new customers with Azure AD app registration
 // Integrates with Microsoft Graph API for app registration creation
@@ -144,10 +148,3 @@ export async function createCustomer(request: HttpRequest, context: InvocationCo
         };
     }
 }
-
-app.http('createCustomer', {
-    methods: ['POST', 'OPTIONS'],
-    authLevel: 'anonymous',
-    route: 'customers',
-    handler: createCustomer
-});
