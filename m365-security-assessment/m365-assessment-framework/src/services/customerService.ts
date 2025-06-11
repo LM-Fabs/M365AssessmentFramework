@@ -89,12 +89,20 @@ export class CustomerService {
    */
   public async createCustomer(customerData: CreateCustomerRequest): Promise<Customer> {
     try {
-      const response = await axios.post(`${this.baseUrl}/customers/create`, customerData);
-      return {
-        ...response.data.customer,
-        createdDate: new Date(response.data.customer.createdDate),
-        lastAssessmentDate: response.data.customer.lastAssessmentDate ? new Date(response.data.customer.lastAssessmentDate) : undefined
-      };
+      // Use the main customers endpoint which handles both GET and POST
+      const response = await axios.post(`${this.baseUrl}/customers`, customerData);
+      
+      // Handle the response from GetCustomers function
+      if (response.data.success && response.data.data) {
+        const customerResponse = response.data.data.customer;
+        return {
+          ...customerResponse,
+          createdDate: new Date(customerResponse.createdDate),
+          lastAssessmentDate: customerResponse.lastAssessmentDate ? new Date(customerResponse.lastAssessmentDate) : undefined
+        };
+      } else {
+        throw new Error(response.data.error || 'Failed to create customer');
+      }
     } catch (error) {
       console.error('Error creating customer:', error);
       
@@ -129,8 +137,8 @@ export class CustomerService {
         if (error.response?.status === 409) {
           throw new Error('Customer with this tenant already exists');
         }
-        if (error.response?.data?.message) {
-          throw new Error(error.response.data.message);
+        if (error.response?.data?.error) {
+          throw new Error(error.response.data.error);
         }
       }
       throw new Error('Failed to create customer');
