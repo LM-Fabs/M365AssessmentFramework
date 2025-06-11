@@ -387,14 +387,23 @@
   gap: 1rem;
   align-items: flex-start;
   margin-bottom: 1rem;
+  flex-wrap: nowrap; /* Prevent wrapping */
+}
+
+.customer-selector {
+  flex: 1; /* Take available space but allow button to be visible */
+  min-width: 0; /* Allow shrinking if needed */
+  position: relative;
+  margin-bottom: 0; /* Override the default margin from CustomerSelector */
 }
 
 .customer-actions {
-  flex-shrink: 0;
+  flex-shrink: 0; /* Prevent the button container from shrinking */
+  min-width: fit-content; /* Ensure button always has enough space */
 }
 
 .add-customer-button {
-  display: flex;
+  display: flex !important; /* Force display */
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
@@ -407,6 +416,7 @@
   cursor: pointer;
   transition: background-color 0.2s;
   white-space: nowrap;
+  min-width: 160px; /* Ensure minimum width for button */
 }
 
 .add-customer-button:hover:not(:disabled) {
