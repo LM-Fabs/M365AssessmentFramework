@@ -55,15 +55,37 @@ export class CustomerService {
   public async getCustomers(): Promise<Customer[]> {
     try {
       const response = await axios.get(`${this.baseUrl}/customers`);
-      return response.data.map((customer: any) => ({
-        ...customer,
-        createdDate: new Date(customer.createdDate),
-        lastAssessmentDate: customer.lastAssessmentDate ? new Date(customer.lastAssessmentDate) : undefined
-      }));
+      
+      // Handle the new API response format from GetCustomers function
+      if (response.data.success && response.data.data) {
+        return response.data.data.map((customer: any) => ({
+          ...customer,
+          createdDate: new Date(customer.createdDate),
+          lastAssessmentDate: customer.lastAssessmentDate ? new Date(customer.lastAssessmentDate) : undefined
+        }));
+      } else if (Array.isArray(response.data)) {
+        // Legacy format - direct array response
+        return response.data.map((customer: any) => ({
+          ...customer,
+          createdDate: new Date(customer.createdDate),
+          lastAssessmentDate: customer.lastAssessmentDate ? new Date(customer.lastAssessmentDate) : undefined
+        }));
+      } else {
+        console.warn('Unexpected API response format:', response.data);
+        return [];
+      }
     } catch (error) {
       console.error('Error fetching customers:', error);
-      // In development mode, if API is not available, throw error to trigger mock data
-      throw new Error('API not available - using mock data');
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 404) {
+          console.info('No customers endpoint found - this is normal for a new deployment');
+          return [];
+        }
+        if (error.response?.data?.error) {
+          throw new Error(error.response.data.error);
+        }
+      }
+      throw new Error('Failed to fetch customers from API');
     }
   }
 

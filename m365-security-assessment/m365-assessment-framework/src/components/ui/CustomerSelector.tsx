@@ -44,70 +44,16 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({
       setLoading(true);
       setError(null);
       
-      // For development mode, use mock data if API fails
-      try {
-        const customerList = await customerService.getCustomers();
-        setCustomers(customerList.filter(c => c.status === 'active'));
-      } catch (apiError) {
-        console.warn('API not available, using mock data:', apiError);
-        
-        // Use mock customers for development
-        const mockCustomers: Customer[] = [
-          {
-            id: 'mock-1',
-            tenantId: 'contoso-tenant-id',
-            tenantName: 'Contoso Corporation',
-            tenantDomain: 'contoso.onmicrosoft.com',
-            applicationId: 'app-contoso-123',
-            clientId: 'client-contoso-456',
-            servicePrincipalId: 'sp-contoso-789',
-            createdDate: new Date('2024-01-15'),
-            lastAssessmentDate: new Date('2024-12-01'),
-            totalAssessments: 5,
-            status: 'active' as const,
-            permissions: ['Directory.Read.All', 'SecurityEvents.Read.All'],
-            contactEmail: 'admin@contoso.com',
-            notes: 'Large enterprise customer'
-          },
-          {
-            id: 'mock-2',
-            tenantId: 'fabrikam-tenant-id',
-            tenantName: 'Fabrikam Inc',
-            tenantDomain: 'fabrikam.onmicrosoft.com',
-            applicationId: 'app-fabrikam-123',
-            clientId: 'client-fabrikam-456',
-            servicePrincipalId: 'sp-fabrikam-789',
-            createdDate: new Date('2024-02-10'),
-            lastAssessmentDate: new Date('2024-11-20'),
-            totalAssessments: 3,
-            status: 'active' as const,
-            permissions: ['Directory.Read.All', 'SecurityEvents.Read.All'],
-            contactEmail: 'it@fabrikam.com',
-            notes: 'Medium-sized business'
-          },
-          {
-            id: 'mock-3',
-            tenantId: 'adventure-tenant-id',
-            tenantName: 'Adventure Works',
-            tenantDomain: 'adventureworks.onmicrosoft.com',
-            applicationId: 'app-adventure-123',
-            clientId: 'client-adventure-456',
-            servicePrincipalId: 'sp-adventure-789',
-            createdDate: new Date('2024-03-05'),
-            totalAssessments: 1,
-            status: 'active' as const,
-            permissions: ['Directory.Read.All', 'SecurityEvents.Read.All'],
-            contactEmail: 'security@adventureworks.com',
-            notes: 'New customer'
-          }
-        ];
-        
-        setCustomers(mockCustomers);
-        setError(null); // Clear any error since we have mock data
+      const customerList = await customerService.getCustomers();
+      setCustomers(customerList.filter(c => c.status === 'active'));
+      
+      if (customerList.length === 0) {
+        console.info('No customers found - this is normal for a new deployment');
       }
     } catch (err) {
       console.error('Failed to load customers:', err);
-      setError('Unable to load customers. Please check your connection.');
+      setError(err instanceof Error ? err.message : 'Unable to load customers. Please check your connection.');
+      setCustomers([]); // Clear any existing data
     } finally {
       setLoading(false);
     }
