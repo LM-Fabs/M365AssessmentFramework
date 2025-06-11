@@ -1,0 +1,110 @@
+name: Deploy M365 Assessment Framework to Azure
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}
+  AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            api/package-lock.json
+            
+      - name: Install Azure Developer CLI
+        uses: Azure/setup-azd@v1.0.0
+        
+      - name: Log in with Azure (Federated Credentials)
+        if: ${{ env.AZURE_CLIENT_ID != '' }}
+        run: |
+          azd auth login \
+            --client-id "${{ env.AZURE_CLIENT_ID }}" \
+            --federated-credential-provider "github" \
+            --tenant-id "${{ env.AZURE_TENANT_ID }}"
+            
+      - name: Log in with Azure (Service Principal)
+        if: ${{ env.AZURE_CLIENT_ID == '' }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          
+      - name: Restore azd environment
+        working-directory: ./m365-security-assessment/m365-assessment-framework
+        run: |
+          azd env set AZURE_LOCATION ${{ env.AZURE_LOCATION }}
+          azd env set AZURE_ENV_NAME ${{ env.AZURE_ENV_NAME }}
+          azd env set AZURE_SUBSCRIPTION_ID ${{ env.AZURE_SUBSCRIPTION_ID }}
+          azd env set AZURE_TENANT_ID ${{ env.AZURE_TENANT_ID }}
+          azd env set AZURE_CLIENT_ID ${{ secrets.AZURE_CLIENT_ID || env.AZURE_CLIENT_ID }}
+          azd env set AZURE_CLIENT_SECRET ${{ secrets.AZURE_CLIENT_SECRET }}
+          
+      - name: Install frontend dependencies
+        working-directory: ./m365-security-assessment/m365-assessment-framework
+        run: npm ci
+        
+      - name: Install API dependencies
+        working-directory: ./m365-security-assessment/m365-assessment-framework/api
+        run: npm ci
+        
+      - name: Build frontend
+        working-directory: ./m365-security-assessment/m365-assessment-framework
+        run: npm run build
+        
+      - name: Build API
+        working-directory: ./m365-security-assessment/m365-assessment-framework/api
+        run: npm run build --if-present
+        
+      - name: Provision Azure resources (infrastructure)
+        working-directory: ./m365-security-assessment/m365-assessment-framework
+        run: azd provision --no-prompt
+        
+      - name: Deploy application to Azure
+        working-directory: ./m365-security-assessment/m365-assessment-framework
+        run: azd deploy --no-prompt
+        
+      - name: Validate deployment
+        working-directory: ./m365-security-assessment/m365-assessment-framework
+        run: |
+          echo "Deployment completed successfully!"
+          azd show --output table
+          
+      - name: Check application logs
+        if: failure()
+        working-directory: ./m365-security-assessment/m365-assessment-framework
+        run: azd logs --follow=false
+        
+      - name: Output deployment URLs
+        working-directory: ./m365-security-assessment/m365-assessment-framework
+        run: |
+          echo "Frontend URL: $(azd env get-values | grep REACT_APP_API_URL | cut -d'=' -f2)"
+          echo "API URL: $(azd env get-values | grep REACT_APP_API_URL | cut -d'=' -f2)"
