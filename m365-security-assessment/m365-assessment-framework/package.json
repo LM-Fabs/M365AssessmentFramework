@@ -1,6 +1,6 @@
 {
   "name": "m365-assessment-framework",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A Microsoft 365 security assessment framework for consultants.",
   "main": "src/index.tsx",
   "private": true,
