@@ -2,6 +2,7 @@
   "name": "m365-assessment-api",
   "version": "1.0.0",
   "description": "M365 Security Assessment API",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
