@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createCustomer = void 0;
+exports.createCustomer = createCustomer;
 const functions_1 = require("@azure/functions");
 const cosmosDbService_1 = require("../shared/cosmosDbService");
 const graphApiService_1 = require("../shared/graphApiService");
@@ -159,7 +159,6 @@ async function createCustomer(request, context) {
         }
     }
 }
-exports.createCustomer = createCustomer;
 functions_1.app.http('CreateCustomer', {
     methods: ['POST'],
     authLevel: 'anonymous',

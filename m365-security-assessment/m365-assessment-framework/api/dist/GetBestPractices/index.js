@@ -6,7 +6,7 @@ const constants_js_1 = require("../shared/constants.js");
 exports.getBestPracticesHandler = functions_1.app.http('getBestPractices', {
     methods: ['GET'],
     authLevel: 'function',
-    route: 'best-practices',
+    route: 'best-practices', // Add specific route to match frontend expectation
     handler: async (request, context) => {
         context.log('GetBestPractices function processed a request.');
         try {

@@ -15,7 +15,9 @@ export class AssessmentService {
   private baseUrl: string;
 
   private constructor() {
-    this.baseUrl = process.env.REACT_APP_API_URL || '/api';
+    // Use the Azure Functions API endpoint from azd deployment
+    // The API is now properly deployed at the dedicated Azure Functions URL
+    this.baseUrl = process.env.REACT_APP_API_URL || 'https://m365-api-c6qdbpkda5cvs.azurewebsites.net/api';
   }
 
   public static getInstance(): AssessmentService {

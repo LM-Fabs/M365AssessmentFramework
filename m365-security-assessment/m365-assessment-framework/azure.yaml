@@ -1,41 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
 name: m365-assessment-framework
 metadata:
   template: m365-security-assessment@0.0.1-beta
-
-# Workflow to help you get started deploying this template
-# Delete this section once you've successfully deployed
-workflow:
-  up:
-    - azd provision
-    - azd deploy
 
 services:
   m365-assessment-api:
     project: ./api
     language: ts
     host: function
-    hooks:
-      predeploy:
-        shell: sh
-        run: |
-          cd api
-          npm ci
-          npm run build --if-present
-      postdeploy:
-        shell: sh
-        run: echo "API deployed successfully"
 
   m365-assessment-frontend:
     project: .
     language: ts
     host: staticwebapp
     dist: build
-    hooks:
-      predeploy:
-        shell: sh
-        run: |
-          npm ci
-          npm run build
-      postdeploy:
-        shell: sh
-        run: echo "Frontend deployed successfully"

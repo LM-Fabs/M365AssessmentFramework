@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getGraphApiService = exports.GraphApiService = void 0;
+exports.GraphApiService = void 0;
+exports.getGraphApiService = getGraphApiService;
 const microsoft_graph_client_1 = require("@microsoft/microsoft-graph-client");
 const identity_1 = require("@azure/identity");
 /**
@@ -34,7 +35,7 @@ class GraphApiService {
             const applicationRequest = {
                 displayName: appName,
                 description: `M365 Security Assessment Application for ${customerData.tenantName}`,
-                signInAudience: "AzureADMultipleOrgs",
+                signInAudience: "AzureADMultipleOrgs", // Multi-tenant application
                 web: {
                     redirectUris: [
                         `${process.env.FRONTEND_URL || 'https://localhost:3000'}/auth/callback`,
@@ -47,26 +48,26 @@ class GraphApiService {
                 },
                 requiredResourceAccess: [
                     {
-                        resourceAppId: "00000003-0000-0000-c000-000000000000",
+                        resourceAppId: "00000003-0000-0000-c000-000000000000", // Microsoft Graph
                         resourceAccess: [
                             {
-                                id: "7ab1d382-f21e-4acd-a863-ba3e13f7da61",
+                                id: "7ab1d382-f21e-4acd-a863-ba3e13f7da61", // Directory.Read.All
                                 type: "Role"
                             },
                             {
-                                id: "dc5007c0-2d7d-4c42-879c-2dab87571379",
+                                id: "dc5007c0-2d7d-4c42-879c-2dab87571379", // SecurityEvents.Read.All
                                 type: "Role"
                             },
                             {
-                                id: "246dd0d5-5bd0-4def-940b-0421030a5b68",
+                                id: "246dd0d5-5bd0-4def-940b-0421030a5b68", // Policy.Read.All
                                 type: "Role"
                             },
                             {
-                                id: "498476ce-e0fe-48b0-b801-37ba7e2685c6",
+                                id: "498476ce-e0fe-48b0-b801-37ba7e2685c6", // Organization.Read.All
                                 type: "Role"
                             },
                             {
-                                id: "19dbc75e-c2e2-444c-a770-ec69d8559fc7",
+                                id: "19dbc75e-c2e2-444c-a770-ec69d8559fc7", // Directory.ReadWrite.All (for some assessment features)
                                 type: "Role"
                             }
                         ]
@@ -136,7 +137,7 @@ class GraphApiService {
             const updateRequest = {
                 requiredResourceAccess: [
                     {
-                        resourceAppId: "00000003-0000-0000-c000-000000000000",
+                        resourceAppId: "00000003-0000-0000-c000-000000000000", // Microsoft Graph
                         resourceAccess
                     }
                 ]
@@ -289,5 +290,4 @@ function getGraphApiService() {
     }
     return graphApiServiceInstance;
 }
-exports.getGraphApiService = getGraphApiService;
 //# sourceMappingURL=graphApiService.js.map
