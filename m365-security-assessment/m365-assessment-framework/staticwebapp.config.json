@@ -41,7 +41,7 @@
     {
       "route": "/static/*",
       "headers": {
-        "cache-control": "must-revalidate, max-age=15770000"
+        "cache-control": "no-cache, no-store, must-revalidate"
       }
     },
     {
