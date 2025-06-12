@@ -24,7 +24,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18.x'
+          node-version: '20.x'
           cache: 'npm'
           cache-dependency-path: |
             m365-security-assessment/m365-assessment-framework/package-lock.json
@@ -54,8 +54,8 @@ jobs:
           skip_app_build: false
           skip_api_build: false  # Let SWA handle the API build completely
         env:
-          NODE_VERSION: "18"
-          WEBSITE_NODE_DEFAULT_VERSION: "18"
+          NODE_VERSION: "20"
+          WEBSITE_NODE_DEFAULT_VERSION: "20"
           FUNCTIONS_EXTENSION_VERSION: "~4"
           FUNCTIONS_WORKER_RUNTIME: "node"
           AZURE_FUNCTIONS_ENVIRONMENT: "production"
