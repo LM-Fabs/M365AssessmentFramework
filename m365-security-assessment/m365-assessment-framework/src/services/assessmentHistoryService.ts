@@ -41,7 +41,7 @@ export class AssessmentHistoryService {
   private baseUrl: string;
 
   private constructor() {
-    this.baseUrl = process.env.REACT_APP_API_URL || '/api';
+    this.baseUrl = process.env.REACT_APP_API_URL || 'https://m365-api-c6qdbpkda5cvs.azurewebsites.net/api';
   }
 
   public static getInstance(): AssessmentHistoryService {
