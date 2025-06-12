@@ -1,29 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const functions_1 = require("@azure/functions");
-// CORS headers for all responses
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Content-Type': 'application/json'
-};
-// Test endpoint
-async function testHandler(request, context) {
-    context.log('Test function processed a request');
-    return {
-        status: 200,
-        headers: corsHeaders,
-        jsonBody: {
-            message: "M365 Assessment API is working!",
-            timestamp: new Date().toISOString(),
-            version: "1.0.0"
-        }
-    };
-}
-// Customers endpoint - handles both GET (list) and POST (create)
-async function customersHandler(request, context) {
+// Main customers endpoint - handles both GET (list) and POST (create)
+async function customers(request, context) {
     context.log(`Processing ${request.method} request for customers`);
+    const corsHeaders = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Content-Type': 'application/json'
+    };
     // Handle preflight OPTIONS request
     if (request.method === 'OPTIONS') {
         return {
@@ -98,12 +84,7 @@ async function customersHandler(request, context) {
                 body: JSON.stringify({
                     success: true,
                     data: {
-                        customer: newCustomer,
-                        nextSteps: [
-                            "Customer created successfully",
-                            "App registration would be created in production",
-                            "Admin consent would be required"
-                        ]
+                        customer: newCustomer
                     }
                 })
             };
@@ -128,9 +109,22 @@ async function customersHandler(request, context) {
         })
     };
 }
-// Assessments endpoint
-async function assessmentsHandler(request, context) {
+// Register the customers function
+functions_1.app.http('customers', {
+    methods: ['GET', 'POST', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'customers',
+    handler: customers
+});
+// Simple assessments endpoint
+async function assessments(request, context) {
     context.log(`Processing ${request.method} request for assessments`);
+    const corsHeaders = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Content-Type': 'application/json'
+    };
     if (request.method === 'OPTIONS') {
         return {
             status: 200,
@@ -144,26 +138,7 @@ async function assessmentsHandler(request, context) {
             tenantId: "tenant-123",
             assessmentDate: new Date().toISOString(),
             overallScore: 75,
-            status: "completed",
-            metrics: {
-                secureScore: 75,
-                mfaAdoption: 85,
-                conditionalAccessPolicies: 12,
-                riskLevel: "medium"
-            }
-        },
-        {
-            id: "assessment-2",
-            tenantId: "tenant-456",
-            assessmentDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-            overallScore: 82,
-            status: "completed",
-            metrics: {
-                secureScore: 82,
-                mfaAdoption: 92,
-                conditionalAccessPolicies: 18,
-                riskLevel: "low"
-            }
+            status: "completed"
         }
     ];
     return {
@@ -176,64 +151,11 @@ async function assessmentsHandler(request, context) {
         })
     };
 }
-// Current assessment endpoint
-async function currentAssessmentHandler(request, context) {
-    context.log('Processing request for current assessment');
-    if (request.method === 'OPTIONS') {
-        return {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
-    // Return mock current assessment
-    const currentAssessment = {
-        id: `assessment-${Date.now()}`,
-        tenantId: "current-tenant",
-        assessmentDate: new Date().toISOString(),
-        overallScore: 78,
-        status: "in-progress",
-        metrics: {
-            secureScore: 78,
-            mfaAdoption: 88,
-            conditionalAccessPolicies: 15,
-            riskLevel: "medium",
-            criticalIssues: 3,
-            recommendations: 12
-        },
-        lastUpdated: new Date().toISOString()
-    };
-    return {
-        status: 200,
-        headers: corsHeaders,
-        body: JSON.stringify({
-            success: true,
-            data: currentAssessment
-        })
-    };
-}
-// Register all functions
-functions_1.app.http('test', {
-    methods: ['GET'],
-    authLevel: 'anonymous',
-    route: 'test',
-    handler: testHandler
-});
-functions_1.app.http('customers', {
-    methods: ['GET', 'POST', 'OPTIONS'],
-    authLevel: 'anonymous',
-    route: 'customers',
-    handler: customersHandler
-});
+// Register the assessments function
 functions_1.app.http('assessments', {
     methods: ['GET', 'POST', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'assessments',
-    handler: assessmentsHandler
+    handler: assessments
 });
-functions_1.app.http('currentAssessment', {
-    methods: ['GET', 'OPTIONS'],
-    authLevel: 'anonymous',
-    route: 'assessment/current',
-    handler: currentAssessmentHandler
-});
-//# sourceMappingURL=index.js.map
+//# sourceMappingURL=working-functions.js.map

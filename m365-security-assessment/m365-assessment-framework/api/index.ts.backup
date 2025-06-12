@@ -1,6 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const functions_1 = require("@azure/functions");
+import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+
 // CORS headers for all responses
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -8,10 +7,12 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Content-Type': 'application/json'
 };
+
 // Test endpoint
-async function testHandler(request, context) {
+async function testHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('Test function processed a request');
-    return {
+    
+    return { 
         status: 200,
         headers: corsHeaders,
         jsonBody: {
@@ -21,9 +22,11 @@ async function testHandler(request, context) {
         }
     };
 }
+
 // Customers endpoint - handles both GET (list) and POST (create)
-async function customersHandler(request, context) {
+async function customersHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log(`Processing ${request.method} request for customers`);
+
     // Handle preflight OPTIONS request
     if (request.method === 'OPTIONS') {
         return {
@@ -31,6 +34,7 @@ async function customersHandler(request, context) {
             headers: corsHeaders
         };
     }
+
     if (request.method === 'GET') {
         // Return mock customers for now to get frontend working
         const mockCustomers = [
@@ -40,7 +44,7 @@ async function customersHandler(request, context) {
                 tenantName: "Contoso Corp",
                 tenantDomain: "contoso.onmicrosoft.com",
                 applicationId: "app-123",
-                clientId: "client-123",
+                clientId: "client-123", 
                 servicePrincipalId: "sp-123",
                 createdDate: new Date().toISOString(),
                 totalAssessments: 5,
@@ -63,6 +67,7 @@ async function customersHandler(request, context) {
                 contactEmail: "admin@fabrikam.com"
             }
         ];
+
         return {
             status: 200,
             headers: corsHeaders,
@@ -73,9 +78,11 @@ async function customersHandler(request, context) {
             })
         };
     }
+
     if (request.method === 'POST') {
         try {
-            const customerData = await request.json();
+            const customerData = await request.json() as any;
+            
             // Create mock customer with provided data
             const newCustomer = {
                 id: `customer-${Date.now()}`,
@@ -92,6 +99,7 @@ async function customersHandler(request, context) {
                 contactEmail: customerData.contactEmail,
                 notes: customerData.notes
             };
+
             return {
                 status: 201,
                 headers: corsHeaders,
@@ -107,8 +115,7 @@ async function customersHandler(request, context) {
                     }
                 })
             };
-        }
-        catch (error) {
+        } catch (error) {
             return {
                 status: 400,
                 headers: corsHeaders,
@@ -119,6 +126,7 @@ async function customersHandler(request, context) {
             };
         }
     }
+
     return {
         status: 405,
         headers: corsHeaders,
@@ -128,15 +136,18 @@ async function customersHandler(request, context) {
         })
     };
 }
+
 // Assessments endpoint
-async function assessmentsHandler(request, context) {
+async function assessmentsHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log(`Processing ${request.method} request for assessments`);
+
     if (request.method === 'OPTIONS') {
         return {
             status: 200,
             headers: corsHeaders
         };
     }
+
     // Return mock assessment data
     const mockAssessments = [
         {
@@ -153,7 +164,7 @@ async function assessmentsHandler(request, context) {
             }
         },
         {
-            id: "assessment-2",
+            id: "assessment-2", 
             tenantId: "tenant-456",
             assessmentDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
             overallScore: 82,
@@ -166,6 +177,7 @@ async function assessmentsHandler(request, context) {
             }
         }
     ];
+
     return {
         status: 200,
         headers: corsHeaders,
@@ -176,15 +188,18 @@ async function assessmentsHandler(request, context) {
         })
     };
 }
+
 // Current assessment endpoint
-async function currentAssessmentHandler(request, context) {
+async function currentAssessmentHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('Processing request for current assessment');
+
     if (request.method === 'OPTIONS') {
         return {
             status: 200,
             headers: corsHeaders
         };
     }
+
     // Return mock current assessment
     const currentAssessment = {
         id: `assessment-${Date.now()}`,
@@ -202,6 +217,7 @@ async function currentAssessmentHandler(request, context) {
         },
         lastUpdated: new Date().toISOString()
     };
+
     return {
         status: 200,
         headers: corsHeaders,
@@ -211,29 +227,32 @@ async function currentAssessmentHandler(request, context) {
         })
     };
 }
+
 // Register all functions
-functions_1.app.http('test', {
+app.http('test', {
     methods: ['GET'],
     authLevel: 'anonymous',
     route: 'test',
     handler: testHandler
 });
-functions_1.app.http('customers', {
+
+app.http('customers', {
     methods: ['GET', 'POST', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'customers',
     handler: customersHandler
 });
-functions_1.app.http('assessments', {
+
+app.http('assessments', {
     methods: ['GET', 'POST', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'assessments',
     handler: assessmentsHandler
 });
-functions_1.app.http('currentAssessment', {
+
+app.http('currentAssessment', {
     methods: ['GET', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'assessment/current',
     handler: currentAssessmentHandler
 });
-//# sourceMappingURL=index.js.map

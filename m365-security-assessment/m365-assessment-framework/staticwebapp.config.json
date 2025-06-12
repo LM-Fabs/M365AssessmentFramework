@@ -45,38 +45,29 @@
       }
     },
     {
-      "route": "/api/assessment/test",
+      "route": "/api/test",
       "methods": ["GET"],
       "allowedRoles": ["anonymous"]
     },
     {
-      "route": "/api/customers/create",
-      "methods": ["POST"],
-      "allowedRoles": ["anonymous"]
-    },
-    {
       "route": "/api/customers",
-      "methods": ["GET", "POST"],
+      "methods": ["GET", "POST", "OPTIONS"],
       "allowedRoles": ["anonymous"]
     },
     {
-      "route": "/api/enterprise-app/multi-tenant",
-      "methods": ["POST"],
+      "route": "/api/assessments",
+      "methods": ["GET", "POST", "OPTIONS"],
       "allowedRoles": ["anonymous"]
     },
     {
-      "route": "/api/assessment/create",
-      "methods": ["POST"],
-      "allowedRoles": ["authenticated"]
-    },
-    {
-      "route": "/api/assessment/save",
-      "methods": ["POST"],
-      "allowedRoles": ["authenticated"]
+      "route": "/api/assessment/current",
+      "methods": ["GET", "OPTIONS"],
+      "allowedRoles": ["anonymous"],
+      "rewrite": "/api/assessment-current"
     },
     {
       "route": "/api/*",
-      "allowedRoles": ["authenticated"]
+      "allowedRoles": ["anonymous"]
     },
     {
       "route": "/*",
