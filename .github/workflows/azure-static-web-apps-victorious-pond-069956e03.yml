@@ -40,6 +40,11 @@ jobs:
         working-directory: m365-security-assessment/m365-assessment-framework/api
         run: npm ci
       
+      # Build API TypeScript to JavaScript
+      - name: Build API
+        working-directory: m365-security-assessment/m365-assessment-framework/api
+        run: npm run build
+      
       # Deploy to Azure Static Web Apps (let SWA handle all building)
       - name: Build And Deploy
         id: builddeploy
@@ -52,7 +57,7 @@ jobs:
           api_location: "m365-security-assessment/m365-assessment-framework/api"
           output_location: "build"
           skip_app_build: false
-          skip_api_build: false  # Let SWA handle the API build completely
+          skip_api_build: true  # We're building the API ourselves above
         env:
           NODE_VERSION: "20"
           WEBSITE_NODE_DEFAULT_VERSION: "20"
