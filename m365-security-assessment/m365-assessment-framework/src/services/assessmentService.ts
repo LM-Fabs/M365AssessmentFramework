@@ -15,9 +15,10 @@ export class AssessmentService {
   private baseUrl: string;
 
   private constructor() {
-    // Use the Azure Functions API endpoint from azd deployment
-    // The API is now properly deployed at the dedicated Azure Functions URL
-    this.baseUrl = process.env.REACT_APP_API_URL || 'https://m365-api-c6qdbpkda5cvs.azurewebsites.net/api';
+    // Use Azure Static Web Apps integrated API for production
+    // This ensures we use the same-origin API endpoints that are part of the Static Web App
+    this.baseUrl = process.env.REACT_APP_API_URL || '/api';
+    console.log('🔧 AssessmentService: Using API base URL:', this.baseUrl);
   }
 
   public static getInstance(): AssessmentService {

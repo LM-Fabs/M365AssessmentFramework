@@ -41,7 +41,10 @@ export class AssessmentHistoryService {
   private baseUrl: string;
 
   private constructor() {
-    this.baseUrl = process.env.REACT_APP_API_URL || 'https://m365-api-c6qdbpkda5cvs.azurewebsites.net/api';
+    // Use Azure Static Web Apps integrated API for production
+    // This ensures we use the same-origin API endpoints that are part of the Static Web App
+    this.baseUrl = process.env.REACT_APP_API_URL || '/api';
+    console.log('🔧 AssessmentHistoryService: Using API base URL:', this.baseUrl);
   }
 
   public static getInstance(): AssessmentHistoryService {
