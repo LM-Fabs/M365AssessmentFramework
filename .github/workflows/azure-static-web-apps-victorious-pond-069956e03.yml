@@ -59,7 +59,7 @@ jobs:
           FUNCTIONS_EXTENSION_VERSION: "~4"
           FUNCTIONS_WORKER_RUNTIME: "node"
           AZURE_FUNCTIONS_ENVIRONMENT: "production"
-          REACT_APP_API_URL: "/api"
+          REACT_APP_API_URL: "https://m365-api-c6qdbpkda5cvs.azurewebsites.net/api"
           REACT_APP_CLIENT_ID: "d1cc9e16-9194-4892-92c5-473c9f65dcb3"
 
   close_pull_request_job:
