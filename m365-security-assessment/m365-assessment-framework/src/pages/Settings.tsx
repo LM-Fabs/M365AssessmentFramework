@@ -33,6 +33,9 @@ const Settings = () => {
     autoSchedule: false,
     scheduleFrequency: 'monthly'
   });
+  
+  // Add a ref to access CustomerSelector methods
+  const [customerSelectorKey, setCustomerSelectorKey] = useState(0);
 
   const handleCustomerSelect = (customer: Customer | null) => {
     setSelectedCustomer(customer);
@@ -53,8 +56,9 @@ const Settings = () => {
   };
 
   const handleCustomerCreate = (customer: Customer) => {
-    console.log('New customer created:', customer);
-    // Customer is automatically selected by the CustomerSelector
+    console.log('🎉 Settings: New customer created callback received:', customer);
+    // Force CustomerSelector to refresh by updating its key
+    setCustomerSelectorKey(prev => prev + 1);
   };
 
   const handleAssessmentSubmit = async (e: React.FormEvent) => {
@@ -131,10 +135,14 @@ const Settings = () => {
         notes: newCustomerData.notes
       });
 
-      console.log('Successfully created new customer:', newCustomer);
+      console.log('✅ Settings: Successfully created new customer:', newCustomer);
 
       // Auto-select the new customer and reset the form
       setSelectedCustomer(newCustomer);
+      
+      // Trigger the CustomerSelector to refresh its list by calling onCustomerCreate
+      handleCustomerCreate(newCustomer);
+      
       setNewCustomerData({
         tenantName: '',
         tenantDomain: '',
@@ -154,6 +162,7 @@ const Settings = () => {
       setSuccess(false); // Don't show success message that redirects
       
     } catch (error: any) {
+      console.error('❌ Settings: Failed to create customer:', error);
       setNewCustomerError(error.message || 'Failed to create new customer');
     } finally {
       setCreatingCustomer(false);
@@ -186,6 +195,7 @@ const Settings = () => {
           
           <div className="customer-selection-container">
             <CustomerSelector
+              key={customerSelectorKey} // Add key prop to force remount on customer create
               selectedCustomer={selectedCustomer}
               onCustomerSelect={handleCustomerSelect}
               onCustomerCreate={handleCustomerCreate}

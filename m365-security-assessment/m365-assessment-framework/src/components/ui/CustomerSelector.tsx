@@ -32,12 +32,23 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({
     notes: ''
   });
   const [creating, setCreating] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const customerService = CustomerService.getInstance();
 
   useEffect(() => {
     loadCustomers();
-  }, []);
+  }, [refreshTrigger]); // Add refreshTrigger as dependency
+
+  // Listen for customer creation events
+  useEffect(() => {
+    if (onCustomerCreate) {
+      // This effect will trigger when onCustomerCreate changes
+      // indicating a new customer was created externally
+      console.log('🔄 CustomerSelector: Customer creation detected, refreshing list...');
+      setRefreshTrigger(prev => prev + 1);
+    }
+  }, [onCustomerCreate]);
 
   const loadCustomers = async () => {
     try {
@@ -141,6 +152,20 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({
     const months = Math.floor(diffInDays / 30);
     return months === 1 ? '1 month ago' : `${months} months ago`;
   };
+
+  // Add a public method to refresh the customer list
+  const refreshCustomerList = () => {
+    console.log('🔄 CustomerSelector: Manual refresh requested');
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  // Expose refresh method to parent components via onCustomerCreate callback
+  useEffect(() => {
+    if (onCustomerCreate && typeof onCustomerCreate === 'function') {
+      // Monkey patch to add refresh capability
+      (onCustomerCreate as any).refresh = refreshCustomerList;
+    }
+  }, [onCustomerCreate]);
 
   return (
     <div className="customer-selector">
