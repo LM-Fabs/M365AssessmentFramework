@@ -89,10 +89,17 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({
     try {
       setCreating(true);
       setError(null);
-      const newCustomer = await customerService.createCustomer(createFormData);
+      console.log('🚀 Creating new customer with data:', createFormData);
       
-      // Add to customers list
-      setCustomers(prev => [...prev, newCustomer]);
+      const newCustomer = await customerService.createCustomer(createFormData);
+      console.log('✅ Customer created successfully:', newCustomer);
+      
+      // Add to customers list immediately to update UI
+      setCustomers(prev => {
+        const updatedList = [...prev, newCustomer];
+        console.log('📋 Updated customer list:', updatedList);
+        return updatedList;
+      });
       
       // Select the new customer
       onCustomerSelect(newCustomer);
@@ -107,8 +114,15 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({
       });
       setShowCreateForm(false);
       setIsDropdownOpen(false);
+      
+      // Reload customers list to ensure consistency
+      setTimeout(() => {
+        console.log('🔄 Reloading customers list for consistency...');
+        loadCustomers();
+      }, 500);
+      
     } catch (err) {
-      console.error('Failed to create customer:', err);
+      console.error('❌ Failed to create customer:', err);
       setError(err instanceof Error ? err.message : 'Failed to create customer');
     } finally {
       setCreating(false);

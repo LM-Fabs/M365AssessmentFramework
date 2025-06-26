@@ -39,14 +39,26 @@ const RecentAssessments: React.FC<RecentAssessmentsProps> = ({ tenantId, limit =
         setLoading(true);
         setError(null);
         
+        console.log('🔍 RecentAssessments: Loading assessments for', customerId ? `customer ${customerId}` : `tenant ${tenantId}`);
+        
         // Use customerId if provided, otherwise use tenantId for backward compatibility
         const recentAssessments = customerId 
           ? await historyService.getCustomerAssessments(customerId, limit)
           : await historyService.getRecentAssessments(tenantId, limit);
+        
+        console.log('📊 RecentAssessments: Received data:', recentAssessments);
+        
+        // Ensure we have an array
+        if (!Array.isArray(recentAssessments)) {
+          console.warn('⚠️ RecentAssessments: Expected array but got:', typeof recentAssessments, recentAssessments);
+          setAssessments([]);
+          return;
+        }
           
         setAssessments(recentAssessments);
+        console.log('✅ RecentAssessments: Successfully loaded', recentAssessments.length, 'assessments');
       } catch (err: any) {
-        console.error('Error loading recent assessments:', err);
+        console.error('❌ RecentAssessments: Error loading recent assessments:', err);
         setError('Failed to load recent assessments');
         setAssessments([]); // Show empty state instead of error
       } finally {

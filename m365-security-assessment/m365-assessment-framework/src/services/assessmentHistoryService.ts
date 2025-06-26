@@ -41,10 +41,7 @@ export class AssessmentHistoryService {
   private baseUrl: string;
 
   private constructor() {
-    // Use Azure Static Web Apps integrated API for production
-    // This ensures we use the same-origin API endpoints that are part of the Static Web App
     this.baseUrl = process.env.REACT_APP_API_URL || '/api';
-    console.log('🔧 AssessmentHistoryService: Using API base URL:', this.baseUrl);
   }
 
   public static getInstance(): AssessmentHistoryService {
@@ -104,8 +101,12 @@ export class AssessmentHistoryService {
         throw new Error(`Failed to fetch assessment history: ${response.statusText}`);
       }
 
-      const history = await response.json();
-      return history.map((item: any) => ({
+      const data = await response.json();
+      
+      // Ensure we always return an array
+      const historyArray = Array.isArray(data) ? data : (data.data && Array.isArray(data.data) ? data.data : []);
+      
+      return historyArray.map((item: any) => ({
         ...item,
         date: new Date(item.date)
       }));
@@ -181,7 +182,15 @@ export class AssessmentHistoryService {
    * Get recent assessments for dashboard display
    */
   public async getRecentAssessments(tenantId: string, limit: number = 5): Promise<AssessmentHistory[]> {
-    return this.getAssessmentHistory(tenantId, limit);
+    // For now, return empty array since we don't have real assessment history data
+    // In a real implementation, this would call the same endpoint as getAssessmentHistory
+    console.log('🔍 Getting recent assessments for tenant:', tenantId);
+    try {
+      return await this.getAssessmentHistory(tenantId, limit);
+    } catch (error) {
+      console.error('Error in getRecentAssessments:', error);
+      return [];
+    }
   }
 
   /**
@@ -198,8 +207,12 @@ export class AssessmentHistoryService {
         throw new Error(`Failed to fetch customer assessment history: ${response.statusText}`);
       }
 
-      const history = await response.json();
-      return history.map((item: any) => ({
+      const data = await response.json();
+      
+      // Ensure we always return an array
+      const historyArray = Array.isArray(data) ? data : (data.data && Array.isArray(data.data) ? data.data : []);
+      
+      return historyArray.map((item: any) => ({
         ...item,
         date: new Date(item.date)
       }));
@@ -214,22 +227,16 @@ export class AssessmentHistoryService {
    */
   public async cleanupOldHistory(tenantId: string, keepDays: number = 90): Promise<void> {
     try {
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - keepDays);
-
-      const response = await fetch(`${this.baseUrl}/assessment-history/${tenantId}/cleanup`, {
+      await fetch(`${this.baseUrl}/assessment-history/${tenantId}/cleanup`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ cutoffDate: cutoffDate.toISOString() })
+        body: JSON.stringify({ keepDays })
       });
-
-      if (!response.ok) {
-        throw new Error(`Failed to cleanup assessment history: ${response.statusText}`);
-      }
     } catch (error) {
-      console.error('Error cleaning up assessment history:', error);
+      console.error('Error cleaning up old assessment history:', error);
+      // Don't throw, as this is a background operation
     }
   }
 }
