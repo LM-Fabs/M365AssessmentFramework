@@ -16,7 +16,7 @@
     "id": "Microsoft.Azure.Functions.ExtensionBundle",
     "version": "[4.*, 5.0.0)"
   },
-  "functionTimeout": "00:05:00",
+  "functionTimeout": "00:01:00",
   "extensions": {
     "http": {
       "routePrefix": "api",
@@ -24,5 +24,13 @@
       "maxConcurrentRequests": 100,
       "dynamicThrottlesEnabled": true
     }
+  },
+  "customHandler": {
+    "description": {
+      "defaultExecutablePath": "node",
+      "workingDirectory": "",
+      "arguments": ["dist/index.js"]
+    },
+    "enableForwardingHttpRequest": true
   }
 }

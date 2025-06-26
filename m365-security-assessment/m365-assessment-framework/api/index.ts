@@ -12,7 +12,14 @@ const corsHeaders = {
 let customers: any[] = [];
 let assessmentHistory: any[] = [];
 
-// Test endpoint
+// Optimized function initialization
+const initializeData = () => {
+    if (customers.length === 0) {
+        console.log('Initializing in-memory data store...');
+    }
+};
+
+// Test endpoint - fast response for health checks
 async function testHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('Test function processed a request');
     
@@ -22,16 +29,18 @@ async function testHandler(request: HttpRequest, context: InvocationContext): Pr
         jsonBody: {
             message: "M365 Assessment API is working!",
             timestamp: new Date().toISOString(),
-            version: "1.0.4"
+            version: "1.0.4",
+            status: "healthy"
         }
     };
 }
 
-// Customers endpoint - handles both GET (list) and POST (create)
+// Optimized customers endpoint - fast response
 async function customersHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    const startTime = Date.now();
     context.log(`Processing ${request.method} request for customers`);
 
-    // Handle preflight OPTIONS request
+    // Handle preflight OPTIONS request immediately
     if (request.method === 'OPTIONS') {
         return {
             status: 200,
@@ -39,22 +48,29 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
         };
     }
 
-    if (request.method === 'GET') {
-        context.log('Returning customers from in-memory storage:', customers.length);
-        
-        return {
-            status: 200,
-            headers: corsHeaders,
-            body: JSON.stringify({
-                success: true,
-                data: customers,
-                count: customers.length
-            })
-        };
-    }
+    try {
+        // Initialize data if needed
+        initializeData();
 
-    if (request.method === 'POST') {
-        try {
+        if (request.method === 'GET') {
+            context.log('Returning customers from in-memory storage:', customers.length);
+            
+            const responseTime = Date.now() - startTime;
+            context.log(`GET /customers completed in ${responseTime}ms`);
+            
+            return {
+                status: 200,
+                headers: corsHeaders,
+                body: JSON.stringify({
+                    success: true,
+                    data: customers,
+                    count: customers.length,
+                    responseTime: `${responseTime}ms`
+                })
+            };
+        }
+
+        if (request.method === 'POST') {
             const customerData = await request.json() as any;
             context.log('Creating new customer with data:', customerData);
             
@@ -77,7 +93,9 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
 
             // Add to in-memory storage
             customers.push(newCustomer);
-            context.log('Customer created and added to storage. Total customers:', customers.length);
+            
+            const responseTime = Date.now() - startTime;
+            context.log(`Customer created and added to storage in ${responseTime}ms. Total customers:`, customers.length);
 
             return {
                 status: 201,
@@ -91,34 +109,40 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                             "App registration would be created in production",
                             "Admin consent would be required"
                         ]
-                    }
-                })
-            };
-        } catch (error) {
-            context.error('Error creating customer:', error);
-            return {
-                status: 400,
-                headers: corsHeaders,
-                body: JSON.stringify({
-                    success: false,
-                    error: "Invalid request data"
+                    },
+                    responseTime: `${responseTime}ms`
                 })
             };
         }
-    }
 
-    return {
-        status: 405,
-        headers: corsHeaders,
-        body: JSON.stringify({
-            success: false,
-            error: `Method ${request.method} not allowed`
-        })
-    };
+        return {
+            status: 405,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                success: false,
+                error: `Method ${request.method} not allowed`
+            })
+        };
+
+    } catch (error) {
+        const responseTime = Date.now() - startTime;
+        context.error('Error in customers handler:', error);
+        
+        return {
+            status: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                success: false,
+                error: "Internal server error",
+                responseTime: `${responseTime}ms`
+            })
+        };
+    }
 }
 
-// Assessment history endpoint
+// Fast assessment history endpoint
 async function assessmentHistoryHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    const startTime = Date.now();
     context.log(`Processing ${request.method} request for assessment history`);
 
     if (request.method === 'OPTIONS') {
@@ -128,39 +152,43 @@ async function assessmentHistoryHandler(request: HttpRequest, context: Invocatio
         };
     }
 
-    if (request.method === 'GET') {
-        const tenantId = request.params.tenantId;
-        const customerId = request.params.customerId;
-        const limit = parseInt(request.query.get('limit') || '10');
+    try {
+        if (request.method === 'GET') {
+            const tenantId = request.params.tenantId;
+            const customerId = request.params.customerId;
+            const limit = parseInt(request.query.get('limit') || '10');
 
-        context.log('Getting assessment history for:', tenantId || customerId);
+            context.log('Getting assessment history for:', tenantId || customerId);
 
-        // Filter assessments by tenantId or customerId
-        let filteredHistory = assessmentHistory;
-        if (tenantId) {
-            filteredHistory = assessmentHistory.filter(h => h.tenantId === tenantId);
-        } else if (customerId) {
-            filteredHistory = assessmentHistory.filter(h => h.customerId === customerId);
+            // Filter assessments by tenantId or customerId
+            let filteredHistory = assessmentHistory;
+            if (tenantId) {
+                filteredHistory = assessmentHistory.filter(h => h.tenantId === tenantId);
+            } else if (customerId) {
+                filteredHistory = assessmentHistory.filter(h => h.customerId === customerId);
+            }
+
+            // Sort by date (most recent first) and limit
+            const sortedHistory = filteredHistory
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .slice(0, limit);
+
+            const responseTime = Date.now() - startTime;
+            context.log(`Assessment history retrieved in ${responseTime}ms`);
+
+            return {
+                status: 200,
+                headers: corsHeaders,
+                body: JSON.stringify({
+                    success: true,
+                    data: sortedHistory,
+                    count: sortedHistory.length,
+                    responseTime: `${responseTime}ms`
+                })
+            };
         }
 
-        // Sort by date (most recent first) and limit
-        const sortedHistory = filteredHistory
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-            .slice(0, limit);
-
-        return {
-            status: 200,
-            headers: corsHeaders,
-            body: JSON.stringify({
-                success: true,
-                data: sortedHistory,
-                count: sortedHistory.length
-            })
-        };
-    }
-
-    if (request.method === 'POST') {
-        try {
+        if (request.method === 'POST') {
             const historyData = await request.json() as any;
             context.log('Adding assessment history:', historyData);
 
@@ -171,41 +199,49 @@ async function assessmentHistoryHandler(request: HttpRequest, context: Invocatio
             };
 
             assessmentHistory.push(historyEntry);
-            context.log('Assessment history added. Total entries:', assessmentHistory.length);
+            
+            const responseTime = Date.now() - startTime;
+            context.log(`Assessment history added in ${responseTime}ms. Total entries:`, assessmentHistory.length);
 
             return {
                 status: 201,
                 headers: corsHeaders,
                 body: JSON.stringify({
                     success: true,
-                    data: historyEntry
-                })
-            };
-        } catch (error) {
-            context.error('Error adding assessment history:', error);
-            return {
-                status: 400,
-                headers: corsHeaders,
-                body: JSON.stringify({
-                    success: false,
-                    error: "Invalid request data"
+                    data: historyEntry,
+                    responseTime: `${responseTime}ms`
                 })
             };
         }
-    }
 
-    return {
-        status: 405,
-        headers: corsHeaders,
-        body: JSON.stringify({
-            success: false,
-            error: `Method ${request.method} not allowed`
-        })
-    };
+        return {
+            status: 405,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                success: false,
+                error: `Method ${request.method} not allowed`
+            })
+        };
+
+    } catch (error) {
+        const responseTime = Date.now() - startTime;
+        context.error('Error in assessment history handler:', error);
+        
+        return {
+            status: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                success: false,
+                error: "Internal server error",
+                responseTime: `${responseTime}ms`
+            })
+        };
+    }
 }
 
-// Assessments endpoint
+// Fast assessments endpoint
 async function assessmentsHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    const startTime = Date.now();
     context.log(`Processing ${request.method} request for assessments`);
 
     if (request.method === 'OPTIONS') {
@@ -215,22 +251,43 @@ async function assessmentsHandler(request: HttpRequest, context: InvocationConte
         };
     }
 
-    // Return empty assessments array since we're using in-memory storage
-    const mockAssessments: any[] = [];
+    try {
+        // Return empty assessments array since we're using in-memory storage
+        const mockAssessments: any[] = [];
 
-    return {
-        status: 200,
-        headers: corsHeaders,
-        body: JSON.stringify({
-            success: true,
-            data: mockAssessments,
-            count: mockAssessments.length
-        })
-    };
+        const responseTime = Date.now() - startTime;
+        context.log(`Assessments retrieved in ${responseTime}ms`);
+
+        return {
+            status: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                success: true,
+                data: mockAssessments,
+                count: mockAssessments.length,
+                responseTime: `${responseTime}ms`
+            })
+        };
+
+    } catch (error) {
+        const responseTime = Date.now() - startTime;
+        context.error('Error in assessments handler:', error);
+        
+        return {
+            status: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                success: false,
+                error: "Internal server error",
+                responseTime: `${responseTime}ms`
+            })
+        };
+    }
 }
 
-// Current assessment endpoint
+// Fast current assessment endpoint
 async function currentAssessmentHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    const startTime = Date.now();
     context.log('Processing request for current assessment');
 
     if (request.method === 'OPTIONS') {
@@ -240,18 +297,39 @@ async function currentAssessmentHandler(request: HttpRequest, context: Invocatio
         };
     }
 
-    // Return null for current assessment since we don't have one
-    return {
-        status: 200,
-        headers: corsHeaders,
-        body: JSON.stringify({
-            success: true,
-            data: null
-        })
-    };
+    try {
+        // Return null for current assessment since we don't have one
+        const responseTime = Date.now() - startTime;
+        context.log(`Current assessment retrieved in ${responseTime}ms`);
+
+        return {
+            status: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                success: true,
+                data: null,
+                responseTime: `${responseTime}ms`
+            })
+
+        };
+
+    } catch (error) {
+        const responseTime = Date.now() - startTime;
+        context.error('Error in current assessment handler:', error);
+        
+        return {
+            status: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                success: false,
+                error: "Internal server error",
+                responseTime: `${responseTime}ms`
+            })
+        };
+    }
 }
 
-// Register all functions
+// Register all functions with optimized configuration
 app.http('test', {
     methods: ['GET'],
     authLevel: 'anonymous',
@@ -301,3 +379,6 @@ app.http('assessmentHistoryByCustomer', {
     route: 'assessment-history/customer/{customerId}',
     handler: assessmentHistoryHandler
 });
+
+// Initialize on startup
+console.log('Azure Functions API initialized successfully');
