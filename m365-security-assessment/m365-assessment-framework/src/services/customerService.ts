@@ -56,20 +56,22 @@ export class CustomerService {
     try {
       console.log('🔍 CustomerService: Making API call to:', `${this.baseUrl}/customers`);
       
-      // Create a timeout promise that rejects after 5 seconds
+      // Create a timeout promise that rejects after 15 seconds (increased from 5)
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout - API took too long to respond')), 5000);
+        setTimeout(() => reject(new Error('Request timeout - API took too long to respond')), 15000);
       });
       
-      // Race between the API call and timeout
+      // Race between the API call and timeout with retry logic
       const response = await Promise.race([
-        axios.get(`${this.baseUrl}/customers`, {
-          timeout: 5000, // 5 second timeout
-          headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-          }
-        }),
+        this.retryApiCall(() => 
+          axios.get(`${this.baseUrl}/customers`, {
+            timeout: 15000, // 15 second timeout (increased from 5)
+            headers: {
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
+            }
+          })
+        ),
         timeoutPromise
       ]);
       
@@ -112,7 +114,7 @@ export class CustomerService {
         });
         
         if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-          console.warn('⏱️ CustomerService: Request timed out - returning empty array');
+          console.warn('⏱️ CustomerService: Request timed out after 15 seconds - returning empty array');
           return [];
         }
         
@@ -126,12 +128,50 @@ export class CustomerService {
       }
       
       if (error?.message?.includes('timeout')) {
-        console.warn('⏱️ CustomerService: Custom timeout reached - returning empty array');
+        console.warn('⏱️ CustomerService: Custom timeout reached after 15 seconds - returning empty array');
         return [];
       }
       
       throw new Error('Failed to fetch customers from API');
     }
+  }
+
+  /**
+   * Retry API calls with exponential backoff for better reliability
+   * Following Azure best practices for transient failure handling
+   */
+  private async retryApiCall<T>(apiCall: () => Promise<T>, maxRetries: number = 3): Promise<T> {
+    let lastError: Error;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔄 CustomerService: API attempt ${attempt}/${maxRetries}`);
+        return await apiCall();
+      } catch (error: any) {
+        lastError = error;
+        
+        // Don't retry on client errors (4xx) except for 408 (timeout) and 429 (rate limit)
+        if (axios.isAxiosError(error) && error.response?.status) {
+          const status = error.response.status;
+          if (status >= 400 && status < 500 && status !== 408 && status !== 429) {
+            console.warn(`🚫 CustomerService: Client error ${status}, not retrying`);
+            throw error;
+          }
+        }
+        
+        if (attempt === maxRetries) {
+          console.error(`❌ CustomerService: All ${maxRetries} attempts failed`);
+          throw error;
+        }
+        
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = Math.pow(2, attempt - 1) * 1000;
+        console.warn(`⏳ CustomerService: Attempt ${attempt} failed, retrying in ${delay}ms...`, error.message);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    throw lastError!;
   }
 
   /**

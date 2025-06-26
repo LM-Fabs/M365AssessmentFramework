@@ -93,7 +93,7 @@ export class AssessmentHistoryService {
   public async getAssessmentHistory(tenantId: string, limit: number = 10): Promise<AssessmentHistory[]> {
     try {
       const response = await fetch(`${this.baseUrl}/assessment-history/${tenantId}?limit=${limit}`, {
-        signal: AbortSignal.timeout(3000) // 3 second timeout
+        signal: AbortSignal.timeout(15000) // 15 second timeout (increased from 3)
       });
       
       if (!response.ok) {
@@ -131,7 +131,7 @@ export class AssessmentHistoryService {
       }));
     } catch (error: any) {
       if (error?.name === 'TimeoutError' || error?.name === 'AbortError') {
-        console.warn('⏱️ AssessmentHistory: Request timed out for tenant:', tenantId);
+        console.warn('⏱️ AssessmentHistory: Request timed out after 15 seconds for tenant:', tenantId);
         return [];
       }
       console.error('Error fetching assessment history for tenant', tenantId, ':', error);
@@ -226,7 +226,7 @@ export class AssessmentHistoryService {
   public async getCustomerAssessments(customerId: string, limit: number = 5): Promise<AssessmentHistory[]> {
     try {
       const response = await fetch(`${this.baseUrl}/assessment-history/customer/${customerId}?limit=${limit}`, {
-        signal: AbortSignal.timeout(3000) // 3 second timeout
+        signal: AbortSignal.timeout(15000) // 15 second timeout (increased from 3)
       });
       
       if (!response.ok) {
@@ -264,7 +264,7 @@ export class AssessmentHistoryService {
       }));
     } catch (error: any) {
       if (error?.name === 'TimeoutError' || error?.name === 'AbortError') {
-        console.warn('⏱️ AssessmentHistory: Request timed out for customer:', customerId);
+        console.warn('⏱️ AssessmentHistory: Request timed out after 15 seconds for customer:', customerId);
         return [];
       }
       console.error('Error fetching customer assessment history for', customerId, ':', error);
