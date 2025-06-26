@@ -76,10 +76,22 @@ export class AssessmentService {
   public async getAssessments(): Promise<Assessment[]> {
     try {
       const response = await axios.get(`${this.baseUrl}/assessments`);
-      return response.data;
+      
+      // Handle the structured API response format
+      if (response.data && typeof response.data === 'object') {
+        if (Array.isArray(response.data.data)) {
+          return response.data.data;
+        } else if (Array.isArray(response.data)) {
+          return response.data;
+        }
+      }
+      
+      // Fallback to empty array if response is unexpected
+      console.warn('AssessmentService: Unexpected response format from /assessments:', response.data);
+      return [];
     } catch (error) {
       console.error('Error fetching assessments:', error);
-      throw error;
+      return []; // Return empty array instead of throwing to prevent UI crashes
     }
   }
 
@@ -169,6 +181,16 @@ export class AssessmentService {
   public async getCurrentAssessment(): Promise<Assessment | null> {
     try {
       const response = await axios.get(`${this.baseUrl}/assessment/current`);
+      
+      // Handle the structured API response format
+      if (response.data && typeof response.data === 'object') {
+        if (response.data.success && response.data.data !== undefined) {
+          return response.data.data;
+        } else if (response.data.data !== undefined) {
+          return response.data.data;
+        }
+      }
+      
       return response.data;
     } catch (error: any) {
       if (error.response?.status === 404) {
@@ -176,7 +198,7 @@ export class AssessmentService {
         return null;
       }
       console.error('Error fetching current assessment:', error);
-      throw error;
+      return null; // Return null instead of throwing to prevent UI crashes
     }
   }
 

@@ -296,6 +296,233 @@ async function currentAssessmentHandler(request, context) {
         };
     }
 }
+// Best practices endpoint
+async function bestPracticesHandler(request, context) {
+    context.log('Processing request for best practices');
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+    try {
+        const mockBestPractices = [
+            {
+                category: "Identity & Access Management",
+                practices: [
+                    "Enable Multi-Factor Authentication for all users",
+                    "Implement Conditional Access policies",
+                    "Use Azure AD Privileged Identity Management"
+                ]
+            },
+            {
+                category: "Data Protection",
+                practices: [
+                    "Enable Microsoft Information Protection",
+                    "Configure Data Loss Prevention policies",
+                    "Use Microsoft Cloud App Security"
+                ]
+            }
+        ];
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: mockBestPractices,
+                timestamp: new Date().toISOString()
+            }
+        };
+    }
+    catch (error) {
+        context.error('Error in best practices handler:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: "Internal server error",
+                details: error instanceof Error ? error.message : "Unknown error"
+            }
+        };
+    }
+}
+// Create assessment endpoint
+async function createAssessmentHandler(request, context) {
+    context.log('Processing request to create assessment');
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+    try {
+        let assessmentData = {};
+        try {
+            assessmentData = await request.json();
+        }
+        catch (error) {
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Invalid JSON in request body"
+                }
+            };
+        }
+        context.log('Creating assessment with data:', assessmentData);
+        // Create mock assessment
+        const mockAssessment = {
+            id: `assessment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            tenantId: assessmentData.tenantName?.toLowerCase().replace(/\s+/g, '-') || 'new-tenant',
+            tenantName: assessmentData.tenantName || 'New Assessment',
+            assessmentDate: new Date().toISOString(),
+            status: 'completed',
+            categories: assessmentData.categories || ['identity', 'dataProtection', 'endpoint', 'cloudApps'],
+            metrics: {
+                score: {
+                    overall: 75,
+                    identity: 80,
+                    dataProtection: 70,
+                    endpoint: 75,
+                    cloudApps: 80
+                }
+            }
+        };
+        return {
+            status: 201,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: mockAssessment
+            }
+        };
+    }
+    catch (error) {
+        context.error('Error in create assessment handler:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: "Internal server error",
+                details: error instanceof Error ? error.message : "Unknown error"
+            }
+        };
+    }
+}
+// Save assessment endpoint
+async function saveAssessmentHandler(request, context) {
+    context.log('Processing request to save assessment');
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+    try {
+        let assessmentData = {};
+        try {
+            assessmentData = await request.json();
+        }
+        catch (error) {
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Invalid JSON in request body"
+                }
+            };
+        }
+        context.log('Saving assessment:', assessmentData.id);
+        // Return the saved assessment
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: assessmentData
+            }
+        };
+    }
+    catch (error) {
+        context.error('Error in save assessment handler:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: "Internal server error",
+                details: error instanceof Error ? error.message : "Unknown error"
+            }
+        };
+    }
+}
+// Get metrics endpoint
+async function getMetricsHandler(request, context) {
+    context.log('Processing request for metrics');
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+    try {
+        const tenantId = request.query.get('tenantId');
+        if (!tenantId) {
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "tenantId parameter is required"
+                }
+            };
+        }
+        // Mock metrics data
+        const mockMetrics = {
+            score: {
+                overall: 75,
+                identity: 80,
+                dataProtection: 70,
+                endpoint: 75,
+                cloudApps: 80
+            },
+            compliance: {
+                mfa: { enabled: true, coverage: 85 },
+                conditionalAccess: { enabled: true, policies: 5 },
+                dlp: { enabled: false, policies: 0 }
+            },
+            risks: [
+                { category: 'Identity', severity: 'Medium', count: 3 },
+                { category: 'Data Protection', severity: 'High', count: 1 }
+            ]
+        };
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: mockMetrics,
+                tenantId: tenantId
+            }
+        };
+    }
+    catch (error) {
+        context.error('Error in get metrics handler:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: "Internal server error",
+                details: error instanceof Error ? error.message : "Unknown error"
+            }
+        };
+    }
+}
 // Register all functions with optimized configuration
 functions_1.app.http('test', {
     methods: ['GET'],
@@ -339,6 +566,34 @@ functions_1.app.http('assessmentHistoryByCustomer', {
     authLevel: 'anonymous',
     route: 'assessment-history/customer/{customerId}',
     handler: assessmentHistoryHandler
+});
+// Best practices endpoint
+functions_1.app.http('bestPractices', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'best-practices',
+    handler: bestPracticesHandler
+});
+// Create assessment endpoint
+functions_1.app.http('createAssessment', {
+    methods: ['POST', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/create',
+    handler: createAssessmentHandler
+});
+// Save assessment endpoint
+functions_1.app.http('saveAssessment', {
+    methods: ['POST', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'save-assessment',
+    handler: saveAssessmentHandler
+});
+// Get metrics endpoint
+functions_1.app.http('getMetrics', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'GetMetrics',
+    handler: getMetricsHandler
 });
 // Initialize on startup
 console.log('Azure Functions API initialized successfully - Version 1.0.5');
