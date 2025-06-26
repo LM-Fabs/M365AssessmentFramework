@@ -8,7 +8,16 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Content-Type': 'application/json'
 };
-// Test endpoint
+// In-memory storage for demo purposes (replace with real database in production)
+let customers = [];
+let assessmentHistory = [];
+// Optimized function initialization with immediate response
+const initializeData = () => {
+    if (customers.length === 0) {
+        console.log('Initializing in-memory data store...');
+    }
+};
+// Test endpoint - immediate fast response
 async function testHandler(request, context) {
     context.log('Test function processed a request');
     return {
@@ -17,69 +26,58 @@ async function testHandler(request, context) {
         jsonBody: {
             message: "M365 Assessment API is working!",
             timestamp: new Date().toISOString(),
-            version: "1.0.0"
+            version: "1.0.5",
+            status: "healthy"
         }
     };
 }
-// Customers endpoint - handles both GET (list) and POST (create)
+// Optimized customers endpoint with immediate response
 async function customersHandler(request, context) {
     context.log(`Processing ${request.method} request for customers`);
-    // Handle preflight OPTIONS request
+    // Handle preflight OPTIONS request immediately
     if (request.method === 'OPTIONS') {
         return {
             status: 200,
             headers: corsHeaders
         };
     }
-    if (request.method === 'GET') {
-        // Return mock customers for now to get frontend working
-        const mockCustomers = [
-            {
-                id: "customer-1",
-                tenantId: "tenant-123",
-                tenantName: "Contoso Corp",
-                tenantDomain: "contoso.onmicrosoft.com",
-                applicationId: "app-123",
-                clientId: "client-123",
-                servicePrincipalId: "sp-123",
-                createdDate: new Date().toISOString(),
-                totalAssessments: 5,
-                status: "active",
-                permissions: ["Directory.Read.All", "SecurityEvents.Read.All"],
-                contactEmail: "admin@contoso.com"
-            },
-            {
-                id: "customer-2",
-                tenantId: "tenant-456",
-                tenantName: "Fabrikam Inc",
-                tenantDomain: "fabrikam.onmicrosoft.com",
-                applicationId: "app-456",
-                clientId: "client-456",
-                servicePrincipalId: "sp-456",
-                createdDate: new Date().toISOString(),
-                totalAssessments: 3,
-                status: "active",
-                permissions: ["Directory.Read.All", "SecurityEvents.Read.All"],
-                contactEmail: "admin@fabrikam.com"
+    try {
+        // Initialize data if needed (synchronous operation)
+        initializeData();
+        if (request.method === 'GET') {
+            context.log('Returning customers from in-memory storage:', customers.length);
+            return {
+                status: 200,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: true,
+                    data: customers,
+                    count: customers.length,
+                    timestamp: new Date().toISOString()
+                }
+            };
+        }
+        if (request.method === 'POST') {
+            let customerData = {};
+            try {
+                customerData = await request.json();
             }
-        ];
-        return {
-            status: 200,
-            headers: corsHeaders,
-            body: JSON.stringify({
-                success: true,
-                data: mockCustomers,
-                count: mockCustomers.length
-            })
-        };
-    }
-    if (request.method === 'POST') {
-        try {
-            const customerData = await request.json();
-            // Create mock customer with provided data
+            catch (error) {
+                context.log('Invalid JSON in request body');
+                return {
+                    status: 400,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Invalid JSON in request body"
+                    }
+                };
+            }
+            context.log('Creating new customer with data:', customerData);
+            // Create new customer with provided data
             const newCustomer = {
-                id: `customer-${Date.now()}`,
-                tenantId: `${customerData.tenantName?.toLowerCase().replace(/\s+/g, '-')}-tenant`,
+                id: `customer-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                tenantId: `${customerData.tenantName?.toLowerCase().replace(/\s+/g, '-') || 'customer'}-tenant-${Date.now()}`,
                 tenantName: customerData.tenantName || "New Customer",
                 tenantDomain: customerData.tenantDomain || "example.onmicrosoft.com",
                 applicationId: `app-${Date.now()}`,
@@ -92,10 +90,13 @@ async function customersHandler(request, context) {
                 contactEmail: customerData.contactEmail,
                 notes: customerData.notes
             };
+            // Add to in-memory storage
+            customers.push(newCustomer);
+            context.log(`Customer created and added to storage. Total customers:`, customers.length);
             return {
                 status: 201,
                 headers: corsHeaders,
-                body: JSON.stringify({
+                jsonBody: {
                     success: true,
                     data: {
                         customer: newCustomer,
@@ -105,30 +106,125 @@ async function customersHandler(request, context) {
                             "Admin consent would be required"
                         ]
                     }
-                })
+                }
             };
         }
-        catch (error) {
-            return {
-                status: 400,
-                headers: corsHeaders,
-                body: JSON.stringify({
-                    success: false,
-                    error: "Invalid request data"
-                })
-            };
-        }
+        return {
+            status: 405,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: `Method ${request.method} not allowed`
+            }
+        };
     }
-    return {
-        status: 405,
-        headers: corsHeaders,
-        body: JSON.stringify({
-            success: false,
-            error: `Method ${request.method} not allowed`
-        })
-    };
+    catch (error) {
+        context.error('Error in customers handler:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: "Internal server error",
+                details: error instanceof Error ? error.message : "Unknown error"
+            }
+        };
+    }
 }
-// Assessments endpoint
+// Fast assessment history endpoint
+async function assessmentHistoryHandler(request, context) {
+    context.log(`Processing ${request.method} request for assessment history`);
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+    try {
+        if (request.method === 'GET') {
+            const tenantId = request.params.tenantId;
+            const customerId = request.params.customerId;
+            const limit = Math.min(parseInt(request.query.get('limit') || '10'), 100); // Cap at 100
+            context.log('Getting assessment history for:', tenantId || customerId || 'all');
+            // Filter assessments by tenantId or customerId
+            let filteredHistory = assessmentHistory;
+            if (tenantId) {
+                filteredHistory = assessmentHistory.filter(h => h.tenantId === tenantId);
+            }
+            else if (customerId) {
+                filteredHistory = assessmentHistory.filter(h => h.customerId === customerId);
+            }
+            // Sort by date (most recent first) and limit
+            const sortedHistory = filteredHistory
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .slice(0, limit);
+            context.log(`Assessment history retrieved. Count: ${sortedHistory.length}`);
+            return {
+                status: 200,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: true,
+                    data: sortedHistory,
+                    count: sortedHistory.length,
+                    timestamp: new Date().toISOString()
+                }
+            };
+        }
+        if (request.method === 'POST') {
+            let historyData = {};
+            try {
+                historyData = await request.json();
+            }
+            catch (error) {
+                return {
+                    status: 400,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Invalid JSON in request body"
+                    }
+                };
+            }
+            context.log('Adding assessment history:', historyData);
+            const historyEntry = {
+                id: `history-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                ...historyData,
+                date: new Date(historyData.date || new Date()).toISOString()
+            };
+            assessmentHistory.push(historyEntry);
+            context.log(`Assessment history added. Total entries:`, assessmentHistory.length);
+            return {
+                status: 201,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: true,
+                    data: historyEntry
+                }
+            };
+        }
+        return {
+            status: 405,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: `Method ${request.method} not allowed`
+            }
+        };
+    }
+    catch (error) {
+        context.error('Error in assessment history handler:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: "Internal server error",
+                details: error instanceof Error ? error.message : "Unknown error"
+            }
+        };
+    }
+}
+// Fast assessments endpoint
 async function assessmentsHandler(request, context) {
     context.log(`Processing ${request.method} request for assessments`);
     if (request.method === 'OPTIONS') {
@@ -137,46 +233,35 @@ async function assessmentsHandler(request, context) {
             headers: corsHeaders
         };
     }
-    // Return mock assessment data
-    const mockAssessments = [
-        {
-            id: "assessment-1",
-            tenantId: "tenant-123",
-            assessmentDate: new Date().toISOString(),
-            overallScore: 75,
-            status: "completed",
-            metrics: {
-                secureScore: 75,
-                mfaAdoption: 85,
-                conditionalAccessPolicies: 12,
-                riskLevel: "medium"
+    try {
+        // Return empty assessments array since we're using in-memory storage
+        const mockAssessments = [];
+        context.log(`Assessments retrieved. Count: ${mockAssessments.length}`);
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: mockAssessments,
+                count: mockAssessments.length,
+                timestamp: new Date().toISOString()
             }
-        },
-        {
-            id: "assessment-2",
-            tenantId: "tenant-456",
-            assessmentDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-            overallScore: 82,
-            status: "completed",
-            metrics: {
-                secureScore: 82,
-                mfaAdoption: 92,
-                conditionalAccessPolicies: 18,
-                riskLevel: "low"
+        };
+    }
+    catch (error) {
+        context.error('Error in assessments handler:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: "Internal server error",
+                details: error instanceof Error ? error.message : "Unknown error"
             }
-        }
-    ];
-    return {
-        status: 200,
-        headers: corsHeaders,
-        body: JSON.stringify({
-            success: true,
-            data: mockAssessments,
-            count: mockAssessments.length
-        })
-    };
+        };
+    }
 }
-// Current assessment endpoint
+// Fast current assessment endpoint
 async function currentAssessmentHandler(request, context) {
     context.log('Processing request for current assessment');
     if (request.method === 'OPTIONS') {
@@ -185,33 +270,33 @@ async function currentAssessmentHandler(request, context) {
             headers: corsHeaders
         };
     }
-    // Return mock current assessment
-    const currentAssessment = {
-        id: `assessment-${Date.now()}`,
-        tenantId: "current-tenant",
-        assessmentDate: new Date().toISOString(),
-        overallScore: 78,
-        status: "in-progress",
-        metrics: {
-            secureScore: 78,
-            mfaAdoption: 88,
-            conditionalAccessPolicies: 15,
-            riskLevel: "medium",
-            criticalIssues: 3,
-            recommendations: 12
-        },
-        lastUpdated: new Date().toISOString()
-    };
-    return {
-        status: 200,
-        headers: corsHeaders,
-        body: JSON.stringify({
-            success: true,
-            data: currentAssessment
-        })
-    };
+    try {
+        // Return null for current assessment since we don't have one
+        context.log(`Current assessment retrieved`);
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: null,
+                timestamp: new Date().toISOString()
+            }
+        };
+    }
+    catch (error) {
+        context.error('Error in current assessment handler:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: "Internal server error",
+                details: error instanceof Error ? error.message : "Unknown error"
+            }
+        };
+    }
 }
-// Register all functions
+// Register all functions with optimized configuration
 functions_1.app.http('test', {
     methods: ['GET'],
     authLevel: 'anonymous',
@@ -236,4 +321,25 @@ functions_1.app.http('currentAssessment', {
     route: 'assessment/current',
     handler: currentAssessmentHandler
 });
+// Assessment history endpoints
+functions_1.app.http('assessmentHistory', {
+    methods: ['GET', 'POST', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment-history',
+    handler: assessmentHistoryHandler
+});
+functions_1.app.http('assessmentHistoryByTenant', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment-history/{tenantId}',
+    handler: assessmentHistoryHandler
+});
+functions_1.app.http('assessmentHistoryByCustomer', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment-history/customer/{customerId}',
+    handler: assessmentHistoryHandler
+});
+// Initialize on startup
+console.log('Azure Functions API initialized successfully - Version 1.0.5');
 //# sourceMappingURL=index.js.map
