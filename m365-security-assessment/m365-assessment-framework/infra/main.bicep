@@ -115,117 +115,146 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   }
 }
 
-// Cosmos DB for storing assessment data - temporarily disabled due to resource provider registration
-// resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
-//   name: '${resourcePrefix}-cosmos-${resourceToken}'
-//   location: location
-//   tags: tags
-//   kind: 'GlobalDocumentDB'
-//   properties: {
-//     databaseAccountOfferType: 'Standard'
-//     enableFreeTier: true
-//     consistencyPolicy: {
-//       defaultConsistencyLevel: 'Session'
-//     }
-//     locations: [
-//       {
-//         locationName: location
-//         failoverPriority: 0
-//         isZoneRedundant: false
-//       }
-//     ]
-//     capabilities: [
-//       {
-//         name: 'EnableServerless'
-//       }
-//     ]
-//     publicNetworkAccess: 'Enabled'
-//     enableAnalyticalStorage: false
-//     enableAutomaticFailover: false
-//     enableMultipleWriteLocations: false
-//     isVirtualNetworkFilterEnabled: false
-//     virtualNetworkRules: []
-//     ipRules: []
-//     cors: []
-//     backupPolicy: {
-//       type: 'Periodic'
-//       periodicModeProperties: {
-//         backupIntervalInMinutes: 240
-//         backupRetentionIntervalInHours: 8
-//         backupStorageRedundancy: 'Local'
-//       }
-//     }
-//   }
-// }
+// Cosmos DB for storing assessment data
+resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
+  name: '${resourcePrefix}-cosmos-${resourceToken}'
+  location: location
+  tags: tags
+  kind: 'GlobalDocumentDB'
+  properties: {
+    databaseAccountOfferType: 'Standard'
+    enableFreeTier: true
+    consistencyPolicy: {
+      defaultConsistencyLevel: 'Session'
+    }
+    locations: [
+      {
+        locationName: location
+        failoverPriority: 0
+        isZoneRedundant: false
+      }
+    ]
+    capabilities: [
+      {
+        name: 'EnableServerless'
+      }
+    ]
+    publicNetworkAccess: 'Enabled'
+    enableAnalyticalStorage: false
+    enableAutomaticFailover: false
+    enableMultipleWriteLocations: false
+    isVirtualNetworkFilterEnabled: false
+    virtualNetworkRules: []
+    ipRules: []
+    cors: []
+    backupPolicy: {
+      type: 'Periodic'
+      periodicModeProperties: {
+        backupIntervalInMinutes: 240
+        backupRetentionIntervalInHours: 8
+        backupStorageRedundancy: 'Local'
+      }
+    }
+  }
+}
 
-// // Cosmos DB Database
-// resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-11-15' = {
-//   parent: cosmosDbAccount
-//   name: 'm365assessment'
-//   properties: {
-//     resource: {
-//       id: 'm365assessment'
-//     }
-//   }
-// }
+// Cosmos DB Database
+resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-11-15' = {
+  parent: cosmosDbAccount
+  name: 'm365assessment'
+  properties: {
+    resource: {
+      id: 'm365assessment'
+    }
+  }
+}
 
-// // Customers Container
-// resource customersContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
-//   parent: cosmosDatabase
-//   name: 'customers'
-//   properties: {
-//     resource: {
-//       id: 'customers'
-//       partitionKey: {
-//         paths: ['/tenantDomain']
-//         kind: 'Hash'
-//       }
-//       indexingPolicy: {
-//         indexingMode: 'consistent'
-//         automatic: true
-//         includedPaths: [
-//           {
-//             path: '/*'
-//           }
-//         ]
-//         excludedPaths: [
-//           {
-//             path: '/"_etag"/?'
-//           }
-//         ]
-//       }
-//     }
-//   }
-// }
+// Customers Container
+resource customersContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+  parent: cosmosDatabase
+  name: 'customers'
+  properties: {
+    resource: {
+      id: 'customers'
+      partitionKey: {
+        paths: ['/tenantDomain']
+        kind: 'Hash'
+      }
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+        excludedPaths: [
+          {
+            path: '/"_etag"/?'
+          }
+        ]
+      }
+    }
+  }
+}
 
-// // Assessments Container
-// resource assessmentsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
-//   parent: cosmosDatabase
-//   name: 'assessments'
-//   properties: {
-//     resource: {
-//       id: 'assessments'
-//       partitionKey: {
-//         paths: ['/customerId']
-//         kind: 'Hash'
-//       }
-//       indexingPolicy: {
-//         indexingMode: 'consistent'
-//         automatic: true
-//         includedPaths: [
-//           {
-//             path: '/*'
-//           }
-//         ]
-//         excludedPaths: [
-//           {
-//             path: '/"_etag"/?'
-//           }
-//         ]
-//       }
-//     }
-//   }
-// }
+// Assessments Container  
+resource assessmentsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+  parent: cosmosDatabase
+  name: 'assessments'
+  properties: {
+    resource: {
+      id: 'assessments'
+      partitionKey: {
+        paths: ['/customerId']
+        kind: 'Hash'
+      }
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+        excludedPaths: [
+          {
+            path: '/"_etag"/?'
+          }
+        ]
+      }
+    }
+  }
+}
+
+// Assessment History Container
+resource assessmentHistoryContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+  parent: cosmosDatabase
+  name: 'assessmentHistory'
+  properties: {
+    resource: {
+      id: 'assessmentHistory'
+      partitionKey: {
+        paths: ['/tenantId']
+        kind: 'Hash'
+      }
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+        excludedPaths: [
+          {
+            path: '/"_etag"/?'
+          }
+        ]
+      }
+    }
+  }
+}
 
 // User Assigned Managed Identity for Function App
 resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
@@ -281,7 +310,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
   })
   kind: 'functionapp'
   identity: {
-    type: 'SystemAssigned,UserAssigned'
+    type: 'SystemAssigned, UserAssigned'
     userAssignedIdentities: {
       '${userAssignedIdentity.id}': {}
     }
@@ -336,6 +365,14 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
           value: azureClientSecret
         }
         {
+          name: 'COSMOS_DB_ENDPOINT'
+          value: cosmosDbAccount.properties.documentEndpoint
+        }
+        {
+          name: 'COSMOS_DB_DATABASE_NAME'
+          value: cosmosDatabase.name
+        }
+        {
           name: 'FRONTEND_URL'
           value: 'https://${staticWebApp.properties.defaultHostname}'
         }
@@ -362,6 +399,17 @@ resource keyVaultSecretsUserRole 'Microsoft.Authorization/roleAssignments@2022-0
   scope: keyVault
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6') // Key Vault Secrets User
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Role assignment for Function App to access Cosmos DB
+resource cosmosDbDataContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(cosmosDbAccount.id, functionApp.id, 'b24988ac-6180-42a0-ab88-20f7382dd24c')
+  scope: cosmosDbAccount
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c') // Cosmos DB Built-in Data Contributor
     principalId: functionApp.identity.principalId
     principalType: 'ServicePrincipal'
   }
@@ -404,3 +452,5 @@ output APPLICATIONINSIGHTS_CONNECTION_STRING string = applicationInsights.proper
 output KEY_VAULT_URL string = keyVault.properties.vaultUri
 output FUNCTION_APP_NAME string = functionApp.name
 output STATIC_WEB_APP_NAME string = staticWebApp.name
+output COSMOS_DB_ENDPOINT string = cosmosDbAccount.properties.documentEndpoint
+output COSMOS_DB_DATABASE_NAME string = cosmosDatabase.name

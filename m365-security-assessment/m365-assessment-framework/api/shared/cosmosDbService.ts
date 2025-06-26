@@ -13,6 +13,7 @@ export class CosmosDbService {
     private database: Database;
     private customersContainer: Container;
     private assessmentsContainer: Container;
+    private assessmentHistoryContainer: Container;
     private isInitialized = false;
 
     constructor() {
@@ -24,6 +25,7 @@ export class CosmosDbService {
         const databaseName = process.env.COSMOS_DB_DATABASE_NAME || 'm365assessment';
         const customersContainerName = process.env.COSMOS_DB_CUSTOMERS_CONTAINER || 'customers';
         const assessmentsContainerName = process.env.COSMOS_DB_ASSESSMENTS_CONTAINER || 'assessments';
+        const assessmentHistoryContainerName = process.env.COSMOS_DB_ASSESSMENT_HISTORY_CONTAINER || 'assessmentHistory';
 
         if (!endpoint) {
             throw new Error("COSMOS_DB_ENDPOINT environment variable is required");
@@ -39,6 +41,7 @@ export class CosmosDbService {
         this.database = this.client.database(databaseName);
         this.customersContainer = this.database.container(customersContainerName);
         this.assessmentsContainer = this.database.container(assessmentsContainerName);
+        this.assessmentHistoryContainer = this.database.container(assessmentHistoryContainerName);
     }
 
     /**
@@ -74,6 +77,23 @@ export class CosmosDbService {
             await this.database.containers.createIfNotExists({
                 id: this.assessmentsContainer.id,
                 partitionKey: "/customerId", // Partition by customer for optimal query performance
+                indexingPolicy: {
+                    indexingMode: "consistent",
+                    automatic: true,
+                    includedPaths: [
+                        { path: "/*" }
+                    ],
+                    excludedPaths: [
+                        { path: "/\"_etag\"/?" }
+                    ]
+                },
+                throughput: 400
+            });
+
+            // Create assessment history container with proper partitioning
+            await this.database.containers.createIfNotExists({
+                id: this.assessmentHistoryContainer.id,
+                partitionKey: "/tenantId", // Partition by tenant for optimal query performance
                 indexingPolicy: {
                     indexingMode: "consistent",
                     automatic: true,
@@ -384,7 +404,89 @@ export class CosmosDbService {
     }
 
     /**
-     * Update customer's assessment count and last assessment date
+     * Store assessment in history for comparison purposes
+     */
+    async storeAssessmentHistory(assessment: {
+        id: string;
+        tenantId: string;
+        customerId?: string;
+        date: Date;
+        overallScore: number;
+        categoryScores: Record<string, number>;
+        [key: string]: any;
+    }): Promise<void> {
+        try {
+            const historyEntry = {
+                id: `history-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                assessmentId: assessment.id,
+                tenantId: assessment.tenantId,
+                customerId: assessment.customerId,
+                date: assessment.date,
+                overallScore: assessment.overallScore,
+                categoryScores: assessment.categoryScores,
+                createdDate: new Date()
+            };
+
+            await this.assessmentHistoryContainer.items.create(historyEntry);
+        } catch (error) {
+            throw new Error(`Failed to store assessment history: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * Get assessment history with optional filtering
+     */
+    async getAssessmentHistory(options?: {
+        tenantId?: string;
+        customerId?: string;
+        maxItemCount?: number;
+        continuationToken?: string;
+    }): Promise<any[]> {
+        try {
+            let query = "SELECT * FROM c";
+            const parameters: any[] = [];
+            const conditions: string[] = [];
+
+            // Add filters
+            if (options?.tenantId) {
+                conditions.push("c.tenantId = @tenantId");
+                parameters.push({ name: "@tenantId", value: options.tenantId });
+            }
+
+            if (options?.customerId) {
+                conditions.push("c.customerId = @customerId");
+                parameters.push({ name: "@customerId", value: options.customerId });
+            }
+
+            if (conditions.length > 0) {
+                query += " WHERE " + conditions.join(" AND ");
+            }
+
+            // Order by date (most recent first)
+            query += " ORDER BY c.date DESC";
+
+            const querySpec = {
+                query,
+                parameters
+            };
+
+            const queryOptions: any = {
+                maxItemCount: options?.maxItemCount || 10
+            };
+
+            if (options?.continuationToken) {
+                queryOptions.continuationToken = options.continuationToken;
+            }
+
+            const response = await this.assessmentHistoryContainer.items.query(querySpec, queryOptions).fetchNext();
+            return response.resources;
+        } catch (error) {
+            throw new Error(`Failed to get assessment history: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * Update customer's assessment info after a new assessment
      */
     private async updateCustomerAssessmentInfo(customerId: string, tenantId?: string): Promise<void> {
         try {

@@ -1,4 +1,5 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { CosmosDbService } from "./shared/cosmosDbService";
 
 // CORS headers for all responses
 const corsHeaders = {
@@ -8,16 +9,25 @@ const corsHeaders = {
     'Content-Type': 'application/json'
 };
 
-// In-memory storage for demo purposes (replace with real database in production)
-let customers: any[] = [];
-let assessmentHistory: any[] = [];
+// Initialize Cosmos DB service
+let cosmosDbService: CosmosDbService;
+let isCosmosInitialized = false;
 
-// Optimized function initialization with immediate response
-const initializeData = () => {
-    if (customers.length === 0) {
-        console.log('Initializing in-memory data store...');
+// Initialize Cosmos DB service
+async function initializeCosmosDb(context: InvocationContext): Promise<void> {
+    if (!isCosmosInitialized) {
+        try {
+            context.log('Initializing Cosmos DB service...');
+            cosmosDbService = new CosmosDbService();
+            await cosmosDbService.initialize();
+            isCosmosInitialized = true;
+            context.log('Cosmos DB service initialized successfully');
+        } catch (error) {
+            context.log('Failed to initialize Cosmos DB service:', error);
+            throw error;
+        }
     }
-};
+}
 
 // Test endpoint - immediate fast response
 async function testHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
@@ -48,20 +58,28 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
     }
 
     try {
-        // Initialize data if needed (synchronous operation)
-        initializeData();
+        // Initialize Cosmos DB if needed
+        await initializeCosmosDb(context);
 
         if (request.method === 'GET') {
-            context.log('Returning customers from in-memory storage:', customers.length);
+            context.log('Getting all customers from Cosmos DB');
+            
+            const result = await cosmosDbService.getCustomers({
+                status: 'active',
+                maxItemCount: 100
+            });
+            
+            context.log('Retrieved customers from Cosmos DB:', result.customers.length);
             
             return {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
                     success: true,
-                    data: customers,
-                    count: customers.length,
-                    timestamp: new Date().toISOString()
+                    data: result.customers,
+                    count: result.customers.length,
+                    timestamp: new Date().toISOString(),
+                    continuationToken: result.continuationToken
                 }
             };
         }
@@ -84,28 +102,40 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
             }
             
             context.log('Creating new customer with data:', customerData);
-            
-            // Create new customer with provided data
-            const newCustomer = {
-                id: `customer-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                tenantId: `${customerData.tenantName?.toLowerCase().replace(/\s+/g, '-') || 'customer'}-tenant-${Date.now()}`,
+
+            // Check if customer already exists
+            if (customerData.tenantDomain) {
+                const existingCustomer = await cosmosDbService.getCustomerByDomain(customerData.tenantDomain);
+                if (existingCustomer) {
+                    return {
+                        status: 409,
+                        headers: corsHeaders,
+                        jsonBody: {
+                            success: false,
+                            error: `Customer with domain ${customerData.tenantDomain} already exists`
+                        }
+                    };
+                }
+            }
+
+            // Create customer using Cosmos DB service
+            const customerRequest = {
                 tenantName: customerData.tenantName || "New Customer",
-                tenantDomain: customerData.tenantDomain || "example.onmicrosoft.com",
-                applicationId: `app-${Date.now()}`,
-                clientId: `client-${Date.now()}`,
-                servicePrincipalId: `sp-${Date.now()}`,
-                createdDate: new Date().toISOString(),
-                totalAssessments: 0,
-                status: "active",
-                permissions: ["Directory.Read.All", "SecurityEvents.Read.All"],
+                tenantDomain: customerData.tenantDomain || `${customerData.tenantName?.toLowerCase().replace(/\s+/g, '-') || 'customer'}.onmicrosoft.com`,
                 contactEmail: customerData.contactEmail,
                 notes: customerData.notes
             };
 
-            // Add to in-memory storage
-            customers.push(newCustomer);
+            const appRegistration = {
+                applicationId: `app-${Date.now()}`,
+                clientId: `client-${Date.now()}`,
+                servicePrincipalId: `sp-${Date.now()}`,
+                permissions: ["Directory.Read.All", "SecurityEvents.Read.All"]
+            };
+
+            const newCustomer = await cosmosDbService.createCustomer(customerRequest, appRegistration);
             
-            context.log(`Customer created and added to storage. Total customers:`, customers.length);
+            context.log('Customer created successfully:', newCustomer.id);
 
             return {
                 status: 201,
@@ -160,6 +190,9 @@ async function assessmentHistoryHandler(request: HttpRequest, context: Invocatio
     }
 
     try {
+        // Initialize Cosmos DB if needed
+        await initializeCosmosDb(context);
+
         if (request.method === 'GET') {
             const tenantId = request.params.tenantId;
             const customerId = request.params.customerId;
@@ -167,28 +200,22 @@ async function assessmentHistoryHandler(request: HttpRequest, context: Invocatio
 
             context.log('Getting assessment history for:', tenantId || customerId || 'all');
 
-            // Filter assessments by tenantId or customerId
-            let filteredHistory = assessmentHistory;
-            if (tenantId) {
-                filteredHistory = assessmentHistory.filter(h => h.tenantId === tenantId);
-            } else if (customerId) {
-                filteredHistory = assessmentHistory.filter(h => h.customerId === customerId);
-            }
+            // Get assessment history from Cosmos DB
+            const assessmentHistory = await cosmosDbService.getAssessmentHistory({
+                tenantId,
+                customerId,
+                maxItemCount: limit
+            });
 
-            // Sort by date (most recent first) and limit
-            const sortedHistory = filteredHistory
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .slice(0, limit);
-
-            context.log(`Assessment history retrieved. Count: ${sortedHistory.length}`);
+            context.log(`Assessment history retrieved. Count: ${assessmentHistory.length}`);
 
             return {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
                     success: true,
-                    data: sortedHistory,
-                    count: sortedHistory.length,
+                    data: assessmentHistory,
+                    count: assessmentHistory.length,
                     timestamp: new Date().toISOString()
                 }
             };
@@ -212,22 +239,28 @@ async function assessmentHistoryHandler(request: HttpRequest, context: Invocatio
             
             context.log('Adding assessment history:', historyData);
 
-            const historyEntry = {
-                id: `history-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                ...historyData,
-                date: new Date(historyData.date || new Date()).toISOString()
-            };
-
-            assessmentHistory.push(historyEntry);
+            // Store assessment history using Cosmos DB
+            await cosmosDbService.storeAssessmentHistory({
+                id: `assessment-${Date.now()}`,
+                tenantId: historyData.tenantId,
+                customerId: historyData.customerId,
+                date: new Date(historyData.date || new Date()),
+                overallScore: historyData.overallScore || 0,
+                categoryScores: historyData.categoryScores || {},
+                ...historyData
+            });
             
-            context.log(`Assessment history added. Total entries:`, assessmentHistory.length);
+            context.log('Assessment history stored successfully in Cosmos DB');
 
             return {
                 status: 201,
                 headers: corsHeaders,
                 jsonBody: {
                     success: true,
-                    data: historyEntry
+                    data: {
+                        message: "Assessment history stored successfully",
+                        ...historyData
+                    }
                 }
             };
         }
@@ -268,18 +301,38 @@ async function assessmentsHandler(request: HttpRequest, context: InvocationConte
     }
 
     try {
-        // Return empty assessments array since we're using in-memory storage
-        const mockAssessments: any[] = [];
+        // Initialize Cosmos DB if needed
+        await initializeCosmosDb(context);
 
-        context.log(`Assessments retrieved. Count: ${mockAssessments.length}`);
+        // Get query parameters for filtering
+        const customerId = request.query.get('customerId');
+        const status = request.query.get('status');
+        const limit = Math.min(parseInt(request.query.get('limit') || '50'), 100);
+
+        let assessments: any[] = [];
+
+        if (customerId) {
+            // Get assessments for specific customer
+            const result = await cosmosDbService.getCustomerAssessments(customerId, {
+                status: status || undefined,
+                limit: limit
+            });
+            assessments = result.assessments;
+        } else {
+            // For now, return empty array since we don't have a method to get all assessments
+            // This would need to be implemented if needed
+            assessments = [];
+        }
+
+        context.log(`Assessments retrieved. Count: ${assessments.length}`);
 
         return {
             status: 200,
             headers: corsHeaders,
             jsonBody: {
                 success: true,
-                data: mockAssessments,
-                count: mockAssessments.length,
+                data: assessments,
+                count: assessments.length,
                 timestamp: new Date().toISOString()
             }
         };
@@ -494,13 +547,48 @@ async function saveAssessmentHandler(request: HttpRequest, context: InvocationCo
 
         context.log('Saving assessment:', assessmentData.id);
 
-        // Return the saved assessment
+        // Initialize Cosmos DB if needed
+        await initializeCosmosDb(context);
+
+        // Save or update the assessment in Cosmos DB
+        let savedAssessment;
+        if (assessmentData.id && assessmentData.customerId) {
+            // Update existing assessment
+            savedAssessment = await cosmosDbService.updateAssessment(
+                assessmentData.id, 
+                assessmentData.customerId, 
+                assessmentData
+            );
+        } else {
+            // Create new assessment
+            savedAssessment = await cosmosDbService.createAssessment(assessmentData);
+        }
+
+        // Store in assessment history for comparison purposes
+        if (savedAssessment.tenantId) {
+            await cosmosDbService.storeAssessmentHistory({
+                id: savedAssessment.id,
+                tenantId: savedAssessment.tenantId,
+                customerId: assessmentData.customerId || undefined,
+                date: new Date(),
+                overallScore: savedAssessment.score || 0,
+                categoryScores: {
+                    securityBaseline: savedAssessment.metrics?.securityBaseline || 0,
+                    complianceScore: savedAssessment.metrics?.complianceScore || 0,
+                    userTraining: savedAssessment.metrics?.userTraining || 0,
+                    incidentResponse: savedAssessment.metrics?.incidentResponse || 0
+                }
+            });
+        }
+
+        context.log('Assessment saved successfully:', savedAssessment.id);
+
         return {
             status: 200,
             headers: corsHeaders,
             jsonBody: {
                 success: true,
-                data: assessmentData
+                data: savedAssessment
             }
         };
     } catch (error) {
