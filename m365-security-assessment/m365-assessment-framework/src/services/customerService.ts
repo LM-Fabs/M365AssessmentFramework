@@ -55,12 +55,29 @@ export class CustomerService {
   public async getCustomers(): Promise<Customer[]> {
     try {
       console.log('🔍 CustomerService: Making API call to:', `${this.baseUrl}/customers`);
-      const response = await axios.get(`${this.baseUrl}/customers`);
+      
+      // Create a timeout promise that rejects after 5 seconds
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout - API took too long to respond')), 5000);
+      });
+      
+      // Race between the API call and timeout
+      const response = await Promise.race([
+        axios.get(`${this.baseUrl}/customers`, {
+          timeout: 5000, // 5 second timeout
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        }),
+        timeoutPromise
+      ]);
+      
       console.log('📦 CustomerService: Raw API response:', response.data);
       console.log('📊 CustomerService: Response status:', response.status);
       
       // Handle the new API response format from GetCustomers function
-      if (response.data.success && response.data.data) {
+      if (response.data.success && Array.isArray(response.data.data)) {
         console.log('✅ CustomerService: Using structured response format');
         const customers = response.data.data.map((customer: any) => ({
           ...customer,
@@ -83,15 +100,21 @@ export class CustomerService {
         console.warn('⚠️ CustomerService: Unexpected API response format:', response.data);
         return [];
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ CustomerService: Error fetching customers:', error);
       if (axios.isAxiosError(error)) {
         console.error('🌐 CustomerService: Axios error details:', {
           status: error.response?.status,
           statusText: error.response?.statusText,
           data: error.response?.data,
-          url: error.config?.url
+          url: error.config?.url,
+          timeout: error.code === 'ECONNABORTED'
         });
+        
+        if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+          console.warn('⏱️ CustomerService: Request timed out - returning empty array');
+          return [];
+        }
         
         if (error.response?.status === 404) {
           console.info('ℹ️ CustomerService: No customers endpoint found - this is normal for a new deployment');
@@ -101,6 +124,12 @@ export class CustomerService {
           throw new Error(error.response.data.error);
         }
       }
+      
+      if (error?.message?.includes('timeout')) {
+        console.warn('⏱️ CustomerService: Custom timeout reached - returning empty array');
+        return [];
+      }
+      
       throw new Error('Failed to fetch customers from API');
     }
   }

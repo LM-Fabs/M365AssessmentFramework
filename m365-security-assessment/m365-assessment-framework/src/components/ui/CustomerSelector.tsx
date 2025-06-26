@@ -221,80 +221,11 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({
                     </div>
                   )}
 
-                  {showCreateNew && (
-                    <>
-                      <div className="dropdown-divider" />
-                      
-                      {!showCreateForm ? (
-                        <button
-                          className="create-new-button"
-                          onClick={() => setShowCreateForm(true)}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                          </svg>
-                          Add New Customer
-                        </button>
-                      ) : (
-                        <form className="create-customer-form" onSubmit={handleCreateCustomer}>
-                          <h4>Add New Customer</h4>
-                          
-                          {error && <div className="form-error">{error}</div>}
-                          
-                          <div className="form-field">
-                            <label>Tenant Name *</label>
-                            <input
-                              type="text"
-                              value={createFormData.tenantName}
-                              onChange={(e) => setCreateFormData(prev => ({ ...prev, tenantName: e.target.value }))}
-                              placeholder="e.g., Contoso Ltd"
-                              required
-                            />
-                          </div>
-                          
-                          <div className="form-field">
-                            <label>Tenant Domain *</label>
-                            <input
-                              type="text"
-                              value={createFormData.tenantDomain}
-                              onChange={(e) => setCreateFormData(prev => ({ ...prev, tenantDomain: e.target.value }))}
-                              placeholder="e.g., contoso.onmicrosoft.com"
-                              required
-                            />
-                          </div>
-                          
-                          <div className="form-field">
-                            <label>Contact Email</label>
-                            <input
-                              type="email"
-                              value={createFormData.contactEmail}
-                              onChange={(e) => setCreateFormData(prev => ({ ...prev, contactEmail: e.target.value }))}
-                              placeholder="admin@contoso.com"
-                            />
-                          </div>
-                          
-                          <div className="form-actions">
-                            <button
-                              type="button"
-                              className="cancel-button"
-                              onClick={() => {
-                                setShowCreateForm(false);
-                                setError(null);
-                              }}
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="submit"
-                              className="submit-button"
-                              disabled={creating}
-                            >
-                              {creating ? 'Creating...' : 'Create Customer'}
-                            </button>
-                          </div>
-                        </form>
-                      )}
-                    </>
+                  {filteredCustomers.length === 0 && !searchQuery && !loading && (
+                    <div className="no-customers">
+                      <p>No customers available.</p>
+                      <small>Customers need to be created through the Settings page.</small>
+                    </div>
                   )}
                 </>
               )}

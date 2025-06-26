@@ -92,26 +92,49 @@ export class AssessmentHistoryService {
    */
   public async getAssessmentHistory(tenantId: string, limit: number = 10): Promise<AssessmentHistory[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/assessment-history/${tenantId}?limit=${limit}`);
+      const response = await fetch(`${this.baseUrl}/assessment-history/${tenantId}?limit=${limit}`, {
+        signal: AbortSignal.timeout(3000) // 3 second timeout
+      });
       
       if (!response.ok) {
         if (response.status === 404) {
+          console.log('ℹ️ AssessmentHistory: No history found for tenant:', tenantId);
           return []; // No history found
         }
         throw new Error(`Failed to fetch assessment history: ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('📊 AssessmentHistory: Raw response for tenant', tenantId, ':', data);
       
-      // Ensure we always return an array
-      const historyArray = Array.isArray(data) ? data : (data.data && Array.isArray(data.data) ? data.data : []);
+      // Ensure we always return an array - handle various response formats
+      let historyArray: any[] = [];
+      
+      if (Array.isArray(data)) {
+        historyArray = data;
+      } else if (data && typeof data === 'object') {
+        if (Array.isArray(data.data)) {
+          historyArray = data.data;
+        } else if (data.success && Array.isArray(data.data)) {
+          historyArray = data.data;
+        } else {
+          console.warn('⚠️ AssessmentHistory: Unexpected response format:', data);
+          return [];
+        }
+      }
+      
+      console.log('✅ AssessmentHistory: Processed array with', historyArray.length, 'items');
       
       return historyArray.map((item: any) => ({
         ...item,
         date: new Date(item.date)
       }));
-    } catch (error) {
-      console.error('Error fetching assessment history:', error);
+    } catch (error: any) {
+      if (error?.name === 'TimeoutError' || error?.name === 'AbortError') {
+        console.warn('⏱️ AssessmentHistory: Request timed out for tenant:', tenantId);
+        return [];
+      }
+      console.error('Error fetching assessment history for tenant', tenantId, ':', error);
       return []; // Return empty array on error to prevent UI crashes
     }
   }
@@ -182,9 +205,13 @@ export class AssessmentHistoryService {
    * Get recent assessments for dashboard display
    */
   public async getRecentAssessments(tenantId: string, limit: number = 5): Promise<AssessmentHistory[]> {
-    // For now, return empty array since we don't have real assessment history data
-    // In a real implementation, this would call the same endpoint as getAssessmentHistory
     console.log('🔍 Getting recent assessments for tenant:', tenantId);
+    
+    if (!tenantId) {
+      console.warn('⚠️ No tenantId provided to getRecentAssessments');
+      return [];
+    }
+    
     try {
       return await this.getAssessmentHistory(tenantId, limit);
     } catch (error) {
@@ -198,26 +225,49 @@ export class AssessmentHistoryService {
    */
   public async getCustomerAssessments(customerId: string, limit: number = 5): Promise<AssessmentHistory[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/assessment-history/customer/${customerId}?limit=${limit}`);
+      const response = await fetch(`${this.baseUrl}/assessment-history/customer/${customerId}?limit=${limit}`, {
+        signal: AbortSignal.timeout(3000) // 3 second timeout
+      });
       
       if (!response.ok) {
         if (response.status === 404) {
+          console.log('ℹ️ AssessmentHistory: No history found for customer:', customerId);
           return []; // No history found
         }
         throw new Error(`Failed to fetch customer assessment history: ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('📊 AssessmentHistory: Raw response for customer', customerId, ':', data);
       
-      // Ensure we always return an array
-      const historyArray = Array.isArray(data) ? data : (data.data && Array.isArray(data.data) ? data.data : []);
+      // Ensure we always return an array - handle various response formats
+      let historyArray: any[] = [];
+      
+      if (Array.isArray(data)) {
+        historyArray = data;
+      } else if (data && typeof data === 'object') {
+        if (Array.isArray(data.data)) {
+          historyArray = data.data;
+        } else if (data.success && Array.isArray(data.data)) {
+          historyArray = data.data;
+        } else {
+          console.warn('⚠️ AssessmentHistory: Unexpected response format:', data);
+          return [];
+        }
+      }
+      
+      console.log('✅ AssessmentHistory: Processed array with', historyArray.length, 'items');
       
       return historyArray.map((item: any) => ({
         ...item,
         date: new Date(item.date)
       }));
-    } catch (error) {
-      console.error('Error fetching customer assessment history:', error);
+    } catch (error: any) {
+      if (error?.name === 'TimeoutError' || error?.name === 'AbortError') {
+        console.warn('⏱️ AssessmentHistory: Request timed out for customer:', customerId);
+        return [];
+      }
+      console.error('Error fetching customer assessment history for', customerId, ':', error);
       return []; // Return empty array on error to prevent UI crashes
     }
   }
