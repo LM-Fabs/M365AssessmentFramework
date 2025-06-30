@@ -18,14 +18,90 @@ async function initializeCosmosDb(context: InvocationContext): Promise<void> {
     if (!isCosmosInitialized) {
         try {
             context.log('Initializing Cosmos DB service...');
+            
+            // Check if required environment variables are present
+            if (!process.env.COSMOS_DB_ENDPOINT) {
+                throw new Error('COSMOS_DB_ENDPOINT environment variable is required but not set');
+            }
+            
+            if (!process.env.COSMOS_DB_DATABASE_NAME) {
+                context.log('COSMOS_DB_DATABASE_NAME not set, using default: m365assessment');
+            }
+            
+            context.log('Environment check passed, creating CosmosDbService...');
             cosmosDbService = new CosmosDbService();
+            
+            context.log('Initializing Cosmos DB containers...');
             await cosmosDbService.initialize();
+            
             isCosmosInitialized = true;
             context.log('Cosmos DB service initialized successfully');
         } catch (error) {
             context.log('Failed to initialize Cosmos DB service:', error);
             throw error;
         }
+    }
+}
+
+// Diagnostic endpoint to check environment configuration
+async function diagnosticsHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    context.log('Processing diagnostics request');
+
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+
+    try {
+        const diagnostics = {
+            timestamp: new Date().toISOString(),
+            environment: {
+                COSMOS_DB_ENDPOINT: process.env.COSMOS_DB_ENDPOINT ? 'SET' : 'NOT SET',
+                COSMOS_DB_DATABASE_NAME: process.env.COSMOS_DB_DATABASE_NAME ? 'SET' : 'NOT SET',
+                AZURE_CLIENT_ID: process.env.AZURE_CLIENT_ID ? 'SET' : 'NOT SET',
+                AZURE_TENANT_ID: process.env.AZURE_TENANT_ID ? 'SET' : 'NOT SET',
+                KEY_VAULT_URL: process.env.KEY_VAULT_URL ? 'SET' : 'NOT SET',
+                APPLICATIONINSIGHTS_CONNECTION_STRING: process.env.APPLICATIONINSIGHTS_CONNECTION_STRING ? 'SET' : 'NOT SET'
+            },
+            cosmosStatus: 'NOT_INITIALIZED',
+            version: '1.0.5'
+        };
+
+        // Try to initialize Cosmos DB for diagnostics
+        try {
+            if (process.env.COSMOS_DB_ENDPOINT) {
+                const testCosmosService = new CosmosDbService();
+                // Don't call initialize here as it creates resources
+                diagnostics.cosmosStatus = 'CAN_CREATE_CLIENT';
+            } else {
+                diagnostics.cosmosStatus = 'MISSING_ENDPOINT';
+            }
+        } catch (error) {
+            diagnostics.cosmosStatus = `ERROR: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        }
+
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: diagnostics
+            }
+        };
+    } catch (error) {
+        context.error('Error in diagnostics handler:', error);
+        
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: "Internal server error",
+                details: error instanceof Error ? error.message : "Unknown error"
+            }
+        };
     }
 }
 
@@ -676,6 +752,13 @@ async function getMetricsHandler(request: HttpRequest, context: InvocationContex
 }
 
 // Register all functions with optimized configuration
+app.http('diagnostics', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'diagnostics',
+    handler: diagnosticsHandler
+});
+
 app.http('test', {
     methods: ['GET'],
     authLevel: 'anonymous',
