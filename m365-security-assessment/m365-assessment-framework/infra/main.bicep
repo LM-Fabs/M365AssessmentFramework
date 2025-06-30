@@ -4,15 +4,16 @@ param environmentName string
 @description('Primary location for all resources')
 param location string = resourceGroup().location
 
-@description('Azure tenant ID for Graph API access')
-param azureTenantId string = ''
+// Temporarily disabled - will be needed for Graph API access
+// @description('Azure tenant ID for Graph API access')
+// param azureTenantId string = ''
 
-@description('Azure client ID for Graph API access')
-param azureClientId string = ''
+// @description('Azure client ID for Graph API access')
+// param azureClientId string = ''
 
-@description('Azure client secret for Graph API access')
-@secure()
-param azureClientSecret string = ''
+// @description('Azure client secret for Graph API access')
+// @secure()
+// param azureClientSecret string = ''
 
 // Generate a unique suffix based on environment and subscription
 var resourceToken = toLower(uniqueString(subscription().id, environmentName))
@@ -115,7 +116,8 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   }
 }
 
-// Cosmos DB for storing assessment data
+// Cosmos DB for storing assessment data (temporarily disabled due to provider registration)
+/*
 resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
   name: '${resourcePrefix}-cosmos-${resourceToken}'
   location: location
@@ -255,6 +257,7 @@ resource assessmentHistoryContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDa
     }
   }
 }
+*/
 
 // User Assigned Managed Identity for Function App
 resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
@@ -354,23 +357,31 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         }
         {
           name: 'AZURE_CLIENT_ID'
-          value: azureClientId
+          value: ''
         }
         {
           name: 'AZURE_TENANT_ID'
-          value: azureTenantId
+          value: subscription().tenantId
         }
         {
           name: 'AZURE_CLIENT_SECRET'
-          value: azureClientSecret
+          value: ''
+        }
+        {
+          name: 'AZURE_STORAGE_CONNECTION_STRING'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+        }
+        {
+          name: 'STORAGE_ACCOUNT_NAME'
+          value: storageAccount.name
         }
         {
           name: 'COSMOS_DB_ENDPOINT'
-          value: cosmosDbAccount.properties.documentEndpoint
+          value: ''
         }
         {
           name: 'COSMOS_DB_DATABASE_NAME'
-          value: cosmosDatabase.name
+          value: ''
         }
         {
           name: 'FRONTEND_URL'
@@ -404,7 +415,8 @@ resource keyVaultSecretsUserRole 'Microsoft.Authorization/roleAssignments@2022-0
   }
 }
 
-// Role assignment for Function App to access Cosmos DB
+// Role assignment for Function App to access Cosmos DB (temporarily disabled)
+/*
 resource cosmosDbDataContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(cosmosDbAccount.id, functionApp.id, 'b24988ac-6180-42a0-ab88-20f7382dd24c')
   scope: cosmosDbAccount
@@ -414,6 +426,7 @@ resource cosmosDbDataContributorRole 'Microsoft.Authorization/roleAssignments@20
     principalType: 'ServicePrincipal'
   }
 }
+*/
 
 // Diagnostic settings for Function App
 resource functionAppDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
@@ -452,5 +465,6 @@ output APPLICATIONINSIGHTS_CONNECTION_STRING string = applicationInsights.proper
 output KEY_VAULT_URL string = keyVault.properties.vaultUri
 output FUNCTION_APP_NAME string = functionApp.name
 output STATIC_WEB_APP_NAME string = staticWebApp.name
-output COSMOS_DB_ENDPOINT string = cosmosDbAccount.properties.documentEndpoint
-output COSMOS_DB_DATABASE_NAME string = cosmosDatabase.name
+// Cosmos DB outputs (temporarily disabled)
+// output COSMOS_DB_ENDPOINT string = cosmosDbAccount.properties.documentEndpoint
+// output COSMOS_DB_DATABASE_NAME string = cosmosDatabase.name

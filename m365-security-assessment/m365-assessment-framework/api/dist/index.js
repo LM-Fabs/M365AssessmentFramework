@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const functions_1 = require("@azure/functions");
+const cosmosDbService_1 = require("./shared/cosmosDbService");
 // CORS headers for all responses
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -8,15 +9,93 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Content-Type': 'application/json'
 };
-// In-memory storage for demo purposes (replace with real database in production)
-let customers = [];
-let assessmentHistory = [];
-// Optimized function initialization with immediate response
-const initializeData = () => {
-    if (customers.length === 0) {
-        console.log('Initializing in-memory data store...');
+// Initialize Cosmos DB service
+let cosmosDbService;
+let isCosmosInitialized = false;
+// Initialize Cosmos DB service
+async function initializeCosmosDb(context) {
+    if (!isCosmosInitialized) {
+        try {
+            context.log('Initializing Cosmos DB service...');
+            // Check if required environment variables are present
+            if (!process.env.COSMOS_DB_ENDPOINT) {
+                throw new Error('COSMOS_DB_ENDPOINT environment variable is required but not set');
+            }
+            if (!process.env.COSMOS_DB_DATABASE_NAME) {
+                context.log('COSMOS_DB_DATABASE_NAME not set, using default: m365assessment');
+            }
+            context.log('Environment check passed, creating CosmosDbService...');
+            cosmosDbService = new cosmosDbService_1.CosmosDbService();
+            context.log('Initializing Cosmos DB containers...');
+            await cosmosDbService.initialize();
+            isCosmosInitialized = true;
+            context.log('Cosmos DB service initialized successfully');
+        }
+        catch (error) {
+            context.log('Failed to initialize Cosmos DB service:', error);
+            throw error;
+        }
     }
-};
+}
+// Diagnostic endpoint to check environment configuration
+async function diagnosticsHandler(request, context) {
+    context.log('Processing diagnostics request');
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+    try {
+        const diagnostics = {
+            timestamp: new Date().toISOString(),
+            environment: {
+                COSMOS_DB_ENDPOINT: process.env.COSMOS_DB_ENDPOINT ? 'SET' : 'NOT SET',
+                COSMOS_DB_DATABASE_NAME: process.env.COSMOS_DB_DATABASE_NAME ? 'SET' : 'NOT SET',
+                AZURE_CLIENT_ID: process.env.AZURE_CLIENT_ID ? 'SET' : 'NOT SET',
+                AZURE_TENANT_ID: process.env.AZURE_TENANT_ID ? 'SET' : 'NOT SET',
+                KEY_VAULT_URL: process.env.KEY_VAULT_URL ? 'SET' : 'NOT SET',
+                APPLICATIONINSIGHTS_CONNECTION_STRING: process.env.APPLICATIONINSIGHTS_CONNECTION_STRING ? 'SET' : 'NOT SET'
+            },
+            cosmosStatus: 'NOT_INITIALIZED',
+            version: '1.0.5'
+        };
+        // Try to initialize Cosmos DB for diagnostics
+        try {
+            if (process.env.COSMOS_DB_ENDPOINT) {
+                const testCosmosService = new cosmosDbService_1.CosmosDbService();
+                // Don't call initialize here as it creates resources
+                diagnostics.cosmosStatus = 'CAN_CREATE_CLIENT';
+            }
+            else {
+                diagnostics.cosmosStatus = 'MISSING_ENDPOINT';
+            }
+        }
+        catch (error) {
+            diagnostics.cosmosStatus = `ERROR: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        }
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: diagnostics
+            }
+        };
+    }
+    catch (error) {
+        context.error('Error in diagnostics handler:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: "Internal server error",
+                details: error instanceof Error ? error.message : "Unknown error"
+            }
+        };
+    }
+}
 // Test endpoint - immediate fast response
 async function testHandler(request, context) {
     context.log('Test function processed a request');
@@ -42,18 +121,24 @@ async function customersHandler(request, context) {
         };
     }
     try {
-        // Initialize data if needed (synchronous operation)
-        initializeData();
+        // Initialize Cosmos DB if needed
+        await initializeCosmosDb(context);
         if (request.method === 'GET') {
-            context.log('Returning customers from in-memory storage:', customers.length);
+            context.log('Getting all customers from Cosmos DB');
+            const result = await cosmosDbService.getCustomers({
+                status: 'active',
+                maxItemCount: 100
+            });
+            context.log('Retrieved customers from Cosmos DB:', result.customers.length);
             return {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
                     success: true,
-                    data: customers,
-                    count: customers.length,
-                    timestamp: new Date().toISOString()
+                    data: result.customers,
+                    count: result.customers.length,
+                    timestamp: new Date().toISOString(),
+                    continuationToken: result.continuationToken
                 }
             };
         }
@@ -74,25 +159,35 @@ async function customersHandler(request, context) {
                 };
             }
             context.log('Creating new customer with data:', customerData);
-            // Create new customer with provided data
-            const newCustomer = {
-                id: `customer-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                tenantId: `${customerData.tenantName?.toLowerCase().replace(/\s+/g, '-') || 'customer'}-tenant-${Date.now()}`,
+            // Check if customer already exists
+            if (customerData.tenantDomain) {
+                const existingCustomer = await cosmosDbService.getCustomerByDomain(customerData.tenantDomain);
+                if (existingCustomer) {
+                    return {
+                        status: 409,
+                        headers: corsHeaders,
+                        jsonBody: {
+                            success: false,
+                            error: `Customer with domain ${customerData.tenantDomain} already exists`
+                        }
+                    };
+                }
+            }
+            // Create customer using Cosmos DB service
+            const customerRequest = {
                 tenantName: customerData.tenantName || "New Customer",
-                tenantDomain: customerData.tenantDomain || "example.onmicrosoft.com",
-                applicationId: `app-${Date.now()}`,
-                clientId: `client-${Date.now()}`,
-                servicePrincipalId: `sp-${Date.now()}`,
-                createdDate: new Date().toISOString(),
-                totalAssessments: 0,
-                status: "active",
-                permissions: ["Directory.Read.All", "SecurityEvents.Read.All"],
+                tenantDomain: customerData.tenantDomain || `${customerData.tenantName?.toLowerCase().replace(/\s+/g, '-') || 'customer'}.onmicrosoft.com`,
                 contactEmail: customerData.contactEmail,
                 notes: customerData.notes
             };
-            // Add to in-memory storage
-            customers.push(newCustomer);
-            context.log(`Customer created and added to storage. Total customers:`, customers.length);
+            const appRegistration = {
+                applicationId: `app-${Date.now()}`,
+                clientId: `client-${Date.now()}`,
+                servicePrincipalId: `sp-${Date.now()}`,
+                permissions: ["Directory.Read.All", "SecurityEvents.Read.All"]
+            };
+            const newCustomer = await cosmosDbService.createCustomer(customerRequest, appRegistration);
+            context.log('Customer created successfully:', newCustomer.id);
             return {
                 status: 201,
                 headers: corsHeaders,
@@ -141,31 +236,27 @@ async function assessmentHistoryHandler(request, context) {
         };
     }
     try {
+        // Initialize Cosmos DB if needed
+        await initializeCosmosDb(context);
         if (request.method === 'GET') {
             const tenantId = request.params.tenantId;
             const customerId = request.params.customerId;
             const limit = Math.min(parseInt(request.query.get('limit') || '10'), 100); // Cap at 100
             context.log('Getting assessment history for:', tenantId || customerId || 'all');
-            // Filter assessments by tenantId or customerId
-            let filteredHistory = assessmentHistory;
-            if (tenantId) {
-                filteredHistory = assessmentHistory.filter(h => h.tenantId === tenantId);
-            }
-            else if (customerId) {
-                filteredHistory = assessmentHistory.filter(h => h.customerId === customerId);
-            }
-            // Sort by date (most recent first) and limit
-            const sortedHistory = filteredHistory
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .slice(0, limit);
-            context.log(`Assessment history retrieved. Count: ${sortedHistory.length}`);
+            // Get assessment history from Cosmos DB
+            const assessmentHistory = await cosmosDbService.getAssessmentHistory({
+                tenantId,
+                customerId,
+                maxItemCount: limit
+            });
+            context.log(`Assessment history retrieved. Count: ${assessmentHistory.length}`);
             return {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
                     success: true,
-                    data: sortedHistory,
-                    count: sortedHistory.length,
+                    data: assessmentHistory,
+                    count: assessmentHistory.length,
                     timestamp: new Date().toISOString()
                 }
             };
@@ -186,19 +277,26 @@ async function assessmentHistoryHandler(request, context) {
                 };
             }
             context.log('Adding assessment history:', historyData);
-            const historyEntry = {
-                id: `history-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                ...historyData,
-                date: new Date(historyData.date || new Date()).toISOString()
-            };
-            assessmentHistory.push(historyEntry);
-            context.log(`Assessment history added. Total entries:`, assessmentHistory.length);
+            // Store assessment history using Cosmos DB
+            await cosmosDbService.storeAssessmentHistory({
+                id: `assessment-${Date.now()}`,
+                tenantId: historyData.tenantId,
+                customerId: historyData.customerId,
+                date: new Date(historyData.date || new Date()),
+                overallScore: historyData.overallScore || 0,
+                categoryScores: historyData.categoryScores || {},
+                ...historyData
+            });
+            context.log('Assessment history stored successfully in Cosmos DB');
             return {
                 status: 201,
                 headers: corsHeaders,
                 jsonBody: {
                     success: true,
-                    data: historyEntry
+                    data: {
+                        message: "Assessment history stored successfully",
+                        ...historyData
+                    }
                 }
             };
         }
@@ -234,16 +332,34 @@ async function assessmentsHandler(request, context) {
         };
     }
     try {
-        // Return empty assessments array since we're using in-memory storage
-        const mockAssessments = [];
-        context.log(`Assessments retrieved. Count: ${mockAssessments.length}`);
+        // Initialize Cosmos DB if needed
+        await initializeCosmosDb(context);
+        // Get query parameters for filtering
+        const customerId = request.query.get('customerId');
+        const status = request.query.get('status');
+        const limit = Math.min(parseInt(request.query.get('limit') || '50'), 100);
+        let assessments = [];
+        if (customerId) {
+            // Get assessments for specific customer
+            const result = await cosmosDbService.getCustomerAssessments(customerId, {
+                status: status || undefined,
+                limit: limit
+            });
+            assessments = result.assessments;
+        }
+        else {
+            // For now, return empty array since we don't have a method to get all assessments
+            // This would need to be implemented if needed
+            assessments = [];
+        }
+        context.log(`Assessments retrieved. Count: ${assessments.length}`);
         return {
             status: 200,
             headers: corsHeaders,
             jsonBody: {
                 success: true,
-                data: mockAssessments,
-                count: mockAssessments.length,
+                data: assessments,
+                count: assessments.length,
                 timestamp: new Date().toISOString()
             }
         };
@@ -437,13 +553,41 @@ async function saveAssessmentHandler(request, context) {
             };
         }
         context.log('Saving assessment:', assessmentData.id);
-        // Return the saved assessment
+        // Initialize Cosmos DB if needed
+        await initializeCosmosDb(context);
+        // Save or update the assessment in Cosmos DB
+        let savedAssessment;
+        if (assessmentData.id && assessmentData.customerId) {
+            // Update existing assessment
+            savedAssessment = await cosmosDbService.updateAssessment(assessmentData.id, assessmentData.customerId, assessmentData);
+        }
+        else {
+            // Create new assessment
+            savedAssessment = await cosmosDbService.createAssessment(assessmentData);
+        }
+        // Store in assessment history for comparison purposes
+        if (savedAssessment.tenantId) {
+            await cosmosDbService.storeAssessmentHistory({
+                id: savedAssessment.id,
+                tenantId: savedAssessment.tenantId,
+                customerId: assessmentData.customerId || undefined,
+                date: new Date(),
+                overallScore: savedAssessment.score || 0,
+                categoryScores: {
+                    securityBaseline: savedAssessment.metrics?.securityBaseline || 0,
+                    complianceScore: savedAssessment.metrics?.complianceScore || 0,
+                    userTraining: savedAssessment.metrics?.userTraining || 0,
+                    incidentResponse: savedAssessment.metrics?.incidentResponse || 0
+                }
+            });
+        }
+        context.log('Assessment saved successfully:', savedAssessment.id);
         return {
             status: 200,
             headers: corsHeaders,
             jsonBody: {
                 success: true,
-                data: assessmentData
+                data: savedAssessment
             }
         };
     }
@@ -524,6 +668,12 @@ async function getMetricsHandler(request, context) {
     }
 }
 // Register all functions with optimized configuration
+functions_1.app.http('diagnostics', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'diagnostics',
+    handler: diagnosticsHandler
+});
 functions_1.app.http('test', {
     methods: ['GET'],
     authLevel: 'anonymous',

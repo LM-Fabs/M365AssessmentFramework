@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { CosmosDbService } from "./shared/cosmosDbService";
+import { TableStorageService } from "./shared/tableStorageService";
 
 // CORS headers for all responses
 const corsHeaders = {
@@ -9,37 +10,49 @@ const corsHeaders = {
     'Content-Type': 'application/json'
 };
 
-// Initialize Cosmos DB service
+// Initialize data service (Cosmos DB or Table Storage fallback)
 let cosmosDbService: CosmosDbService;
-let isCosmosInitialized = false;
+let tableStorageService: TableStorageService;
+let dataService: CosmosDbService | TableStorageService;
+let isDataServiceInitialized = false;
+let usingCosmosDb = false;
 
-// Initialize Cosmos DB service
-async function initializeCosmosDb(context: InvocationContext): Promise<void> {
-    if (!isCosmosInitialized) {
+// Initialize data service (try Cosmos DB first, fallback to Table Storage)
+async function initializeDataService(context: InvocationContext): Promise<void> {
+    if (!isDataServiceInitialized) {
         try {
-            context.log('Initializing Cosmos DB service...');
+            context.log('Attempting to initialize Cosmos DB service...');
             
-            // Check if required environment variables are present
-            if (!process.env.COSMOS_DB_ENDPOINT) {
-                throw new Error('COSMOS_DB_ENDPOINT environment variable is required but not set');
+            // Try Cosmos DB first
+            if (process.env.COSMOS_DB_ENDPOINT) {
+                context.log('COSMOS_DB_ENDPOINT found, trying Cosmos DB...');
+                cosmosDbService = new CosmosDbService();
+                await cosmosDbService.initialize();
+                dataService = cosmosDbService;
+                usingCosmosDb = true;
+                context.log('✅ Cosmos DB service initialized successfully');
+            } else {
+                throw new Error('COSMOS_DB_ENDPOINT not available');
             }
+        } catch (cosmosError) {
+            context.log('❌ Cosmos DB initialization failed:', cosmosError);
+            context.log('🔄 Falling back to Table Storage...');
             
-            if (!process.env.COSMOS_DB_DATABASE_NAME) {
-                context.log('COSMOS_DB_DATABASE_NAME not set, using default: m365assessment');
+            try {
+                // Fallback to Table Storage
+                tableStorageService = new TableStorageService();
+                await tableStorageService.initialize();
+                dataService = tableStorageService;
+                usingCosmosDb = false;
+                context.log('✅ Table Storage service initialized successfully');
+            } catch (tableError) {
+                context.log('❌ Table Storage initialization failed:', tableError);
+                throw new Error(`Both Cosmos DB and Table Storage initialization failed. Cosmos: ${cosmosError instanceof Error ? cosmosError.message : cosmosError}, Table: ${tableError instanceof Error ? tableError.message : tableError}`);
             }
-            
-            context.log('Environment check passed, creating CosmosDbService...');
-            cosmosDbService = new CosmosDbService();
-            
-            context.log('Initializing Cosmos DB containers...');
-            await cosmosDbService.initialize();
-            
-            isCosmosInitialized = true;
-            context.log('Cosmos DB service initialized successfully');
-        } catch (error) {
-            context.log('Failed to initialize Cosmos DB service:', error);
-            throw error;
         }
+        
+        isDataServiceInitialized = true;
+        context.log(`✅ Data service initialized using: ${usingCosmosDb ? 'Cosmos DB' : 'Table Storage'}`);
     }
 }
 
@@ -65,21 +78,25 @@ async function diagnosticsHandler(request: HttpRequest, context: InvocationConte
                 KEY_VAULT_URL: process.env.KEY_VAULT_URL ? 'SET' : 'NOT SET',
                 APPLICATIONINSIGHTS_CONNECTION_STRING: process.env.APPLICATIONINSIGHTS_CONNECTION_STRING ? 'SET' : 'NOT SET'
             },
-            cosmosStatus: 'NOT_INITIALIZED',
-            version: '1.0.5'
+            dataService: {
+                initialized: isDataServiceInitialized,
+                type: usingCosmosDb ? 'Cosmos DB' : 'Table Storage',
+                cosmosAvailable: !!process.env.COSMOS_DB_ENDPOINT
+            },
+            version: '1.0.6'
         };
 
-        // Try to initialize Cosmos DB for diagnostics
+        // Try to initialize data service for diagnostics
         try {
             if (process.env.COSMOS_DB_ENDPOINT) {
                 const testCosmosService = new CosmosDbService();
                 // Don't call initialize here as it creates resources
-                diagnostics.cosmosStatus = 'CAN_CREATE_CLIENT';
+                diagnostics.dataService.cosmosAvailable = true;
             } else {
-                diagnostics.cosmosStatus = 'MISSING_ENDPOINT';
+                diagnostics.dataService.cosmosAvailable = false;
             }
         } catch (error) {
-            diagnostics.cosmosStatus = `ERROR: ${error instanceof Error ? error.message : 'Unknown error'}`;
+            // Error information is already in the diagnostics object
         }
 
         return {
@@ -115,7 +132,7 @@ async function testHandler(request: HttpRequest, context: InvocationContext): Pr
         jsonBody: {
             message: "M365 Assessment API is working!",
             timestamp: new Date().toISOString(),
-            version: "1.0.5",
+            version: "1.0.6",
             status: "healthy"
         }
     };
@@ -134,18 +151,18 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
     }
 
     try {
-        // Initialize Cosmos DB if needed
-        await initializeCosmosDb(context);
+        // Initialize data service
+        await initializeDataService(context);
 
         if (request.method === 'GET') {
-            context.log('Getting all customers from Cosmos DB');
+            context.log('Getting all customers from data service');
             
-            const result = await cosmosDbService.getCustomers({
+            const result = await dataService.getCustomers({
                 status: 'active',
                 maxItemCount: 100
             });
             
-            context.log('Retrieved customers from Cosmos DB:', result.customers.length);
+            context.log('Retrieved customers from data service:', result.customers.length);
             
             return {
                 status: 200,
@@ -181,7 +198,7 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
 
             // Check if customer already exists
             if (customerData.tenantDomain) {
-                const existingCustomer = await cosmosDbService.getCustomerByDomain(customerData.tenantDomain);
+                const existingCustomer = await dataService.getCustomerByDomain(customerData.tenantDomain);
                 if (existingCustomer) {
                     return {
                         status: 409,
@@ -209,7 +226,7 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 permissions: ["Directory.Read.All", "SecurityEvents.Read.All"]
             };
 
-            const newCustomer = await cosmosDbService.createCustomer(customerRequest, appRegistration);
+            const newCustomer = await dataService.createCustomer(customerRequest, appRegistration);
             
             context.log('Customer created successfully:', newCustomer.id);
 
@@ -266,8 +283,8 @@ async function assessmentHistoryHandler(request: HttpRequest, context: Invocatio
     }
 
     try {
-        // Initialize Cosmos DB if needed
-        await initializeCosmosDb(context);
+        // Initialize data service
+        await initializeDataService(context);
 
         if (request.method === 'GET') {
             const tenantId = request.params.tenantId;
@@ -276,8 +293,8 @@ async function assessmentHistoryHandler(request: HttpRequest, context: Invocatio
 
             context.log('Getting assessment history for:', tenantId || customerId || 'all');
 
-            // Get assessment history from Cosmos DB
-            const assessmentHistory = await cosmosDbService.getAssessmentHistory({
+            // Get assessment history from data service
+            const assessmentHistory = await dataService.getAssessmentHistory({
                 tenantId,
                 customerId,
                 maxItemCount: limit
@@ -315,8 +332,8 @@ async function assessmentHistoryHandler(request: HttpRequest, context: Invocatio
             
             context.log('Adding assessment history:', historyData);
 
-            // Store assessment history using Cosmos DB
-            await cosmosDbService.storeAssessmentHistory({
+            // Store assessment history using data service
+            await dataService.storeAssessmentHistory({
                 id: `assessment-${Date.now()}`,
                 tenantId: historyData.tenantId,
                 customerId: historyData.customerId,
@@ -377,8 +394,8 @@ async function assessmentsHandler(request: HttpRequest, context: InvocationConte
     }
 
     try {
-        // Initialize Cosmos DB if needed
-        await initializeCosmosDb(context);
+        // Initialize data service
+        await initializeDataService(context);
 
         // Get query parameters for filtering
         const customerId = request.query.get('customerId');
@@ -389,7 +406,7 @@ async function assessmentsHandler(request: HttpRequest, context: InvocationConte
 
         if (customerId) {
             // Get assessments for specific customer
-            const result = await cosmosDbService.getCustomerAssessments(customerId, {
+            const result = await dataService.getCustomerAssessments(customerId, {
                 status: status || undefined,
                 limit: limit
             });
@@ -623,26 +640,26 @@ async function saveAssessmentHandler(request: HttpRequest, context: InvocationCo
 
         context.log('Saving assessment:', assessmentData.id);
 
-        // Initialize Cosmos DB if needed
-        await initializeCosmosDb(context);
+        // Initialize data service
+        await initializeDataService(context);
 
-        // Save or update the assessment in Cosmos DB
+        // Save or update the assessment in data service
         let savedAssessment;
         if (assessmentData.id && assessmentData.customerId) {
             // Update existing assessment
-            savedAssessment = await cosmosDbService.updateAssessment(
+            savedAssessment = await dataService.updateAssessment(
                 assessmentData.id, 
                 assessmentData.customerId, 
                 assessmentData
             );
         } else {
             // Create new assessment
-            savedAssessment = await cosmosDbService.createAssessment(assessmentData);
+            savedAssessment = await dataService.createAssessment(assessmentData);
         }
 
         // Store in assessment history for comparison purposes
         if (savedAssessment.tenantId) {
-            await cosmosDbService.storeAssessmentHistory({
+            await dataService.storeAssessmentHistory({
                 id: savedAssessment.id,
                 tenantId: savedAssessment.tenantId,
                 customerId: assessmentData.customerId || undefined,
@@ -842,4 +859,4 @@ app.http('getMetrics', {
 });
 
 // Initialize on startup
-console.log('Azure Functions API initialized successfully - Version 1.0.5');
+console.log('Azure Functions API initialized successfully - Version 1.0.6');
