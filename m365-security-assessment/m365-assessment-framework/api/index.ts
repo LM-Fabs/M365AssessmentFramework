@@ -76,14 +76,15 @@ async function diagnosticsHandler(request: HttpRequest, context: InvocationConte
                 AZURE_CLIENT_ID: process.env.AZURE_CLIENT_ID ? 'SET' : 'NOT SET',
                 AZURE_TENANT_ID: process.env.AZURE_TENANT_ID ? 'SET' : 'NOT SET',
                 KEY_VAULT_URL: process.env.KEY_VAULT_URL ? 'SET' : 'NOT SET',
-                APPLICATIONINSIGHTS_CONNECTION_STRING: process.env.APPLICATIONINSIGHTS_CONNECTION_STRING ? 'SET' : 'NOT SET'
+                APPLICATIONINSIGHTS_CONNECTION_STRING: process.env.APPLICATIONINSIGHTS_CONNECTION_STRING ? 'SET' : 'NOT SET',
+                AzureWebJobsStorage: process.env.AzureWebJobsStorage ? 'SET' : 'NOT SET'
             },
             dataService: {
                 initialized: isDataServiceInitialized,
                 type: usingCosmosDb ? 'Cosmos DB' : 'Table Storage',
                 cosmosAvailable: !!process.env.COSMOS_DB_ENDPOINT
             },
-            version: '1.0.6'
+            version: '1.0.7'
         };
 
         // Try to initialize data service for diagnostics
@@ -132,7 +133,7 @@ async function testHandler(request: HttpRequest, context: InvocationContext): Pr
         jsonBody: {
             message: "M365 Assessment API is working!",
             timestamp: new Date().toISOString(),
-            version: "1.0.6",
+            version: "1.0.7",
             status: "healthy"
         }
     };
@@ -859,4 +860,4 @@ app.http('getMetrics', {
 });
 
 // Initialize on startup
-console.log('Azure Functions API initialized successfully - Version 1.0.6');
+console.log('Azure Functions API initialized successfully - Version 1.0.7');

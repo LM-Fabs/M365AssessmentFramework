@@ -48,26 +48,19 @@ export class TableStorageService {
     private initialized = false;
 
     constructor() {
-        // Use managed identity if available, fallback to connection string
-        const accountName = process.env.STORAGE_ACCOUNT_NAME || 'm365c6qdbpkda5cvs';
-        const accountUrl = `https://${accountName}.table.core.windows.net`;
+        // For Azure Functions, use the AzureWebJobsStorage connection string
+        const connectionString = process.env.AzureWebJobsStorage || process.env.AZURE_STORAGE_CONNECTION_STRING;
         
+        if (!connectionString) {
+            throw new Error('No storage connection string available. AzureWebJobsStorage is required for Azure Functions.');
+        }
+
         try {
-            // Try using managed identity first (production)
-            const credential = new DefaultAzureCredential();
-            this.customersTable = new TableClient(accountUrl, 'customers', credential);
-            this.assessmentsTable = new TableClient(accountUrl, 'assessments', credential);
-            this.historyTable = new TableClient(accountUrl, 'assessmenthistory', credential);
+            this.customersTable = TableClient.fromConnectionString(connectionString, 'customers');
+            this.assessmentsTable = TableClient.fromConnectionString(connectionString, 'assessments');
+            this.historyTable = TableClient.fromConnectionString(connectionString, 'assessmenthistory');
         } catch (error) {
-            // Fallback to connection string for local development
-            const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
-            if (connectionString) {
-                this.customersTable = TableClient.fromConnectionString(connectionString, 'customers');
-                this.assessmentsTable = TableClient.fromConnectionString(connectionString, 'assessments');
-                this.historyTable = TableClient.fromConnectionString(connectionString, 'assessmenthistory');
-            } else {
-                throw new Error('No storage credentials available. Set AZURE_STORAGE_CONNECTION_STRING or configure managed identity.');
-            }
+            throw new Error(`Failed to initialize Table Storage client: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
 
@@ -102,8 +95,7 @@ export class TableStorageService {
         }
 
         const iterator = this.customersTable.listEntities({ 
-            filter,
-            select: ['RowKey', 'tenantName', 'tenantDomain', 'contactEmail', 'notes', 'status', 'createdDate', 'appRegistration']
+            queryOptions: { filter }
         });
 
         let count = 0;
@@ -133,7 +125,7 @@ export class TableStorageService {
 
         try {
             const filter = odata`tenantDomain eq ${domain}`;
-            const iterator = this.customersTable.listEntities({ filter });
+            const iterator = this.customersTable.listEntities({ queryOptions: { filter } });
 
             for await (const entity of iterator) {
                 return {
@@ -196,7 +188,7 @@ export class TableStorageService {
             filter = odata`customerId eq ${customerId} and status eq ${options.status}`;
         }
 
-        const iterator = this.assessmentsTable.listEntities({ filter });
+        const iterator = this.assessmentsTable.listEntities({ queryOptions: { filter } });
 
         let count = 0;
         const maxItems = options?.limit || 50;
@@ -293,7 +285,7 @@ export class TableStorageService {
             filter = odata`customerId eq ${options.customerId}`;
         }
 
-        const iterator = this.historyTable.listEntities({ filter });
+        const iterator = this.historyTable.listEntities({ queryOptions: { filter } });
 
         let count = 0;
         const maxItems = options?.maxItemCount || 100;
