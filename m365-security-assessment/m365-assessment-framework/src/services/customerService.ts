@@ -80,41 +80,29 @@ export class CustomerService {
       
       // Handle the new API response format from GetCustomers function
       if (response.data.success && Array.isArray(response.data.data)) {
-        console.log('✅ CustomerService: Using structured response format');
         const customers = response.data.data.map((customer: any) => ({
           ...customer,
           createdDate: new Date(customer.createdDate),
           lastAssessmentDate: customer.lastAssessmentDate ? new Date(customer.lastAssessmentDate) : undefined
         }));
-        console.log('📋 CustomerService: Processed customers:', customers);
         return customers;
       } else if (Array.isArray(response.data)) {
-        console.log('✅ CustomerService: Using legacy array format');
         // Legacy format - direct array response
         const customers = response.data.map((customer: any) => ({
           ...customer,
           createdDate: new Date(customer.createdDate),
           lastAssessmentDate: customer.lastAssessmentDate ? new Date(customer.lastAssessmentDate) : undefined
         }));
-        console.log('📋 CustomerService: Processed customers:', customers);
         return customers;
       } else {
-        console.warn('⚠️ CustomerService: Unexpected API response format:', response.data);
+        console.warn('Unexpected API response format:', response.data);
         return [];
       }
     } catch (error: any) {
-      console.error('❌ CustomerService: Error fetching customers:', error);
+      console.error('Error fetching customers:', error);
       if (axios.isAxiosError(error)) {
-        console.error('🌐 CustomerService: Axios error details:', {
-          status: error.response?.status,
-          statusText: error.response?.statusText,
-          data: error.response?.data,
-          url: error.config?.url,
-          timeout: error.code === 'ECONNABORTED'
-        });
-        
         if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-          console.warn('⏱️ CustomerService: Request timed out after 15 seconds - returning empty array');
+          console.warn('Request timed out - returning empty array');
           return [];
         }
         
@@ -160,13 +148,11 @@ export class CustomerService {
         }
         
         if (attempt === maxRetries) {
-          console.error(`❌ CustomerService: All ${maxRetries} attempts failed`);
           throw error;
         }
         
         // Exponential backoff: 1s, 2s, 4s
         const delay = Math.pow(2, attempt - 1) * 1000;
-        console.warn(`⏳ CustomerService: Attempt ${attempt} failed, retrying in ${delay}ms...`, error.message);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
@@ -199,12 +185,8 @@ export class CustomerService {
       // Use the main customers endpoint which handles both GET and POST
       const response = await axios.post(`${this.baseUrl}/customers`, customerData);
       
-      // Handle the response from the API
-      console.log('📦 CustomerService: Create customer API response:', response.data);
-      
       if (response.data.success && response.data.data && response.data.data.customer) {
         const customerResponse = response.data.data.customer;
-        console.log('✅ CustomerService: Customer created successfully:', customerResponse);
         return {
           ...customerResponse,
           createdDate: new Date(customerResponse.createdDate),

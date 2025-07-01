@@ -167,13 +167,34 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
             
             context.log('Retrieved customers from data service:', result.customers.length);
             
+            // Transform customers to match frontend interface
+            const transformedCustomers = result.customers.map((customer: any) => {
+                const appReg = customer.appRegistration || {};
+                return {
+                    id: customer.id,
+                    tenantId: appReg.servicePrincipalId || '',
+                    tenantName: customer.tenantName,
+                    tenantDomain: customer.tenantDomain,
+                    applicationId: appReg.applicationId || '',
+                    clientId: appReg.clientId || '',
+                    servicePrincipalId: appReg.servicePrincipalId || '',
+                    createdDate: customer.createdDate,
+                    lastAssessmentDate: customer.lastAssessmentDate,
+                    totalAssessments: customer.totalAssessments || 0,
+                    status: customer.status as 'active' | 'inactive' | 'pending',
+                    permissions: appReg.permissions || [],
+                    contactEmail: customer.contactEmail,
+                    notes: customer.notes
+                };
+            });
+            
             return {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
                     success: true,
-                    data: result.customers,
-                    count: result.customers.length,
+                    data: transformedCustomers,
+                    count: transformedCustomers.length,
                     timestamp: new Date().toISOString(),
                     continuationToken: result.continuationToken
                 }
@@ -233,13 +254,35 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
             
             context.log('Customer created successfully:', newCustomer.id);
 
+            // Transform customer data to match frontend interface
+            // Handle both Customer interface variations (with and without appRegistration)
+            const createdCustomerData = newCustomer as any;
+            const appReg = createdCustomerData.appRegistration || appRegistration;
+            
+            const transformedCustomer = {
+                id: createdCustomerData.id,
+                tenantId: appReg?.servicePrincipalId || '',
+                tenantName: createdCustomerData.tenantName,
+                tenantDomain: createdCustomerData.tenantDomain,
+                applicationId: appReg?.applicationId || '',
+                clientId: appReg?.clientId || '',
+                servicePrincipalId: appReg?.servicePrincipalId || '',
+                createdDate: createdCustomerData.createdDate,
+                lastAssessmentDate: undefined,
+                totalAssessments: 0,
+                status: createdCustomerData.status as 'active' | 'inactive' | 'pending',
+                permissions: appReg?.permissions || [],
+                contactEmail: createdCustomerData.contactEmail,
+                notes: createdCustomerData.notes
+            };
+
             return {
                 status: 201,
                 headers: corsHeaders,
                 jsonBody: {
                     success: true,
                     data: {
-                        customer: newCustomer,
+                        customer: transformedCustomer,
                         nextSteps: [
                             "Customer created successfully",
                             "App registration would be created in production",

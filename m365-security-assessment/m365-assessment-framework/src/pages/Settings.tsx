@@ -146,14 +146,12 @@ const Settings = () => {
         tenantDomain: newCustomerData.tenantDomain,
         contactEmail: newCustomerData.contactEmail,
         notes: newCustomerData.notes
-      });      console.log('✅ Settings: Successfully created new customer:', newCustomer);
+      });
       
       // Auto-select the new customer and reset the form
-      console.log('🔄 Settings: Auto-selecting new customer:', newCustomer.id);
       setSelectedCustomer(newCustomer);
       
       // Trigger the CustomerSelector to refresh its list by calling onCustomerCreate
-      console.log('🔄 Settings: Triggering customer selector refresh...');
       handleCustomerCreate(newCustomer);
       
       setNewCustomerData({
@@ -175,7 +173,6 @@ const Settings = () => {
       setSuccess(false); // Don't show success message that redirects
       
     } catch (error: any) {
-      console.error('❌ Settings: Failed to create customer:', error);
       setNewCustomerError(error.message || 'Failed to create new customer');
     } finally {
       setCreatingCustomer(false);
@@ -190,10 +187,8 @@ const Settings = () => {
     try {
       const customerService = CustomerService.getInstance();
       const customerList = await customerService.getCustomers();
-      console.log('📋 Settings: Loaded customers for management:', customerList.length);
       setCustomers(customerList.filter(c => c.status === 'active'));
     } catch (error: any) {
-      console.error('❌ Settings: Failed to load customers:', error);
       setCustomerError('Failed to load customers');
     } finally {
       setLoadingCustomers(false);
