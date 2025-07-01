@@ -77,7 +77,8 @@ async function diagnosticsHandler(request: HttpRequest, context: InvocationConte
                 AZURE_TENANT_ID: process.env.AZURE_TENANT_ID ? 'SET' : 'NOT SET',
                 KEY_VAULT_URL: process.env.KEY_VAULT_URL ? 'SET' : 'NOT SET',
                 APPLICATIONINSIGHTS_CONNECTION_STRING: process.env.APPLICATIONINSIGHTS_CONNECTION_STRING ? 'SET' : 'NOT SET',
-                AzureWebJobsStorage: process.env.AzureWebJobsStorage ? 'SET' : 'NOT SET'
+                AzureWebJobsStorage: process.env.AzureWebJobsStorage ? 'SET' : 'NOT SET',
+                AZURE_STORAGE_CONNECTION_STRING: process.env.AZURE_STORAGE_CONNECTION_STRING ? 'SET' : 'NOT SET'
             },
             dataService: {
                 initialized: isDataServiceInitialized,
