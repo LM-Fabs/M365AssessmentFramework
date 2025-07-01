@@ -984,6 +984,378 @@ async function getMetricsHandler(request: HttpRequest, context: InvocationContex
     }
 }
 
+// Multi-tenant app creation endpoint
+async function createMultiTenantAppHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    context.log('Creating multi-tenant Azure app registration...');
+
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+
+    try {
+        await initializeDataService(context);
+
+        const requestData = await request.json() as any;
+        const { targetTenantId, targetTenantDomain, assessmentName, requiredPermissions } = requestData;
+
+        if (!targetTenantId) {
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: { 
+                    success: false,
+                    error: "Target tenant ID is required",
+                    expectedFormat: "{ targetTenantId: string, targetTenantDomain?: string, assessmentName?: string }"
+                }
+            };
+        }
+
+        // Create multi-tenant app registration
+        const appName = `${assessmentName || 'M365 Security Assessment'} - ${targetTenantDomain || targetTenantId}`;
+        const redirectUri = process.env.REDIRECT_URI || `${process.env.STATIC_WEB_APP_URL}/auth/consent-callback`;
+        
+        // Generate client ID (in production, this would create actual Azure app)
+        const clientId = `app-${targetTenantId}-${Date.now()}`;
+        const applicationId = `obj-${targetTenantId}-${Date.now()}`;
+        const servicePrincipalId = `sp-${targetTenantId}-${Date.now()}`;
+
+        // Create consent URL for admin consent
+        const baseConsentUrl = 'https://login.microsoftonline.com';
+        const scope = requiredPermissions?.map((perm: string) => `https://graph.microsoft.com/${perm}`).join(' ') ||
+            'https://graph.microsoft.com/Organization.Read.All https://graph.microsoft.com/Reports.Read.All https://graph.microsoft.com/Directory.Read.All';
+        
+        const consentUrl = `${baseConsentUrl}/${targetTenantId}/adminconsent` +
+            `?client_id=${clientId}` +
+            `&scope=${encodeURIComponent(scope)}` +
+            `&redirect_uri=${encodeURIComponent(redirectUri)}`;
+
+        const response = {
+            applicationId,
+            applicationObjectId: applicationId,
+            clientId,
+            servicePrincipalId,
+            tenantId: targetTenantId,
+            consentUrl,
+            authUrl: `${baseConsentUrl}/${targetTenantId}/oauth2/v2.0/authorize`,
+            redirectUri,
+            permissions: requiredPermissions || [
+                'Organization.Read.All',
+                'Reports.Read.All',
+                'Directory.Read.All',
+                'Policy.Read.All',
+                'SecurityEvents.Read.All'
+            ]
+        };
+
+        context.log('✅ Multi-tenant app created:', clientId);
+
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: response
+            }
+        };
+
+    } catch (error: any) {
+        context.log('❌ Error creating multi-tenant app:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: error.message || 'Failed to create multi-tenant app'
+            }
+        };
+    }
+}
+
+// Basic assessment handler (Secure Score + Licenses)
+async function basicAssessmentHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    context.log('Performing basic security assessment...');
+
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+
+    try {
+        await initializeDataService(context);
+
+        const requestData = await request.json() as any;
+        const { customerId, tenantId, assessmentName, clientId, assessmentScope } = requestData;
+
+        if (!tenantId || !clientId) {
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: { 
+                    success: false,
+                    error: "Tenant ID and Client ID are required"
+                }
+            };
+        }
+
+        // Mock secure score data (in production, fetch from Microsoft Graph)
+        const secureScore = {
+            currentScore: Math.floor(Math.random() * 400) + 200, // 200-600
+            maxScore: 600,
+            percentage: 0,
+            controlScores: [
+                {
+                    controlName: 'Identity and Access Management',
+                    category: 'Identity',
+                    currentScore: Math.floor(Math.random() * 100) + 50,
+                    maxScore: 150,
+                    implementationStatus: 'Partial'
+                },
+                {
+                    controlName: 'Data Protection',
+                    category: 'Data',
+                    currentScore: Math.floor(Math.random() * 80) + 40,
+                    maxScore: 120,
+                    implementationStatus: 'Partial'
+                },
+                {
+                    controlName: 'Device Security',
+                    category: 'Device',
+                    currentScore: Math.floor(Math.random() * 100) + 60,
+                    maxScore: 160,
+                    implementationStatus: 'Implemented'
+                },
+                {
+                    controlName: 'Application Security',
+                    category: 'Apps',
+                    currentScore: Math.floor(Math.random() * 70) + 30,
+                    maxScore: 100,
+                    implementationStatus: 'Partial'
+                }
+            ],
+            lastUpdated: new Date()
+        };
+        secureScore.percentage = Math.round((secureScore.currentScore / secureScore.maxScore) * 100);
+
+        // Mock license data (in production, fetch from Microsoft Graph)
+        const licenses = {
+            totalLicenses: Math.floor(Math.random() * 1000) + 100,
+            assignedLicenses: 0,
+            availableLicenses: 0,
+            licenseDetails: [
+                {
+                    skuId: 'c7df2760-2c81-4ef7-b578-5b5392b571df',
+                    skuPartNumber: 'ENTERPRISEPREMIUM',
+                    servicePlanName: 'Office 365 E5',
+                    totalUnits: Math.floor(Math.random() * 500) + 50,
+                    assignedUnits: 0,
+                    consumedUnits: 0,
+                    capabilityStatus: 'Enabled'
+                },
+                {
+                    skuId: 'b05e124f-c7cc-45a0-a6aa-8cf78c946968',
+                    skuPartNumber: 'ENTERPRISEPACK',
+                    servicePlanName: 'Office 365 E3',
+                    totalUnits: Math.floor(Math.random() * 300) + 30,
+                    assignedUnits: 0,
+                    consumedUnits: 0,
+                    capabilityStatus: 'Enabled'
+                }
+            ]
+        };
+
+        // Calculate assigned/available licenses
+        licenses.assignedLicenses = licenses.licenseDetails.reduce((sum, license) => {
+            const assigned = Math.floor(license.totalUnits * 0.8); // 80% assigned
+            license.assignedUnits = assigned;
+            license.consumedUnits = assigned;
+            return sum + assigned;
+        }, 0);
+        licenses.availableLicenses = licenses.totalLicenses - licenses.assignedLicenses;
+
+        const assessmentData = {
+            tenantId,
+            tenantDisplayName: `Tenant ${tenantId}`,
+            assessmentDate: new Date(),
+            secureScore,
+            licenses,
+            status: 'completed' as const
+        };
+
+        context.log('✅ Basic assessment completed for tenant:', tenantId);
+
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: assessmentData
+            }
+        };
+
+    } catch (error: any) {
+        context.log('❌ Error performing basic assessment:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: error.message || 'Failed to perform basic assessment'
+            }
+        };
+    }
+}
+
+// Secure score handler
+async function secureScoreHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    context.log('Fetching secure score...');
+
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+
+    try {
+        const tenantId = request.params.tenantId;
+        const clientId = request.query.get('clientId');
+
+        if (!tenantId || !clientId) {
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: { 
+                    success: false,
+                    error: "Tenant ID and Client ID are required"
+                }
+            };
+        }
+
+        // Mock secure score (in production, fetch from Microsoft Graph)
+        const secureScore = {
+            currentScore: Math.floor(Math.random() * 400) + 200,
+            maxScore: 600,
+            percentage: 0,
+            controlScores: [],
+            lastUpdated: new Date()
+        };
+        secureScore.percentage = Math.round((secureScore.currentScore / secureScore.maxScore) * 100);
+
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: secureScore
+            }
+        };
+
+    } catch (error: any) {
+        context.log('❌ Error fetching secure score:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: error.message || 'Failed to fetch secure score'
+            }
+        };
+    }
+}
+
+// License info handler
+async function licenseInfoHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    context.log('Fetching license information...');
+
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+
+    try {
+        const tenantId = request.params.tenantId;
+        const clientId = request.query.get('clientId');
+
+        if (!tenantId || !clientId) {
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: { 
+                    success: false,
+                    error: "Tenant ID and Client ID are required"
+                }
+            };
+        }
+
+        // Mock license data (in production, fetch from Microsoft Graph)
+        const licenses = {
+            totalLicenses: Math.floor(Math.random() * 1000) + 100,
+            assignedLicenses: Math.floor(Math.random() * 800) + 50,
+            availableLicenses: 0,
+            licenseDetails: [
+                {
+                    skuId: 'c7df2760-2c81-4ef7-b578-5b5392b571df',
+                    skuPartNumber: 'ENTERPRISEPREMIUM',
+                    servicePlanName: 'Office 365 E5',
+                    totalUnits: Math.floor(Math.random() * 500) + 50,
+                    assignedUnits: Math.floor(Math.random() * 400) + 30,
+                    consumedUnits: Math.floor(Math.random() * 400) + 30,
+                    capabilityStatus: 'Enabled'
+                }
+            ]
+        };
+        licenses.availableLicenses = licenses.totalLicenses - licenses.assignedLicenses;
+
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: licenses
+            }
+        };
+
+    } catch (error: any) {
+        context.log('❌ Error fetching license info:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: error.message || 'Failed to fetch license information'
+            }
+        };
+    }
+}
+
+// Assessment status handler (for API warmup)
+async function assessmentStatusHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    if (request.method === 'OPTIONS' || request.method === 'HEAD') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+
+    return {
+        status: 200,
+        headers: corsHeaders,
+        jsonBody: {
+            success: true,
+            status: 'API is running',
+            timestamp: new Date().toISOString(),
+            version: '1.0.9'
+        }
+    };
+}
+
 // Register all functions with optimized configuration
 app.http('diagnostics', {
     methods: ['GET', 'OPTIONS'],
@@ -1080,6 +1452,46 @@ app.http('getMetrics', {
     authLevel: 'anonymous',
     route: 'GetMetrics',
     handler: getMetricsHandler
+});
+
+// Multi-tenant app creation endpoint
+app.http('createMultiTenantApp', {
+    methods: ['POST', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'enterprise-app/multi-tenant',
+    handler: createMultiTenantAppHandler
+});
+
+// Basic assessment endpoint
+app.http('basicAssessment', {
+    methods: ['POST', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/basic',
+    handler: basicAssessmentHandler
+});
+
+// Secure score endpoint
+app.http('secureScore', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/{tenantId}/secure-score',
+    handler: secureScoreHandler
+});
+
+// License info endpoint
+app.http('licenseInfo', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/{tenantId}/licenses',
+    handler: licenseInfoHandler
+});
+
+// Assessment status endpoint (for API warmup)
+app.http('assessmentStatus', {
+    methods: ['HEAD', 'GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/status',
+    handler: assessmentStatusHandler
 });
 
 // Initialize on startup

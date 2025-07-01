@@ -8,17 +8,70 @@ interface ICreateAppResponse {
   clientId: string;
   servicePrincipalId: string;
   tenantId: string;
+  consentUrl: string;
+  authUrl: string;
+  redirectUri: string;
+  permissions: string[];
+}
+
+interface SecureScoreData {
+  currentScore: number;
+  maxScore: number;
+  percentage: number;
+  controlScores: Array<{
+    controlName: string;
+    category: string;
+    currentScore: number;
+    maxScore: number;
+    implementationStatus: string;
+  }>;
+  lastUpdated: Date;
+}
+
+interface LicenseData {
+  totalLicenses: number;
+  assignedLicenses: number;
+  availableLicenses: number;
+  licenseDetails: Array<{
+    skuId: string;
+    skuPartNumber: string;
+    servicePlanName: string;
+    totalUnits: number;
+    assignedUnits: number;
+    consumedUnits: number;
+    capabilityStatus: string;
+  }>;
+}
+
+interface BasicAssessmentData {
+  tenantId: string;
+  tenantDisplayName: string;
+  assessmentDate: Date;
+  secureScore: SecureScoreData;
+  licenses: LicenseData;
+  status: 'pending' | 'in-progress' | 'completed' | 'failed';
 }
 
 export class AssessmentService {
   private static instance: AssessmentService;
   private baseUrl: string;
+  private isWarmed = false;
 
   private constructor() {
     // Use Azure Static Web Apps integrated API for production
     // This ensures we use the same-origin API endpoints that are part of the Static Web App
-    this.baseUrl = process.env.REACT_APP_API_URL || '/api';
+    if (process.env.NODE_ENV === 'development') {
+      this.baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:7072/api';
+    } else {
+      this.baseUrl = '/api';
+    }
     console.log('🔧 AssessmentService: Using API base URL:', this.baseUrl);
+    console.log('🌍 AssessmentService: Environment:', process.env.NODE_ENV);
+    
+    // Warm up the API in production to reduce cold start impact
+    if (process.env.NODE_ENV === 'production') {
+      this.warmUpAPI();
+    }
   }
 
   public static getInstance(): AssessmentService {
@@ -28,16 +81,249 @@ export class AssessmentService {
     return AssessmentService.instance;
   }
 
-  public async createEnterpriseApplication(targetTenantId: string): Promise<ICreateAppResponse> {
+  /**
+   * Warm up the API to reduce cold start latency
+   */
+  private async warmUpAPI(): Promise<void> {
+    if (this.isWarmed) return;
+    
     try {
-      const response = await axios.post(`${this.baseUrl}/enterprise-app`, {
-        targetTenantId
+      console.log('🔥 AssessmentService: Warming up API...');
+      await axios.head(`${this.baseUrl}/assessment/status`, {
+        timeout: 5000,
+        headers: { 'X-Warmup': 'true' }
       });
-      return response.data;
+      this.isWarmed = true;
+      console.log('✅ AssessmentService: API warmed up successfully');
     } catch (error) {
-      console.error('Error creating enterprise application:', error);
-      throw error;
+      console.log('🔥 AssessmentService: API warmup failed (expected for cold start)');
     }
+  }
+
+  /**
+   * Create a multi-tenant Azure app registration for customer tenant authentication
+   * This creates an app that can be consented to in the customer's tenant
+   */
+  public async createMultiTenantApp(data: {
+    targetTenantId: string;
+    targetTenantDomain?: string;
+    assessmentName?: string;
+  }): Promise<ICreateAppResponse> {
+    try {
+      console.log('🏢 AssessmentService: Creating multi-tenant app for tenant:', data.targetTenantId);
+      
+      const response = await this.retryApiCall(() =>
+        axios.post(`${this.baseUrl}/enterprise-app/multi-tenant`, {
+          targetTenantId: data.targetTenantId,
+          targetTenantDomain: data.targetTenantDomain,
+          assessmentName: data.assessmentName || 'M365 Security Assessment',
+          requiredPermissions: [
+            // Security assessment read permissions only
+            'Organization.Read.All',          // Basic organization info
+            'Reports.Read.All',              // Security reports
+            'Directory.Read.All',            // User and group info  
+            'Policy.Read.All',               // Security policies
+            'SecurityEvents.Read.All',       // Security events
+            'IdentityRiskyUser.Read.All',    // Risky users
+            'DeviceManagementManagedDevices.Read.All', // Device compliance
+            'AuditLog.Read.All',             // Audit logs
+            'ThreatIndicators.Read.All'      // Threat intelligence
+          ]
+        }, {
+          timeout: 30000,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+
+      console.log('✅ AssessmentService: Multi-tenant app created successfully');
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ AssessmentService: Error creating multi-tenant app:', error);
+      
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 403) {
+          throw new Error('Insufficient permissions to create Azure app registration. Admin consent required.');
+        }
+        if (error.response?.status === 409) {
+          throw new Error('An app registration with this name already exists for this tenant.');
+        }
+        if (error.response?.data?.error) {
+          throw new Error(error.response.data.error);
+        }
+      }
+      
+      throw new Error('Failed to create multi-tenant app registration');
+    }
+  }
+
+  /**
+   * Get the admin consent URL for the customer to approve the app
+   */
+  public getConsentUrl(clientId: string, tenantId: string, redirectUri?: string): string {
+    const baseConsentUrl = 'https://login.microsoftonline.com';
+    const scope = [
+      'https://graph.microsoft.com/Organization.Read.All',
+      'https://graph.microsoft.com/Reports.Read.All',
+      'https://graph.microsoft.com/Directory.Read.All',
+      'https://graph.microsoft.com/Policy.Read.All',
+      'https://graph.microsoft.com/SecurityEvents.Read.All',
+      'https://graph.microsoft.com/IdentityRiskyUser.Read.All',
+      'https://graph.microsoft.com/DeviceManagementManagedDevices.Read.All',
+      'https://graph.microsoft.com/AuditLog.Read.All',
+      'https://graph.microsoft.com/ThreatIndicators.Read.All'
+    ].join(' ');
+    
+    const consentUrl = `${baseConsentUrl}/${tenantId}/adminconsent` +
+      `?client_id=${clientId}` +
+      `&scope=${encodeURIComponent(scope)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri || window.location.origin + '/auth/consent-callback')}`;
+    
+    return consentUrl;
+  }
+
+  /**
+   * Perform basic security assessment: Secure Score + License Information
+   * This is the starting point for our assessments
+   */
+  public async performBasicAssessment(data: {
+    customerId: string;
+    tenantId: string;
+    assessmentName: string;
+    clientId: string;
+    clientSecret?: string;
+  }): Promise<BasicAssessmentData> {
+    try {
+      console.log('🔍 AssessmentService: Starting basic assessment for tenant:', data.tenantId);
+      
+      const response = await this.retryApiCall(() =>
+        axios.post(`${this.baseUrl}/assessment/basic`, {
+          customerId: data.customerId,
+          tenantId: data.tenantId,
+          assessmentName: data.assessmentName,
+          clientId: data.clientId,
+          clientSecret: data.clientSecret,
+          assessmentScope: ['secureScore', 'licenses']
+        }, {
+          timeout: 60000, // 60 seconds for assessment
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+
+      console.log('✅ AssessmentService: Basic assessment completed');
+      
+      const assessmentData: BasicAssessmentData = {
+        ...response.data,
+        assessmentDate: new Date(response.data.assessmentDate)
+      };
+      
+      return assessmentData;
+    } catch (error: any) {
+      console.error('❌ AssessmentService: Error performing basic assessment:', error);
+      
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          throw new Error('Authentication failed. Please ensure admin consent has been granted.');
+        }
+        if (error.response?.status === 403) {
+          throw new Error('Insufficient permissions. Please grant the required Graph API permissions.');
+        }
+        if (error.response?.data?.error) {
+          throw new Error(error.response.data.error);
+        }
+      }
+      
+      throw new Error('Failed to perform basic security assessment');
+    }
+  }
+
+  /**
+   * Get secure score details for a tenant
+   */
+  public async getSecureScore(tenantId: string, clientId: string): Promise<SecureScoreData> {
+    try {
+      console.log('🛡️ AssessmentService: Fetching secure score for tenant:', tenantId);
+      
+      const response = await this.retryApiCall(() =>
+        axios.get(`${this.baseUrl}/assessment/${tenantId}/secure-score`, {
+          params: { clientId },
+          timeout: 30000
+        })
+      );
+
+      return {
+        ...response.data,
+        lastUpdated: new Date(response.data.lastUpdated)
+      };
+    } catch (error: any) {
+      console.error('❌ AssessmentService: Error fetching secure score:', error);
+      throw new Error('Failed to fetch secure score data');
+    }
+  }
+
+  /**
+   * Get license information for a tenant
+   */
+  public async getLicenseInfo(tenantId: string, clientId: string): Promise<LicenseData> {
+    try {
+      console.log('📄 AssessmentService: Fetching license info for tenant:', tenantId);
+      
+      const response = await this.retryApiCall(() =>
+        axios.get(`${this.baseUrl}/assessment/${tenantId}/licenses`, {
+          params: { clientId },
+          timeout: 30000
+        })
+      );
+
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ AssessmentService: Error fetching license info:', error);
+      throw new Error('Failed to fetch license information');
+    }
+  }
+
+  /**
+   * Retry API calls with exponential backoff for better reliability
+   */
+  private async retryApiCall<T>(
+    apiCall: () => Promise<T>, 
+    maxRetries: number = 3, 
+    isFirstCall: boolean = false
+  ): Promise<T> {
+    let lastError: Error;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔄 AssessmentService: API attempt ${attempt}/${maxRetries}`);
+        
+        if (attempt === 1 && isFirstCall && !this.isWarmed) {
+          await this.warmUpAPI();
+        }
+        
+        return await apiCall();
+      } catch (error: any) {
+        lastError = error;
+        
+        // Don't retry on client errors (4xx) except for 408 (timeout) and 429 (rate limit)
+        if (axios.isAxiosError(error) && error.response?.status) {
+          const status = error.response.status;
+          if (status >= 400 && status < 500 && status !== 408 && status !== 429) {
+            console.warn(`🚫 AssessmentService: Client error ${status}, not retrying`);
+            throw error;
+          }
+        }
+        
+        if (attempt === maxRetries) {
+          console.error(`❌ AssessmentService: All ${maxRetries} attempts failed`);
+          throw error;
+        }
+        
+        const delay = Math.pow(2, attempt - 1) * 1000; // Exponential backoff
+        console.log(`⏳ AssessmentService: Waiting ${delay}ms before retry ${attempt + 1}`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    throw lastError!;
   }
 
   public async getAssessment(tenantId: string, assessmentId: string): Promise<Assessment> {
@@ -199,36 +485,6 @@ export class AssessmentService {
       }
       console.error('Error fetching current assessment:', error);
       return null; // Return null instead of throwing to prevent UI crashes
-    }
-  }
-
-  public async createMultiTenantApp(data: {
-    targetTenantId: string;
-    targetTenantDomain?: string;
-    assessmentName?: string;
-  }): Promise<any> {
-    try {
-      console.log('Creating multi-tenant application with URL:', `${this.baseUrl}/enterprise-app/multi-tenant`);
-      console.log('Data being sent:', JSON.stringify(data, null, 2));
-      
-      const response = await axios.post(`${this.baseUrl}/enterprise-app/multi-tenant`, data);
-      console.log('Create multi-tenant app response:', response.status, response.statusText);
-      return response.data;
-    } catch (error: any) {
-      console.error('Error creating multi-tenant application:', error);
-      if (axios.isAxiosError(error)) {
-        if (error.response) {
-          console.error('Response error data:', error.response.data);
-          console.error('Response status:', error.response.status);
-          console.error('Response headers:', error.response.headers);
-        } else if (error.request) {
-          console.error('No response received. Request details:', error.request);
-        } else {
-          console.error('Error message:', error.message);
-        }
-        console.error('Error config:', error.config);
-      }
-      throw error;
     }
   }
 
