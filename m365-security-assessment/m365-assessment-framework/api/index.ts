@@ -2,11 +2,14 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { TableStorageService } from "./shared/tableStorageService";
 import { Customer } from "./shared/types";
 
-// CORS headers for all responses
-const corsHeaders = {
+// CORS headers for local development only
+// In Azure Static Web Apps, CORS is handled automatically
+const corsHeaders = process.env.NODE_ENV === 'development' ? {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Content-Type': 'application/json'
+} : {
     'Content-Type': 'application/json'
 };
 
@@ -1080,4 +1083,10 @@ app.http('getMetrics', {
 });
 
 // Initialize on startup
-console.log('Azure Functions API initialized successfully - Version 1.0.7');
+const environment = process.env.NODE_ENV || 'production';
+const isProduction = environment === 'production';
+console.log(`🚀 Azure Functions API initialized successfully - Version 1.0.8`);
+console.log(`🌍 Environment: ${environment}`);
+console.log(`📊 Database: Table Storage`);
+console.log(`🔧 Static Web App Compatible: ${isProduction ? 'Yes' : 'Development Mode'}`);
+console.log(`📡 CORS: ${isProduction ? 'Handled by Static Web Apps' : 'Development Headers'}`);

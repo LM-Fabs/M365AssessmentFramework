@@ -36,11 +36,17 @@ export class CustomerService {
   private baseUrl: string;
 
   private constructor() {
-    // Use Azure Static Web Apps integrated API for production
-    // For local development, use the Functions local port
-    this.baseUrl = process.env.REACT_APP_API_URL || 
-                  (process.env.NODE_ENV === 'development' ? 'http://localhost:7072/api' : '/api');
+    // Azure Static Web Apps API routing:
+    // - Local development: http://localhost:7072/api
+    // - Production SWA: /api (automatically routed by Static Web Apps)
+    if (process.env.NODE_ENV === 'development') {
+      this.baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:7072/api';
+    } else {
+      // In production (Azure Static Web Apps), use the integrated API path
+      this.baseUrl = '/api';
+    }
     console.log('🔧 CustomerService: Using API base URL:', this.baseUrl);
+    console.log('🌍 CustomerService: Environment:', process.env.NODE_ENV);
   }
 
   public static getInstance(): CustomerService {

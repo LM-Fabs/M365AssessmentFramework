@@ -50,11 +50,17 @@ export class TableStorageService {
 
     constructor() {
         // For Azure Functions, use the AzureWebJobsStorage connection string
+        // In development: UseDevelopmentStorage=true (emulator)
+        // In production: Actual Azure Storage connection string
         const connectionString = process.env.AzureWebJobsStorage || process.env.AZURE_STORAGE_CONNECTION_STRING;
         
         if (!connectionString) {
-            throw new Error('No storage connection string available. AzureWebJobsStorage is required for Azure Functions.');
+            throw new Error('No storage connection string available. AzureWebJobsStorage or AZURE_STORAGE_CONNECTION_STRING is required.');
         }
+
+        console.log('🔧 TableStorageService: Initializing with storage connection');
+        console.log('🌍 TableStorageService: Environment:', process.env.NODE_ENV || 'production');
+        console.log('📊 TableStorageService: Using emulator:', connectionString.includes('UseDevelopmentStorage=true'));
 
         try {
             this.customersTable = TableClient.fromConnectionString(connectionString, 'customers');
