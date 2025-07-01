@@ -5,11 +5,6 @@ metadata:
   template: m365-security-assessment@0.0.1-beta
 
 services:
-  m365-assessment-api:
-    project: ./api
-    language: ts
-    host: function
-
   m365-assessment-frontend:
     project: .
     language: ts

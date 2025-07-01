@@ -122,6 +122,80 @@ class TableStorageService {
         await this.customersTable.createEntity(entity);
         return customer;
     }
+    async getCustomer(customerId) {
+        await this.initialize();
+        try {
+            const entity = await this.customersTable.getEntity('customer', customerId);
+            return {
+                id: entity.rowKey,
+                tenantName: entity.tenantName,
+                tenantDomain: entity.tenantDomain,
+                contactEmail: entity.contactEmail,
+                notes: entity.notes,
+                createdDate: new Date(entity.createdDate),
+                status: entity.status,
+                appRegistration: JSON.parse(entity.appRegistration)
+            };
+        }
+        catch (error) {
+            if (error?.statusCode === 404) {
+                return null;
+            }
+            throw error;
+        }
+    }
+    async deleteCustomer(customerId) {
+        await this.initialize();
+        try {
+            await this.customersTable.deleteEntity('customer', customerId);
+        }
+        catch (error) {
+            if (error?.statusCode === 404) {
+                throw new Error('Customer not found');
+            }
+            throw error;
+        }
+    }
+    async updateCustomer(customerId, updates) {
+        await this.initialize();
+        try {
+            // First get the existing customer
+            const existingEntity = await this.customersTable.getEntity('customer', customerId);
+            // Create updated entity
+            const updatedEntity = {
+                partitionKey: 'customer',
+                rowKey: customerId,
+                tenantName: updates.tenantName ?? existingEntity.tenantName,
+                tenantDomain: updates.tenantDomain ?? existingEntity.tenantDomain,
+                contactEmail: updates.contactEmail ?? existingEntity.contactEmail ?? '',
+                notes: updates.notes ?? existingEntity.notes ?? '',
+                status: updates.status ?? existingEntity.status,
+                createdDate: existingEntity.createdDate,
+                appRegistration: updates.appRegistration
+                    ? JSON.stringify(updates.appRegistration)
+                    : existingEntity.appRegistration
+            };
+            // Update the entity (merge mode)
+            await this.customersTable.updateEntity(updatedEntity, 'Merge');
+            // Return the updated customer
+            return {
+                id: customerId,
+                tenantName: updatedEntity.tenantName,
+                tenantDomain: updatedEntity.tenantDomain,
+                contactEmail: updatedEntity.contactEmail,
+                notes: updatedEntity.notes,
+                createdDate: new Date(updatedEntity.createdDate),
+                status: updatedEntity.status,
+                appRegistration: JSON.parse(updatedEntity.appRegistration)
+            };
+        }
+        catch (error) {
+            if (error?.statusCode === 404) {
+                throw new Error('Customer not found');
+            }
+            throw error;
+        }
+    }
     // Assessment operations
     async getCustomerAssessments(customerId, options) {
         await this.initialize();

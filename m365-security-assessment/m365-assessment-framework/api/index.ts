@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { CosmosDbService } from "./shared/cosmosDbService";
 import { TableStorageService } from "./shared/tableStorageService";
+import { Customer } from "./shared/types";
 
 // CORS headers for all responses
 const corsHeaders = {
@@ -260,6 +261,195 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
 
     } catch (error) {
         context.error('Error in customers handler:', error);
+        
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: "Internal server error",
+                details: error instanceof Error ? error.message : "Unknown error"
+            }
+        };
+    }
+}
+
+// Individual customer operations (get, update, delete)
+async function customerByIdHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    context.log(`Processing ${request.method} request for customer by ID`);
+
+    // Handle preflight OPTIONS request immediately
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+
+    try {
+        // Initialize data service
+        await initializeDataService(context);
+
+        const customerId = request.params.customerId;
+        
+        if (!customerId) {
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Customer ID is required"
+                }
+            };
+        }
+
+        if (request.method === 'GET') {
+            context.log('Getting customer by ID:', customerId);
+            
+            const customer = await dataService.getCustomer(customerId);
+            if (!customer) {
+                return {
+                    status: 404,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Customer not found"
+                    }
+                };
+            }
+            
+            return {
+                status: 200,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: true,
+                    data: customer,
+                    timestamp: new Date().toISOString()
+                }
+            };
+        }
+
+        if (request.method === 'DELETE') {
+            context.log('Deleting customer:', customerId);
+
+            // Check if customer exists
+            const existingCustomer = await dataService.getCustomer(customerId);
+            if (!existingCustomer) {
+                return {
+                    status: 404,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Customer not found"
+                    }
+                };
+            }
+
+            // Check if customer has assessments (optional - you might want to allow cascading delete)
+            const assessments = await dataService.getCustomerAssessments(customerId, { limit: 1 });
+            if (assessments.assessments.length > 0) {
+                return {
+                    status: 409,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Cannot delete customer with existing assessments. Please delete assessments first.",
+                        hasAssessments: true
+                    }
+                };
+            }
+
+            // Delete the customer
+            await dataService.deleteCustomer(customerId);
+            
+            context.log('Customer deleted successfully:', customerId);
+
+            return {
+                status: 200,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: true,
+                    data: {
+                        message: "Customer deleted successfully",
+                        deletedCustomerId: customerId
+                    }
+                }
+            };
+        }
+
+        if (request.method === 'PUT') {
+            context.log('Updating customer:', customerId);
+
+            // Check if customer exists
+            const existingCustomer = await dataService.getCustomer(customerId);
+            if (!existingCustomer) {
+                return {
+                    status: 404,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Customer not found"
+                    }
+                };
+            }
+
+            // Parse request body
+            let updateData: Partial<Customer>;
+            try {
+                updateData = await request.json() as Partial<Customer>;
+            } catch (error) {
+                return {
+                    status: 400,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Invalid JSON in request body"
+                    }
+                };
+            }
+
+            // Validate update data
+            if (!updateData || Object.keys(updateData).length === 0) {
+                return {
+                    status: 400,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "No update data provided"
+                    }
+                };
+            }
+
+            // Don't allow updating the ID or creation date
+            const { id, createdDate, ...allowedUpdates } = updateData;
+
+            // Update the customer
+            const updatedCustomer = await dataService.updateCustomer(customerId, allowedUpdates);
+            
+            context.log('Customer updated successfully:', customerId);
+
+            return {
+                status: 200,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: true,
+                    data: updatedCustomer,
+                    timestamp: new Date().toISOString()
+                }
+            };
+        }
+
+        return {
+            status: 405,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: `Method ${request.method} not allowed`
+            }
+        };
+
+    } catch (error) {
+        context.error('Error in customer by ID handler:', error);
         
         return {
             status: 500,
@@ -790,6 +980,14 @@ app.http('customers', {
     authLevel: 'anonymous',
     route: 'customers',
     handler: customersHandler
+});
+
+// Individual customer operations (get, update, delete)
+app.http('customerById', {
+    methods: ['GET', 'PUT', 'DELETE', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'customers/{customerId}',
+    handler: customerByIdHandler
 });
 
 app.http('assessments', {

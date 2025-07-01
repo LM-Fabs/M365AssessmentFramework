@@ -232,16 +232,36 @@ export class CosmosDbService {
     /**
      * Get customer by ID
      */
-    async getCustomer(customerId: string, tenantDomain: string): Promise<Customer> {
+    async getCustomer(customerId: string): Promise<Customer | null>;
+    async getCustomer(customerId: string, tenantDomain: string): Promise<Customer>;
+    async getCustomer(customerId: string, tenantDomain?: string): Promise<Customer | null> {
         try {
-            const response = await this.customersContainer.item(customerId, tenantDomain).read<Customer>();
-            if (!response.resource) {
-                throw new Error(`Customer ${customerId} not found`);
+            if (tenantDomain) {
+                // Original implementation with tenant domain
+                const response = await this.customersContainer.item(customerId, tenantDomain).read<Customer>();
+                if (!response.resource) {
+                    throw new Error(`Customer ${customerId} not found`);
+                }
+                return response.resource;
+            } else {
+                // New implementation - query by ID only
+                const querySpec = {
+                    query: "SELECT * FROM c WHERE c.id = @customerId AND c.status != 'deleted'",
+                    parameters: [
+                        { name: "@customerId", value: customerId }
+                    ]
+                };
+
+                const response = await this.customersContainer.items.query<Customer>(querySpec).fetchNext();
+                return response.resources.length > 0 ? response.resources[0] : null;
             }
-            return response.resource;
         } catch (error) {
             if ((error as any).code === 404) {
-                throw new Error(`Customer ${customerId} not found`);
+                if (tenantDomain) {
+                    throw new Error(`Customer ${customerId} not found`);
+                } else {
+                    return null;
+                }
             }
             throw new Error(`Failed to get customer: ${(error as Error).message}`);
         }
@@ -250,14 +270,33 @@ export class CosmosDbService {
     /**
      * Update customer information
      */
-    async updateCustomer(customerId: string, tenantDomain: string, updates: Partial<Customer>): Promise<Customer> {
+    async updateCustomer(customerId: string, updates: Partial<Customer>): Promise<Customer>;
+    async updateCustomer(customerId: string, tenantDomain: string, updates: Partial<Customer>): Promise<Customer>;
+    async updateCustomer(customerId: string, tenantDomainOrUpdates: string | Partial<Customer>, updates?: Partial<Customer>): Promise<Customer> {
         try {
-            const existing = await this.getCustomer(customerId, tenantDomain);
-            if (!existing) {
-                throw new Error(`Customer ${customerId} not found`);
+            let customer: Customer | null = null;
+            let actualUpdates: Partial<Customer>;
+            let tenantDomain: string;
+
+            if (typeof tenantDomainOrUpdates === 'string') {
+                // Original implementation with tenant domain
+                tenantDomain = tenantDomainOrUpdates;
+                actualUpdates = updates!;
+                customer = await this.getCustomer(customerId, tenantDomain);
+                if (!customer) {
+                    throw new Error(`Customer ${customerId} not found`);
+                }
+            } else {
+                // New implementation - find customer first
+                actualUpdates = tenantDomainOrUpdates;
+                customer = await this.getCustomer(customerId);
+                if (!customer) {
+                    throw new Error('Customer not found');
+                }
+                tenantDomain = customer.tenantDomain;
             }
 
-            const updated = { ...existing, ...updates };
+            const updated = { ...customer, ...actualUpdates };
             const response = await this.customersContainer.item(customerId, tenantDomain).replace(updated);
             
             if (!response.resource) {
@@ -273,11 +312,25 @@ export class CosmosDbService {
     /**
      * Soft delete customer (mark as deleted)
      */
-    async deleteCustomer(customerId: string, tenantDomain: string): Promise<void> {
+    async deleteCustomer(customerId: string): Promise<void>;
+    async deleteCustomer(customerId: string, tenantDomain: string): Promise<void>;
+    async deleteCustomer(customerId: string, tenantDomain?: string): Promise<void> {
         try {
-            const customer = await this.getCustomer(customerId, tenantDomain);
-            if (!customer) {
-                throw new Error(`Customer ${customerId} not found`);
+            let customer: Customer | null = null;
+            
+            if (tenantDomain) {
+                // Original implementation with tenant domain
+                customer = await this.getCustomer(customerId, tenantDomain);
+                if (!customer) {
+                    throw new Error(`Customer ${customerId} not found`);
+                }
+            } else {
+                // New implementation - find customer first
+                customer = await this.getCustomer(customerId);
+                if (!customer) {
+                    throw new Error('Customer not found');
+                }
+                tenantDomain = customer.tenantDomain;
             }
 
             // Soft delete by updating status

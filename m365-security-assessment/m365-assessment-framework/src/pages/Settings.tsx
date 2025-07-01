@@ -1,5 +1,5 @@
 // filepath: /m365-assessment-framework/m365-assessment-framework/src/pages/Settings.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { AssessmentService } from '../services/assessmentService';
@@ -25,6 +25,14 @@ const Settings = () => {
   });
   const [newCustomerError, setNewCustomerError] = useState<string | null>(null);
   const [creatingCustomer, setCreatingCustomer] = useState(false);
+  
+  // Customer management state
+  const [showCustomerManagement, setShowCustomerManagement] = useState(false);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [deletingCustomer, setDeletingCustomer] = useState(false);
+  const [customerError, setCustomerError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     assessmentName: 'Security Assessment',
@@ -57,8 +65,13 @@ const Settings = () => {
 
   const handleCustomerCreate = (customer: Customer) => {
     console.log('🎉 Settings: New customer created callback received:', customer);
+    console.log('🎉 Settings: Customer selector key before increment:', customerSelectorKey);
     // Force CustomerSelector to refresh by updating its key
-    setCustomerSelectorKey(prev => prev + 1);
+    setCustomerSelectorKey(prev => {
+      const newKey = prev + 1;
+      console.log('🎉 Settings: Customer selector key after increment:', newKey);
+      return newKey;
+    });
   };
 
   const handleAssessmentSubmit = async (e: React.FormEvent) => {
@@ -133,14 +146,14 @@ const Settings = () => {
         tenantDomain: newCustomerData.tenantDomain,
         contactEmail: newCustomerData.contactEmail,
         notes: newCustomerData.notes
-      });
-
-      console.log('✅ Settings: Successfully created new customer:', newCustomer);
-
+      });      console.log('✅ Settings: Successfully created new customer:', newCustomer);
+      
       // Auto-select the new customer and reset the form
+      console.log('🔄 Settings: Auto-selecting new customer:', newCustomer.id);
       setSelectedCustomer(newCustomer);
       
       // Trigger the CustomerSelector to refresh its list by calling onCustomerCreate
+      console.log('🔄 Settings: Triggering customer selector refresh...');
       handleCustomerCreate(newCustomer);
       
       setNewCustomerData({
@@ -168,6 +181,67 @@ const Settings = () => {
       setCreatingCustomer(false);
     }
   };
+
+  // Customer management functions
+  const loadCustomers = async () => {
+    setLoadingCustomers(true);
+    setCustomerError(null);
+    
+    try {
+      const customerService = CustomerService.getInstance();
+      const customerList = await customerService.getCustomers();
+      console.log('📋 Settings: Loaded customers for management:', customerList.length);
+      setCustomers(customerList.filter(c => c.status === 'active'));
+    } catch (error: any) {
+      console.error('❌ Settings: Failed to load customers:', error);
+      setCustomerError('Failed to load customers');
+    } finally {
+      setLoadingCustomers(false);
+    }
+  };
+
+  const handleDeleteCustomer = async (customer: Customer) => {
+    setCustomerToDelete(customer);
+  };
+
+  const confirmDeleteCustomer = async () => {
+    if (!customerToDelete) return;
+    
+    setDeletingCustomer(true);
+    setCustomerError(null);
+    
+    try {
+      const customerService = CustomerService.getInstance();
+      await customerService.deleteCustomer(customerToDelete.id);
+      
+      console.log('✅ Settings: Customer deleted successfully:', customerToDelete.id);
+      
+      // Remove from local list
+      setCustomers(prev => prev.filter(c => c.id !== customerToDelete.id));
+      
+      // Clear selected customer if it was deleted
+      if (selectedCustomer?.id === customerToDelete.id) {
+        setSelectedCustomer(null);
+      }
+      
+      // Refresh customer selector
+      setCustomerSelectorKey(prev => prev + 1);
+      
+      setCustomerToDelete(null);
+    } catch (error: any) {
+      console.error('❌ Settings: Failed to delete customer:', error);
+      setCustomerError(error.message || 'Failed to delete customer');
+    } finally {
+      setDeletingCustomer(false);
+    }
+  };
+
+  // Load customers when customer management is opened
+  useEffect(() => {
+    if (showCustomerManagement) {
+      loadCustomers();
+    }
+  }, [showCustomerManagement]);
 
   if (!isAuthenticated) {
     return (
@@ -348,6 +422,128 @@ const Settings = () => {
           )}
         </div>
 
+        {/* Customer Management Section */}
+        <div className="form-section">
+          <div className="section-header">
+            <h2>Customer Management</h2>
+            <button
+              type="button"
+              className="toggle-button"
+              onClick={() => setShowCustomerManagement(!showCustomerManagement)}
+            >
+              {showCustomerManagement ? 'Hide' : 'Manage Customers'}
+            </button>
+          </div>
+          
+          {showCustomerManagement && (
+            <div className="customer-management-section">
+              {customerError && <div className="error-message">{customerError}</div>}
+              
+              {loadingCustomers ? (
+                <div className="loading-message">Loading customers...</div>
+              ) : (
+                <div className="customer-list-management">
+                  {customers.length === 0 ? (
+                    <div className="no-customers-message">
+                      <p>No customers found.</p>
+                      <small>Create a new customer using the form above.</small>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="customer-list-header">
+                        <span>Customer ({customers.length})</span>
+                        <span>Domain</span>
+                        <span>Assessments</span>
+                        <span>Actions</span>
+                      </div>
+                      
+                      <div className="customer-list-items">
+                        {customers.map((customer) => (
+                          <div key={customer.id} className="customer-list-item">
+                            <div className="customer-info">
+                              <div className="customer-name">{customer.tenantName}</div>
+                              <div className="customer-email">{customer.contactEmail}</div>
+                            </div>
+                            <div className="customer-domain">{customer.tenantDomain}</div>
+                            <div className="customer-assessments">{customer.totalAssessments || 0}</div>
+                            <div className="customer-actions">
+                              <button
+                                type="button"
+                                className="delete-button"
+                                onClick={() => handleDeleteCustomer(customer)}
+                                disabled={deletingCustomer}
+                                title="Delete customer"
+                              >
+                                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                                {deletingCustomer ? 'Deleting...' : 'Delete'}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Delete Confirmation Modal */}
+        {customerToDelete && (
+          <div className="modal-overlay" onClick={() => setCustomerToDelete(null)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Delete Customer</h3>
+                <button
+                  type="button"
+                  className="modal-close"
+                  onClick={() => setCustomerToDelete(null)}
+                >
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="modal-body">
+                <p>Are you sure you want to delete the customer <strong>{customerToDelete.tenantName}</strong>?</p>
+                <p className="warning-text">
+                  ⚠️ This action cannot be undone. All assessment data for this customer will be preserved,
+                  but you won't be able to run new assessments until you recreate the customer.
+                </p>
+                
+                <div className="customer-delete-details">
+                  <div><strong>Tenant:</strong> {customerToDelete.tenantDomain}</div>
+                  <div><strong>Contact:</strong> {customerToDelete.contactEmail || 'Not specified'}</div>
+                  <div><strong>Assessments:</strong> {customerToDelete.totalAssessments || 0}</div>
+                </div>
+              </div>
+              
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setCustomerToDelete(null)}
+                  disabled={deletingCustomer}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="danger-button"
+                  onClick={confirmDeleteCustomer}
+                  disabled={deletingCustomer}
+                >
+                  {deletingCustomer ? 'Deleting...' : 'Delete Customer'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="form-section">
           <h2>Assessment Configuration</h2>
           
@@ -474,6 +670,87 @@ const Settings = () => {
           </button>
         </div>
       </form>
+
+      {/* Customer Management Section */}
+      <div className="customer-management-section">
+        <h2>Customer Management</h2>
+        <button
+          type="button"
+          className="toggle-management-button"
+          onClick={() => setShowCustomerManagement(prev => !prev)}
+        >
+          {showCustomerManagement ? 'Hide Customer Management' : 'Show Customer Management'}
+        </button>
+
+        {showCustomerManagement && (
+          <div className="customer-management-content">
+            {loadingCustomers && <div className="loading-message">Loading customers...</div>}
+            {customerError && <div className="error-message">{customerError}</div>}
+
+            <div className="customer-list">
+              {customers.length === 0 ? (
+                <div className="no-customers-message">
+                  No active customers found. Please add a new customer.
+                </div>
+              ) : (
+                customers.map(customer => (
+                  <div key={customer.id} className="customer-card">
+                    <div className="customer-info">
+                      <div className="customer-name">{customer.tenantName}</div>
+                      <div className="customer-domain">{customer.tenantDomain}</div>
+                    </div>
+
+                    <div className="customer-actions">
+                      <button
+                        type="button"
+                        className="select-customer-button"
+                        onClick={() => handleCustomerSelect(customer)}
+                      >
+                        Select
+                      </button>
+                      <button
+                        type="button"
+                        className="delete-customer-button"
+                        onClick={() => handleDeleteCustomer(customer)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Confirmation dialog for customer deletion */}
+            {customerToDelete && (
+              <div className="confirmation-dialog">
+                <div className="dialog-content">
+                  <h3>Confirm Deletion</h3>
+                  <p>Are you sure you want to delete the customer <strong>{customerToDelete.tenantName}</strong>?</p>
+                  
+                  <div className="dialog-actions">
+                    <button
+                      type="button"
+                      className="cancel-button"
+                      onClick={() => setCustomerToDelete(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="confirm-button"
+                      onClick={confirmDeleteCustomer}
+                      disabled={deletingCustomer}
+                    >
+                      {deletingCustomer ? 'Deleting...' : 'Yes, Delete Customer'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

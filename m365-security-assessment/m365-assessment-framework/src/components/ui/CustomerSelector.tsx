@@ -40,27 +40,21 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({
     loadCustomers();
   }, [refreshTrigger]); // Add refreshTrigger as dependency
 
-  // Listen for customer creation events
-  useEffect(() => {
-    if (onCustomerCreate) {
-      // This effect will trigger when onCustomerCreate changes
-      // indicating a new customer was created externally
-      console.log('🔄 CustomerSelector: Customer creation detected, refreshing list...');
-      setRefreshTrigger(prev => prev + 1);
-    }
-  }, [onCustomerCreate]);
-
   const loadCustomers = async () => {
     try {
       console.log('🔄 CustomerSelector: Starting to load customers...');
+      console.log('🔄 CustomerSelector: Current refresh trigger:', refreshTrigger);
       setLoading(true);
       setError(null);
       
       const customerList = await customerService.getCustomers();
       console.log('📋 CustomerSelector: Received customer list:', customerList);
+      console.log('📋 CustomerSelector: Customer list length:', customerList.length);
+      console.log('📋 CustomerSelector: Customer IDs:', customerList.map(c => c.id));
       
       const activeCustomers = customerList.filter(c => c.status === 'active');
       console.log('✅ CustomerSelector: Active customers:', activeCustomers);
+      console.log('✅ CustomerSelector: Active customer count:', activeCustomers.length);
       
       setCustomers(activeCustomers);
       

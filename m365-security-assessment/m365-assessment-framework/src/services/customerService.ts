@@ -199,9 +199,12 @@ export class CustomerService {
       // Use the main customers endpoint which handles both GET and POST
       const response = await axios.post(`${this.baseUrl}/customers`, customerData);
       
-      // Handle the response from GetCustomers function
-      if (response.data.success && response.data.data) {
+      // Handle the response from the API
+      console.log('📦 CustomerService: Create customer API response:', response.data);
+      
+      if (response.data.success && response.data.data && response.data.data.customer) {
         const customerResponse = response.data.data.customer;
+        console.log('✅ CustomerService: Customer created successfully:', customerResponse);
         return {
           ...customerResponse,
           createdDate: new Date(customerResponse.createdDate),
@@ -253,18 +256,68 @@ export class CustomerService {
   }
 
   /**
+   * Delete a customer and all associated data
+   */
+  public async deleteCustomer(customerId: string): Promise<void> {
+    try {
+      console.log('🗑️ CustomerService: Deleting customer:', customerId);
+      const response = await axios.delete(`${this.baseUrl}/customers/${customerId}`);
+      
+      if (response.data.success) {
+        console.log('✅ CustomerService: Customer deleted successfully:', customerId);
+      } else {
+        throw new Error(response.data.error || 'Failed to delete customer');
+      }
+    } catch (error) {
+      console.error('❌ CustomerService: Error deleting customer:', error);
+      
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 404) {
+          throw new Error('Customer not found');
+        }
+        if (error.response?.status === 409) {
+          throw new Error('Cannot delete customer with existing assessments. Please delete assessments first.');
+        }
+        if (error.response?.data?.error) {
+          throw new Error(error.response.data.error);
+        }
+      }
+      
+      throw new Error('Failed to delete customer');
+    }
+  }
+
+  /**
    * Update customer information
    */
   public async updateCustomer(customerId: string, updates: Partial<Customer>): Promise<Customer> {
     try {
-      const response = await axios.patch(`${this.baseUrl}/customers/${customerId}`, updates);
-      return {
-        ...response.data,
-        createdDate: new Date(response.data.createdDate),
-        lastAssessmentDate: response.data.lastAssessmentDate ? new Date(response.data.lastAssessmentDate) : undefined
-      };
+      console.log('📝 CustomerService: Updating customer:', customerId, 'with:', updates);
+      const response = await axios.put(`${this.baseUrl}/customers/${customerId}`, updates);
+      
+      if (response.data.success) {
+        console.log('✅ CustomerService: Customer updated successfully:', customerId);
+        const customer = response.data.data;
+        return {
+          ...customer,
+          createdDate: new Date(customer.createdDate),
+          lastAssessmentDate: customer.lastAssessmentDate ? new Date(customer.lastAssessmentDate) : undefined
+        };
+      } else {
+        throw new Error(response.data.error || 'Failed to update customer');
+      }
     } catch (error) {
-      console.error('Error updating customer:', error);
+      console.error('❌ CustomerService: Error updating customer:', error);
+      
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 404) {
+          throw new Error('Customer not found');
+        }
+        if (error.response?.data?.error) {
+          throw new Error(error.response.data.error);
+        }
+      }
+      
       throw new Error('Failed to update customer');
     }
   }

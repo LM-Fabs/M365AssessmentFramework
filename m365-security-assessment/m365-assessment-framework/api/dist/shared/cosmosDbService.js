@@ -188,34 +188,64 @@ class CosmosDbService {
             throw new Error(`Failed to get customer by domain: ${error.message}`);
         }
     }
-    /**
-     * Get customer by ID
-     */
     async getCustomer(customerId, tenantDomain) {
         try {
-            const response = await this.customersContainer.item(customerId, tenantDomain).read();
-            if (!response.resource) {
-                throw new Error(`Customer ${customerId} not found`);
+            if (tenantDomain) {
+                // Original implementation with tenant domain
+                const response = await this.customersContainer.item(customerId, tenantDomain).read();
+                if (!response.resource) {
+                    throw new Error(`Customer ${customerId} not found`);
+                }
+                return response.resource;
             }
-            return response.resource;
+            else {
+                // New implementation - query by ID only
+                const querySpec = {
+                    query: "SELECT * FROM c WHERE c.id = @customerId AND c.status != 'deleted'",
+                    parameters: [
+                        { name: "@customerId", value: customerId }
+                    ]
+                };
+                const response = await this.customersContainer.items.query(querySpec).fetchNext();
+                return response.resources.length > 0 ? response.resources[0] : null;
+            }
         }
         catch (error) {
             if (error.code === 404) {
-                throw new Error(`Customer ${customerId} not found`);
+                if (tenantDomain) {
+                    throw new Error(`Customer ${customerId} not found`);
+                }
+                else {
+                    return null;
+                }
             }
             throw new Error(`Failed to get customer: ${error.message}`);
         }
     }
-    /**
-     * Update customer information
-     */
-    async updateCustomer(customerId, tenantDomain, updates) {
+    async updateCustomer(customerId, tenantDomainOrUpdates, updates) {
         try {
-            const existing = await this.getCustomer(customerId, tenantDomain);
-            if (!existing) {
-                throw new Error(`Customer ${customerId} not found`);
+            let customer = null;
+            let actualUpdates;
+            let tenantDomain;
+            if (typeof tenantDomainOrUpdates === 'string') {
+                // Original implementation with tenant domain
+                tenantDomain = tenantDomainOrUpdates;
+                actualUpdates = updates;
+                customer = await this.getCustomer(customerId, tenantDomain);
+                if (!customer) {
+                    throw new Error(`Customer ${customerId} not found`);
+                }
             }
-            const updated = { ...existing, ...updates };
+            else {
+                // New implementation - find customer first
+                actualUpdates = tenantDomainOrUpdates;
+                customer = await this.getCustomer(customerId);
+                if (!customer) {
+                    throw new Error('Customer not found');
+                }
+                tenantDomain = customer.tenantDomain;
+            }
+            const updated = { ...customer, ...actualUpdates };
             const response = await this.customersContainer.item(customerId, tenantDomain).replace(updated);
             if (!response.resource) {
                 throw new Error('Failed to update customer - no resource returned');
@@ -226,14 +256,23 @@ class CosmosDbService {
             throw new Error(`Failed to update customer: ${error.message}`);
         }
     }
-    /**
-     * Soft delete customer (mark as deleted)
-     */
     async deleteCustomer(customerId, tenantDomain) {
         try {
-            const customer = await this.getCustomer(customerId, tenantDomain);
-            if (!customer) {
-                throw new Error(`Customer ${customerId} not found`);
+            let customer = null;
+            if (tenantDomain) {
+                // Original implementation with tenant domain
+                customer = await this.getCustomer(customerId, tenantDomain);
+                if (!customer) {
+                    throw new Error(`Customer ${customerId} not found`);
+                }
+            }
+            else {
+                // New implementation - find customer first
+                customer = await this.getCustomer(customerId);
+                if (!customer) {
+                    throw new Error('Customer not found');
+                }
+                tenantDomain = customer.tenantDomain;
             }
             // Soft delete by updating status
             await this.updateCustomer(customerId, tenantDomain, {

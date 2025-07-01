@@ -283,9 +283,9 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2024-04-01' = {
   }
 }
 
-// Static Web App for frontend
+// Static Web App for frontend (matches existing resource name)
 resource staticWebApp 'Microsoft.Web/staticSites@2024-04-01' = {
-  name: '${resourcePrefix}-frontend-${resourceToken}'
+  name: 'm365-assessment-framework'  // Use the actual existing resource name
   location: location
   tags: union(tags, {
     'azd-service-name': 'm365-assessment-frontend'
@@ -309,13 +309,15 @@ resource staticWebAppConfig 'Microsoft.Web/staticSites/config@2024-04-01' = {
   name: 'appsettings'
   parent: staticWebApp
   properties: {
-    AzureWebJobsStorage: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+    AZURE_STORAGE_CONNECTION_STRING: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
     AZURE_TENANT_ID: tenant().tenantId
     APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString
   }
 }
 
-// Function App
+// Function App and related resources - COMMENTED OUT FOR STATIC WEB APP ARCHITECTURE
+// We use Static Web App integrated API instead of separate Function App
+/*
 resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
   name: '${resourcePrefix}-api-${resourceToken}'
   location: location
@@ -426,19 +428,6 @@ resource keyVaultSecretsUserRole 'Microsoft.Authorization/roleAssignments@2022-0
   }
 }
 
-// Role assignment for Function App to access Cosmos DB (temporarily disabled)
-/*
-resource cosmosDbDataContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(cosmosDbAccount.id, functionApp.id, 'b24988ac-6180-42a0-ab88-20f7382dd24c')
-  scope: cosmosDbAccount
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c') // Cosmos DB Built-in Data Contributor
-    principalId: functionApp.identity.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-*/
-
 // Diagnostic settings for Function App
 resource functionAppDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
   name: 'default'
@@ -467,14 +456,15 @@ resource functionAppDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-0
     ]
   }
 }
+*/
 
 // Outputs for azure.yaml
 output AZURE_LOCATION string = location
 output AZURE_TENANT_ID string = subscription().tenantId
-output REACT_APP_API_URL string = 'https://${functionApp.properties.defaultHostName}/api'
+output REACT_APP_API_URL string = 'https://${staticWebApp.properties.defaultHostname}/api'  // API is part of Static Web App
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = applicationInsights.properties.ConnectionString
 output KEY_VAULT_URL string = keyVault.properties.vaultUri
-output FUNCTION_APP_NAME string = functionApp.name
+// output FUNCTION_APP_NAME string = functionApp.name  // Commented out - using Static Web App
 output STATIC_WEB_APP_NAME string = staticWebApp.name
 // Cosmos DB outputs (temporarily disabled)
 // output COSMOS_DB_ENDPOINT string = cosmosDbAccount.properties.documentEndpoint
