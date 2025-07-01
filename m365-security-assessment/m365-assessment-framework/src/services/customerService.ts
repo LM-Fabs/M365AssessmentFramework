@@ -39,14 +39,17 @@ export class CustomerService {
     // Azure Static Web Apps API routing:
     // - Local development: http://localhost:7072/api
     // - Production SWA: /api (automatically routed by Static Web Apps)
+    // Your Static Web App: https://victorious-pond-069956e03.6.azurestaticapps.net/api
     if (process.env.NODE_ENV === 'development') {
       this.baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:7072/api';
     } else {
       // In production (Azure Static Web Apps), use the integrated API path
+      // Azure Static Web Apps automatically routes /api to the Functions backend
       this.baseUrl = '/api';
     }
     console.log('🔧 CustomerService: Using API base URL:', this.baseUrl);
     console.log('🌍 CustomerService: Environment:', process.env.NODE_ENV);
+    console.log('🚀 CustomerService: Static Web App URL: https://victorious-pond-069956e03.6.azurestaticapps.net/');
   }
 
   public static getInstance(): CustomerService {

@@ -49,16 +49,25 @@ export class TableStorageService {
     private initialized = false;
 
     constructor() {
-        // For Azure Functions, use the AzureWebJobsStorage connection string
-        // In development: UseDevelopmentStorage=true (emulator)
-        // In production: Actual Azure Storage connection string
-        const connectionString = process.env.AzureWebJobsStorage || process.env.AZURE_STORAGE_CONNECTION_STRING;
+        // Initialize connection string - Azure Static Web Apps vs Local Development
+        let connectionString: string;
         
-        if (!connectionString) {
-            throw new Error('No storage connection string available. AzureWebJobsStorage or AZURE_STORAGE_CONNECTION_STRING is required.');
+        if (process.env.NODE_ENV === 'development' || process.env.AZURE_FUNCTIONS_ENVIRONMENT === 'Development') {
+            // Local development - prefer AzureWebJobsStorage, fallback to Azure Storage or emulator
+            connectionString = process.env.AzureWebJobsStorage || process.env.AZURE_STORAGE_CONNECTION_STRING || 'UseDevelopmentStorage=true';
+            console.log('🔧 TableStorageService: Using local development storage');
+        } else {
+            // Azure Static Web Apps - MUST use AZURE_STORAGE_CONNECTION_STRING (AzureWebJobsStorage not allowed)
+            connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
+            if (!connectionString) {
+                console.error('❌ AZURE_STORAGE_CONNECTION_STRING not found. This is required for Azure Static Web Apps.');
+                console.error('📋 Available storage environment variables:', 
+                    Object.keys(process.env).filter(k => k.includes('STORAGE') || k.includes('AZURE')));
+                throw new Error('AZURE_STORAGE_CONNECTION_STRING is required for Azure Static Web Apps');
+            }
+            console.log('☁️ TableStorageService: Using Azure Storage via AZURE_STORAGE_CONNECTION_STRING for Static Web Apps');
         }
 
-        console.log('🔧 TableStorageService: Initializing with storage connection');
         console.log('🌍 TableStorageService: Environment:', process.env.NODE_ENV || 'production');
         console.log('📊 TableStorageService: Using emulator:', connectionString.includes('UseDevelopmentStorage=true'));
 
@@ -67,6 +76,7 @@ export class TableStorageService {
             this.assessmentsTable = TableClient.fromConnectionString(connectionString, 'assessments');
             this.historyTable = TableClient.fromConnectionString(connectionString, 'assessmenthistory');
         } catch (error) {
+            console.error('❌ Failed to initialize Table Storage client:', error);
             throw new Error(`Failed to initialize Table Storage client: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
