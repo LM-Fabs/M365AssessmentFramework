@@ -61,11 +61,12 @@ class TableStorageService {
                 id: entity.rowKey,
                 tenantName: entity.tenantName,
                 tenantDomain: entity.tenantDomain,
-                contactEmail: entity.contactEmail,
-                notes: entity.notes,
+                contactEmail: entity.contactEmail || '',
+                notes: entity.notes || '',
                 status: entity.status,
                 createdDate: new Date(entity.createdDate),
-                appRegistration: entity.appRegistration ? JSON.parse(entity.appRegistration) : undefined
+                appRegistration: entity.appRegistration ? JSON.parse(entity.appRegistration) : undefined,
+                totalAssessments: entity.totalAssessments || 0
             });
             count++;
         }
@@ -81,10 +82,11 @@ class TableStorageService {
                     id: entity.rowKey,
                     tenantName: entity.tenantName,
                     tenantDomain: entity.tenantDomain,
-                    contactEmail: entity.contactEmail,
-                    notes: entity.notes,
+                    contactEmail: entity.contactEmail || '',
+                    notes: entity.notes || '',
                     status: entity.status,
                     createdDate: new Date(entity.createdDate),
+                    totalAssessments: entity.totalAssessments || 0,
                     appRegistration: entity.appRegistration ? JSON.parse(entity.appRegistration) : undefined
                 };
             }
@@ -102,10 +104,11 @@ class TableStorageService {
             id: customerId,
             tenantName: customerRequest.tenantName,
             tenantDomain: customerRequest.tenantDomain,
-            contactEmail: customerRequest.contactEmail,
-            notes: customerRequest.notes,
+            contactEmail: customerRequest.contactEmail || '',
+            notes: customerRequest.notes || '',
             createdDate: new Date(),
             status: 'active',
+            totalAssessments: 0,
             appRegistration
         };
         const entity = {
@@ -113,14 +116,25 @@ class TableStorageService {
             rowKey: customerId,
             tenantName: customer.tenantName,
             tenantDomain: customer.tenantDomain,
-            contactEmail: customer.contactEmail || '',
-            notes: customer.notes || '',
+            contactEmail: customer.contactEmail,
+            notes: customer.notes,
             status: customer.status,
             createdDate: customer.createdDate.toISOString(),
-            appRegistration: JSON.stringify(customer.appRegistration)
+            appRegistration: JSON.stringify(customer.appRegistration),
+            totalAssessments: 0
         };
-        await this.customersTable.createEntity(entity);
-        return customer;
+        try {
+            await this.customersTable.createEntity(entity);
+            console.log('✅ Table Storage: Customer created successfully:', customerId);
+            return customer;
+        }
+        catch (error) {
+            console.error('❌ Table Storage: Failed to create customer:', error);
+            if (error?.statusCode === 409) {
+                throw new Error('Customer already exists in Table Storage');
+            }
+            throw new Error(`Failed to create customer in Table Storage: ${error?.message || 'Unknown error'}`);
+        }
     }
     async getCustomer(customerId) {
         await this.initialize();
@@ -130,10 +144,11 @@ class TableStorageService {
                 id: entity.rowKey,
                 tenantName: entity.tenantName,
                 tenantDomain: entity.tenantDomain,
-                contactEmail: entity.contactEmail,
-                notes: entity.notes,
+                contactEmail: entity.contactEmail || '',
+                notes: entity.notes || '',
                 createdDate: new Date(entity.createdDate),
                 status: entity.status,
+                totalAssessments: entity.totalAssessments || 0,
                 appRegistration: JSON.parse(entity.appRegistration)
             };
         }
@@ -170,7 +185,8 @@ class TableStorageService {
                 contactEmail: updates.contactEmail ?? existingEntity.contactEmail ?? '',
                 notes: updates.notes ?? existingEntity.notes ?? '',
                 status: updates.status ?? existingEntity.status,
-                createdDate: existingEntity.createdDate,
+                createdDate: existingEntity.createdDate, // Keep original creation date
+                totalAssessments: updates.totalAssessments ?? existingEntity.totalAssessments ?? 0,
                 appRegistration: updates.appRegistration
                     ? JSON.stringify(updates.appRegistration)
                     : existingEntity.appRegistration
@@ -186,6 +202,7 @@ class TableStorageService {
                 notes: updatedEntity.notes,
                 createdDate: new Date(updatedEntity.createdDate),
                 status: updatedEntity.status,
+                totalAssessments: updatedEntity.totalAssessments || 0,
                 appRegistration: JSON.parse(updatedEntity.appRegistration)
             };
         }

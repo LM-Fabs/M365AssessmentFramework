@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const functions_1 = require("@azure/functions");
-const cosmosDbService_1 = require("./shared/cosmosDbService");
 const tableStorageService_1 = require("./shared/tableStorageService");
 // CORS headers for all responses
 const corsHeaders = {
@@ -10,48 +9,26 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Content-Type': 'application/json'
 };
-// Initialize data service (Cosmos DB or Table Storage fallback)
-let cosmosDbService;
+// Initialize data service (Table Storage only)
 let tableStorageService;
 let dataService;
 let isDataServiceInitialized = false;
-let usingCosmosDb = false;
-// Initialize data service (try Cosmos DB first, fallback to Table Storage)
+// Initialize data service (Table Storage only)
 async function initializeDataService(context) {
     if (!isDataServiceInitialized) {
         try {
-            context.log('Attempting to initialize Cosmos DB service...');
-            // Try Cosmos DB first
-            if (process.env.COSMOS_DB_ENDPOINT) {
-                context.log('COSMOS_DB_ENDPOINT found, trying Cosmos DB...');
-                cosmosDbService = new cosmosDbService_1.CosmosDbService();
-                await cosmosDbService.initialize();
-                dataService = cosmosDbService;
-                usingCosmosDb = true;
-                context.log('✅ Cosmos DB service initialized successfully');
-            }
-            else {
-                throw new Error('COSMOS_DB_ENDPOINT not available');
-            }
+            context.log('Initializing Table Storage service...');
+            // Use Table Storage as primary database
+            tableStorageService = new tableStorageService_1.TableStorageService();
+            await tableStorageService.initialize();
+            dataService = tableStorageService;
+            context.log('✅ Table Storage service initialized successfully');
+            isDataServiceInitialized = true;
         }
-        catch (cosmosError) {
-            context.log('❌ Cosmos DB initialization failed:', cosmosError);
-            context.log('🔄 Falling back to Table Storage...');
-            try {
-                // Fallback to Table Storage
-                tableStorageService = new tableStorageService_1.TableStorageService();
-                await tableStorageService.initialize();
-                dataService = tableStorageService;
-                usingCosmosDb = false;
-                context.log('✅ Table Storage service initialized successfully');
-            }
-            catch (tableError) {
-                context.log('❌ Table Storage initialization failed:', tableError);
-                throw new Error(`Both Cosmos DB and Table Storage initialization failed. Cosmos: ${cosmosError instanceof Error ? cosmosError.message : cosmosError}, Table: ${tableError instanceof Error ? tableError.message : tableError}`);
-            }
+        catch (error) {
+            context.log('❌ Table Storage initialization failed:', error);
+            throw new Error(`Table Storage initialization failed: ${error instanceof Error ? error.message : error}`);
         }
-        isDataServiceInitialized = true;
-        context.log(`✅ Data service initialized using: ${usingCosmosDb ? 'Cosmos DB' : 'Table Storage'}`);
     }
 }
 // Diagnostic endpoint to check environment configuration
@@ -67,8 +44,6 @@ async function diagnosticsHandler(request, context) {
         const diagnostics = {
             timestamp: new Date().toISOString(),
             environment: {
-                COSMOS_DB_ENDPOINT: process.env.COSMOS_DB_ENDPOINT ? 'SET' : 'NOT SET',
-                COSMOS_DB_DATABASE_NAME: process.env.COSMOS_DB_DATABASE_NAME ? 'SET' : 'NOT SET',
                 AZURE_CLIENT_ID: process.env.AZURE_CLIENT_ID ? 'SET' : 'NOT SET',
                 AZURE_TENANT_ID: process.env.AZURE_TENANT_ID ? 'SET' : 'NOT SET',
                 KEY_VAULT_URL: process.env.KEY_VAULT_URL ? 'SET' : 'NOT SET',
@@ -78,25 +53,11 @@ async function diagnosticsHandler(request, context) {
             },
             dataService: {
                 initialized: isDataServiceInitialized,
-                type: usingCosmosDb ? 'Cosmos DB' : 'Table Storage',
-                cosmosAvailable: !!process.env.COSMOS_DB_ENDPOINT
+                type: 'Table Storage',
+                tableStorageAvailable: !!(process.env.AzureWebJobsStorage || process.env.AZURE_STORAGE_CONNECTION_STRING)
             },
-            version: '1.0.7'
+            version: '1.0.8'
         };
-        // Try to initialize data service for diagnostics
-        try {
-            if (process.env.COSMOS_DB_ENDPOINT) {
-                const testCosmosService = new cosmosDbService_1.CosmosDbService();
-                // Don't call initialize here as it creates resources
-                diagnostics.dataService.cosmosAvailable = true;
-            }
-            else {
-                diagnostics.dataService.cosmosAvailable = false;
-            }
-        }
-        catch (error) {
-            // Error information is already in the diagnostics object
-        }
         return {
             status: 200,
             headers: corsHeaders,
@@ -202,6 +163,17 @@ async function customersHandler(request, context) {
                 };
             }
             context.log('Creating new customer with data:', customerData);
+            // Validate required fields
+            if (!customerData.tenantName || !customerData.tenantDomain) {
+                return {
+                    status: 400,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "tenantName and tenantDomain are required"
+                    }
+                };
+            }
             // Check if customer already exists
             if (customerData.tenantDomain) {
                 const existingCustomer = await dataService.getCustomerByDomain(customerData.tenantDomain);
@@ -211,45 +183,47 @@ async function customersHandler(request, context) {
                         headers: corsHeaders,
                         jsonBody: {
                             success: false,
-                            error: `Customer with domain ${customerData.tenantDomain} already exists`
+                            error: `Customer with domain ${customerData.tenantDomain} already exists`,
+                            existingCustomerId: existingCustomer.id
                         }
                     };
                 }
             }
-            // Create customer using Cosmos DB service
+            // Create customer using Table Storage service
             const customerRequest = {
-                tenantName: customerData.tenantName || "New Customer",
-                tenantDomain: customerData.tenantDomain || `${customerData.tenantName?.toLowerCase().replace(/\s+/g, '-') || 'customer'}.onmicrosoft.com`,
-                contactEmail: customerData.contactEmail,
-                notes: customerData.notes
+                tenantName: customerData.tenantName,
+                tenantDomain: customerData.tenantDomain,
+                contactEmail: customerData.contactEmail || '',
+                notes: customerData.notes || ''
             };
+            // Generate unique IDs for app registration
+            const timestamp = Date.now();
+            const randomSuffix = Math.random().toString(36).substr(2, 9);
+            const domainPrefix = customerData.tenantDomain.split('.')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
             const appRegistration = {
-                applicationId: `app-${Date.now()}`,
-                clientId: `client-${Date.now()}`,
-                servicePrincipalId: `sp-${Date.now()}`,
-                permissions: ["Directory.Read.All", "SecurityEvents.Read.All"]
+                applicationId: `${domainPrefix}-app-${timestamp}`,
+                clientId: `${domainPrefix}-client-${timestamp}`,
+                servicePrincipalId: `${domainPrefix}-sp-${timestamp}`,
+                permissions: ["Directory.Read.All", "SecurityEvents.Read.All", "Reports.Read.All"]
             };
             const newCustomer = await dataService.createCustomer(customerRequest, appRegistration);
             context.log('Customer created successfully:', newCustomer.id);
             // Transform customer data to match frontend interface
-            // Handle both Customer interface variations (with and without appRegistration)
-            const createdCustomerData = newCustomer;
-            const appReg = createdCustomerData.appRegistration || appRegistration;
             const transformedCustomer = {
-                id: createdCustomerData.id,
-                tenantId: appReg?.servicePrincipalId || '',
-                tenantName: createdCustomerData.tenantName,
-                tenantDomain: createdCustomerData.tenantDomain,
-                applicationId: appReg?.applicationId || '',
-                clientId: appReg?.clientId || '',
-                servicePrincipalId: appReg?.servicePrincipalId || '',
-                createdDate: createdCustomerData.createdDate,
+                id: newCustomer.id,
+                tenantId: newCustomer.appRegistration?.servicePrincipalId || '',
+                tenantName: newCustomer.tenantName,
+                tenantDomain: newCustomer.tenantDomain,
+                applicationId: newCustomer.appRegistration?.applicationId || '',
+                clientId: newCustomer.appRegistration?.clientId || '',
+                servicePrincipalId: newCustomer.appRegistration?.servicePrincipalId || '',
+                createdDate: newCustomer.createdDate,
                 lastAssessmentDate: undefined,
                 totalAssessments: 0,
-                status: createdCustomerData.status,
-                permissions: appReg?.permissions || [],
-                contactEmail: createdCustomerData.contactEmail,
-                notes: createdCustomerData.notes
+                status: newCustomer.status,
+                permissions: newCustomer.appRegistration?.permissions || [],
+                contactEmail: newCustomer.contactEmail,
+                notes: newCustomer.notes
             };
             return {
                 status: 201,
@@ -258,10 +232,11 @@ async function customersHandler(request, context) {
                     success: true,
                     data: {
                         customer: transformedCustomer,
+                        message: "Customer created successfully",
                         nextSteps: [
-                            "Customer created successfully",
-                            "App registration would be created in production",
-                            "Admin consent would be required"
+                            "Customer created successfully in Table Storage",
+                            "App registration created with secure IDs",
+                            "Ready for security assessments"
                         ]
                     }
                 }

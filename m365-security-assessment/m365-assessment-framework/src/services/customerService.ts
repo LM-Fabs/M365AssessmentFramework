@@ -37,8 +37,9 @@ export class CustomerService {
 
   private constructor() {
     // Use Azure Static Web Apps integrated API for production
-    // This ensures we use the same-origin API endpoints that are part of the Static Web App
-    this.baseUrl = process.env.REACT_APP_API_URL || '/api';
+    // For local development, use the Functions local port
+    this.baseUrl = process.env.REACT_APP_API_URL || 
+                  (process.env.NODE_ENV === 'development' ? 'http://localhost:7072/api' : '/api');
     console.log('🔧 CustomerService: Using API base URL:', this.baseUrl);
   }
 
@@ -182,21 +183,36 @@ export class CustomerService {
    */
   public async createCustomer(customerData: CreateCustomerRequest): Promise<Customer> {
     try {
+      console.log('🔧 CustomerService: Creating customer with data:', customerData);
+      
       // Use the main customers endpoint which handles both GET and POST
-      const response = await axios.post(`${this.baseUrl}/customers`, customerData);
+      const response = await this.retryApiCall(() => 
+        axios.post(`${this.baseUrl}/customers`, customerData, {
+          timeout: 30000, // 30 second timeout for creation
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+      );
+      
+      console.log('📦 CustomerService: Create customer response:', response.data);
       
       if (response.data.success && response.data.data && response.data.data.customer) {
         const customerResponse = response.data.data.customer;
+        console.log('✅ CustomerService: Customer created successfully:', customerResponse.id);
+        
         return {
           ...customerResponse,
           createdDate: new Date(customerResponse.createdDate),
           lastAssessmentDate: customerResponse.lastAssessmentDate ? new Date(customerResponse.lastAssessmentDate) : undefined
         };
       } else {
-        throw new Error(response.data.error || 'Failed to create customer');
+        const errorMsg = response.data.error || 'Failed to create customer - invalid response format';
+        console.error('❌ CustomerService: Invalid response format:', response.data);
+        throw new Error(errorMsg);
       }
     } catch (error) {
-      console.error('Error creating customer:', error);
+      console.error('❌ CustomerService: Error creating customer:', error);
       
       // For development mode, create a mock customer if API is not available
       if (axios.isAxiosError(error) && (error.code === 'ERR_NETWORK' || error.response?.status === 404)) {
@@ -227,13 +243,20 @@ export class CustomerService {
       
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 409) {
-          throw new Error('Customer with this tenant already exists');
+          throw new Error('A customer with this tenant domain already exists');
         }
         if (error.response?.data?.error) {
           throw new Error(error.response.data.error);
         }
+        if (error.code === 'ECONNABORTED') {
+          throw new Error('Request timeout - please try again');
+        }
+        if (error.response?.status === 400) {
+          throw new Error('Invalid customer data - please check the required fields');
+        }
       }
-      throw new Error('Failed to create customer');
+      
+      throw new Error(error instanceof Error ? error.message : 'Failed to create customer');
     }
   }
 

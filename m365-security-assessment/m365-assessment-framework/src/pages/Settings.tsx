@@ -1,10 +1,10 @@
 // filepath: /m365-assessment-framework/m365-assessment-framework/src/pages/Settings.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { AssessmentService } from '../services/assessmentService';
 import { Customer, CustomerService } from '../services/customerService';
-import CustomerSelector from '../components/ui/CustomerSelector';
+import CustomerSelector, { CustomerSelectorRef } from '../components/ui/CustomerSelector';
 import { SECURITY_CATEGORIES } from '../shared/constants';
 import './Settings.css';
 
@@ -43,7 +43,7 @@ const Settings = () => {
   });
   
   // Add a ref to access CustomerSelector methods
-  const [customerSelectorKey, setCustomerSelectorKey] = useState(0);
+  const customerSelectorRef = useRef<CustomerSelectorRef>(null);
 
   const handleCustomerSelect = (customer: Customer | null) => {
     setSelectedCustomer(customer);
@@ -124,12 +124,15 @@ const Settings = () => {
       return;
     }
 
+    console.log('🔧 Settings: Starting customer creation process with data:', newCustomerData);
     setCreatingCustomer(true);
     setNewCustomerError(null);
 
     try {
       // Use the CustomerService to properly create the customer with Azure app registration
       const customerService = CustomerService.getInstance();
+      console.log('📞 Settings: Calling customerService.createCustomer...');
+      
       const newCustomer = await customerService.createCustomer({
         tenantName: newCustomerData.tenantName,
         tenantDomain: newCustomerData.tenantDomain,
@@ -137,11 +140,14 @@ const Settings = () => {
         notes: newCustomerData.notes
       });
       
+      console.log('✅ Settings: Customer created successfully:', newCustomer);
+      
       // Auto-select the new customer and reset the form
       setSelectedCustomer(newCustomer);
       
-      // Force CustomerSelector to refresh by updating its key - this will cause a remount and reload of customers
-      setCustomerSelectorKey(prev => prev + 1);
+      // Refresh CustomerSelector by calling its refresh method directly
+      console.log('🔄 Settings: Refreshing customer selector...');
+      await customerSelectorRef.current?.refresh();
       
       setNewCustomerData({
         tenantName: '',
@@ -161,8 +167,12 @@ const Settings = () => {
       setError(null);
       setSuccess(false); // Don't show success message that redirects
       
+      console.log('🎉 Settings: Customer creation process completed successfully');
+      
     } catch (error: any) {
-      setNewCustomerError(error.message || 'Failed to create new customer');
+      console.error('❌ Settings: Customer creation failed:', error);
+      const errorMessage = error.message || 'Failed to create new customer';
+      setNewCustomerError(errorMessage);
     } finally {
       setCreatingCustomer(false);
     }
@@ -209,7 +219,7 @@ const Settings = () => {
       }
       
       // Refresh customer selector
-      setCustomerSelectorKey(prev => prev + 1);
+      await customerSelectorRef.current?.refresh();
       
       setCustomerToDelete(null);
     } catch (error: any) {
@@ -253,7 +263,7 @@ const Settings = () => {
           
           <div className="customer-selection-container">
             <CustomerSelector
-              key={customerSelectorKey} // Add key prop to force remount on customer create
+              ref={customerSelectorRef}
               selectedCustomer={selectedCustomer}
               onCustomerSelect={handleCustomerSelect}
               placeholder="Choose a customer to assess..."
@@ -653,87 +663,6 @@ const Settings = () => {
           </button>
         </div>
       </form>
-
-      {/* Customer Management Section */}
-      <div className="customer-management-section">
-        <h2>Customer Management</h2>
-        <button
-          type="button"
-          className="toggle-management-button"
-          onClick={() => setShowCustomerManagement(prev => !prev)}
-        >
-          {showCustomerManagement ? 'Hide Customer Management' : 'Show Customer Management'}
-        </button>
-
-        {showCustomerManagement && (
-          <div className="customer-management-content">
-            {loadingCustomers && <div className="loading-message">Loading customers...</div>}
-            {customerError && <div className="error-message">{customerError}</div>}
-
-            <div className="customer-list">
-              {customers.length === 0 ? (
-                <div className="no-customers-message">
-                  No active customers found. Please add a new customer.
-                </div>
-              ) : (
-                customers.map(customer => (
-                  <div key={customer.id} className="customer-card">
-                    <div className="customer-info">
-                      <div className="customer-name">{customer.tenantName}</div>
-                      <div className="customer-domain">{customer.tenantDomain}</div>
-                    </div>
-
-                    <div className="customer-actions">
-                      <button
-                        type="button"
-                        className="select-customer-button"
-                        onClick={() => handleCustomerSelect(customer)}
-                      >
-                        Select
-                      </button>
-                      <button
-                        type="button"
-                        className="delete-customer-button"
-                        onClick={() => handleDeleteCustomer(customer)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Confirmation dialog for customer deletion */}
-            {customerToDelete && (
-              <div className="confirmation-dialog">
-                <div className="dialog-content">
-                  <h3>Confirm Deletion</h3>
-                  <p>Are you sure you want to delete the customer <strong>{customerToDelete.tenantName}</strong>?</p>
-                  
-                  <div className="dialog-actions">
-                    <button
-                      type="button"
-                      className="cancel-button"
-                      onClick={() => setCustomerToDelete(null)}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      className="confirm-button"
-                      onClick={confirmDeleteCustomer}
-                      disabled={deletingCustomer}
-                    >
-                      {deletingCustomer ? 'Deleting...' : 'Yes, Delete Customer'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
     </div>
   );
 };

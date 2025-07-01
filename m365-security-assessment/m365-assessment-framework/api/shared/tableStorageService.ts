@@ -9,6 +9,7 @@ export interface Customer {
     notes?: string;
     createdDate: Date;
     status: string;
+    totalAssessments?: number;
     appRegistration?: {
         applicationId: string;
         clientId: string;
@@ -108,11 +109,12 @@ export class TableStorageService {
                 id: entity.rowKey as string,
                 tenantName: entity.tenantName as string,
                 tenantDomain: entity.tenantDomain as string,
-                contactEmail: entity.contactEmail as string,
-                notes: entity.notes as string,
+                contactEmail: entity.contactEmail as string || '',
+                notes: entity.notes as string || '',
                 status: entity.status as string,
                 createdDate: new Date(entity.createdDate as string),
-                appRegistration: entity.appRegistration ? JSON.parse(entity.appRegistration as string) : undefined
+                appRegistration: entity.appRegistration ? JSON.parse(entity.appRegistration as string) : undefined,
+                totalAssessments: (entity.totalAssessments as number) || 0
             });
             count++;
         }
@@ -132,10 +134,11 @@ export class TableStorageService {
                     id: entity.rowKey as string,
                     tenantName: entity.tenantName as string,
                     tenantDomain: entity.tenantDomain as string,
-                    contactEmail: entity.contactEmail as string,
-                    notes: entity.notes as string,
+                    contactEmail: entity.contactEmail as string || '',
+                    notes: entity.notes as string || '',
                     status: entity.status as string,
                     createdDate: new Date(entity.createdDate as string),
+                    totalAssessments: (entity.totalAssessments as number) || 0,
                     appRegistration: entity.appRegistration ? JSON.parse(entity.appRegistration as string) : undefined
                 };
             }
@@ -154,10 +157,11 @@ export class TableStorageService {
             id: customerId,
             tenantName: customerRequest.tenantName,
             tenantDomain: customerRequest.tenantDomain,
-            contactEmail: customerRequest.contactEmail,
-            notes: customerRequest.notes,
+            contactEmail: customerRequest.contactEmail || '',
+            notes: customerRequest.notes || '',
             createdDate: new Date(),
             status: 'active',
+            totalAssessments: 0,
             appRegistration
         };
 
@@ -166,15 +170,25 @@ export class TableStorageService {
             rowKey: customerId,
             tenantName: customer.tenantName,
             tenantDomain: customer.tenantDomain,
-            contactEmail: customer.contactEmail || '',
-            notes: customer.notes || '',
+            contactEmail: customer.contactEmail,
+            notes: customer.notes,
             status: customer.status,
             createdDate: customer.createdDate.toISOString(),
-            appRegistration: JSON.stringify(customer.appRegistration)
+            appRegistration: JSON.stringify(customer.appRegistration),
+            totalAssessments: 0
         };
 
-        await this.customersTable.createEntity(entity);
-        return customer;
+        try {
+            await this.customersTable.createEntity(entity);
+            console.log('✅ Table Storage: Customer created successfully:', customerId);
+            return customer;
+        } catch (error: any) {
+            console.error('❌ Table Storage: Failed to create customer:', error);
+            if (error?.statusCode === 409) {
+                throw new Error('Customer already exists in Table Storage');
+            }
+            throw new Error(`Failed to create customer in Table Storage: ${error?.message || 'Unknown error'}`);
+        }
     }
 
     async getCustomer(customerId: string): Promise<Customer | null> {
@@ -187,10 +201,11 @@ export class TableStorageService {
                 id: entity.rowKey as string,
                 tenantName: entity.tenantName as string,
                 tenantDomain: entity.tenantDomain as string,
-                contactEmail: entity.contactEmail as string,
-                notes: entity.notes as string,
+                contactEmail: entity.contactEmail as string || '',
+                notes: entity.notes as string || '',
                 createdDate: new Date(entity.createdDate as string),
                 status: entity.status as string,
+                totalAssessments: (entity.totalAssessments as number) || 0,
                 appRegistration: JSON.parse(entity.appRegistration as string)
             };
         } catch (error) {
@@ -231,6 +246,7 @@ export class TableStorageService {
                 notes: updates.notes ?? existingEntity.notes ?? '',
                 status: updates.status ?? existingEntity.status,
                 createdDate: existingEntity.createdDate, // Keep original creation date
+                totalAssessments: updates.totalAssessments ?? existingEntity.totalAssessments ?? 0,
                 appRegistration: updates.appRegistration 
                     ? JSON.stringify(updates.appRegistration)
                     : existingEntity.appRegistration
@@ -248,6 +264,7 @@ export class TableStorageService {
                 notes: updatedEntity.notes as string,
                 createdDate: new Date(updatedEntity.createdDate as string),
                 status: updatedEntity.status as string,
+                totalAssessments: (updatedEntity.totalAssessments as number) || 0,
                 appRegistration: JSON.parse(updatedEntity.appRegistration as string)
             };
         } catch (error) {

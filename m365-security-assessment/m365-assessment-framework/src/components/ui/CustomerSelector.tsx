@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { CustomerService, Customer, CreateCustomerRequest } from '../../services/customerService';
 import './CustomerSelector.css';
 
@@ -11,14 +11,19 @@ interface CustomerSelectorProps {
   showCreateNew?: boolean;
 }
 
-const CustomerSelector: React.FC<CustomerSelectorProps> = ({
+export interface CustomerSelectorRef {
+  refresh: () => Promise<void>;
+  addCustomer: (customer: Customer) => void;
+}
+
+const CustomerSelector = forwardRef<CustomerSelectorRef, CustomerSelectorProps>(({
   selectedCustomer,
   onCustomerSelect,
   onCustomerCreate,
   placeholder = "Select a customer...",
   disabled = false,
   showCreateNew = true
-}) => {
+}, ref) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +44,16 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({
   useEffect(() => {
     loadCustomers();
   }, [refreshTrigger]); // Add refreshTrigger as dependency
+
+  // Expose methods to parent component
+  useImperativeHandle(ref, () => ({
+    refresh: async () => {
+      await loadCustomers();
+    },
+    addCustomer: (customer: Customer) => {
+      setCustomers(prev => [...prev, customer]);
+    }
+  }));
 
   const loadCustomers = async () => {
     try {
@@ -244,6 +259,8 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({
       )}
     </div>
   );
-};
+});
+
+CustomerSelector.displayName = 'CustomerSelector';
 
 export default CustomerSelector;
