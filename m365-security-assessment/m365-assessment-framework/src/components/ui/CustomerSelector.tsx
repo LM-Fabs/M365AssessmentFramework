@@ -42,34 +42,22 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({
 
   const loadCustomers = async () => {
     try {
-      console.log('🔄 CustomerSelector: Starting to load customers...');
-      console.log('🔄 CustomerSelector: Current refresh trigger:', refreshTrigger);
       setLoading(true);
       setError(null);
       
       const customerList = await customerService.getCustomers();
-      console.log('📋 CustomerSelector: Received customer list:', customerList);
-      console.log('📋 CustomerSelector: Customer list length:', customerList.length);
-      console.log('📋 CustomerSelector: Customer IDs:', customerList.map(c => c.id));
-      
       const activeCustomers = customerList.filter(c => c.status === 'active');
-      console.log('✅ CustomerSelector: Active customers:', activeCustomers);
-      console.log('✅ CustomerSelector: Active customer count:', activeCustomers.length);
-      
       setCustomers(activeCustomers);
       
       if (customerList.length === 0) {
-        console.info('ℹ️ CustomerSelector: No customers found - this is normal for a new deployment');
-      } else {
-        console.log('🎉 CustomerSelector: Successfully loaded', activeCustomers.length, 'active customers');
+        console.info('No customers found - this is normal for a new deployment');
       }
     } catch (err) {
-      console.error('❌ CustomerSelector: Failed to load customers:', err);
+      console.error('Failed to load customers:', err);
       setError(err instanceof Error ? err.message : 'Unable to load customers. Please check your connection.');
       setCustomers([]); // Clear any existing data
     } finally {
       setLoading(false);
-      console.log('🏁 CustomerSelector: Finished loading customers');
     }
   };
 
@@ -94,17 +82,11 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({
     try {
       setCreating(true);
       setError(null);
-      console.log('🚀 Creating new customer with data:', createFormData);
       
       const newCustomer = await customerService.createCustomer(createFormData);
-      console.log('✅ Customer created successfully:', newCustomer);
       
       // Add to customers list immediately to update UI
-      setCustomers(prev => {
-        const updatedList = [...prev, newCustomer];
-        console.log('📋 Updated customer list:', updatedList);
-        return updatedList;
-      });
+      setCustomers(prev => [...prev, newCustomer]);
       
       // Select the new customer
       onCustomerSelect(newCustomer);
@@ -122,12 +104,11 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({
       
       // Reload customers list to ensure consistency
       setTimeout(() => {
-        console.log('🔄 Reloading customers list for consistency...');
         loadCustomers();
       }, 500);
       
     } catch (err) {
-      console.error('❌ Failed to create customer:', err);
+      console.error('Failed to create customer:', err);
       setError(err instanceof Error ? err.message : 'Failed to create customer');
     } finally {
       setCreating(false);

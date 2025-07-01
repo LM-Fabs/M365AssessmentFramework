@@ -63,17 +63,6 @@ const Settings = () => {
     }
   };
 
-  const handleCustomerCreate = (customer: Customer) => {
-    console.log('🎉 Settings: New customer created callback received:', customer);
-    console.log('🎉 Settings: Customer selector key before increment:', customerSelectorKey);
-    // Force CustomerSelector to refresh by updating its key
-    setCustomerSelectorKey(prev => {
-      const newKey = prev + 1;
-      console.log('🎉 Settings: Customer selector key after increment:', newKey);
-      return newKey;
-    });
-  };
-
   const handleAssessmentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -151,8 +140,8 @@ const Settings = () => {
       // Auto-select the new customer and reset the form
       setSelectedCustomer(newCustomer);
       
-      // Trigger the CustomerSelector to refresh its list by calling onCustomerCreate
-      handleCustomerCreate(newCustomer);
+      // Force CustomerSelector to refresh by updating its key - this will cause a remount and reload of customers
+      setCustomerSelectorKey(prev => prev + 1);
       
       setNewCustomerData({
         tenantName: '',
@@ -267,7 +256,6 @@ const Settings = () => {
               key={customerSelectorKey} // Add key prop to force remount on customer create
               selectedCustomer={selectedCustomer}
               onCustomerSelect={handleCustomerSelect}
-              onCustomerCreate={handleCustomerCreate}
               placeholder="Choose a customer to assess..."
               disabled={loading}
             />
