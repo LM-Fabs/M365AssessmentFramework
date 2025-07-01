@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TableStorageService = void 0;
 const data_tables_1 = require("@azure/data-tables");
-const identity_1 = require("@azure/identity");
 /**
  * Table Storage service for M365 Assessment Framework
  * Uses Azure Table Storage as a temporary solution while Cosmos DB provider is being registered
@@ -10,27 +9,18 @@ const identity_1 = require("@azure/identity");
 class TableStorageService {
     constructor() {
         this.initialized = false;
-        // Use managed identity if available, fallback to connection string
-        const accountName = process.env.STORAGE_ACCOUNT_NAME || 'm365c6qdbpkda5cvs';
-        const accountUrl = `https://${accountName}.table.core.windows.net`;
+        // For Azure Functions, use the AzureWebJobsStorage connection string
+        const connectionString = process.env.AzureWebJobsStorage || process.env.AZURE_STORAGE_CONNECTION_STRING;
+        if (!connectionString) {
+            throw new Error('No storage connection string available. AzureWebJobsStorage is required for Azure Functions.');
+        }
         try {
-            // Try using managed identity first (production)
-            const credential = new identity_1.DefaultAzureCredential();
-            this.customersTable = new data_tables_1.TableClient(accountUrl, 'customers', credential);
-            this.assessmentsTable = new data_tables_1.TableClient(accountUrl, 'assessments', credential);
-            this.historyTable = new data_tables_1.TableClient(accountUrl, 'assessmenthistory', credential);
+            this.customersTable = data_tables_1.TableClient.fromConnectionString(connectionString, 'customers');
+            this.assessmentsTable = data_tables_1.TableClient.fromConnectionString(connectionString, 'assessments');
+            this.historyTable = data_tables_1.TableClient.fromConnectionString(connectionString, 'assessmenthistory');
         }
         catch (error) {
-            // Fallback to connection string for local development
-            const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
-            if (connectionString) {
-                this.customersTable = data_tables_1.TableClient.fromConnectionString(connectionString, 'customers');
-                this.assessmentsTable = data_tables_1.TableClient.fromConnectionString(connectionString, 'assessments');
-                this.historyTable = data_tables_1.TableClient.fromConnectionString(connectionString, 'assessmenthistory');
-            }
-            else {
-                throw new Error('No storage credentials available. Set AZURE_STORAGE_CONNECTION_STRING or configure managed identity.');
-            }
+            throw new Error(`Failed to initialize Table Storage client: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
     async initialize() {
@@ -60,8 +50,7 @@ class TableStorageService {
             filter = (0, data_tables_1.odata) `status eq ${options.status}`;
         }
         const iterator = this.customersTable.listEntities({
-            filter,
-            select: ['RowKey', 'tenantName', 'tenantDomain', 'contactEmail', 'notes', 'status', 'createdDate', 'appRegistration']
+            queryOptions: { filter }
         });
         let count = 0;
         const maxItems = options?.maxItemCount || 100;
@@ -86,7 +75,7 @@ class TableStorageService {
         await this.initialize();
         try {
             const filter = (0, data_tables_1.odata) `tenantDomain eq ${domain}`;
-            const iterator = this.customersTable.listEntities({ filter });
+            const iterator = this.customersTable.listEntities({ queryOptions: { filter } });
             for await (const entity of iterator) {
                 return {
                     id: entity.rowKey,
@@ -141,7 +130,7 @@ class TableStorageService {
         if (options?.status) {
             filter = (0, data_tables_1.odata) `customerId eq ${customerId} and status eq ${options.status}`;
         }
-        const iterator = this.assessmentsTable.listEntities({ filter });
+        const iterator = this.assessmentsTable.listEntities({ queryOptions: { filter } });
         let count = 0;
         const maxItems = options?.limit || 50;
         for await (const entity of iterator) {
@@ -224,7 +213,7 @@ class TableStorageService {
         else if (options?.customerId) {
             filter = (0, data_tables_1.odata) `customerId eq ${options.customerId}`;
         }
-        const iterator = this.historyTable.listEntities({ filter });
+        const iterator = this.historyTable.listEntities({ queryOptions: { filter } });
         let count = 0;
         const maxItems = options?.maxItemCount || 100;
         for await (const entity of iterator) {

@@ -304,6 +304,17 @@ resource staticWebApp 'Microsoft.Web/staticSites@2024-04-01' = {
   }
 }
 
+// Configure application settings for Static Web App API functions
+resource staticWebAppConfig 'Microsoft.Web/staticSites/config@2024-04-01' = {
+  name: 'appsettings'
+  parent: staticWebApp
+  properties: {
+    AzureWebJobsStorage: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+    AZURE_TENANT_ID: tenant().tenantId
+    APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString
+  }
+}
+
 // Function App
 resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
   name: '${resourcePrefix}-api-${resourceToken}'
