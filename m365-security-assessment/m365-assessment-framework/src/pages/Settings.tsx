@@ -474,7 +474,10 @@ const Settings = () => {
               {customerError && <div className="error-message">{customerError}</div>}
               
               {loadingCustomers ? (
-                <div className="loading-message">Loading customers...</div>
+                <div className="loading-message">
+                  <span>Loading customers...</span>
+                  <small>(First load may take up to 45 seconds due to API cold start)</small>
+                </div>
               ) : (
                 <div className="customer-list-management">
                   {customers.length === 0 ? (

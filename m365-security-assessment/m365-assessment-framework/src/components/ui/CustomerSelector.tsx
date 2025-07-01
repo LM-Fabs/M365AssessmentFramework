@@ -60,9 +60,17 @@ const CustomerSelector = forwardRef<CustomerSelectorRef, CustomerSelectorProps>(
       setLoading(true);
       setError(null);
       
+      // Add extra logging for first load
+      const startTime = Date.now();
+      console.log('🔄 CustomerSelector: Starting to load customers...');
+      
       const customerList = await customerService.getCustomers();
       const activeCustomers = customerList.filter(c => c.status === 'active');
       setCustomers(activeCustomers);
+      
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      console.log(`✅ CustomerSelector: Loaded ${activeCustomers.length} customers in ${duration}ms`);
       
       if (customerList.length === 0) {
         console.info('No customers found - this is normal for a new deployment');
@@ -204,7 +212,13 @@ const CustomerSelector = forwardRef<CustomerSelectorRef, CustomerSelectorProps>(
 
             <div className="dropdown-content">
               {loading ? (
-                <div className="dropdown-loading">Loading customers...</div>
+                <div className="dropdown-loading">
+                  <div className="loading-spinner"></div>
+                  <div className="loading-text">
+                    <div>Loading customers...</div>
+                    <small>First load may take up to 45 seconds (API cold start)</small>
+                  </div>
+                </div>
               ) : error && !showCreateForm ? (
                 <div className="dropdown-error">{error}</div>
               ) : (

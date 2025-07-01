@@ -34,6 +34,7 @@ export interface CustomerAssessmentSummary {
 export class CustomerService {
   private static instance: CustomerService;
   private baseUrl: string;
+  private isWarmed = false;
 
   private constructor() {
     // Azure Static Web Apps API routing:
@@ -50,6 +51,11 @@ export class CustomerService {
     console.log('🔧 CustomerService: Using API base URL:', this.baseUrl);
     console.log('🌍 CustomerService: Environment:', process.env.NODE_ENV);
     console.log('🚀 CustomerService: Static Web App URL: https://victorious-pond-069956e03.6.azurestaticapps.net/');
+    
+    // Warm up the API in production to reduce cold start impact
+    if (process.env.NODE_ENV === 'production') {
+      this.warmUpAPI();
+    }
   }
 
   public static getInstance(): CustomerService {
@@ -60,30 +66,45 @@ export class CustomerService {
   }
 
   /**
+   * Warm up the API to reduce cold start latency
+   */
+  private async warmUpAPI(): Promise<void> {
+    if (this.isWarmed) return;
+    
+    try {
+      console.log('🔥 CustomerService: Warming up API...');
+      // Make a quick HEAD request to wake up the function
+      await axios.head(`${this.baseUrl}/customers`, {
+        timeout: 5000,
+        headers: { 'X-Warmup': 'true' }
+      });
+      this.isWarmed = true;
+      console.log('✅ CustomerService: API warmed up successfully');
+    } catch (error) {
+      // Warming up failed, but that's OK - the actual request will handle cold start
+      console.log('🔥 CustomerService: API warmup failed (expected for cold start)');
+    }
+  }
+
+  /**
    * Get all registered customers with their Azure app registrations
    */
   public async getCustomers(): Promise<Customer[]> {
     try {
       console.log('🔍 CustomerService: Making API call to:', `${this.baseUrl}/customers`);
       
-      // Create a timeout promise that rejects after 15 seconds (increased from 5)
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout - API took too long to respond')), 15000);
-      });
-      
-      // Race between the API call and timeout with retry logic
-      const response = await Promise.race([
-        this.retryApiCall(() => 
-          axios.get(`${this.baseUrl}/customers`, {
-            timeout: 15000, // 15 second timeout (increased from 5)
-            headers: {
-              'Cache-Control': 'no-cache',
-              'Pragma': 'no-cache'
-            }
-          })
-        ),
-        timeoutPromise
-      ]);
+      // Use retry API call for reliable cold start handling
+      const response = await this.retryApiCall(() => 
+        axios.get(`${this.baseUrl}/customers`, {
+          timeout: 45000, // 45 seconds for cold start
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        }),
+        3, // Max 3 retries
+        true // This is potentially the first call
+      );
       
       console.log('📦 CustomerService: Raw API response:', response.data);
       console.log('📊 CustomerService: Response status:', response.status);
@@ -110,43 +131,52 @@ export class CustomerService {
       }
     } catch (error: any) {
       console.error('Error fetching customers:', error);
-      if (axios.isAxiosError(error)) {
-        if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-          console.warn('Request timed out - returning empty array');
-          return [];
-        }
-        
-        if (error.response?.status === 404) {
-          console.info('ℹ️ CustomerService: No customers endpoint found - this is normal for a new deployment');
-          return [];
-        }
-        if (error.response?.data?.error) {
-          throw new Error(error.response.data.error);
-        }
-      }
       
-      if (error?.message?.includes('timeout')) {
-        console.warn('⏱️ CustomerService: Custom timeout reached after 15 seconds - returning empty array');
-        return [];
-      }
-      
-      throw new Error('Failed to fetch customers from API');
+      // Always return empty array for customer list failures
+      // This allows the UI to show empty state instead of crashing
+      console.warn('⚠️ CustomerService: Returning empty array due to error');
+      return [];
     }
   }
 
   /**
    * Retry API calls with exponential backoff for better reliability
-   * Following Azure best practices for transient failure handling
+   * Enhanced for Azure Static Web Apps cold start scenarios
    */
-  private async retryApiCall<T>(apiCall: () => Promise<T>, maxRetries: number = 3): Promise<T> {
+  private async retryApiCall<T>(
+    apiCall: () => Promise<T>, 
+    maxRetries: number = 2, 
+    isFirstCall: boolean = false
+  ): Promise<T> {
     let lastError: Error;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`🔄 CustomerService: API attempt ${attempt}/${maxRetries}`);
+        
+        // For Azure Static Web Apps, first attempt might be slow due to cold start
+        if (attempt === 1 && isFirstCall) {
+          console.log('🧊 CustomerService: First call detected - allowing extra time for potential cold start');
+          // Try to warm up the API first if it's not warmed up
+          if (!this.isWarmed) {
+            await this.warmUpAPI();
+          }
+        }
+        
         return await apiCall();
       } catch (error: any) {
         lastError = error;
+        
+        // Special handling for timeout errors on first attempt (likely cold start)
+        if (attempt === 1 && isFirstCall && (
+          error.code === 'ECONNABORTED' || 
+          error.message?.includes('timeout') ||
+          error.message?.includes('Request timeout')
+        )) {
+          console.warn('❄️ CustomerService: First request timed out (likely cold start), retrying...');
+          // Reset warm-up flag so we can try again
+          this.isWarmed = false;
+        }
         
         // Don't retry on client errors (4xx) except for 408 (timeout) and 429 (rate limit)
         if (axios.isAxiosError(error) && error.response?.status) {
@@ -158,11 +188,13 @@ export class CustomerService {
         }
         
         if (attempt === maxRetries) {
+          console.error(`❌ CustomerService: All ${maxRetries} attempts failed`);
           throw error;
         }
         
-        // Exponential backoff: 1s, 2s, 4s
-        const delay = Math.pow(2, attempt - 1) * 1000;
+        // Use shorter delay for cold start recovery, longer for other errors
+        const delay = isFirstCall && attempt === 1 ? 3000 : Math.pow(2, attempt - 1) * 1000;
+        console.log(`⏳ CustomerService: Waiting ${delay}ms before retry ${attempt + 1}`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
