@@ -15,6 +15,9 @@ export interface Customer {
         clientId: string;
         servicePrincipalId: string;
         permissions: string[];
+        clientSecret?: string;
+        consentUrl?: string;
+        redirectUri?: string;
     };
 }
 
@@ -289,6 +292,35 @@ export class TableStorageService {
             }
             throw error;
         }
+    }
+
+    /**
+     * Find customer by clientId from their app registration
+     */
+    async getCustomerByClientId(clientId: string): Promise<Customer | null> {
+        await this.initialize();
+
+        const filter = odata`partitionKey eq 'customer'`;
+        const iterator = this.customersTable.listEntities({ queryOptions: { filter } });
+
+        for await (const entity of iterator) {
+            const appRegistration = entity.appRegistration ? JSON.parse(entity.appRegistration as string) : null;
+            if (appRegistration && appRegistration.clientId === clientId) {
+                return {
+                    id: entity.rowKey as string,
+                    tenantName: entity.tenantName as string,
+                    tenantDomain: entity.tenantDomain as string,
+                    contactEmail: (entity.contactEmail as string) || '',
+                    notes: (entity.notes as string) || '',
+                    createdDate: new Date(entity.createdDate as string),
+                    status: entity.status as string,
+                    totalAssessments: (entity.totalAssessments as number) || 0,
+                    appRegistration: appRegistration
+                };
+            }
+        }
+
+        return null;
     }
 
     // Assessment operations

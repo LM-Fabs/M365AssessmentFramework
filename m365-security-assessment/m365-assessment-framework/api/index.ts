@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { TableStorageService } from "./shared/tableStorageService";
+import { GraphApiService } from "./shared/graphApiService";
 import { Customer } from "./shared/types";
 
 // CORS headers for local development only
@@ -13,27 +14,31 @@ const corsHeaders = process.env.NODE_ENV === 'development' ? {
     'Content-Type': 'application/json'
 };
 
-// Initialize data service (Table Storage only)
+// Initialize data services
 let tableStorageService: TableStorageService;
+let graphApiService: GraphApiService;
 let dataService: TableStorageService;
 let isDataServiceInitialized = false;
 
-// Initialize data service (Table Storage only)
+// Initialize data services
 async function initializeDataService(context: InvocationContext): Promise<void> {
     if (!isDataServiceInitialized) {
         try {
-            context.log('Initializing Table Storage service...');
+            context.log('Initializing data services...');
             
-            // Use Table Storage as primary database
+            // Initialize Table Storage service
             tableStorageService = new TableStorageService();
             await tableStorageService.initialize();
             dataService = tableStorageService;
-            context.log('✅ Table Storage service initialized successfully');
             
+            // Initialize Graph API service
+            graphApiService = new GraphApiService();
+            
+            context.log('✅ Data services initialized successfully');
             isDataServiceInitialized = true;
         } catch (error) {
-            context.log('❌ Table Storage initialization failed:', error);
-            throw new Error(`Table Storage initialization failed: ${error instanceof Error ? error.message : error}`);
+            context.log('❌ Data services initialization failed:', error);
+            throw new Error(`Data services initialization failed: ${error instanceof Error ? error.message : error}`);
         }
     }
 }
@@ -222,38 +227,77 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 notes: customerData.notes || ''
             };
 
-            // Generate unique IDs for app registration
-            const timestamp = Date.now();
-            const randomSuffix = Math.random().toString(36).substr(2, 9);
-            const domainPrefix = customerData.tenantDomain.split('.')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+            // Extract tenant ID from domain or use provided tenant ID
+            let targetTenantId = customerData.tenantId;
             
-            const appRegistration = {
-                applicationId: `${domainPrefix}-app-${timestamp}`,
-                clientId: `${domainPrefix}-client-${timestamp}`,
-                servicePrincipalId: `${domainPrefix}-sp-${timestamp}`,
-                permissions: ["Directory.Read.All", "SecurityEvents.Read.All", "Reports.Read.All"]
-            };
+            if (!targetTenantId && customerData.tenantDomain) {
+                // For now, require the tenant ID to be provided explicitly
+                // In a production system, you would need to resolve domain to tenant ID
+                context.log('⚠️ Tenant ID not provided - using domain as fallback (consider implementing domain resolution)');
+                targetTenantId = customerData.tenantDomain.replace(/\./g, '-').toLowerCase();
+            }
 
-            const newCustomer = await dataService.createCustomer(customerRequest, appRegistration);
+            if (!targetTenantId) {
+                return {
+                    status: 400,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Could not determine tenant ID. Please provide tenantId or a valid tenantDomain."
+                    }
+                };
+            }
+
+            context.log('🏢 Creating real Azure AD app registration for tenant:', targetTenantId);
+
+            // Create real Azure AD app registration using GraphApiService
+            const appRegistration = await graphApiService.createMultiTenantAppRegistration({
+                tenantName: customerData.tenantName,
+                tenantDomain: customerData.tenantDomain,
+                targetTenantId: targetTenantId,
+                contactEmail: customerData.contactEmail,
+                requiredPermissions: [
+                    'Organization.Read.All',
+                    'Reports.Read.All', 
+                    'Directory.Read.All',
+                    'Policy.Read.All',
+                    'SecurityEvents.Read.All',
+                    'IdentityRiskyUser.Read.All',
+                    'DeviceManagementManagedDevices.Read.All',
+                    'AuditLog.Read.All',
+                    'ThreatIndicators.Read.All'
+                ]
+            });
+
+            const newCustomer = await dataService.createCustomer(customerRequest, {
+                applicationId: appRegistration.applicationId,
+                clientId: appRegistration.clientId,
+                servicePrincipalId: appRegistration.servicePrincipalId,
+                permissions: appRegistration.permissions,
+                clientSecret: appRegistration.clientSecret,
+                consentUrl: appRegistration.consentUrl,
+                redirectUri: appRegistration.redirectUri
+            });
             
-            context.log('Customer created successfully:', newCustomer.id);
+            context.log('✅ Customer and Azure AD app created successfully:', newCustomer.id);
 
             // Transform customer data to match frontend interface
             const transformedCustomer = {
                 id: newCustomer.id,
-                tenantId: newCustomer.appRegistration?.servicePrincipalId || '',
+                tenantId: targetTenantId,
                 tenantName: newCustomer.tenantName,
                 tenantDomain: newCustomer.tenantDomain,
-                applicationId: newCustomer.appRegistration?.applicationId || '',
-                clientId: newCustomer.appRegistration?.clientId || '',
-                servicePrincipalId: newCustomer.appRegistration?.servicePrincipalId || '',
+                applicationId: appRegistration.applicationId,
+                clientId: appRegistration.clientId,
+                servicePrincipalId: appRegistration.servicePrincipalId,
                 createdDate: newCustomer.createdDate,
                 lastAssessmentDate: undefined,
                 totalAssessments: 0,
                 status: newCustomer.status as 'active' | 'inactive' | 'pending',
-                permissions: newCustomer.appRegistration?.permissions || [],
+                permissions: appRegistration.permissions,
                 contactEmail: newCustomer.contactEmail,
-                notes: newCustomer.notes
+                notes: newCustomer.notes,
+                consentUrl: appRegistration.consentUrl
             };
 
             return {
@@ -263,11 +307,18 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     success: true,
                     data: {
                         customer: transformedCustomer,
-                        message: "Customer created successfully",
+                        appRegistration: {
+                            clientId: appRegistration.clientId,
+                            consentUrl: appRegistration.consentUrl,
+                            redirectUri: appRegistration.redirectUri,
+                            permissions: appRegistration.permissions
+                        },
+                        message: "Customer and Azure AD app registration created successfully",
                         nextSteps: [
                             "Customer created successfully in Table Storage",
-                            "App registration created with secure IDs",
-                            "Ready for security assessments"
+                            "Real Azure AD app registration created",
+                            "Admin consent required via provided URL",
+                            "Ready for security assessments after consent"
                         ]
                     }
                 }
@@ -1222,6 +1273,9 @@ async function secureScoreHandler(request: HttpRequest, context: InvocationConte
     }
 
     try {
+        // Initialize services
+        await initializeDataService(context);
+        
         const tenantId = request.params.tenantId;
         const clientId = request.query.get('clientId');
 
@@ -1236,15 +1290,29 @@ async function secureScoreHandler(request: HttpRequest, context: InvocationConte
             };
         }
 
-        // Mock secure score (in production, fetch from Microsoft Graph)
-        const secureScore = {
-            currentScore: Math.floor(Math.random() * 400) + 200,
-            maxScore: 600,
-            percentage: 0,
-            controlScores: [],
-            lastUpdated: new Date()
-        };
-        secureScore.percentage = Math.round((secureScore.currentScore / secureScore.maxScore) * 100);
+        context.log('🛡️ Fetching real secure score for tenant:', tenantId, 'clientId:', clientId);
+
+        // Find customer by clientId to get stored credentials
+        const customer = await dataService.getCustomerByClientId(clientId);
+        if (!customer || !customer.appRegistration?.clientSecret) {
+            return {
+                status: 404,
+                headers: corsHeaders,
+                jsonBody: { 
+                    success: false,
+                    error: "Customer not found or missing credentials. Please ensure the app registration was completed successfully."
+                }
+            };
+        }
+
+        // Get real secure score from Microsoft Graph API
+        const secureScore = await graphApiService.getSecureScore(
+            tenantId, 
+            clientId, 
+            customer.appRegistration.clientSecret
+        );
+
+        context.log('✅ Secure score retrieved successfully');
 
         return {
             status: 200,
@@ -1280,6 +1348,9 @@ async function licenseInfoHandler(request: HttpRequest, context: InvocationConte
     }
 
     try {
+        // Initialize services
+        await initializeDataService(context);
+        
         const tenantId = request.params.tenantId;
         const clientId = request.query.get('clientId');
 
@@ -1294,24 +1365,29 @@ async function licenseInfoHandler(request: HttpRequest, context: InvocationConte
             };
         }
 
-        // Mock license data (in production, fetch from Microsoft Graph)
-        const licenses = {
-            totalLicenses: Math.floor(Math.random() * 1000) + 100,
-            assignedLicenses: Math.floor(Math.random() * 800) + 50,
-            availableLicenses: 0,
-            licenseDetails: [
-                {
-                    skuId: 'c7df2760-2c81-4ef7-b578-5b5392b571df',
-                    skuPartNumber: 'ENTERPRISEPREMIUM',
-                    servicePlanName: 'Office 365 E5',
-                    totalUnits: Math.floor(Math.random() * 500) + 50,
-                    assignedUnits: Math.floor(Math.random() * 400) + 30,
-                    consumedUnits: Math.floor(Math.random() * 400) + 30,
-                    capabilityStatus: 'Enabled'
+        context.log('📊 Fetching real license information for tenant:', tenantId, 'clientId:', clientId);
+
+        // Find customer by clientId to get stored credentials
+        const customer = await dataService.getCustomerByClientId(clientId);
+        if (!customer || !customer.appRegistration?.clientSecret) {
+            return {
+                status: 404,
+                headers: corsHeaders,
+                jsonBody: { 
+                    success: false,
+                    error: "Customer not found or missing credentials. Please ensure the app registration was completed successfully."
                 }
-            ]
-        };
-        licenses.availableLicenses = licenses.totalLicenses - licenses.assignedLicenses;
+            };
+        }
+
+        // Get real license information from Microsoft Graph API
+        const licenses = await graphApiService.getLicenseInfo(
+            tenantId, 
+            clientId, 
+            customer.appRegistration.clientSecret
+        );
+
+        context.log('✅ License information retrieved successfully');
 
         return {
             status: 200,

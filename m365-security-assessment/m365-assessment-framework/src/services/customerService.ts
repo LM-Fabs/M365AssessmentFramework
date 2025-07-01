@@ -267,33 +267,6 @@ export class CustomerService {
       console.error('❌ CustomerService: Error type:', typeof error);
       console.error('❌ CustomerService: Error details:', error);
       
-      // For development mode, create a mock customer if API is not available
-      if (axios.isAxiosError(error) && (error.code === 'ERR_NETWORK' || error.response?.status === 404)) {
-        console.warn('API not available, creating mock customer for development');
-        
-        // Generate a mock customer with the provided data
-        const mockCustomer: Customer = {
-          id: `mock-${Date.now()}`,
-          tenantId: `${customerData.tenantName.toLowerCase().replace(/\s+/g, '-')}-tenant-id`,
-          tenantName: customerData.tenantName,
-          tenantDomain: customerData.tenantDomain,
-          applicationId: `app-${customerData.tenantName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
-          clientId: `client-${customerData.tenantName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
-          servicePrincipalId: `sp-${customerData.tenantName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
-          createdDate: new Date(),
-          totalAssessments: 0,
-          status: 'active' as const,
-          permissions: ['Directory.Read.All', 'SecurityEvents.Read.All'],
-          contactEmail: customerData.contactEmail,
-          notes: customerData.notes
-        };
-        
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        return mockCustomer;
-      }
-      
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 409) {
           throw new Error('A customer with this tenant domain already exists');
