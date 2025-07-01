@@ -117,14 +117,22 @@ const Settings = () => {
   };
 
   const handleCreateNewCustomer = async (e: React.FormEvent) => {
+    console.log('🎯 Settings: Form submitted - handleCreateNewCustomer called');
+    console.log('🎯 Settings: Event type:', e.type);
     e.preventDefault();
     
+    console.log('🔍 Settings: Checking form data:', newCustomerData);
+    console.log('🔍 Settings: tenantName valid:', !!newCustomerData.tenantName);
+    console.log('🔍 Settings: tenantDomain valid:', !!newCustomerData.tenantDomain);
+    
     if (!newCustomerData.tenantName || !newCustomerData.tenantDomain) {
+      console.log('❌ Settings: Validation failed - missing required fields');
       setNewCustomerError('Tenant Name and Domain are required');
       return;
     }
 
     console.log('🔧 Settings: Starting customer creation process with data:', newCustomerData);
+    console.log('🔧 Settings: Setting creatingCustomer to true');
     setCreatingCustomer(true);
     setNewCustomerError(null);
 
@@ -132,6 +140,7 @@ const Settings = () => {
       // Use the CustomerService to properly create the customer with Azure app registration
       const customerService = CustomerService.getInstance();
       console.log('📞 Settings: Calling customerService.createCustomer...');
+      console.log('📞 Settings: CustomerService instance:', customerService);
       
       const newCustomer = await customerService.createCustomer({
         tenantName: newCustomerData.tenantName,
@@ -140,21 +149,32 @@ const Settings = () => {
         notes: newCustomerData.notes
       });
       
-      console.log('✅ Settings: Customer created successfully:', newCustomer);
+      console.log('✅ Settings: Customer created successfully - received object:', newCustomer);
+      console.log('✅ Settings: Customer ID:', newCustomer.id);
+      console.log('✅ Settings: Customer type:', typeof newCustomer);
       
       // Auto-select the new customer and reset the form
+      console.log('🔧 Settings: Setting selected customer to new customer');
       setSelectedCustomer(newCustomer);
       
       // Refresh CustomerSelector by calling its refresh method directly
       console.log('🔄 Settings: Refreshing customer selector...');
-      await customerSelectorRef.current?.refresh();
+      try {
+        await customerSelectorRef.current?.refresh();
+        console.log('✅ Settings: Customer selector refreshed successfully');
+      } catch (refreshError) {
+        console.error('❌ Settings: Error refreshing customer selector:', refreshError);
+      }
       
+      console.log('🧹 Settings: Resetting form data');
       setNewCustomerData({
         tenantName: '',
         tenantDomain: '',
         contactEmail: '',
         notes: ''
       });
+      
+      console.log('🔧 Settings: Hiding new customer form');
       setShowNewCustomerForm(false);
       
       // Update the assessment name with the new customer

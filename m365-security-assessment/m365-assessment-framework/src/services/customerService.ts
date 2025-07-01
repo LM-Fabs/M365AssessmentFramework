@@ -193,6 +193,8 @@ export class CustomerService {
   public async createCustomer(customerData: CreateCustomerRequest): Promise<Customer> {
     try {
       console.log('🔧 CustomerService: Creating customer with data:', customerData);
+      console.log('🌐 CustomerService: Using base URL:', this.baseUrl);
+      console.log('🎯 CustomerService: Full POST URL:', `${this.baseUrl}/customers`);
       
       // Use the main customers endpoint which handles both GET and POST
       const response = await this.retryApiCall(() => 
@@ -204,24 +206,34 @@ export class CustomerService {
         })
       );
       
-      console.log('📦 CustomerService: Create customer response:', response.data);
+      console.log('📦 CustomerService: Create customer response status:', response.status);
+      console.log('📦 CustomerService: Create customer response data:', response.data);
+      console.log('📦 CustomerService: Response data type:', typeof response.data);
+      console.log('📦 CustomerService: Response data keys:', Object.keys(response.data));
       
       if (response.data.success && response.data.data && response.data.data.customer) {
         const customerResponse = response.data.data.customer;
         console.log('✅ CustomerService: Customer created successfully:', customerResponse.id);
+        console.log('✅ CustomerService: Customer object:', customerResponse);
         
-        return {
+        const finalCustomer = {
           ...customerResponse,
           createdDate: new Date(customerResponse.createdDate),
           lastAssessmentDate: customerResponse.lastAssessmentDate ? new Date(customerResponse.lastAssessmentDate) : undefined
         };
+        
+        console.log('✅ CustomerService: Final customer object to return:', finalCustomer);
+        return finalCustomer;
       } else {
         const errorMsg = response.data.error || 'Failed to create customer - invalid response format';
         console.error('❌ CustomerService: Invalid response format:', response.data);
+        console.error('❌ CustomerService: Expected format: { success: true, data: { customer: {...} } }');
         throw new Error(errorMsg);
       }
     } catch (error) {
       console.error('❌ CustomerService: Error creating customer:', error);
+      console.error('❌ CustomerService: Error type:', typeof error);
+      console.error('❌ CustomerService: Error details:', error);
       
       // For development mode, create a mock customer if API is not available
       if (axios.isAxiosError(error) && (error.code === 'ERR_NETWORK' || error.response?.status === 404)) {
