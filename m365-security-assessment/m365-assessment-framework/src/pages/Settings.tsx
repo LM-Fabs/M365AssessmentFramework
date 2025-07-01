@@ -117,9 +117,16 @@ const Settings = () => {
   };
 
   const handleCreateNewCustomer = async (e: React.FormEvent) => {
+    console.log('🎯 Settings: handleCreateNewCustomer function called!');
     console.log('🎯 Settings: Form submitted - handleCreateNewCustomer called');
     console.log('🎯 Settings: Event type:', e.type);
+    console.log('🎯 Settings: Event target:', e.target);
+    
+    // Prevent default form submission FIRST
     e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('🎯 Settings: Default prevented successfully');
     
     console.log('🔍 Settings: Checking form data:', newCustomerData);
     console.log('🔍 Settings: tenantName valid:', !!newCustomerData.tenantName);
@@ -326,7 +333,7 @@ const Settings = () => {
 
               {newCustomerError && <div className="error-message">{newCustomerError}</div>}
 
-              <form onSubmit={handleCreateNewCustomer}>
+              <div className="customer-creation-form">
                 <div className="form-row">
                   <div className="form-field">
                     <label htmlFor="newTenantName">Tenant Name *</label>
@@ -392,14 +399,28 @@ const Settings = () => {
                     Cancel
                   </button>
                   <button
-                    type="submit"
+                    type="button"
                     className="primary-button"
                     disabled={creatingCustomer || !newCustomerData.tenantName || !newCustomerData.tenantDomain}
+                    onClick={async (e) => {
+                      console.log('🎯 Settings: Submit button clicked!');
+                      console.log('🎯 Settings: Button click event:', e);
+                      
+                      // Create a fake form event for compatibility with existing handler
+                      const fakeEvent = {
+                        preventDefault: () => {},
+                        stopPropagation: () => {},
+                        type: 'submit',
+                        target: e.target
+                      } as React.FormEvent;
+                      
+                      await handleCreateNewCustomer(fakeEvent);
+                    }}
                   >
                     {creatingCustomer ? 'Creating Customer...' : 'Create Customer & Setup Azure App'}
                   </button>
                 </div>
-              </form>
+              </div>
 
               <div className="azure-app-info">
                 <h4>🔧 What happens when you create a new customer?</h4>
