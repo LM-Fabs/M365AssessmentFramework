@@ -17,15 +17,33 @@ export class GraphApiService {
     private isInitialized = false;
 
     constructor() {
-        // Use managed identity for authentication in production (Azure best practice)
-        // Falls back to service principal if managed identity not available
-        const credential = process.env.AZURE_CLIENT_ID && process.env.AZURE_CLIENT_SECRET && process.env.AZURE_TENANT_ID
-            ? new ClientSecretCredential(
-                process.env.AZURE_TENANT_ID,
-                process.env.AZURE_CLIENT_ID,
-                process.env.AZURE_CLIENT_SECRET
-            )
-            : new DefaultAzureCredential();
+        // Check for required environment variables
+        const requiredEnvVars = {
+            AZURE_CLIENT_ID: process.env.AZURE_CLIENT_ID,
+            AZURE_CLIENT_SECRET: process.env.AZURE_CLIENT_SECRET,
+            AZURE_TENANT_ID: process.env.AZURE_TENANT_ID
+        };
+
+        const missingVars = Object.entries(requiredEnvVars)
+            .filter(([, value]) => !value)
+            .map(([key]) => key);
+
+        if (missingVars.length > 0) {
+            const errorMsg = `Missing required environment variables: ${missingVars.join(', ')}. Please configure these in your Azure Static Web App settings.`;
+            console.error('❌ GraphApiService:', errorMsg);
+            throw new Error(errorMsg);
+        }
+
+        // Use service principal credentials for authentication
+        const credential = new ClientSecretCredential(
+            process.env.AZURE_TENANT_ID!,
+            process.env.AZURE_CLIENT_ID!,
+            process.env.AZURE_CLIENT_SECRET!
+        );
+        
+        console.log('✅ GraphApiService: Using service principal authentication');
+        console.log('🔧 GraphApiService: Tenant ID:', process.env.AZURE_TENANT_ID);
+        console.log('🔧 GraphApiService: Client ID:', process.env.AZURE_CLIENT_ID?.substring(0, 8) + '...');
         
         // Initialize Microsoft Graph client with proper authentication
         this.graphClient = Client.initWithMiddleware({
@@ -35,10 +53,14 @@ export class GraphApiService {
                         const tokenResponse = await credential.getToken(
                             "https://graph.microsoft.com/.default"
                         );
-                        return tokenResponse?.token || "";
+                        if (!tokenResponse?.token) {
+                            throw new Error('Failed to obtain access token - empty response');
+                        }
+                        console.log('✅ GraphApiService: Access token obtained successfully');
+                        return tokenResponse.token;
                     } catch (error) {
-                        console.error('Failed to get access token:', error);
-                        throw new Error('Authentication failed - check managed identity or service principal configuration');
+                        console.error('❌ GraphApiService: Failed to get access token:', error);
+                        throw new Error(`Authentication failed: ${error instanceof Error ? error.message : error}. Check your service principal configuration.`);
                     }
                 }
             }

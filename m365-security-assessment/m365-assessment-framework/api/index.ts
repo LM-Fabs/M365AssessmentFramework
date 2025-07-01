@@ -31,13 +31,19 @@ async function initializeDataService(context: InvocationContext): Promise<void> 
             await tableStorageService.initialize();
             dataService = tableStorageService;
             
-            // Initialize Graph API service
-            graphApiService = new GraphApiService();
+            // Initialize Graph API service with better error handling
+            try {
+                graphApiService = new GraphApiService();
+                context.log('✅ GraphApiService initialized successfully');
+            } catch (error) {
+                context.error('❌ GraphApiService initialization failed:', error);
+                throw new Error(`GraphApiService initialization failed: ${error instanceof Error ? error.message : error}`);
+            }
             
             context.log('✅ Data services initialized successfully');
             isDataServiceInitialized = true;
         } catch (error) {
-            context.log('❌ Data services initialization failed:', error);
+            context.error('❌ Data services initialization failed:', error);
             throw new Error(`Data services initialization failed: ${error instanceof Error ? error.message : error}`);
         }
     }
@@ -251,23 +257,53 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
             context.log('🏢 Creating real Azure AD app registration for tenant:', targetTenantId);
 
             // Create real Azure AD app registration using GraphApiService
-            const appRegistration = await graphApiService.createMultiTenantAppRegistration({
-                tenantName: customerData.tenantName,
-                tenantDomain: customerData.tenantDomain,
-                targetTenantId: targetTenantId,
-                contactEmail: customerData.contactEmail,
-                requiredPermissions: [
-                    'Organization.Read.All',
-                    'Reports.Read.All', 
-                    'Directory.Read.All',
-                    'Policy.Read.All',
-                    'SecurityEvents.Read.All',
-                    'IdentityRiskyUser.Read.All',
-                    'DeviceManagementManagedDevices.Read.All',
-                    'AuditLog.Read.All',
-                    'ThreatIndicators.Read.All'
-                ]
-            });
+            let appRegistration;
+            try {
+                appRegistration = await graphApiService.createMultiTenantAppRegistration({
+                    tenantName: customerData.tenantName,
+                    tenantDomain: customerData.tenantDomain,
+                    targetTenantId: targetTenantId,
+                    contactEmail: customerData.contactEmail,
+                    requiredPermissions: [
+                        'Organization.Read.All',
+                        'Reports.Read.All', 
+                        'Directory.Read.All',
+                        'Policy.Read.All',
+                        'SecurityEvents.Read.All',
+                        'IdentityRiskyUser.Read.All',
+                        'DeviceManagementManagedDevices.Read.All',
+                        'AuditLog.Read.All',
+                        'ThreatIndicators.Read.All'
+                    ]
+                });
+            } catch (graphError) {
+                context.error('❌ GraphApiService error:', graphError);
+                
+                // Return specific error for missing environment variables
+                if (graphError instanceof Error && graphError.message.includes('Missing required environment variables')) {
+                    return {
+                        status: 500,
+                        headers: corsHeaders,
+                        jsonBody: {
+                            success: false,
+                            error: "Azure authentication not configured. Please set AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID in your Azure Static Web App settings.",
+                            details: graphError.message,
+                            configurationRequired: true
+                        }
+                    };
+                }
+                
+                // Return general Graph API error
+                return {
+                    status: 500,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Failed to create Azure AD app registration",
+                        details: graphError instanceof Error ? graphError.message : String(graphError)
+                    }
+                };
+            }
 
             const newCustomer = await dataService.createCustomer(customerRequest, {
                 applicationId: appRegistration.applicationId,
@@ -1432,6 +1468,89 @@ async function assessmentStatusHandler(request: HttpRequest, context: Invocation
     };
 }
 
+// Azure configuration check endpoint
+async function azureConfigHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    context.log('Processing Azure configuration check request');
+
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+
+    try {
+        const configStatus = {
+            timestamp: new Date().toISOString(),
+            environment: {
+                AZURE_CLIENT_ID: process.env.AZURE_CLIENT_ID ? 'SET' : 'NOT SET',
+                AZURE_CLIENT_SECRET: process.env.AZURE_CLIENT_SECRET ? 'SET' : 'NOT SET',
+                AZURE_TENANT_ID: process.env.AZURE_TENANT_ID ? 'SET' : 'NOT SET',
+                AZURE_STORAGE_CONNECTION_STRING: process.env.AZURE_STORAGE_CONNECTION_STRING ? 'SET' : 'NOT SET'
+            },
+            services: {
+                tableStorage: false,
+                graphApi: false
+            }
+        };
+
+        // Test Table Storage
+        try {
+            if (!isDataServiceInitialized) {
+                await initializeDataService(context);
+            }
+            configStatus.services.tableStorage = true;
+        } catch (error) {
+            context.warn('Table Storage initialization failed:', error);
+        }
+
+        // Test Graph API
+        try {
+            const testGraphService = new GraphApiService();
+            configStatus.services.graphApi = true;
+        } catch (error) {
+            context.warn('GraphApiService initialization failed:', error);
+        }
+
+        const hasAllRequiredConfig = 
+            configStatus.environment.AZURE_CLIENT_ID === 'SET' &&
+            configStatus.environment.AZURE_CLIENT_SECRET === 'SET' &&
+            configStatus.environment.AZURE_TENANT_ID === 'SET' &&
+            configStatus.environment.AZURE_STORAGE_CONNECTION_STRING === 'SET';
+
+        return {
+            status: hasAllRequiredConfig ? 200 : 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: hasAllRequiredConfig,
+                message: hasAllRequiredConfig 
+                    ? "All Azure services configured correctly"
+                    : "Missing required Azure configuration",
+                data: configStatus,
+                recommendations: !hasAllRequiredConfig ? [
+                    "Set AZURE_CLIENT_ID in Azure Static Web App configuration",
+                    "Set AZURE_CLIENT_SECRET in Azure Static Web App configuration", 
+                    "Set AZURE_TENANT_ID in Azure Static Web App configuration",
+                    "Set AZURE_STORAGE_CONNECTION_STRING in Azure Static Web App configuration",
+                    "Ensure the service principal has Application.ReadWrite.All permissions in Microsoft Graph"
+                ] : []
+            }
+        };
+    } catch (error) {
+        context.error('Error in Azure config handler:', error);
+        
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: "Failed to check Azure configuration",
+                details: error instanceof Error ? error.message : "Unknown error"
+            }
+        };
+    }
+}
+
 // Register all functions with optimized configuration
 app.http('diagnostics', {
     methods: ['GET', 'OPTIONS'],
@@ -1539,42 +1658,3 @@ app.http('createMultiTenantApp', {
 });
 
 // Basic assessment endpoint
-app.http('basicAssessment', {
-    methods: ['POST', 'OPTIONS'],
-    authLevel: 'anonymous',
-    route: 'assessment/basic',
-    handler: basicAssessmentHandler
-});
-
-// Secure score endpoint
-app.http('secureScore', {
-    methods: ['GET', 'OPTIONS'],
-    authLevel: 'anonymous',
-    route: 'assessment/{tenantId}/secure-score',
-    handler: secureScoreHandler
-});
-
-// License info endpoint
-app.http('licenseInfo', {
-    methods: ['GET', 'OPTIONS'],
-    authLevel: 'anonymous',
-    route: 'assessment/{tenantId}/licenses',
-    handler: licenseInfoHandler
-});
-
-// Assessment status endpoint (for API warmup)
-app.http('assessmentStatus', {
-    methods: ['HEAD', 'GET', 'OPTIONS'],
-    authLevel: 'anonymous',
-    route: 'assessment/status',
-    handler: assessmentStatusHandler
-});
-
-// Initialize on startup
-const environment = process.env.NODE_ENV || 'production';
-const isProduction = environment === 'production';
-console.log(`🚀 Azure Functions API initialized successfully - Version 1.0.8`);
-console.log(`🌍 Environment: ${environment}`);
-console.log(`📊 Database: Table Storage`);
-console.log(`🔧 Static Web App Compatible: ${isProduction ? 'Yes' : 'Development Mode'}`);
-console.log(`📡 CORS: ${isProduction ? 'Handled by Static Web Apps' : 'Development Headers'}`);
