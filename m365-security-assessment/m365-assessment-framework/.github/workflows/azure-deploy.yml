@@ -92,6 +92,23 @@ jobs:
         working-directory: ./m365-security-assessment/m365-assessment-framework
         run: azd deploy --no-prompt
         
+      - name: Configure Static Web App Environment Variables
+        working-directory: ./m365-security-assessment/m365-assessment-framework
+        run: |
+          # Get the Static Web App name from azd outputs
+          STATIC_WEB_APP_NAME=$(azd env get-values | grep STATIC_WEB_APP_NAME | cut -d'=' -f2 | tr -d '"')
+          RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"')
+          
+          echo "Configuring environment variables for Static Web App: $STATIC_WEB_APP_NAME"
+          
+          # Configure AZURE_CLIENT_ID and AZURE_CLIENT_SECRET in Static Web App
+          # These are not set in Bicep to prevent secret exposure
+          az staticwebapp appsettings set \
+            --name "$STATIC_WEB_APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --setting-names AZURE_CLIENT_ID="${{ secrets.AZURE_CLIENT_ID }}" \
+                           AZURE_CLIENT_SECRET="${{ secrets.AZURE_CLIENT_SECRET }}"
+        
       - name: Validate deployment
         working-directory: ./m365-security-assessment/m365-assessment-framework
         run: |
@@ -102,9 +119,3 @@ jobs:
         if: failure()
         working-directory: ./m365-security-assessment/m365-assessment-framework
         run: azd logs --follow=false
-        
-      - name: Output deployment URLs
-        working-directory: ./m365-security-assessment/m365-assessment-framework
-        run: |
-          echo "Frontend URL: $(azd env get-values | grep REACT_APP_API_URL | cut -d'=' -f2)"
-          echo "API URL: $(azd env get-values | grep REACT_APP_API_URL | cut -d'=' -f2)"
