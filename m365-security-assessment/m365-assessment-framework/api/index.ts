@@ -106,6 +106,14 @@ async function diagnosticsHandler(request: HttpRequest, context: InvocationConte
 async function testHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('Test function processed a request');
     
+    // Handle HEAD request
+    if (request.method === 'HEAD') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+    
     return { 
         status: 200,
         headers: corsHeaders,
@@ -124,6 +132,14 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
 
     // Handle preflight OPTIONS request immediately
     if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+
+    // Handle HEAD request for API warmup
+    if (request.method === 'HEAD') {
         return {
             status: 200,
             headers: corsHeaders
@@ -1449,23 +1465,55 @@ async function licenseInfoHandler(request: HttpRequest, context: InvocationConte
 
 // Assessment status handler (for API warmup)
 async function assessmentStatusHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    if (request.method === 'OPTIONS' || request.method === 'HEAD') {
+    context.log('Processing assessment status request');
+
+    if (request.method === 'OPTIONS') {
         return {
             status: 200,
             headers: corsHeaders
         };
     }
 
-    return {
-        status: 200,
-        headers: corsHeaders,
-        jsonBody: {
-            success: true,
-            status: 'API is running',
+    if (request.method === 'HEAD') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+
+    try {
+        const status = {
+            status: 'online',
+            version: '1.0.8',
             timestamp: new Date().toISOString(),
-            version: '1.0.9'
-        }
-    };
+            services: {
+                api: 'healthy',
+                database: isDataServiceInitialized ? 'healthy' : 'initializing',
+                graph: 'healthy'
+            }
+        };
+
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: status,
+                timestamp: new Date().toISOString()
+            }
+        };
+    } catch (error) {
+        context.error('Assessment status error:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: 'Failed to get assessment status',
+                timestamp: new Date().toISOString()
+            }
+        };
+    }
 }
 
 // Azure configuration check endpoint
@@ -1560,14 +1608,14 @@ app.http('diagnostics', {
 });
 
 app.http('test', {
-    methods: ['GET'],
+    methods: ['GET', 'HEAD'],
     authLevel: 'anonymous',
     route: 'test',
     handler: testHandler
 });
 
 app.http('customers', {
-    methods: ['GET', 'POST', 'OPTIONS'],
+    methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'customers',
     handler: customersHandler
@@ -1658,3 +1706,41 @@ app.http('createMultiTenantApp', {
 });
 
 // Basic assessment endpoint
+app.http('basicAssessment', {
+    methods: ['POST', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/basic',
+    handler: basicAssessmentHandler
+});
+
+// Secure score endpoint
+app.http('secureScore', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/secure-score/{tenantId}',
+    handler: secureScoreHandler
+});
+
+// License info endpoint
+app.http('licenseInfo', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/license-info/{tenantId}',
+    handler: licenseInfoHandler
+});
+
+// Assessment status endpoint for frontend warmup
+app.http('assessmentStatus', {
+    methods: ['GET', 'OPTIONS', 'HEAD'],
+    authLevel: 'anonymous',
+    route: 'assessment/status',
+    handler: assessmentStatusHandler
+});
+
+// Azure configuration check endpoint
+app.http('azureConfig', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'azure/config',
+    handler: azureConfigHandler
+});

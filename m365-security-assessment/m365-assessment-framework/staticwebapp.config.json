@@ -46,24 +46,29 @@
     },
     {
       "route": "/api/test",
-      "methods": ["GET"],
+      "methods": ["GET", "HEAD"],
       "allowedRoles": ["anonymous"]
     },
     {
       "route": "/api/customers",
-      "methods": ["GET", "POST", "OPTIONS"],
+      "methods": ["GET", "POST", "HEAD", "OPTIONS"],
       "allowedRoles": ["anonymous"]
     },
     {
       "route": "/api/assessments",
-      "methods": ["GET", "POST", "OPTIONS"],
+      "methods": ["GET", "POST", "HEAD", "OPTIONS"],
       "allowedRoles": ["anonymous"]
     },
     {
       "route": "/api/assessment/current",
-      "methods": ["GET", "OPTIONS"],
+      "methods": ["GET", "HEAD", "OPTIONS"],
       "allowedRoles": ["anonymous"],
       "rewrite": "/api/assessment-current"
+    },
+    {
+      "route": "/api/assessment/status",
+      "methods": ["GET", "HEAD", "OPTIONS"],
+      "allowedRoles": ["anonymous"]
     },
     {
       "route": "/api/*",

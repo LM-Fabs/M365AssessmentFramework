@@ -2,32 +2,46 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const functions_1 = require("@azure/functions");
 const tableStorageService_1 = require("./shared/tableStorageService");
-// CORS headers for all responses
-const corsHeaders = {
+const graphApiService_1 = require("./shared/graphApiService");
+// CORS headers for local development only
+// In Azure Static Web Apps, CORS is handled automatically
+const corsHeaders = process.env.NODE_ENV === 'development' ? {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Content-Type': 'application/json'
+} : {
+    'Content-Type': 'application/json'
 };
-// Initialize data service (Table Storage only)
+// Initialize data services
 let tableStorageService;
+let graphApiService;
 let dataService;
 let isDataServiceInitialized = false;
-// Initialize data service (Table Storage only)
+// Initialize data services
 async function initializeDataService(context) {
     if (!isDataServiceInitialized) {
         try {
-            context.log('Initializing Table Storage service...');
-            // Use Table Storage as primary database
+            context.log('Initializing data services...');
+            // Initialize Table Storage service
             tableStorageService = new tableStorageService_1.TableStorageService();
             await tableStorageService.initialize();
             dataService = tableStorageService;
-            context.log('✅ Table Storage service initialized successfully');
+            // Initialize Graph API service with better error handling
+            try {
+                graphApiService = new graphApiService_1.GraphApiService();
+                context.log('✅ GraphApiService initialized successfully');
+            }
+            catch (error) {
+                context.error('❌ GraphApiService initialization failed:', error);
+                throw new Error(`GraphApiService initialization failed: ${error instanceof Error ? error.message : error}`);
+            }
+            context.log('✅ Data services initialized successfully');
             isDataServiceInitialized = true;
         }
         catch (error) {
-            context.log('❌ Table Storage initialization failed:', error);
-            throw new Error(`Table Storage initialization failed: ${error instanceof Error ? error.message : error}`);
+            context.error('❌ Data services initialization failed:', error);
+            throw new Error(`Data services initialization failed: ${error instanceof Error ? error.message : error}`);
         }
     }
 }
@@ -83,6 +97,13 @@ async function diagnosticsHandler(request, context) {
 // Test endpoint - immediate fast response
 async function testHandler(request, context) {
     context.log('Test function processed a request');
+    // Handle HEAD request
+    if (request.method === 'HEAD') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
     return {
         status: 200,
         headers: corsHeaders,
@@ -99,6 +120,13 @@ async function customersHandler(request, context) {
     context.log(`Processing ${request.method} request for customers`);
     // Handle preflight OPTIONS request immediately
     if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+    // Handle HEAD request for API warmup
+    if (request.method === 'HEAD') {
         return {
             status: 200,
             headers: corsHeaders
@@ -196,34 +224,99 @@ async function customersHandler(request, context) {
                 contactEmail: customerData.contactEmail || '',
                 notes: customerData.notes || ''
             };
-            // Generate unique IDs for app registration
-            const timestamp = Date.now();
-            const randomSuffix = Math.random().toString(36).substr(2, 9);
-            const domainPrefix = customerData.tenantDomain.split('.')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-            const appRegistration = {
-                applicationId: `${domainPrefix}-app-${timestamp}`,
-                clientId: `${domainPrefix}-client-${timestamp}`,
-                servicePrincipalId: `${domainPrefix}-sp-${timestamp}`,
-                permissions: ["Directory.Read.All", "SecurityEvents.Read.All", "Reports.Read.All"]
-            };
-            const newCustomer = await dataService.createCustomer(customerRequest, appRegistration);
-            context.log('Customer created successfully:', newCustomer.id);
+            // Extract tenant ID from domain or use provided tenant ID
+            let targetTenantId = customerData.tenantId;
+            if (!targetTenantId && customerData.tenantDomain) {
+                // For now, require the tenant ID to be provided explicitly
+                // In a production system, you would need to resolve domain to tenant ID
+                context.log('⚠️ Tenant ID not provided - using domain as fallback (consider implementing domain resolution)');
+                targetTenantId = customerData.tenantDomain.replace(/\./g, '-').toLowerCase();
+            }
+            if (!targetTenantId) {
+                return {
+                    status: 400,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Could not determine tenant ID. Please provide tenantId or a valid tenantDomain."
+                    }
+                };
+            }
+            context.log('🏢 Creating real Azure AD app registration for tenant:', targetTenantId);
+            // Create real Azure AD app registration using GraphApiService
+            let appRegistration;
+            try {
+                appRegistration = await graphApiService.createMultiTenantAppRegistration({
+                    tenantName: customerData.tenantName,
+                    tenantDomain: customerData.tenantDomain,
+                    targetTenantId: targetTenantId,
+                    contactEmail: customerData.contactEmail,
+                    requiredPermissions: [
+                        'Organization.Read.All',
+                        'Reports.Read.All',
+                        'Directory.Read.All',
+                        'Policy.Read.All',
+                        'SecurityEvents.Read.All',
+                        'IdentityRiskyUser.Read.All',
+                        'DeviceManagementManagedDevices.Read.All',
+                        'AuditLog.Read.All',
+                        'ThreatIndicators.Read.All'
+                    ]
+                });
+            }
+            catch (graphError) {
+                context.error('❌ GraphApiService error:', graphError);
+                // Return specific error for missing environment variables
+                if (graphError instanceof Error && graphError.message.includes('Missing required environment variables')) {
+                    return {
+                        status: 500,
+                        headers: corsHeaders,
+                        jsonBody: {
+                            success: false,
+                            error: "Azure authentication not configured. Please set AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID in your Azure Static Web App settings.",
+                            details: graphError.message,
+                            configurationRequired: true
+                        }
+                    };
+                }
+                // Return general Graph API error
+                return {
+                    status: 500,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Failed to create Azure AD app registration",
+                        details: graphError instanceof Error ? graphError.message : String(graphError)
+                    }
+                };
+            }
+            const newCustomer = await dataService.createCustomer(customerRequest, {
+                applicationId: appRegistration.applicationId,
+                clientId: appRegistration.clientId,
+                servicePrincipalId: appRegistration.servicePrincipalId,
+                permissions: appRegistration.permissions,
+                clientSecret: appRegistration.clientSecret,
+                consentUrl: appRegistration.consentUrl,
+                redirectUri: appRegistration.redirectUri
+            });
+            context.log('✅ Customer and Azure AD app created successfully:', newCustomer.id);
             // Transform customer data to match frontend interface
             const transformedCustomer = {
                 id: newCustomer.id,
-                tenantId: newCustomer.appRegistration?.servicePrincipalId || '',
+                tenantId: targetTenantId,
                 tenantName: newCustomer.tenantName,
                 tenantDomain: newCustomer.tenantDomain,
-                applicationId: newCustomer.appRegistration?.applicationId || '',
-                clientId: newCustomer.appRegistration?.clientId || '',
-                servicePrincipalId: newCustomer.appRegistration?.servicePrincipalId || '',
+                applicationId: appRegistration.applicationId,
+                clientId: appRegistration.clientId,
+                servicePrincipalId: appRegistration.servicePrincipalId,
                 createdDate: newCustomer.createdDate,
                 lastAssessmentDate: undefined,
                 totalAssessments: 0,
                 status: newCustomer.status,
-                permissions: newCustomer.appRegistration?.permissions || [],
+                permissions: appRegistration.permissions,
                 contactEmail: newCustomer.contactEmail,
-                notes: newCustomer.notes
+                notes: newCustomer.notes,
+                consentUrl: appRegistration.consentUrl
             };
             return {
                 status: 201,
@@ -232,11 +325,18 @@ async function customersHandler(request, context) {
                     success: true,
                     data: {
                         customer: transformedCustomer,
-                        message: "Customer created successfully",
+                        appRegistration: {
+                            clientId: appRegistration.clientId,
+                            consentUrl: appRegistration.consentUrl,
+                            redirectUri: appRegistration.redirectUri,
+                            permissions: appRegistration.permissions
+                        },
+                        message: "Customer and Azure AD app registration created successfully",
                         nextSteps: [
                             "Customer created successfully in Table Storage",
-                            "App registration created with secure IDs",
-                            "Ready for security assessments"
+                            "Real Azure AD app registration created",
+                            "Admin consent required via provided URL",
+                            "Ready for security assessments after consent"
                         ]
                     }
                 }
@@ -871,6 +971,457 @@ async function getMetricsHandler(request, context) {
         };
     }
 }
+// Multi-tenant app creation endpoint
+async function createMultiTenantAppHandler(request, context) {
+    context.log('Creating multi-tenant Azure app registration...');
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+    try {
+        await initializeDataService(context);
+        const requestData = await request.json();
+        const { targetTenantId, targetTenantDomain, assessmentName, requiredPermissions } = requestData;
+        if (!targetTenantId) {
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Target tenant ID is required",
+                    expectedFormat: "{ targetTenantId: string, targetTenantDomain?: string, assessmentName?: string }"
+                }
+            };
+        }
+        // Create multi-tenant app registration
+        const appName = `${assessmentName || 'M365 Security Assessment'} - ${targetTenantDomain || targetTenantId}`;
+        const redirectUri = process.env.REDIRECT_URI || `${process.env.STATIC_WEB_APP_URL}/auth/consent-callback`;
+        // Generate client ID (in production, this would create actual Azure app)
+        const clientId = `app-${targetTenantId}-${Date.now()}`;
+        const applicationId = `obj-${targetTenantId}-${Date.now()}`;
+        const servicePrincipalId = `sp-${targetTenantId}-${Date.now()}`;
+        // Create consent URL for admin consent
+        const baseConsentUrl = 'https://login.microsoftonline.com';
+        const scope = requiredPermissions?.map((perm) => `https://graph.microsoft.com/${perm}`).join(' ') ||
+            'https://graph.microsoft.com/Organization.Read.All https://graph.microsoft.com/Reports.Read.All https://graph.microsoft.com/Directory.Read.All';
+        const consentUrl = `${baseConsentUrl}/${targetTenantId}/adminconsent` +
+            `?client_id=${clientId}` +
+            `&scope=${encodeURIComponent(scope)}` +
+            `&redirect_uri=${encodeURIComponent(redirectUri)}`;
+        const response = {
+            applicationId,
+            applicationObjectId: applicationId,
+            clientId,
+            servicePrincipalId,
+            tenantId: targetTenantId,
+            consentUrl,
+            authUrl: `${baseConsentUrl}/${targetTenantId}/oauth2/v2.0/authorize`,
+            redirectUri,
+            permissions: requiredPermissions || [
+                'Organization.Read.All',
+                'Reports.Read.All',
+                'Directory.Read.All',
+                'Policy.Read.All',
+                'SecurityEvents.Read.All'
+            ]
+        };
+        context.log('✅ Multi-tenant app created:', clientId);
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: response
+            }
+        };
+    }
+    catch (error) {
+        context.log('❌ Error creating multi-tenant app:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: error.message || 'Failed to create multi-tenant app'
+            }
+        };
+    }
+}
+// Basic assessment handler (Secure Score + Licenses)
+async function basicAssessmentHandler(request, context) {
+    context.log('Performing basic security assessment...');
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+    try {
+        await initializeDataService(context);
+        const requestData = await request.json();
+        const { customerId, tenantId, assessmentName, clientId, assessmentScope } = requestData;
+        if (!tenantId || !clientId) {
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Tenant ID and Client ID are required"
+                }
+            };
+        }
+        // Mock secure score data (in production, fetch from Microsoft Graph)
+        const secureScore = {
+            currentScore: Math.floor(Math.random() * 400) + 200, // 200-600
+            maxScore: 600,
+            percentage: 0,
+            controlScores: [
+                {
+                    controlName: 'Identity and Access Management',
+                    category: 'Identity',
+                    currentScore: Math.floor(Math.random() * 100) + 50,
+                    maxScore: 150,
+                    implementationStatus: 'Partial'
+                },
+                {
+                    controlName: 'Data Protection',
+                    category: 'Data',
+                    currentScore: Math.floor(Math.random() * 80) + 40,
+                    maxScore: 120,
+                    implementationStatus: 'Partial'
+                },
+                {
+                    controlName: 'Device Security',
+                    category: 'Device',
+                    currentScore: Math.floor(Math.random() * 100) + 60,
+                    maxScore: 160,
+                    implementationStatus: 'Implemented'
+                },
+                {
+                    controlName: 'Application Security',
+                    category: 'Apps',
+                    currentScore: Math.floor(Math.random() * 70) + 30,
+                    maxScore: 100,
+                    implementationStatus: 'Partial'
+                }
+            ],
+            lastUpdated: new Date()
+        };
+        secureScore.percentage = Math.round((secureScore.currentScore / secureScore.maxScore) * 100);
+        // Mock license data (in production, fetch from Microsoft Graph)
+        const licenses = {
+            totalLicenses: Math.floor(Math.random() * 1000) + 100,
+            assignedLicenses: 0,
+            availableLicenses: 0,
+            licenseDetails: [
+                {
+                    skuId: 'c7df2760-2c81-4ef7-b578-5b5392b571df',
+                    skuPartNumber: 'ENTERPRISEPREMIUM',
+                    servicePlanName: 'Office 365 E5',
+                    totalUnits: Math.floor(Math.random() * 500) + 50,
+                    assignedUnits: 0,
+                    consumedUnits: 0,
+                    capabilityStatus: 'Enabled'
+                },
+                {
+                    skuId: 'b05e124f-c7cc-45a0-a6aa-8cf78c946968',
+                    skuPartNumber: 'ENTERPRISEPACK',
+                    servicePlanName: 'Office 365 E3',
+                    totalUnits: Math.floor(Math.random() * 300) + 30,
+                    assignedUnits: 0,
+                    consumedUnits: 0,
+                    capabilityStatus: 'Enabled'
+                }
+            ]
+        };
+        // Calculate assigned/available licenses
+        licenses.assignedLicenses = licenses.licenseDetails.reduce((sum, license) => {
+            const assigned = Math.floor(license.totalUnits * 0.8); // 80% assigned
+            license.assignedUnits = assigned;
+            license.consumedUnits = assigned;
+            return sum + assigned;
+        }, 0);
+        licenses.availableLicenses = licenses.totalLicenses - licenses.assignedLicenses;
+        const assessmentData = {
+            tenantId,
+            tenantDisplayName: `Tenant ${tenantId}`,
+            assessmentDate: new Date(),
+            secureScore,
+            licenses,
+            status: 'completed'
+        };
+        context.log('✅ Basic assessment completed for tenant:', tenantId);
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: assessmentData
+            }
+        };
+    }
+    catch (error) {
+        context.log('❌ Error performing basic assessment:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: error.message || 'Failed to perform basic assessment'
+            }
+        };
+    }
+}
+// Secure score handler
+async function secureScoreHandler(request, context) {
+    context.log('Fetching secure score...');
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+    try {
+        // Initialize services
+        await initializeDataService(context);
+        const tenantId = request.params.tenantId;
+        const clientId = request.query.get('clientId');
+        if (!tenantId || !clientId) {
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Tenant ID and Client ID are required"
+                }
+            };
+        }
+        context.log('🛡️ Fetching real secure score for tenant:', tenantId, 'clientId:', clientId);
+        // Find customer by clientId to get stored credentials
+        const customer = await dataService.getCustomerByClientId(clientId);
+        if (!customer || !customer.appRegistration?.clientSecret) {
+            return {
+                status: 404,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Customer not found or missing credentials. Please ensure the app registration was completed successfully."
+                }
+            };
+        }
+        // Get real secure score from Microsoft Graph API
+        const secureScore = await graphApiService.getSecureScore(tenantId, clientId, customer.appRegistration.clientSecret);
+        context.log('✅ Secure score retrieved successfully');
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: secureScore
+            }
+        };
+    }
+    catch (error) {
+        context.log('❌ Error fetching secure score:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: error.message || 'Failed to fetch secure score'
+            }
+        };
+    }
+}
+// License info handler
+async function licenseInfoHandler(request, context) {
+    context.log('Fetching license information...');
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+    try {
+        // Initialize services
+        await initializeDataService(context);
+        const tenantId = request.params.tenantId;
+        const clientId = request.query.get('clientId');
+        if (!tenantId || !clientId) {
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Tenant ID and Client ID are required"
+                }
+            };
+        }
+        context.log('📊 Fetching real license information for tenant:', tenantId, 'clientId:', clientId);
+        // Find customer by clientId to get stored credentials
+        const customer = await dataService.getCustomerByClientId(clientId);
+        if (!customer || !customer.appRegistration?.clientSecret) {
+            return {
+                status: 404,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Customer not found or missing credentials. Please ensure the app registration was completed successfully."
+                }
+            };
+        }
+        // Get real license information from Microsoft Graph API
+        const licenses = await graphApiService.getLicenseInfo(tenantId, clientId, customer.appRegistration.clientSecret);
+        context.log('✅ License information retrieved successfully');
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: licenses
+            }
+        };
+    }
+    catch (error) {
+        context.log('❌ Error fetching license info:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: error.message || 'Failed to fetch license information'
+            }
+        };
+    }
+}
+// Assessment status handler (for API warmup)
+async function assessmentStatusHandler(request, context) {
+    context.log('Processing assessment status request');
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+    if (request.method === 'HEAD') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+    try {
+        const status = {
+            status: 'online',
+            version: '1.0.8',
+            timestamp: new Date().toISOString(),
+            services: {
+                api: 'healthy',
+                database: isDataServiceInitialized ? 'healthy' : 'initializing',
+                graph: 'healthy'
+            }
+        };
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: status,
+                timestamp: new Date().toISOString()
+            }
+        };
+    }
+    catch (error) {
+        context.error('Assessment status error:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: 'Failed to get assessment status',
+                timestamp: new Date().toISOString()
+            }
+        };
+    }
+}
+// Azure configuration check endpoint
+async function azureConfigHandler(request, context) {
+    context.log('Processing Azure configuration check request');
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+    try {
+        const configStatus = {
+            timestamp: new Date().toISOString(),
+            environment: {
+                AZURE_CLIENT_ID: process.env.AZURE_CLIENT_ID ? 'SET' : 'NOT SET',
+                AZURE_CLIENT_SECRET: process.env.AZURE_CLIENT_SECRET ? 'SET' : 'NOT SET',
+                AZURE_TENANT_ID: process.env.AZURE_TENANT_ID ? 'SET' : 'NOT SET',
+                AZURE_STORAGE_CONNECTION_STRING: process.env.AZURE_STORAGE_CONNECTION_STRING ? 'SET' : 'NOT SET'
+            },
+            services: {
+                tableStorage: false,
+                graphApi: false
+            }
+        };
+        // Test Table Storage
+        try {
+            if (!isDataServiceInitialized) {
+                await initializeDataService(context);
+            }
+            configStatus.services.tableStorage = true;
+        }
+        catch (error) {
+            context.warn('Table Storage initialization failed:', error);
+        }
+        // Test Graph API
+        try {
+            const testGraphService = new graphApiService_1.GraphApiService();
+            configStatus.services.graphApi = true;
+        }
+        catch (error) {
+            context.warn('GraphApiService initialization failed:', error);
+        }
+        const hasAllRequiredConfig = configStatus.environment.AZURE_CLIENT_ID === 'SET' &&
+            configStatus.environment.AZURE_CLIENT_SECRET === 'SET' &&
+            configStatus.environment.AZURE_TENANT_ID === 'SET' &&
+            configStatus.environment.AZURE_STORAGE_CONNECTION_STRING === 'SET';
+        return {
+            status: hasAllRequiredConfig ? 200 : 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: hasAllRequiredConfig,
+                message: hasAllRequiredConfig
+                    ? "All Azure services configured correctly"
+                    : "Missing required Azure configuration",
+                data: configStatus,
+                recommendations: !hasAllRequiredConfig ? [
+                    "Set AZURE_CLIENT_ID in Azure Static Web App configuration",
+                    "Set AZURE_CLIENT_SECRET in Azure Static Web App configuration",
+                    "Set AZURE_TENANT_ID in Azure Static Web App configuration",
+                    "Set AZURE_STORAGE_CONNECTION_STRING in Azure Static Web App configuration",
+                    "Ensure the service principal has Application.ReadWrite.All permissions in Microsoft Graph"
+                ] : []
+            }
+        };
+    }
+    catch (error) {
+        context.error('Error in Azure config handler:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: "Failed to check Azure configuration",
+                details: error instanceof Error ? error.message : "Unknown error"
+            }
+        };
+    }
+}
 // Register all functions with optimized configuration
 functions_1.app.http('diagnostics', {
     methods: ['GET', 'OPTIONS'],
@@ -879,13 +1430,13 @@ functions_1.app.http('diagnostics', {
     handler: diagnosticsHandler
 });
 functions_1.app.http('test', {
-    methods: ['GET'],
+    methods: ['GET', 'HEAD'],
     authLevel: 'anonymous',
     route: 'test',
     handler: testHandler
 });
 functions_1.app.http('customers', {
-    methods: ['GET', 'POST', 'OPTIONS'],
+    methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'customers',
     handler: customersHandler
@@ -956,6 +1507,46 @@ functions_1.app.http('getMetrics', {
     route: 'GetMetrics',
     handler: getMetricsHandler
 });
-// Initialize on startup
-console.log('Azure Functions API initialized successfully - Version 1.0.7');
+// Multi-tenant app creation endpoint
+functions_1.app.http('createMultiTenantApp', {
+    methods: ['POST', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'enterprise-app/multi-tenant',
+    handler: createMultiTenantAppHandler
+});
+// Basic assessment endpoint
+functions_1.app.http('basicAssessment', {
+    methods: ['POST', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/basic',
+    handler: basicAssessmentHandler
+});
+// Secure score endpoint
+functions_1.app.http('secureScore', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/secure-score/{tenantId}',
+    handler: secureScoreHandler
+});
+// License info endpoint
+functions_1.app.http('licenseInfo', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/license-info/{tenantId}',
+    handler: licenseInfoHandler
+});
+// Assessment status endpoint for frontend warmup
+functions_1.app.http('assessmentStatus', {
+    methods: ['GET', 'OPTIONS', 'HEAD'],
+    authLevel: 'anonymous',
+    route: 'assessment/status',
+    handler: assessmentStatusHandler
+});
+// Azure configuration check endpoint
+functions_1.app.http('azureConfig', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'azure/config',
+    handler: azureConfigHandler
+});
 //# sourceMappingURL=index.js.map
