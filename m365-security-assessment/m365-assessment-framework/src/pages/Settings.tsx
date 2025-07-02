@@ -302,9 +302,12 @@ const Settings = () => {
                 type="button"
                 className="add-customer-button"
                 onClick={() => {
+                  console.log('🎯 Settings: Add New Customer button clicked!');
                   setShowNewCustomerForm(true);
                   // Close the customer dropdown to prevent it from hiding the dialog
+                  console.log('🎯 Settings: Calling closeDropdown on CustomerSelector...');
                   customerSelectorRef.current?.closeDropdown();
+                  console.log('🎯 Settings: closeDropdown called successfully');
                 }}
                 disabled={loading}
               >
