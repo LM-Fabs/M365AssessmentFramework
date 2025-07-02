@@ -14,6 +14,7 @@ interface CustomerSelectorProps {
 export interface CustomerSelectorRef {
   refresh: () => Promise<void>;
   addCustomer: (customer: Customer) => void;
+  closeDropdown: () => void;
 }
 
 const CustomerSelector = forwardRef<CustomerSelectorRef, CustomerSelectorProps>(({
@@ -52,6 +53,9 @@ const CustomerSelector = forwardRef<CustomerSelectorRef, CustomerSelectorProps>(
     },
     addCustomer: (customer: Customer) => {
       setCustomers(prev => [...prev, customer]);
+    },
+    closeDropdown: () => {
+      setIsDropdownOpen(false);
     }
   }));
 

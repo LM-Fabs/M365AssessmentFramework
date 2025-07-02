@@ -301,7 +301,11 @@ const Settings = () => {
               <button
                 type="button"
                 className="add-customer-button"
-                onClick={() => setShowNewCustomerForm(true)}
+                onClick={() => {
+                  setShowNewCustomerForm(true);
+                  // Close the customer dropdown to prevent it from hiding the dialog
+                  customerSelectorRef.current?.closeDropdown();
+                }}
                 disabled={loading}
               >
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
