@@ -242,54 +242,29 @@ async function customersHandler(request, context) {
                     }
                 };
             }
-            context.log('🏢 Creating real Azure AD app registration for tenant:', targetTenantId);
-            // Create real Azure AD app registration using GraphApiService
-            let appRegistration;
-            try {
-                appRegistration = await graphApiService.createMultiTenantAppRegistration({
-                    tenantName: customerData.tenantName,
-                    tenantDomain: customerData.tenantDomain,
-                    targetTenantId: targetTenantId,
-                    contactEmail: customerData.contactEmail,
-                    requiredPermissions: [
-                        'Organization.Read.All',
-                        'Reports.Read.All',
-                        'Directory.Read.All',
-                        'Policy.Read.All',
-                        'SecurityEvents.Read.All',
-                        'IdentityRiskyUser.Read.All',
-                        'DeviceManagementManagedDevices.Read.All',
-                        'AuditLog.Read.All',
-                        'ThreatIndicators.Read.All'
-                    ]
-                });
-            }
-            catch (graphError) {
-                context.error('❌ GraphApiService error:', graphError);
-                // Return specific error for missing environment variables
-                if (graphError instanceof Error && graphError.message.includes('Missing required environment variables')) {
-                    return {
-                        status: 500,
-                        headers: corsHeaders,
-                        jsonBody: {
-                            success: false,
-                            error: "Azure authentication not configured. Please set AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID in your Azure Static Web App settings.",
-                            details: graphError.message,
-                            configurationRequired: true
-                        }
-                    };
-                }
-                // Return general Graph API error
-                return {
-                    status: 500,
-                    headers: corsHeaders,
-                    jsonBody: {
-                        success: false,
-                        error: "Failed to create Azure AD app registration",
-                        details: graphError instanceof Error ? graphError.message : String(graphError)
-                    }
-                };
-            }
+            context.log('🏢 Creating customer without auto app registration (will be created manually)');
+            // For now, skip automatic Azure AD app registration creation
+            // This should be done manually by the admin with proper permissions
+            let appRegistration = {
+                applicationId: `pending-${Date.now()}`,
+                clientId: `pending-${Date.now()}`,
+                servicePrincipalId: `pending-${Date.now()}`,
+                clientSecret: 'MANUAL_SETUP_REQUIRED',
+                consentUrl: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
+                redirectUri: process.env.REDIRECT_URI || "https://portal.azure.com/",
+                permissions: [
+                    'Organization.Read.All',
+                    'Reports.Read.All',
+                    'Directory.Read.All',
+                    'Policy.Read.All',
+                    'SecurityEvents.Read.All',
+                    'IdentityRiskyUser.Read.All',
+                    'DeviceManagementManagedDevices.Read.All',
+                    'AuditLog.Read.All',
+                    'ThreatIndicators.Read.All'
+                ]
+            };
+            context.log('⚠️ Skipping automatic Azure AD app registration - manual setup required');
             const newCustomer = await dataService.createCustomer(customerRequest, {
                 applicationId: appRegistration.applicationId,
                 clientId: appRegistration.clientId,
@@ -334,9 +309,12 @@ async function customersHandler(request, context) {
                         message: "Customer and Azure AD app registration created successfully",
                         nextSteps: [
                             "Customer created successfully in Table Storage",
-                            "Real Azure AD app registration created",
-                            "Admin consent required via provided URL",
-                            "Ready for security assessments after consent"
+                            "⚠️ Azure AD app registration setup required manually:",
+                            "1. Go to Azure Portal > App Registrations",
+                            "2. Create new multi-tenant application",
+                            "3. Add required Microsoft Graph API permissions",
+                            "4. Update customer record with app registration details",
+                            "5. Customer admin must consent to permissions"
                         ]
                     }
                 }
