@@ -107,19 +107,14 @@ export class GraphApiService {
 
             // Create the app registration with multi-tenant configuration
             const appName = `M365-Security-Assessment-${customerData.tenantName.replace(/\s+/g, '-')}`;
-            const redirectUri = process.env.REDIRECT_URI || `${process.env.STATIC_WEB_APP_URL}/auth/consent-callback`;
+            
+            // Use a default redirect URI for multi-tenant apps (Azure portal standard)
+            const redirectUri = process.env.REDIRECT_URI || "https://portal.azure.com/";
             
             const applicationRequest = {
                 displayName: appName,
                 description: `M365 Security Assessment Application for ${customerData.tenantName} (${customerData.tenantDomain})`,
                 signInAudience: "AzureADMultipleOrgs", // Multi-tenant application
-                web: {
-                    redirectUris: [redirectUri],
-                    implicitGrantSettings: {
-                        enableAccessTokenIssuance: false, // Use authorization code flow for security
-                        enableIdTokenIssuance: false
-                    }
-                },
                 requiredResourceAccess: [
                     {
                         resourceAppId: "00000003-0000-0000-c000-000000000000", // Microsoft Graph
@@ -192,7 +187,7 @@ export class GraphApiService {
                 servicePrincipalId: servicePrincipal.id || '',
                 clientSecret: secretResponse.secretText,
                 consentUrl,
-                redirectUri,
+                redirectUri: redirectUri,
                 permissions
             };
 
@@ -376,11 +371,9 @@ export class GraphApiService {
      * Generate admin consent URL for multi-tenant app
      */
     private generateConsentUrl(clientId: string, tenantId: string, permissions: string[], redirectUri: string): string {
-        const scope = permissions.map(perm => `https://graph.microsoft.com/${perm}`).join(' ');
-        
+        // For admin consent, we use the standard admin consent endpoint
         return `https://login.microsoftonline.com/${tenantId}/adminconsent` +
             `?client_id=${clientId}` +
-            `&scope=${encodeURIComponent(scope)}` +
             `&redirect_uri=${encodeURIComponent(redirectUri)}`;
     }
 
@@ -412,17 +405,17 @@ export class GraphApiService {
      */
     async updateAppPermissions(applicationId: string, permissions: string[]): Promise<void> {
         try {
-            // Permission ID mapping for Microsoft Graph
+            // Permission ID mapping for Microsoft Graph (consistent with getPermissionId)
             const permissionMap: Record<string, string> = {
-                'Reports.Read.All': '02e97553-ed7b-43d0-ab3c-f8bace0d040c',
-                'SecurityEvents.Read.All': 'bf394140-e372-4bf9-a898-299cfc7564e5',
+                'Organization.Read.All': '498476ce-e0fe-48b0-b801-37ba7e2685c6',
+                'Reports.Read.All': '230c1aed-a721-4c5d-9cb4-a90514e508ef',
                 'Directory.Read.All': '7ab1d382-f21e-4acd-a863-ba3e13f7da61',
-                'IdentityRiskyUser.Read.All': 'dc5007c0-b50f-4205-8011-036faadd4858',
+                'Policy.Read.All': '246dd0d5-5bd0-4def-940b-0421030a5b68',
+                'SecurityEvents.Read.All': 'bf394140-e372-4bf9-a898-299cfc7564e5',
+                'IdentityRiskyUser.Read.All': 'dc5007c0-2d7d-4c42-879c-2dab87571379',
                 'DeviceManagementManagedDevices.Read.All': '2f51be20-0bb4-4fed-bf7b-db946066c75e',
                 'AuditLog.Read.All': 'b0afded3-3588-46d8-8b3d-9842eff778da',
-                'ThreatIndicators.Read.All': '197ee4e9-b993-4066-898f-d6aecc55125b',
-                'Policy.Read.All': '246dd0d5-5bd0-4def-940b-0421030a5b68',
-                'Organization.Read.All': '498476ce-e0fe-48b0-b801-37ba7e2685c6',
+                'ThreatIndicators.Read.All': 'ee928332-e9d2-4747-91b6-7c2c54de8c51',
                 'Directory.ReadWrite.All': '19dbc75e-c2e2-444c-a770-ec69d8559fc7'
             };
 
