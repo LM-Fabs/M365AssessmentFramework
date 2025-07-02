@@ -1,1 +1,53 @@
+# Azure Developer CLI
 .azure
+
+# Local development settings (contains secrets)
+api/local.settings.json
+
+# App settings file (may contain connection strings)
+app-settings.json
+
+# Environment files (may contain secrets)
+.env
+.env.local
+.env.development
+.env.production
+
+# Build outputs
+/build
+/dist
+
+# Dependencies
+node_modules/
+api/node_modules/
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# nyc test coverage
+.nyc_output
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
