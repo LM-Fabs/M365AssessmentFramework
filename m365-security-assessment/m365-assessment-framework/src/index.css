@@ -56,12 +56,12 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
   
-  /* LM-AG brand CSS variables - Updated to match screenshot blue */
+  /* LM-AG brand CSS variables - Updated to use specific hex color */
   :root {
     --lm-primary: #5DADE2; /* Lighter primary blue for content */
     --lm-secondary: #85C1E9; /* Very light secondary blue */
-    --lm-dark-blue: #1E3A8A; /* Deep blue for navigation (matches screenshot) */
-    --lm-nav-blue: #1E40AF; /* Navigation blue from screenshot */
+    --lm-dark-blue: #00497F; /* Specific LM-AG blue (RGB 0, 73, 127) */
+    --lm-nav-blue: #00497F; /* Navigation blue using specific hex code */
     --lm-bg-light: #F8FAFE; /* Very light blue-tinted background */
     --lm-text-main: #2C3E50;
     --lm-text-light: #5D6D7E;
