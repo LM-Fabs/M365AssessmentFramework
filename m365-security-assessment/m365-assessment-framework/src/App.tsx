@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
+import { ApiWarmupService } from './services/apiWarmupService';
 import Navigation from './components/layout/Navigation';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
@@ -10,6 +11,12 @@ import AuthCallback from './pages/AuthCallback';
 import './App.css';
 
 function App() {
+  // Start API warmup as early as possible
+  useEffect(() => {
+    const warmupService = ApiWarmupService.getInstance();
+    warmupService.startBackgroundWarmup();
+  }, []);
+
   return (
     <Router>
       <AppContent />

@@ -56,13 +56,13 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
   
-  /* LM-AG brand CSS variables */
+  /* LM-AG brand CSS variables - Updated to lighter blue scheme */
   :root {
-    --lm-primary: #007CFF; /* LM-AG primary blue */
-    --lm-secondary: #36A9E1; /* LM-AG secondary blue */
-    --lm-dark-blue: #005A9E; /* LM-AG dark blue */
-    --lm-bg-light: #F3F7FC; /* Light background color */
-    --lm-text-main: #333333;
-    --lm-text-light: #666666;
+    --lm-primary: #5DADE2; /* Lighter primary blue */
+    --lm-secondary: #85C1E9; /* Very light secondary blue */
+    --lm-dark-blue: #3498DB; /* Medium light blue */
+    --lm-bg-light: #F8FAFE; /* Very light blue-tinted background */
+    --lm-text-main: #2C3E50;
+    --lm-text-light: #5D6D7E;
   }
 }

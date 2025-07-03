@@ -36,6 +36,11 @@ export class CustomerService {
   private baseUrl: string;
   private isWarmed = false;
 
+  // Cache for prefetched data
+  private customersCache: Customer[] | null = null;
+  private cacheTimestamp: number = 0;
+  private readonly CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache
+
   private constructor() {
     // Azure Static Web Apps API routing:
     // - Local development: http://localhost:7072/api
@@ -90,6 +95,12 @@ export class CustomerService {
    * Get all registered customers with their Azure app registrations
    */
   public async getCustomers(): Promise<Customer[]> {
+    // Check cache first
+    const cachedCustomers = this.getCachedCustomers();
+    if (cachedCustomers) {
+      return cachedCustomers;
+    }
+
     try {
       console.log('🔍 CustomerService: Making API call to:', `${this.baseUrl}/customers`);
       
@@ -116,6 +127,12 @@ export class CustomerService {
           createdDate: new Date(customer.createdDate),
           lastAssessmentDate: customer.lastAssessmentDate ? new Date(customer.lastAssessmentDate) : undefined
         }));
+        
+        // Update cache
+        this.customersCache = customers;
+        this.cacheTimestamp = Date.now();
+        console.log(`✅ CustomerService: Cached ${customers.length} customers`);
+        
         return customers;
       } else if (Array.isArray(response.data)) {
         // Legacy format - direct array response
@@ -124,6 +141,12 @@ export class CustomerService {
           createdDate: new Date(customer.createdDate),
           lastAssessmentDate: customer.lastAssessmentDate ? new Date(customer.lastAssessmentDate) : undefined
         }));
+        
+        // Update cache
+        this.customersCache = customers;
+        this.cacheTimestamp = Date.now();
+        console.log(`✅ CustomerService: Cached ${customers.length} customers (legacy format)`);
+        
         return customers;
       } else {
         console.warn('Unexpected API response format:', response.data);
@@ -137,6 +160,39 @@ export class CustomerService {
       console.warn('⚠️ CustomerService: Returning empty array due to error');
       return [];
     }
+  }
+
+  /**
+   * Prefetch customers data in the background
+   */
+  public async prefetchCustomers(): Promise<void> {
+    try {
+      console.log('🚀 CustomerService: Prefetching customers in background...');
+      const customers = await this.getCustomers();
+      this.customersCache = customers;
+      this.cacheTimestamp = Date.now();
+      console.log(`✅ CustomerService: Prefetched ${customers.length} customers`);
+    } catch (error) {
+      console.warn('⚠️ CustomerService: Prefetch failed:', error);
+    }
+  }
+
+  /**
+   * Get customers with cache support
+   */
+  private getCachedCustomers(): Customer[] | null {
+    if (!this.customersCache) return null;
+    
+    const age = Date.now() - this.cacheTimestamp;
+    if (age > this.CACHE_DURATION) {
+      console.log('🗑️ CustomerService: Cache expired, clearing...');
+      this.customersCache = null;
+      this.cacheTimestamp = 0;
+      return null;
+    }
+    
+    console.log(`✅ CustomerService: Returning cached data (${age}ms old)`);
+    return this.customersCache;
   }
 
   /**
@@ -253,6 +309,9 @@ export class CustomerService {
           createdDate: new Date(customerResponse.createdDate),
           lastAssessmentDate: customerResponse.lastAssessmentDate ? new Date(customerResponse.lastAssessmentDate) : undefined
         };
+        
+        // Clear cache since we added a new customer
+        this.clearCache();
         
         console.log('✅ CustomerService: Final customer object to return:', finalCustomer);
         return finalCustomer;
@@ -439,5 +498,14 @@ export class CustomerService {
       console.error('Error fetching customer assessments:', error);
       throw new Error('Failed to fetch customer assessments');
     }
+  }
+
+  /**
+   * Clear the customer cache (called when data changes)
+   */
+  private clearCache(): void {
+    console.log('🗑️ CustomerService: Clearing cache due to data change');
+    this.customersCache = null;
+    this.cacheTimestamp = 0;
   }
 }

@@ -38,8 +38,16 @@ const Settings = () => {
   const [creatingAppRegistration, setCreatingAppRegistration] = useState<string | null>(null);
   const [appRegistrationStatus, setAppRegistrationStatus] = useState<{[customerId: string]: string}>({});
   
+  // Helper function to generate assessment name with date
+  const generateAssessmentName = (customerName?: string) => {
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('de-DE'); // German format: DD.MM.YYYY
+    const baseName = customerName ? `Security Assessment ${customerName}` : 'Security Assessment';
+    return `${baseName} - ${dateStr}`;
+  };
+  
   const [formData, setFormData] = useState({
-    assessmentName: 'Security Assessment',
+    assessmentName: generateAssessmentName(),
     includedCategories: Object.keys(SECURITY_CATEGORIES),
     notificationEmail: user?.email || '',
     autoSchedule: false,
@@ -53,18 +61,11 @@ const Settings = () => {
     setSelectedCustomer(customer);
     setError(null);
     
-    // Update assessment name with customer name if selected
-    if (customer) {
-      setFormData(prev => ({
-        ...prev,
-        assessmentName: `Security Assessment - ${customer.tenantName}`
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        assessmentName: 'Security Assessment'
-      }));
-    }
+    // Update assessment name with customer name and current date
+    setFormData(prev => ({
+      ...prev,
+      assessmentName: generateAssessmentName(customer?.tenantName)
+    }));
   };
 
   const handleAssessmentSubmit = async (e: React.FormEvent) => {
@@ -121,7 +122,6 @@ const Settings = () => {
   };
 
   const handleCreateNewCustomer = async (e: React.FormEvent) => {
-    // Prevent default form submission FIRST
     e.preventDefault();
     e.stopPropagation();
     
@@ -134,7 +134,6 @@ const Settings = () => {
     setNewCustomerError(null);
 
     try {
-      // Create customer without app registration initially
       const customerService = CustomerService.getInstance();
       const newCustomer = await customerService.createCustomer({
         tenantName: newCustomerData.tenantName,
@@ -143,17 +142,14 @@ const Settings = () => {
         notes: newCustomerData.notes
       });
       
-      // Auto-select the new customer and reset the form
       setSelectedCustomer(newCustomer);
       
-      // Refresh CustomerSelector
       try {
         await customerSelectorRef.current?.refresh();
       } catch (refreshError) {
         console.error('Error refreshing customer selector:', refreshError);
       }
       
-      // Reset form data
       setNewCustomerData({
         tenantName: '',
         tenantDomain: '',
@@ -163,13 +159,12 @@ const Settings = () => {
       
       setShowNewCustomerForm(false);
       
-      // Update the assessment name with the new customer
+      // Update the assessment name with the new customer and current date
       setFormData(prev => ({
         ...prev,
-        assessmentName: `Security Assessment - ${newCustomer.tenantName}`
+        assessmentName: generateAssessmentName(newCustomer.tenantName)
       }));
 
-      // Show success message
       setError(null);
       setSuccess(false);
       
@@ -212,22 +207,16 @@ const Settings = () => {
       const customerService = CustomerService.getInstance();
       await customerService.deleteCustomer(customerToDelete.id);
       
-      console.log('✅ Settings: Customer deleted successfully:', customerToDelete.id);
-      
-      // Remove from local list
       setCustomers(prev => prev.filter(c => c.id !== customerToDelete.id));
       
-      // Clear selected customer if it was deleted
       if (selectedCustomer?.id === customerToDelete.id) {
         setSelectedCustomer(null);
       }
       
-      // Refresh customer selector
       await customerSelectorRef.current?.refresh();
-      
       setCustomerToDelete(null);
     } catch (error: any) {
-      console.error('❌ Settings: Failed to delete customer:', error);
+      console.error('Failed to delete customer:', error);
       setCustomerError(error.message || 'Failed to delete customer');
     } finally {
       setDeletingCustomer(false);
@@ -241,7 +230,6 @@ const Settings = () => {
     
     try {
       // TODO: Implement actual app registration creation
-      // For now, simulate the process
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       setAppRegistrationStatus(prev => ({ 
@@ -249,7 +237,6 @@ const Settings = () => {
         [customer.id]: 'App registration created successfully! Please complete admin consent.' 
       }));
       
-      // Refresh customer list to get updated app registration info
       await loadCustomers();
       
     } catch (error: any) {
@@ -264,7 +251,6 @@ const Settings = () => {
 
   // Helper function to get app registration status
   const getAppRegistrationStatus = (customer: Customer): { status: string; color: string; action?: string } => {
-    // Check if we have a custom status for this customer
     if (appRegistrationStatus[customer.id]) {
       return { 
         status: appRegistrationStatus[customer.id], 
@@ -273,21 +259,15 @@ const Settings = () => {
       };
     }
     
-    // Check if customer has valid app registration
-    if (customer.applicationId && 
-        customer.clientId && 
-        customer.servicePrincipalId &&
-        !customer.applicationId.startsWith('pending-') &&
-        !customer.clientId.startsWith('pending-')) {
+    if (customer.applicationId && customer.clientId && customer.servicePrincipalId &&
+        !customer.applicationId.startsWith('pending-') && !customer.clientId.startsWith('pending-')) {
       return { status: 'Active', color: 'green' };
     }
     
-    // Check if app registration is pending
     if (customer.applicationId?.startsWith('pending-') || customer.clientId?.startsWith('pending-')) {
       return { status: 'Pending Setup', color: 'orange', action: 'Create App Registration' };
     }
     
-    // No app registration
     return { status: 'Not Configured', color: 'red', action: 'Create App Registration' };
   };
 
@@ -297,6 +277,20 @@ const Settings = () => {
       loadCustomers();
     }
   }, [showCustomerManagement]);
+
+  // Pre-load customers when Settings component mounts to improve UX
+  useEffect(() => {
+    const preloadCustomers = async () => {
+      try {
+        const customerService = CustomerService.getInstance();
+        customerService.prefetchCustomers();
+      } catch (error) {
+        console.warn('Background customer prefetch failed:', error);
+      }
+    };
+    
+    preloadCustomers();
+  }, []);
 
   if (!isAuthenticated) {
     return (
@@ -318,6 +312,7 @@ const Settings = () => {
         {error && <div className="error-message">{error}</div>}
         {success && <div className="success-message">Assessment started successfully. Redirecting...</div>}
 
+        {/* Customer Selection Section */}
         <div className="form-section">
           <h2>Customer Selection</h2>
           <p>Select an existing customer with configured Azure app registration, or add a new customer.</p>
@@ -337,7 +332,6 @@ const Settings = () => {
                 className="add-customer-button"
                 onClick={() => {
                   setShowNewCustomerForm(true);
-                  // Close the customer dropdown to prevent it from hiding the dialog
                   customerSelectorRef.current?.closeDropdown();
                 }}
                 disabled={loading}
@@ -440,36 +434,56 @@ const Settings = () => {
                     type="button"
                     className="primary-button"
                     disabled={creatingCustomer || !newCustomerData.tenantName || !newCustomerData.tenantDomain}
-                    onClick={async (e) => {
-                      console.log('🎯 Settings: Submit button clicked!');
-                      console.log('🎯 Settings: Button click event:', e);
-                      
-                      // Create a fake form event for compatibility with existing handler
-                      const fakeEvent = {
-                        preventDefault: () => {},
-                        stopPropagation: () => {},
-                        type: 'submit',
-                        target: e.target
-                      } as React.FormEvent;
-                      
-                      await handleCreateNewCustomer(fakeEvent);
-                    }}
+                    onClick={handleCreateNewCustomer}
                   >
-                    {creatingCustomer ? 'Creating Customer...' : 'Create Customer & Setup Azure App'}
+                    {creatingCustomer ? 'Creating Customer...' : 'Create Customer'}
                   </button>
                 </div>
               </div>
 
-              <div className="azure-app-info">
-                <h4>🔧 What happens when you create a new customer?</h4>
-                <ol>
-                  <li><strong>Customer Record:</strong> We'll save the customer information in our system</li>
-                  <li><strong>App Registration Setup:</strong> After creation, you'll need to create an Azure app registration for secure access</li>
-                  <li><strong>Permissions Setup:</strong> The app will need to be configured with read-only security permissions</li>
-                  <li><strong>Ready for Assessment:</strong> Once app registration is complete, you can run security assessments</li>
-                </ol>
+              {/* Improved "What happens next?" section */}
+              <div className="azure-app-info-improved">
+                <div className="info-header">
+                  <div className="info-icon">🔧</div>
+                  <h4>What happens when you create a new customer?</h4>
+                </div>
+                
+                <div className="info-grid">
+                  <div className="info-step">
+                    <div className="step-number">1</div>
+                    <div className="step-content">
+                      <h5>Customer Record</h5>
+                      <p>We'll save the customer information in our system for future assessments and tracking</p>
+                    </div>
+                  </div>
+                  
+                  <div className="info-step">
+                    <div className="step-number">2</div>
+                    <div className="step-content">
+                      <h5>App Registration Setup</h5>
+                      <p>After creation, you'll need to create an Azure app registration for secure access to the tenant</p>
+                    </div>
+                  </div>
+                  
+                  <div className="info-step">
+                    <div className="step-number">3</div>
+                    <div className="step-content">
+                      <h5>Permissions Configuration</h5>
+                      <p>Configure the app with read-only security permissions required for comprehensive assessments</p>
+                    </div>
+                  </div>
+                  
+                  <div className="info-step">
+                    <div className="step-number">4</div>
+                    <div className="step-content">
+                      <h5>Ready for Assessment</h5>
+                      <p>Once setup is complete, you can run comprehensive security assessments for this customer</p>
+                    </div>
+                  </div>
+                </div>
+                
                 <div className="info-note">
-                  <strong>Note:</strong> App registration creation has been moved to the Customer Management section for better control and visibility.
+                  <strong>💡 Note:</strong> App registration creation has been moved to the Customer Management section for better control and visibility.
                 </div>
               </div>
             </div>
@@ -496,6 +510,140 @@ const Settings = () => {
             </div>
           )}
         </div>
+
+        {/* Assessment Configuration Section */}
+        {selectedCustomer && (
+          <div className="form-section">
+            <h2>Assessment Configuration</h2>
+            
+            <div className="form-field">
+              <label htmlFor="assessmentName">Assessment Name</label>
+              <input
+                type="text"
+                id="assessmentName"
+                value={formData.assessmentName}
+                onChange={(e) => setFormData(prev => ({ ...prev, assessmentName: e.target.value }))}
+                disabled={loading}
+                placeholder="Security Assessment"
+              />
+              <small className="field-help">
+                The assessment name automatically includes today's date ({new Date().toLocaleDateString('de-DE')})
+              </small>
+            </div>
+
+            <div className="form-field">
+              <label>Security Categories to Include</label>
+              <div className="categories-grid">
+                {Object.entries(SECURITY_CATEGORIES).map(([key, categoryName]) => (
+                  <div
+                    key={key}
+                    className={`category-checkbox ${formData.includedCategories.includes(key) ? 'selected' : ''}`}
+                    onClick={() => handleCategoryToggle(key)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formData.includedCategories.includes(key)}
+                      onChange={() => handleCategoryToggle(key)}
+                      disabled={loading}
+                    />
+                    <div className="category-info">
+                      <div className="category-name">{categoryName}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="notificationEmail">Notification Email</label>
+              <input
+                type="email"
+                id="notificationEmail"
+                value={formData.notificationEmail}
+                onChange={(e) => setFormData(prev => ({ ...prev, notificationEmail: e.target.value }))}
+                disabled={loading}
+                placeholder="admin@example.com"
+              />
+            </div>
+
+            <div className="schedule-options">
+              <div className="checkbox-field">
+                <input
+                  type="checkbox"
+                  id="autoSchedule"
+                  checked={formData.autoSchedule}
+                  onChange={(e) => setFormData(prev => ({ ...prev, autoSchedule: e.target.checked }))}
+                  disabled={loading}
+                />
+                <label htmlFor="autoSchedule">Enable automatic recurring assessments</label>
+              </div>
+
+              {formData.autoSchedule && (
+                <div className="form-field">
+                  <label htmlFor="scheduleFrequency">Frequency</label>
+                  <select
+                    id="scheduleFrequency"
+                    value={formData.scheduleFrequency}
+                    onChange={(e) => setFormData(prev => ({ ...prev, scheduleFrequency: e.target.value }))}
+                    disabled={loading}
+                  >
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Improved "What happens next?" for assessment */}
+            <div className="assessment-next-steps">
+              <div className="next-steps-header">
+                <div className="steps-icon">🚀</div>
+                <h4>What happens next?</h4>
+              </div>
+              
+              <div className="steps-container">
+                <div className="assessment-step">
+                  <div className="step-icon">🔍</div>
+                  <div className="step-text">
+                    <strong>Verification:</strong> Verify the selected customer's Azure app registration is still valid
+                  </div>
+                </div>
+                
+                <div className="assessment-step">
+                  <div className="step-icon">🔐</div>
+                  <div className="step-text">
+                    <strong>Connection:</strong> Connect using the existing app registration with read-only permissions
+                  </div>
+                </div>
+                
+                <div className="assessment-step">
+                  <div className="step-icon">📊</div>
+                  <div className="step-text">
+                    <strong>Analysis:</strong> Perform comprehensive security analysis across all selected categories
+                  </div>
+                </div>
+                
+                <div className="assessment-step">
+                  <div className="step-icon">📧</div>
+                  <div className="step-text">
+                    <strong>Notification:</strong> Send detailed results to the specified email address
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="form-actions">
+              <button
+                type="submit"
+                className="primary-button submit-button"
+                disabled={loading || !selectedCustomer}
+              >
+                {loading ? 'Starting Assessment...' : 'Start Security Assessment'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Customer Management Section */}
         <div className="form-section">
@@ -603,186 +751,60 @@ const Settings = () => {
             </div>
           )}
         </div>
-
-        {/* Delete Confirmation Modal */}
-        {customerToDelete && (
-          <div className="modal-overlay" onClick={() => setCustomerToDelete(null)}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h3>Delete Customer</h3>
-                <button
-                  type="button"
-                  className="modal-close"
-                  onClick={() => setCustomerToDelete(null)}
-                >
-                  <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              </div>
-              
-              <div className="modal-body">
-                <p>Are you sure you want to delete the customer <strong>{customerToDelete.tenantName}</strong>?</p>
-                <p className="warning-text">
-                  ⚠️ This action cannot be undone. All assessment data for this customer will be preserved,
-                  but you won't be able to run new assessments until you recreate the customer.
-                </p>
-                
-                <div className="customer-delete-details">
-                  <div><strong>Tenant:</strong> {customerToDelete.tenantDomain}</div>
-                  <div><strong>Contact:</strong> {customerToDelete.contactEmail || 'Not specified'}</div>
-                  <div><strong>Assessments:</strong> {customerToDelete.totalAssessments || 0}</div>
-                </div>
-              </div>
-              
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => setCustomerToDelete(null)}
-                  disabled={deletingCustomer}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="danger-button"
-                  onClick={confirmDeleteCustomer}
-                  disabled={deletingCustomer}
-                >
-                  {deletingCustomer ? 'Deleting...' : 'Delete Customer'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="form-section">
-          <h2>Assessment Configuration</h2>
-          
-          <div className="form-field">
-            <label htmlFor="assessmentName">Assessment Name</label>
-            <input
-              type="text"
-              id="assessmentName"
-              value={formData.assessmentName}
-              onChange={e => setFormData({...formData, assessmentName: e.target.value})}
-              placeholder="Enter a name for this assessment"
-              required
-              disabled={loading}
-            />
-            <small>This will be used to identify the assessment in your dashboard</small>
-          </div>
-
-          <div className="assessment-info">
-            <h3>🚀 What happens next?</h3>
-            <div className="process-steps">
-              <div className="step">
-                <div className="step-number">1</div>
-                <div className="step-content">
-                  <strong>Customer Verification</strong>
-                  <p>Verify the selected customer's Azure app registration is still valid</p>
-                </div>
-              </div>
-              <div className="step">
-                <div className="step-number">2</div>
-                <div className="step-content">
-                  <strong>Secure Connection</strong>
-                  <p>Connect using the existing app registration with read-only permissions</p>
-                </div>
-              </div>
-              <div className="step">
-                <div className="step-number">3</div>
-                <div className="step-content">
-                  <strong>Data Collection</strong>
-                  <p>Gather security data from the selected Microsoft 365 tenant</p>
-                </div>
-              </div>
-              <div className="step">
-                <div className="step-number">4</div>
-                <div className="step-content">
-                  <strong>Analysis & Report</strong>
-                  <p>Generate detailed security insights and actionable recommendations</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="form-section">
-          <h2>Assessment Scope</h2>
-          <p>Select security categories to include in the assessment</p>
-          <div className="categories-grid">
-            {Object.entries(SECURITY_CATEGORIES).map(([key, label]) => (
-              <label key={key} className={`category-checkbox ${formData.includedCategories.includes(key) ? 'selected' : ''}`}>
-                <input
-                  type="checkbox"
-                  checked={formData.includedCategories.includes(key)}
-                  onChange={() => handleCategoryToggle(key)}
-                  disabled={loading}
-                />
-                <span>{label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div className="form-section">
-          <h2>Notifications</h2>
-          <div className="form-field">
-            <label htmlFor="notificationEmail">Notification Email</label>
-            <input
-              type="email"
-              id="notificationEmail"
-              value={formData.notificationEmail}
-              onChange={e => setFormData({...formData, notificationEmail: e.target.value})}
-              required
-              disabled={loading}
-            />
-          </div>
-        </div>
-
-        <div className="form-section">
-          <h2>Schedule</h2>
-          <div className="schedule-options">
-            <label className="checkbox-field">
-              <input
-                type="checkbox"
-                checked={formData.autoSchedule}
-                onChange={e => setFormData({...formData, autoSchedule: e.target.checked})}
-                disabled={loading}
-              />
-              <span>Schedule Recurring Assessments</span>
-            </label>
-
-            {formData.autoSchedule && (
-              <div className="form-field">
-                <label htmlFor="scheduleFrequency">Frequency</label>
-                <select
-                  id="scheduleFrequency"
-                  value={formData.scheduleFrequency}
-                  onChange={e => setFormData({...formData, scheduleFrequency: e.target.value})}
-                  disabled={loading}
-                >
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="quarterly">Quarterly</option>
-                </select>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="form-actions">
-          <button 
-            type="submit" 
-            className="primary-button" 
-            disabled={loading || !selectedCustomer}
-          >
-            {loading ? 'Starting Assessment...' : 'Start Security Assessment'}
-          </button>
-        </div>
       </form>
+
+      {/* Delete Confirmation Modal */}
+      {customerToDelete && (
+        <div className="modal-overlay" onClick={() => setCustomerToDelete(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Delete Customer</h3>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setCustomerToDelete(null)}
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <p>Are you sure you want to delete the customer <strong>{customerToDelete.tenantName}</strong>?</p>
+              <p className="warning-text">
+                ⚠️ This action cannot be undone. All assessment data for this customer will be preserved,
+                but you won't be able to run new assessments until you recreate the customer.
+              </p>
+              
+              <div className="customer-delete-details">
+                <div><strong>Tenant:</strong> {customerToDelete.tenantDomain}</div>
+                <div><strong>Contact:</strong> {customerToDelete.contactEmail || 'Not specified'}</div>
+                <div><strong>Assessments:</strong> {customerToDelete.totalAssessments || 0}</div>
+              </div>
+            </div>
+            
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setCustomerToDelete(null)}
+                disabled={deletingCustomer}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="danger-button"
+                onClick={confirmDeleteCustomer}
+                disabled={deletingCustomer}
+              >
+                {deletingCustomer ? 'Deleting...' : 'Delete Customer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
