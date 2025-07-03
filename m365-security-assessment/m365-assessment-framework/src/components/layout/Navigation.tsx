@@ -257,7 +257,7 @@ const Navigation: React.FC<NavigationProps> = ({ userName, onLogout }) => {
           left: '1rem', 
           zIndex: 99,
           display: isMenuOpen ? 'none' : 'flex',
-          backgroundColor: 'var(--lm-primary)', /* Updated to use lighter blue variable */
+          backgroundColor: 'var(--lm-nav-blue)', /* Updated to match screenshot blue */
           color: 'white',
           borderRadius: '4px',
           boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
