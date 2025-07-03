@@ -466,56 +466,6 @@
   height: 14px;
 }
 
-.recent-assessments {
-  padding: 1.25rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: transparent; /* Ensure no white background */
-}
-
-.recent-assessments-title {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.8); /* Make title more visible */
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 1rem;
-  margin-top: 0;
-}
-
-.recent-assessment-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.recent-assessment-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 0.5rem;
-  color: rgba(255, 255, 255, 0.8); /* Improved text visibility */
-  font-size: 0.875rem;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-  background: transparent; /* Ensure no white background */
-  margin-bottom: 0.25rem;
-}
-
-.recent-assessment-item:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
-}
-
-.recent-assessment-item span:first-child {
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.9); /* Company name more prominent */
-}
-
-.recent-assessment-item span:last-child {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.6); /* Time stamp slightly dimmed */
-}
-
 /* Mobile Responsiveness */
 @media (max-width: 992px) {
   .lm-navigation {
