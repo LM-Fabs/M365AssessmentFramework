@@ -55,10 +55,7 @@ const CustomerSelector = forwardRef<CustomerSelectorRef, CustomerSelectorProps>(
       setCustomers(prev => [...prev, customer]);
     },
     closeDropdown: () => {
-      console.log('🎯 CustomerSelector: closeDropdown method called!');
-      console.log('🎯 CustomerSelector: Current isDropdownOpen state:', isDropdownOpen);
       setIsDropdownOpen(false);
-      console.log('🎯 CustomerSelector: Set isDropdownOpen to false');
     }
   }));
 

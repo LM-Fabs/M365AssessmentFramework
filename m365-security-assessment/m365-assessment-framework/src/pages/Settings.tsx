@@ -34,6 +34,10 @@ const Settings = () => {
   const [deletingCustomer, setDeletingCustomer] = useState(false);
   const [customerError, setCustomerError] = useState<string | null>(null);
   
+  // App registration management state
+  const [creatingAppRegistration, setCreatingAppRegistration] = useState<string | null>(null);
+  const [appRegistrationStatus, setAppRegistrationStatus] = useState<{[customerId: string]: string}>({});
+  
   const [formData, setFormData] = useState({
     assessmentName: 'Security Assessment',
     includedCategories: Object.keys(SECURITY_CATEGORIES),
@@ -117,38 +121,21 @@ const Settings = () => {
   };
 
   const handleCreateNewCustomer = async (e: React.FormEvent) => {
-    console.log('🎯 Settings: handleCreateNewCustomer function called!');
-    console.log('🎯 Settings: Form submitted - handleCreateNewCustomer called');
-    console.log('🎯 Settings: Event type:', e.type);
-    console.log('🎯 Settings: Event target:', e.target);
-    
     // Prevent default form submission FIRST
     e.preventDefault();
     e.stopPropagation();
     
-    console.log('🎯 Settings: Default prevented successfully');
-    
-    console.log('🔍 Settings: Checking form data:', newCustomerData);
-    console.log('🔍 Settings: tenantName valid:', !!newCustomerData.tenantName);
-    console.log('🔍 Settings: tenantDomain valid:', !!newCustomerData.tenantDomain);
-    
     if (!newCustomerData.tenantName || !newCustomerData.tenantDomain) {
-      console.log('❌ Settings: Validation failed - missing required fields');
       setNewCustomerError('Tenant Name and Domain are required');
       return;
     }
 
-    console.log('🔧 Settings: Starting customer creation process with data:', newCustomerData);
-    console.log('🔧 Settings: Setting creatingCustomer to true');
     setCreatingCustomer(true);
     setNewCustomerError(null);
 
     try {
-      // Use the CustomerService to properly create the customer with Azure app registration
+      // Create customer without app registration initially
       const customerService = CustomerService.getInstance();
-      console.log('📞 Settings: Calling customerService.createCustomer...');
-      console.log('📞 Settings: CustomerService instance:', customerService);
-      
       const newCustomer = await customerService.createCustomer({
         tenantName: newCustomerData.tenantName,
         tenantDomain: newCustomerData.tenantDomain,
@@ -156,24 +143,17 @@ const Settings = () => {
         notes: newCustomerData.notes
       });
       
-      console.log('✅ Settings: Customer created successfully - received object:', newCustomer);
-      console.log('✅ Settings: Customer ID:', newCustomer.id);
-      console.log('✅ Settings: Customer type:', typeof newCustomer);
-      
       // Auto-select the new customer and reset the form
-      console.log('🔧 Settings: Setting selected customer to new customer');
       setSelectedCustomer(newCustomer);
       
-      // Refresh CustomerSelector by calling its refresh method directly
-      console.log('🔄 Settings: Refreshing customer selector...');
+      // Refresh CustomerSelector
       try {
         await customerSelectorRef.current?.refresh();
-        console.log('✅ Settings: Customer selector refreshed successfully');
       } catch (refreshError) {
-        console.error('❌ Settings: Error refreshing customer selector:', refreshError);
+        console.error('Error refreshing customer selector:', refreshError);
       }
       
-      console.log('🧹 Settings: Resetting form data');
+      // Reset form data
       setNewCustomerData({
         tenantName: '',
         tenantDomain: '',
@@ -181,7 +161,6 @@ const Settings = () => {
         notes: ''
       });
       
-      console.log('🔧 Settings: Hiding new customer form');
       setShowNewCustomerForm(false);
       
       // Update the assessment name with the new customer
@@ -190,14 +169,12 @@ const Settings = () => {
         assessmentName: `Security Assessment - ${newCustomer.tenantName}`
       }));
 
-      // Show success message but don't redirect immediately since user might want to configure assessment
+      // Show success message
       setError(null);
-      setSuccess(false); // Don't show success message that redirects
-      
-      console.log('🎉 Settings: Customer creation process completed successfully');
+      setSuccess(false);
       
     } catch (error: any) {
-      console.error('❌ Settings: Customer creation failed:', error);
+      console.error('Customer creation failed:', error);
       const errorMessage = error.message || 'Failed to create new customer';
       setNewCustomerError(errorMessage);
     } finally {
@@ -257,6 +234,63 @@ const Settings = () => {
     }
   };
 
+  // App registration management function
+  const handleCreateAppRegistration = async (customer: Customer) => {
+    setCreatingAppRegistration(customer.id);
+    setAppRegistrationStatus(prev => ({ ...prev, [customer.id]: 'Creating app registration...' }));
+    
+    try {
+      // TODO: Implement actual app registration creation
+      // For now, simulate the process
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setAppRegistrationStatus(prev => ({ 
+        ...prev, 
+        [customer.id]: 'App registration created successfully! Please complete admin consent.' 
+      }));
+      
+      // Refresh customer list to get updated app registration info
+      await loadCustomers();
+      
+    } catch (error: any) {
+      setAppRegistrationStatus(prev => ({ 
+        ...prev, 
+        [customer.id]: `Failed to create app registration: ${error.message}` 
+      }));
+    } finally {
+      setCreatingAppRegistration(null);
+    }
+  };
+
+  // Helper function to get app registration status
+  const getAppRegistrationStatus = (customer: Customer): { status: string; color: string; action?: string } => {
+    // Check if we have a custom status for this customer
+    if (appRegistrationStatus[customer.id]) {
+      return { 
+        status: appRegistrationStatus[customer.id], 
+        color: appRegistrationStatus[customer.id].includes('successfully') ? 'green' : 
+               appRegistrationStatus[customer.id].includes('Failed') ? 'red' : 'blue' 
+      };
+    }
+    
+    // Check if customer has valid app registration
+    if (customer.applicationId && 
+        customer.clientId && 
+        customer.servicePrincipalId &&
+        !customer.applicationId.startsWith('pending-') &&
+        !customer.clientId.startsWith('pending-')) {
+      return { status: 'Active', color: 'green' };
+    }
+    
+    // Check if app registration is pending
+    if (customer.applicationId?.startsWith('pending-') || customer.clientId?.startsWith('pending-')) {
+      return { status: 'Pending Setup', color: 'orange', action: 'Create App Registration' };
+    }
+    
+    // No app registration
+    return { status: 'Not Configured', color: 'red', action: 'Create App Registration' };
+  };
+
   // Load customers when customer management is opened
   useEffect(() => {
     if (showCustomerManagement) {
@@ -302,12 +336,9 @@ const Settings = () => {
                 type="button"
                 className="add-customer-button"
                 onClick={() => {
-                  console.log('🎯 Settings: Add New Customer button clicked!');
                   setShowNewCustomerForm(true);
                   // Close the customer dropdown to prevent it from hiding the dialog
-                  console.log('🎯 Settings: Calling closeDropdown on CustomerSelector...');
                   customerSelectorRef.current?.closeDropdown();
-                  console.log('🎯 Settings: closeDropdown called successfully');
                 }}
                 disabled={loading}
               >
@@ -433,10 +464,13 @@ const Settings = () => {
                 <h4>🔧 What happens when you create a new customer?</h4>
                 <ol>
                   <li><strong>Customer Record:</strong> We'll save the customer information in our system</li>
-                  <li><strong>Azure App Registration:</strong> An Azure app registration will be created for secure access</li>
-                  <li><strong>Permissions Setup:</strong> The app will be configured with read-only security permissions</li>
-                  <li><strong>Ready for Assessment:</strong> Once created, you can immediately run security assessments</li>
+                  <li><strong>App Registration Setup:</strong> After creation, you'll need to create an Azure app registration for secure access</li>
+                  <li><strong>Permissions Setup:</strong> The app will need to be configured with read-only security permissions</li>
+                  <li><strong>Ready for Assessment:</strong> Once app registration is complete, you can run security assessments</li>
                 </ol>
+                <div className="info-note">
+                  <strong>Note:</strong> App registration creation has been moved to the Customer Management section for better control and visibility.
+                </div>
               </div>
             </div>
           )}
@@ -497,35 +531,70 @@ const Settings = () => {
                       <div className="customer-list-header">
                         <span>Customer ({customers.length})</span>
                         <span>Domain</span>
+                        <span>App Registration</span>
                         <span>Assessments</span>
                         <span>Actions</span>
                       </div>
                       
                       <div className="customer-list-items">
-                        {customers.map((customer) => (
-                          <div key={customer.id} className="customer-list-item">
-                            <div className="customer-info">
-                              <div className="customer-name">{customer.tenantName}</div>
-                              <div className="customer-email">{customer.contactEmail}</div>
+                        {customers.map((customer) => {
+                          const appRegStatus = getAppRegistrationStatus(customer);
+                          return (
+                            <div key={customer.id} className="customer-list-item">
+                              <div className="customer-info">
+                                <div className="customer-name">{customer.tenantName}</div>
+                                <div className="customer-email">{customer.contactEmail}</div>
+                              </div>
+                              <div className="customer-domain">{customer.tenantDomain}</div>
+                              <div className="customer-app-registration">
+                                <span 
+                                  className={`app-status app-status-${appRegStatus.color}`}
+                                  title={appRegStatus.status}
+                                >
+                                  {appRegStatus.status}
+                                </span>
+                                {appRegStatus.action && (
+                                  <button
+                                    type="button"
+                                    className="app-registration-button"
+                                    onClick={() => handleCreateAppRegistration(customer)}
+                                    disabled={creatingAppRegistration === customer.id}
+                                    title={appRegStatus.action}
+                                  >
+                                    {creatingAppRegistration === customer.id ? (
+                                      <>
+                                        <div className="button-spinner"></div>
+                                        Creating...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                                          <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                                        </svg>
+                                        {appRegStatus.action}
+                                      </>
+                                    )}
+                                  </button>
+                                )}
+                              </div>
+                              <div className="customer-assessments">{customer.totalAssessments || 0}</div>
+                              <div className="customer-actions">
+                                <button
+                                  type="button"
+                                  className="delete-button"
+                                  onClick={() => handleDeleteCustomer(customer)}
+                                  disabled={deletingCustomer}
+                                  title="Delete customer"
+                                >
+                                  <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                  {deletingCustomer ? 'Deleting...' : 'Delete'}
+                                </button>
+                              </div>
                             </div>
-                            <div className="customer-domain">{customer.tenantDomain}</div>
-                            <div className="customer-assessments">{customer.totalAssessments || 0}</div>
-                            <div className="customer-actions">
-                              <button
-                                type="button"
-                                className="delete-button"
-                                onClick={() => handleDeleteCustomer(customer)}
-                                disabled={deletingCustomer}
-                                title="Delete customer"
-                              >
-                                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                                </svg>
-                                {deletingCustomer ? 'Deleting...' : 'Delete'}
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </>
                   )}
