@@ -444,7 +444,6 @@ const Settings = () => {
               {/* Improved "What happens next?" section */}
               <div className="azure-app-info-improved">
                 <div className="info-header">
-                  <div className="info-icon">🔧</div>
                   <h4>What happens when you create a new customer?</h4>
                 </div>
                 
@@ -483,7 +482,7 @@ const Settings = () => {
                 </div>
                 
                 <div className="info-note">
-                  <strong>💡 Note:</strong> App registration creation has been moved to the Customer Management section for better control and visibility.
+                  <strong>Note:</strong> App registration creation has been moved to the Customer Management section for better control and visibility.
                 </div>
               </div>
             </div>
@@ -598,34 +597,29 @@ const Settings = () => {
             {/* Improved "What happens next?" for assessment */}
             <div className="assessment-next-steps">
               <div className="next-steps-header">
-                <div className="steps-icon">🚀</div>
                 <h4>What happens next?</h4>
               </div>
               
               <div className="steps-container">
                 <div className="assessment-step">
-                  <div className="step-icon">🔍</div>
                   <div className="step-text">
                     <strong>Verification:</strong> Verify the selected customer's Azure app registration is still valid
                   </div>
                 </div>
                 
                 <div className="assessment-step">
-                  <div className="step-icon">🔐</div>
                   <div className="step-text">
                     <strong>Connection:</strong> Connect using the existing app registration with read-only permissions
                   </div>
                 </div>
                 
                 <div className="assessment-step">
-                  <div className="step-icon">📊</div>
                   <div className="step-text">
                     <strong>Analysis:</strong> Perform comprehensive security analysis across all selected categories
                   </div>
                 </div>
                 
                 <div className="assessment-step">
-                  <div className="step-icon">📧</div>
                   <div className="step-text">
                     <strong>Notification:</strong> Send detailed results to the specified email address
                   </div>

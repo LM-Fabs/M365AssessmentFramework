@@ -2,7 +2,7 @@
 
 /* Desktop Navigation */
 .lm-navigation {
-  background-color: #0e2a4d; /* LM-AG dark blue color */
+  background-color: var(--lm-primary); /* Updated to use lighter blue */
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
   position: sticky;
   top: 0;
@@ -308,7 +308,7 @@
   flex-direction: column;
   width: 240px;
   height: 100vh;
-  background-color: #0e2a4d;
+  background-color: var(--lm-primary); /* Updated to use lighter blue */
   border-right: 1px solid rgba(255, 255, 255, 0.1);
   position: fixed;
   top: 0;
