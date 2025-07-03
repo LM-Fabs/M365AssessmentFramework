@@ -961,7 +961,7 @@ async function createMultiTenantAppHandler(request, context) {
     try {
         await initializeDataService(context);
         const requestData = await request.json();
-        const { targetTenantId, targetTenantDomain, assessmentName, requiredPermissions } = requestData;
+        const { targetTenantId, targetTenantDomain, assessmentName, requiredPermissions, tenantName, contactEmail } = requestData;
         if (!targetTenantId) {
             return {
                 status: 400,
@@ -969,60 +969,75 @@ async function createMultiTenantAppHandler(request, context) {
                 jsonBody: {
                     success: false,
                     error: "Target tenant ID is required",
-                    expectedFormat: "{ targetTenantId: string, targetTenantDomain?: string, assessmentName?: string }"
+                    expectedFormat: "{ targetTenantId: string, targetTenantDomain?: string, tenantName?: string, assessmentName?: string }"
                 }
             };
         }
-        // Create multi-tenant app registration
-        const appName = `${assessmentName || 'M365 Security Assessment'} - ${targetTenantDomain || targetTenantId}`;
-        const redirectUri = process.env.REDIRECT_URI || `${process.env.STATIC_WEB_APP_URL}/auth/consent-callback`;
-        // Generate client ID (in production, this would create actual Azure app)
-        const clientId = `app-${targetTenantId}-${Date.now()}`;
-        const applicationId = `obj-${targetTenantId}-${Date.now()}`;
-        const servicePrincipalId = `sp-${targetTenantId}-${Date.now()}`;
-        // Create consent URL for admin consent
-        const baseConsentUrl = 'https://login.microsoftonline.com';
-        const scope = requiredPermissions?.map((perm) => `https://graph.microsoft.com/${perm}`).join(' ') ||
-            'https://graph.microsoft.com/Organization.Read.All https://graph.microsoft.com/Reports.Read.All https://graph.microsoft.com/Directory.Read.All';
-        const consentUrl = `${baseConsentUrl}/${targetTenantId}/adminconsent` +
-            `?client_id=${clientId}` +
-            `&scope=${encodeURIComponent(scope)}` +
-            `&redirect_uri=${encodeURIComponent(redirectUri)}`;
-        const response = {
-            applicationId,
-            applicationObjectId: applicationId,
-            clientId,
-            servicePrincipalId,
-            tenantId: targetTenantId,
-            consentUrl,
-            authUrl: `${baseConsentUrl}/${targetTenantId}/oauth2/v2.0/authorize`,
-            redirectUri,
-            permissions: requiredPermissions || [
-                'Organization.Read.All',
-                'Reports.Read.All',
-                'Directory.Read.All',
-                'Policy.Read.All',
-                'SecurityEvents.Read.All'
-            ]
+        // Prepare customer data for app creation
+        const customerData = {
+            tenantName: tenantName || targetTenantDomain || targetTenantId,
+            tenantDomain: targetTenantDomain || 'unknown.onmicrosoft.com',
+            targetTenantId,
+            contactEmail,
+            requiredPermissions
         };
-        context.log('✅ Multi-tenant app created:', clientId);
+        context.log('🏢 Creating real Azure AD app registration for tenant:', customerData.tenantName);
+        // Create actual multi-tenant app registration using GraphApiService
+        const appRegistration = await graphApiService.createMultiTenantAppRegistration(customerData);
+        // Prepare response with app registration details
+        const response = {
+            applicationId: appRegistration.applicationId,
+            applicationObjectId: appRegistration.applicationId,
+            clientId: appRegistration.clientId,
+            servicePrincipalId: appRegistration.servicePrincipalId,
+            clientSecret: appRegistration.clientSecret,
+            tenantId: targetTenantId,
+            consentUrl: appRegistration.consentUrl,
+            authUrl: `https://login.microsoftonline.com/${targetTenantId}/oauth2/v2.0/authorize`,
+            redirectUri: appRegistration.redirectUri,
+            permissions: appRegistration.permissions,
+            isReal: true // Flag to indicate this is a real app registration
+        };
+        context.log('✅ Real multi-tenant app created successfully:', appRegistration.clientId);
         return {
             status: 200,
             headers: corsHeaders,
             jsonBody: {
                 success: true,
-                data: response
+                data: response,
+                message: 'Azure AD app registration created successfully. Admin consent is required in the target tenant.'
             }
         };
     }
     catch (error) {
         context.log('❌ Error creating multi-tenant app:', error);
+        // Provide more detailed error information
+        let errorMessage = 'Failed to create multi-tenant app';
+        let statusCode = 500;
+        if (error.message?.includes('authentication') || error.message?.includes('token')) {
+            errorMessage = 'Authentication failed. Please check the service principal configuration.';
+            statusCode = 401;
+        }
+        else if (error.message?.includes('permissions') || error.message?.includes('insufficient')) {
+            errorMessage = 'Insufficient permissions to create app registration. Check the service principal permissions.';
+            statusCode = 403;
+        }
+        else if (error.message?.includes('environment')) {
+            errorMessage = 'Configuration error. Please check the required environment variables.';
+            statusCode = 500;
+        }
         return {
-            status: 500,
+            status: statusCode,
             headers: corsHeaders,
             jsonBody: {
                 success: false,
-                error: error.message || 'Failed to create multi-tenant app'
+                error: errorMessage,
+                details: error.message || 'Unknown error',
+                troubleshooting: {
+                    checkServicePrincipal: 'Verify AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID are configured',
+                    checkPermissions: 'Ensure the service principal has Application.ReadWrite.All permission',
+                    checkGraph: 'Verify Microsoft Graph API access is working'
+                }
             }
         };
     }

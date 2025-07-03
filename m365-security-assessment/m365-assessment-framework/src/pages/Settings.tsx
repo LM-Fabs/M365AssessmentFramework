@@ -226,24 +226,118 @@ const Settings = () => {
   // App registration management function
   const handleCreateAppRegistration = async (customer: Customer) => {
     setCreatingAppRegistration(customer.id);
-    setAppRegistrationStatus(prev => ({ ...prev, [customer.id]: 'Creating app registration...' }));
+    setAppRegistrationStatus(prev => ({ ...prev, [customer.id]: 'Creating Azure AD app registration...' }));
     
     try {
-      // TODO: Implement actual app registration creation
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('🏢 Creating Azure AD app registration for customer:', customer.tenantName);
       
-      setAppRegistrationStatus(prev => ({ 
-        ...prev, 
-        [customer.id]: 'App registration created successfully! Please complete admin consent.' 
-      }));
+      const response = await fetch('/api/enterprise-app/multi-tenant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          targetTenantId: customer.tenantId,
+          targetTenantDomain: customer.tenantDomain,
+          tenantName: customer.tenantName,
+          contactEmail: customer.contactEmail,
+          assessmentName: `M365 Security Assessment - ${customer.tenantName}`,
+          requiredPermissions: [
+            'Organization.Read.All',
+            'Reports.Read.All',
+            'Directory.Read.All',
+            'Policy.Read.All',
+            'SecurityEvents.Read.All',
+            'IdentityRiskyUser.Read.All',
+            'DeviceManagementManagedDevices.Read.All',
+            'AuditLog.Read.All',
+            'ThreatIndicators.Read.All'
+          ]
+        })
+      });
+
+      const result = await response.json();
       
-      await loadCustomers();
+      if (!response.ok) {
+        throw new Error(result.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      if (result.success && result.data) {
+        const appData = result.data;
+        
+        // Update customer with app registration details (excluding client secret for security)
+        const customerService = CustomerService.getInstance();
+        await customerService.updateCustomer(customer.id, {
+          applicationId: appData.applicationId,
+          clientId: appData.clientId,
+          servicePrincipalId: appData.servicePrincipalId,
+          // Note: Client secret is not stored in customer record for security reasons
+          // It should be stored securely (e.g., Key Vault) and accessed when needed
+        });
+        
+        console.log('✅ App registration created successfully:', appData.clientId);
+        console.log('🔗 Admin consent URL:', appData.consentUrl);
+        
+        // Open admin consent URL in a new window
+        const consentWindow = window.open(
+          appData.consentUrl,
+          'admin-consent',
+          'width=600,height=800,scrollbars=yes,resizable=yes'
+        );
+        
+        setAppRegistrationStatus(prev => ({ 
+          ...prev, 
+          [customer.id]: 'App registration created successfully! Admin consent window opened. Please complete the consent process.' 
+        }));
+        
+        // Monitor consent window closure
+        const checkClosed = setInterval(() => {
+          if (consentWindow?.closed) {
+            clearInterval(checkClosed);
+            setAppRegistrationStatus(prev => ({ 
+              ...prev, 
+              [customer.id]: 'App registration created. Please verify admin consent was completed successfully.' 
+            }));
+            // Refresh customer data to reflect changes
+            loadCustomers();
+          }
+        }, 1000);
+        
+        // Auto-close status message after successful creation
+        setTimeout(() => {
+          if (consentWindow?.closed) {
+            setAppRegistrationStatus(prev => {
+              const updated = { ...prev };
+              delete updated[customer.id];
+              return updated;
+            });
+          }
+        }, 10000);
+        
+      } else {
+        throw new Error(result.error || 'App registration creation failed - no data returned');
+      }
       
     } catch (error: any) {
+      console.error('❌ Error creating app registration:', error);
+      
+      let errorMessage = 'Failed to create app registration';
+      
+      if (error.message?.includes('authentication') || error.message?.includes('token')) {
+        errorMessage = 'Authentication failed. Please check the service configuration.';
+      } else if (error.message?.includes('permissions') || error.message?.includes('403')) {
+        errorMessage = 'Insufficient permissions. Please contact your administrator.';
+      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       setAppRegistrationStatus(prev => ({ 
         ...prev, 
-        [customer.id]: `Failed to create app registration: ${error.message}` 
+        [customer.id]: `Failed: ${errorMessage}` 
       }));
+      
     } finally {
       setCreatingAppRegistration(null);
     }
