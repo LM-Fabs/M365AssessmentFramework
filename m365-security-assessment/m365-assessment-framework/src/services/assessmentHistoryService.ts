@@ -56,18 +56,22 @@ export class AssessmentHistoryService {
    */
   public async storeAssessmentHistory(assessment: Assessment): Promise<void> {
     try {
+      // Handle cases where assessment might not have metrics or score structure yet
+      const metrics = assessment.metrics || {};
+      const score = metrics.score || {};
+      
       const historyEntry: AssessmentHistory = {
         assessmentId: assessment.id,
         tenantId: assessment.tenantId,
         date: assessment.assessmentDate,
-        overallScore: assessment.metrics.score?.overall || 0,
+        overallScore: score.overall || 0,
         categoryScores: {
-          identity: assessment.metrics.score?.identity || 0,
-          dataProtection: assessment.metrics.score?.dataProtection || 0,
-          endpoint: assessment.metrics.score?.endpoint || 0,
-          cloudApps: assessment.metrics.score?.cloudApps || 0
+          identity: score.identity || 0,
+          dataProtection: score.dataProtection || 0,
+          endpoint: score.endpoint || 0,
+          cloudApps: score.cloudApps || 0
         },
-        metrics: assessment.metrics
+        metrics: metrics
       };
 
       const response = await fetch(`${this.baseUrl}/assessment-history`, {
@@ -83,7 +87,8 @@ export class AssessmentHistoryService {
       }
     } catch (error) {
       console.error('Error storing assessment history:', error);
-      throw error;
+      // Don't throw - allow assessment creation to continue even if history storage fails
+      console.warn('Assessment history storage failed, but assessment creation will continue');
     }
   }
 

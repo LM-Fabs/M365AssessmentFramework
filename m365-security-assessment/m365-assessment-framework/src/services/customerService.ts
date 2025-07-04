@@ -490,7 +490,18 @@ export class CustomerService {
       const response = await axios.get(`${this.baseUrl}/customers/${customerId}/assessments`, {
         params: limit ? { limit } : undefined
       });
-      return response.data.map((assessment: any) => ({
+      
+      // Handle the structured API response format
+      let assessments: any[] = [];
+      if (response.data && typeof response.data === 'object') {
+        if (Array.isArray(response.data.data)) {
+          assessments = response.data.data;
+        } else if (Array.isArray(response.data)) {
+          assessments = response.data;
+        }
+      }
+      
+      return assessments.map((assessment: any) => ({
         ...assessment,
         assessmentDate: new Date(assessment.assessmentDate),
         lastModified: new Date(assessment.lastModified)
