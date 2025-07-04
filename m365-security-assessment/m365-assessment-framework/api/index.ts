@@ -1111,8 +1111,30 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
     try {
         await initializeDataService(context);
 
-        const requestData = await request.json() as any;
+        let requestData: any;
+        try {
+            requestData = await request.json() as any;
+            context.log('📋 Request data received:', JSON.stringify(requestData, null, 2));
+        } catch (parseError) {
+            context.log('❌ Failed to parse request JSON:', parseError);
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Invalid JSON in request body",
+                    details: parseError instanceof Error ? parseError.message : "Unknown parsing error"
+                }
+            };
+        }
+
         const { targetTenantId, targetTenantDomain, assessmentName, requiredPermissions, tenantName, contactEmail } = requestData;
+        
+        context.log('🔍 Extracted values:');
+        context.log('  - targetTenantId:', targetTenantId);
+        context.log('  - targetTenantDomain:', targetTenantDomain);
+        context.log('  - tenantName:', tenantName);
+        context.log('  - contactEmail:', contactEmail);
 
         // Extract tenant ID from domain or use provided tenant ID (same logic as customer creation)
         let finalTenantId = targetTenantId;
@@ -1138,7 +1160,16 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
         }
 
         // Validate that we have the required Azure configuration
-        if (!process.env.AZURE_CLIENT_ID || !process.env.AZURE_CLIENT_SECRET || !process.env.AZURE_TENANT_ID) {
+        context.log('🔍 Validating Azure environment variables...');
+        const azureClientId = process.env.AZURE_CLIENT_ID;
+        const azureClientSecret = process.env.AZURE_CLIENT_SECRET;
+        const azureTenantId = process.env.AZURE_TENANT_ID;
+        
+        context.log('  - AZURE_CLIENT_ID:', azureClientId ? 'SET' : 'NOT SET');
+        context.log('  - AZURE_CLIENT_SECRET:', azureClientSecret ? 'SET' : 'NOT SET');
+        context.log('  - AZURE_TENANT_ID:', azureTenantId ? 'SET' : 'NOT SET');
+        
+        if (!azureClientId || !azureClientSecret || !azureTenantId) {
             context.log('❌ Missing required Azure environment variables for app registration');
             return {
                 status: 500,
@@ -1147,6 +1178,11 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
                     success: false,
                     error: "Azure configuration is incomplete",
                     message: "Missing required environment variables for Azure AD app registration",
+                    missingVariables: [
+                        ...(!azureClientId ? ['AZURE_CLIENT_ID'] : []),
+                        ...(!azureClientSecret ? ['AZURE_CLIENT_SECRET'] : []),
+                        ...(!azureTenantId ? ['AZURE_TENANT_ID'] : [])
+                    ],
                     troubleshooting: [
                         "Check that AZURE_CLIENT_ID is set in your configuration",
                         "Check that AZURE_CLIENT_SECRET is set in your configuration", 
@@ -1169,9 +1205,31 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
         context.log('🏢 Creating real Azure AD app registration for tenant:', customerData.tenantName);
         context.log('🔧 Target tenant identifier:', finalTenantId);
         context.log('🔧 Target tenant domain:', targetTenantDomain || 'not provided');
+        context.log('📋 Customer data for app creation:', JSON.stringify(customerData, null, 2));
 
         // Create actual multi-tenant app registration using GraphApiService
-        const appRegistration = await graphApiService.createMultiTenantAppRegistration(customerData);
+        let appRegistration;
+        try {
+            context.log('🚀 Calling graphApiService.createMultiTenantAppRegistration...');
+            
+            // Ensure GraphApiService is available
+            if (!graphApiService) {
+                throw new Error('GraphApiService is not initialized. This should not happen after initializeDataService.');
+            }
+            
+            appRegistration = await graphApiService.createMultiTenantAppRegistration(customerData);
+            context.log('✅ GraphApiService returned:', JSON.stringify(appRegistration, null, 2));
+        } catch (graphError: any) {
+            context.log('❌ GraphApiService.createMultiTenantAppRegistration failed:', graphError);
+            context.log('❌ GraphApiService error details:', {
+                message: graphError.message,
+                stack: graphError.stack,
+                name: graphError.name
+            });
+            
+            // Re-throw with better context
+            throw new Error(`GraphApiService failed: ${graphError.message}`);
+        }
 
         // Use the resolved tenant ID from the GraphApiService if available
         const actualTenantId = appRegistration.resolvedTenantId || finalTenantId;
@@ -1222,13 +1280,21 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
 
     } catch (error: any) {
         context.log('❌ Error creating multi-tenant app:', error);
+        context.log('❌ Full error details:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name,
+            cause: error.cause
+        });
         
         // Provide more detailed error information
         let errorMessage = 'Failed to create multi-tenant app';
         let statusCode = 500;
         let troubleshootingSteps: string[] = [];
+        let errorDetails = error.message || 'Unknown error';
         
-        if (error.message?.includes('Missing required environment variables')) {
+        if (error.message?.includes('Missing required environment variables') || 
+            error.message?.includes('GraphApiService initialization failed')) {
             errorMessage = 'Azure configuration is incomplete. Required environment variables are not set.';
             statusCode = 500;
             troubleshootingSteps = [
@@ -1258,6 +1324,15 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
         } else if (error.message?.includes('environment')) {
             errorMessage = 'Configuration error. Please check the required environment variables.';
             statusCode = 500;
+        } else if (error.message?.includes('GraphApiService failed')) {
+            errorMessage = 'Microsoft Graph API call failed. Check service principal permissions and configuration.';
+            statusCode = 500;
+            troubleshootingSteps = [
+                'Check Azure service principal configuration',
+                'Verify Application.ReadWrite.All permission is granted',
+                'Ensure admin consent has been provided',
+                'Check that the Azure AD tenant allows app registrations'
+            ];
         }
 
         return {
@@ -1266,7 +1341,9 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
             jsonBody: {
                 success: false,
                 error: errorMessage,
-                details: error.message || 'Unknown error',
+                details: errorDetails,
+                originalError: error.message,
+                errorType: error.name || 'Error',
                 troubleshooting: {
                     steps: troubleshootingSteps.length > 0 ? troubleshootingSteps : [
                         'Verify AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID are configured',
@@ -1276,7 +1353,8 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
                     ],
                     configurationCheck: 'Use the /api/azure-config endpoint to verify your Azure configuration',
                     documentation: 'See SECURITY-DEPLOYMENT-GUIDE.md for setup instructions'
-                }
+                },
+                timestamp: new Date().toISOString()
             }
         };
     }
@@ -1658,11 +1736,14 @@ async function azureConfigHandler(request: HttpRequest, context: InvocationConte
         }
 
         // Test Graph API
+        let graphApiError = null;
         try {
             const testGraphService = new GraphApiService();
             configStatus.services.graphApi = true;
-        } catch (error) {
-            context.warn('GraphApiService initialization failed:', error);
+            context.log('✅ GraphApiService test initialization successful');
+        } catch (error: any) {
+            context.warn('GraphApiService initialization failed:', error.message);
+            graphApiError = error.message;
         }
 
         const hasAllRequiredConfig = 
@@ -1679,7 +1760,10 @@ async function azureConfigHandler(request: HttpRequest, context: InvocationConte
                 message: hasAllRequiredConfig 
                     ? "All Azure services configured correctly"
                     : "Missing required Azure configuration",
-                data: configStatus,
+                data: {
+                    ...configStatus,
+                    graphApiError: graphApiError
+                },
                 recommendations: !hasAllRequiredConfig ? [
                     "Set AZURE_CLIENT_ID in Azure Static Web App configuration",
                     "Set AZURE_CLIENT_SECRET in Azure Static Web App configuration", 
