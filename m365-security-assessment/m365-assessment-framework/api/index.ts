@@ -1083,23 +1083,34 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
         const requestData = await request.json() as any;
         const { targetTenantId, targetTenantDomain, assessmentName, requiredPermissions, tenantName, contactEmail } = requestData;
 
-        if (!targetTenantId) {
+        // Extract tenant ID from domain or use provided tenant ID (same logic as customer creation)
+        let finalTenantId = targetTenantId;
+        
+        if (!finalTenantId && targetTenantDomain) {
+            // Use the domain as-is as the tenant identifier
+            // This works for custom domains and *.onmicrosoft.com domains
+            context.log('⚠️ Target Tenant ID not provided - using domain as tenant identifier');
+            finalTenantId = targetTenantDomain.toLowerCase();
+        }
+
+        if (!finalTenantId) {
             return {
                 status: 400,
                 headers: corsHeaders,
                 jsonBody: { 
                     success: false,
-                    error: "Target tenant ID is required",
-                    expectedFormat: "{ targetTenantId: string, targetTenantDomain?: string, tenantName?: string, assessmentName?: string }"
+                    error: "Target tenant ID or domain is required",
+                    expectedFormat: "{ targetTenantId?: string, targetTenantDomain?: string, tenantName?: string, assessmentName?: string }",
+                    message: "Provide either targetTenantId or targetTenantDomain to identify the target tenant"
                 }
             };
         }
 
         // Prepare customer data for app creation
         const customerData = {
-            tenantName: tenantName || targetTenantDomain || targetTenantId,
+            tenantName: tenantName || targetTenantDomain || finalTenantId,
             tenantDomain: targetTenantDomain || 'unknown.onmicrosoft.com',
-            targetTenantId,
+            targetTenantId: finalTenantId,  // Use the resolved tenant ID
             contactEmail,
             requiredPermissions
         };
@@ -1116,9 +1127,9 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
             clientId: appRegistration.clientId,
             servicePrincipalId: appRegistration.servicePrincipalId,
             clientSecret: appRegistration.clientSecret,
-            tenantId: targetTenantId,
+            tenantId: finalTenantId,  // Use the resolved tenant ID
             consentUrl: appRegistration.consentUrl,
-            authUrl: `https://login.microsoftonline.com/${targetTenantId}/oauth2/v2.0/authorize`,
+            authUrl: `https://login.microsoftonline.com/${finalTenantId}/oauth2/v2.0/authorize`,
             redirectUri: appRegistration.redirectUri,
             permissions: appRegistration.permissions,
             isReal: true // Flag to indicate this is a real app registration
@@ -1142,13 +1153,35 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
         // Provide more detailed error information
         let errorMessage = 'Failed to create multi-tenant app';
         let statusCode = 500;
+        let troubleshootingSteps: string[] = [];
         
-        if (error.message?.includes('authentication') || error.message?.includes('token')) {
+        if (error.message?.includes('Missing required environment variables')) {
+            errorMessage = 'Azure configuration is incomplete. Required environment variables are not set.';
+            statusCode = 500;
+            troubleshootingSteps = [
+                'Check that AZURE_CLIENT_ID is set in your Azure Static Web App configuration',
+                'Check that AZURE_CLIENT_SECRET is set in your Azure Static Web App configuration',
+                'Check that AZURE_TENANT_ID is set in your Azure Static Web App configuration',
+                'For local development, update the api/local.settings.json file with valid Azure credentials',
+                'Ensure the service principal has Application.ReadWrite.All permission in Microsoft Graph'
+            ];
+        } else if (error.message?.includes('authentication') || error.message?.includes('token')) {
             errorMessage = 'Authentication failed. Please check the service principal configuration.';
             statusCode = 401;
+            troubleshootingSteps = [
+                'Verify the AZURE_CLIENT_ID is correct',
+                'Verify the AZURE_CLIENT_SECRET is valid and not expired',
+                'Verify the AZURE_TENANT_ID is correct',
+                'Check that the service principal exists and is enabled'
+            ];
         } else if (error.message?.includes('permissions') || error.message?.includes('insufficient')) {
             errorMessage = 'Insufficient permissions to create app registration. Check the service principal permissions.';
             statusCode = 403;
+            troubleshootingSteps = [
+                'Grant Application.ReadWrite.All permission to the service principal',
+                'Ensure admin consent has been granted for the permissions',
+                'Check that the service principal is not blocked by conditional access policies'
+            ];
         } else if (error.message?.includes('environment')) {
             errorMessage = 'Configuration error. Please check the required environment variables.';
             statusCode = 500;
@@ -1162,9 +1195,14 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
                 error: errorMessage,
                 details: error.message || 'Unknown error',
                 troubleshooting: {
-                    checkServicePrincipal: 'Verify AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID are configured',
-                    checkPermissions: 'Ensure the service principal has Application.ReadWrite.All permission',
-                    checkGraph: 'Verify Microsoft Graph API access is working'
+                    steps: troubleshootingSteps.length > 0 ? troubleshootingSteps : [
+                        'Verify AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID are configured',
+                        'Ensure the service principal has Application.ReadWrite.All permission',
+                        'Verify Microsoft Graph API access is working',
+                        'Check the Azure configuration status at /api/azure-config'
+                    ],
+                    configurationCheck: 'Use the /api/azure-config endpoint to verify your Azure configuration',
+                    documentation: 'See SECURITY-DEPLOYMENT-GUIDE.md for setup instructions'
                 }
             }
         };

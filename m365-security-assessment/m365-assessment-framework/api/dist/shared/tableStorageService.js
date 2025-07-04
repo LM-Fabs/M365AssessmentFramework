@@ -74,6 +74,7 @@ class TableStorageService {
                 break;
             customers.push({
                 id: entity.rowKey,
+                tenantId: entity.tenantId || '', // Include tenant ID
                 tenantName: entity.tenantName,
                 tenantDomain: entity.tenantDomain,
                 contactEmail: entity.contactEmail || '',
@@ -95,6 +96,7 @@ class TableStorageService {
             for await (const entity of iterator) {
                 return {
                     id: entity.rowKey,
+                    tenantId: entity.tenantId || '', // Include tenant ID
                     tenantName: entity.tenantName,
                     tenantDomain: entity.tenantDomain,
                     contactEmail: entity.contactEmail || '',
@@ -117,6 +119,7 @@ class TableStorageService {
         const customerId = `customer-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const customer = {
             id: customerId,
+            tenantId: customerRequest.tenantId || '', // Include tenant ID
             tenantName: customerRequest.tenantName,
             tenantDomain: customerRequest.tenantDomain,
             contactEmail: customerRequest.contactEmail || '',
@@ -129,6 +132,7 @@ class TableStorageService {
         const entity = {
             partitionKey: 'customer',
             rowKey: customerId,
+            tenantId: customerRequest.tenantId || '', // Store the actual tenant ID
             tenantName: customer.tenantName,
             tenantDomain: customer.tenantDomain,
             contactEmail: customer.contactEmail,
@@ -157,6 +161,7 @@ class TableStorageService {
             const entity = await this.customersTable.getEntity('customer', customerId);
             return {
                 id: entity.rowKey,
+                tenantId: entity.tenantId || '', // Include the tenant ID
                 tenantName: entity.tenantName,
                 tenantDomain: entity.tenantDomain,
                 contactEmail: entity.contactEmail || '',
@@ -195,6 +200,7 @@ class TableStorageService {
             const updatedEntity = {
                 partitionKey: 'customer',
                 rowKey: customerId,
+                tenantId: updates.tenantId ?? existingEntity.tenantId ?? '', // Include tenant ID
                 tenantName: updates.tenantName ?? existingEntity.tenantName,
                 tenantDomain: updates.tenantDomain ?? existingEntity.tenantDomain,
                 contactEmail: updates.contactEmail ?? existingEntity.contactEmail ?? '',
@@ -211,6 +217,7 @@ class TableStorageService {
             // Return the updated customer
             return {
                 id: customerId,
+                tenantId: updatedEntity.tenantId, // Include tenant ID
                 tenantName: updatedEntity.tenantName,
                 tenantDomain: updatedEntity.tenantDomain,
                 contactEmail: updatedEntity.contactEmail,
@@ -240,6 +247,7 @@ class TableStorageService {
             if (appRegistration && appRegistration.clientId === clientId) {
                 return {
                     id: entity.rowKey,
+                    tenantId: entity.tenantId || '', // Include tenant ID
                     tenantName: entity.tenantName,
                     tenantDomain: entity.tenantDomain,
                     contactEmail: entity.contactEmail || '',

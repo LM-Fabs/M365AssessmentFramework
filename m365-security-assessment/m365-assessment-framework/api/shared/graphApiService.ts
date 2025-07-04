@@ -29,7 +29,7 @@ export class GraphApiService {
             .map(([key]) => key);
 
         if (missingVars.length > 0) {
-            const errorMsg = `Missing required environment variables: ${missingVars.join(', ')}. Please configure these in your Azure Static Web App settings.`;
+            const errorMsg = `Missing required environment variables: ${missingVars.join(', ')}. Please configure these in your Azure Static Web App settings or local.settings.json for local development.`;
             console.error('❌ GraphApiService:', errorMsg);
             throw new Error(errorMsg);
         }
