@@ -541,4 +541,53 @@ export class TableStorageService {
             continuationToken: undefined // Could be implemented for pagination
         };
     }
+
+    /**
+     * Get assessment history for a specific customer
+     */
+    async getCustomerAssessmentHistory(customerId: string): Promise<AssessmentHistory[]> {
+        await this.initialize();
+
+        const filter = odata`customerId eq ${customerId}`;
+        const iterator = this.historyTable.listEntities({ 
+            queryOptions: { filter }
+        });
+
+        const history: AssessmentHistory[] = [];
+        for await (const entity of iterator) {
+            history.push({
+                id: entity.rowKey as string,
+                tenantId: entity.tenantId as string,
+                customerId: entity.customerId as string,
+                date: new Date(entity.date as string),
+                overallScore: entity.overallScore as number,
+                categoryScores: entity.categoryScores ? JSON.parse(entity.categoryScores as string) : {}
+            });
+        }
+
+        return history.sort((a, b) => b.date.getTime() - a.date.getTime());
+    }
+
+    /**
+     * Get all assessment history across all tenants/customers
+     */
+    async getAllAssessmentHistory(): Promise<AssessmentHistory[]> {
+        await this.initialize();
+
+        const iterator = this.historyTable.listEntities();
+
+        const history: AssessmentHistory[] = [];
+        for await (const entity of iterator) {
+            history.push({
+                id: entity.rowKey as string,
+                tenantId: entity.tenantId as string,
+                customerId: entity.customerId as string,
+                date: new Date(entity.date as string),
+                overallScore: entity.overallScore as number,
+                categoryScores: entity.categoryScores ? JSON.parse(entity.categoryScores as string) : {}
+            });
+        }
+
+        return history.sort((a, b) => b.date.getTime() - a.date.getTime());
+    }
 }

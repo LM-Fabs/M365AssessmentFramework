@@ -812,6 +812,193 @@ export class GraphApiService {
             return domain; // Return the domain as-is if there's an error
         }
     }
+
+    /**
+     * Get detailed license usage report including user assignments and trends
+     */
+    async getDetailedLicenseReport(tenantId: string, clientId: string, clientSecret: string): Promise<{
+        overview: {
+            totalLicenses: number;
+            assignedLicenses: number;
+            availableLicenses: number;
+            utilizationPercentage: number;
+            totalCost: number; // Estimated based on license types
+        };
+        licenseTypes: Array<{
+            skuId: string;
+            skuPartNumber: string;
+            servicePlanName: string;
+            totalUnits: number;
+            assignedUnits: number;
+            consumedUnits: number;
+            availableUnits: number;
+            utilizationPercentage: number;
+            category: 'Basic' | 'Standard' | 'Premium' | 'Enterprise' | 'Other';
+            estimatedMonthlyCost: number;
+            capabilityStatus: string;
+            servicePlans: Array<{
+                servicePlanId: string;
+                servicePlanName: string;
+                provisioningStatus: string;
+            }>;
+        }>;
+        userAssignmentSummary: {
+            totalUsers: number;
+            licensedUsers: number;
+            unlicensedUsers: number;
+            usersWithMultipleLicenses: number;
+        };
+        recommendations: string[];
+        lastUpdated: string;
+    }> {
+        try {
+            console.log('📊 GraphApiService: Fetching detailed license report for tenant:', tenantId);
+
+            // Create client for customer tenant
+            const customerCredential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+            const customerGraphClient = Client.initWithMiddleware({
+                authProvider: {
+                    getAccessToken: async () => {
+                        const tokenResponse = await customerCredential.getToken("https://graph.microsoft.com/.default");
+                        return tokenResponse?.token || "";
+                    }
+                }
+            });
+
+            // Fetch subscribedSkus (license information)
+            const licensesResponse = await customerGraphClient
+                .api('/subscribedSkus')
+                .get();
+
+            // Fetch user count for better analysis
+            let totalUsers = 0;
+            let licensedUsers = 0;
+            try {
+                const usersResponse = await customerGraphClient
+                    .api('/users')
+                    .select('id,assignedLicenses')
+                    .top(999)
+                    .get();
+                
+                totalUsers = usersResponse.value?.length || 0;
+                licensedUsers = usersResponse.value?.filter((user: any) => 
+                    user.assignedLicenses && user.assignedLicenses.length > 0
+                ).length || 0;
+            } catch (userError) {
+                console.warn('⚠️ Could not fetch user information:', userError);
+            }
+
+            // Process license data with enhanced categorization
+            const licenseTypes = licensesResponse.value?.map((sku: any) => {
+                const totalUnits = sku.prepaidUnits?.enabled || 0;
+                const assignedUnits = sku.consumedUnits || 0;
+                const availableUnits = totalUnits - assignedUnits;
+                const utilizationPercentage = totalUnits > 0 ? Math.round((assignedUnits / totalUnits) * 100) : 0;
+
+                // Categorize license type
+                let category: 'Basic' | 'Standard' | 'Premium' | 'Enterprise' | 'Other' = 'Other';
+                let estimatedMonthlyCost = 0;
+
+                const skuName = sku.skuPartNumber?.toUpperCase() || '';
+                if (skuName.includes('E1') || skuName.includes('BASIC')) {
+                    category = 'Basic';
+                    estimatedMonthlyCost = totalUnits * 6; // Estimated $6/month
+                } else if (skuName.includes('E3') || skuName.includes('STANDARD')) {
+                    category = 'Standard';
+                    estimatedMonthlyCost = totalUnits * 22; // Estimated $22/month
+                } else if (skuName.includes('E5') || skuName.includes('PREMIUM')) {
+                    category = 'Premium';
+                    estimatedMonthlyCost = totalUnits * 38; // Estimated $38/month
+                } else if (skuName.includes('ENTERPRISE') || skuName.includes('BUSINESS_PREMIUM')) {
+                    category = 'Enterprise';
+                    estimatedMonthlyCost = totalUnits * 32; // Estimated $32/month
+                }
+
+                return {
+                    skuId: sku.skuId,
+                    skuPartNumber: sku.skuPartNumber,
+                    servicePlanName: sku.servicePlans?.[0]?.servicePlanName || sku.skuPartNumber,
+                    totalUnits,
+                    assignedUnits,
+                    consumedUnits: sku.consumedUnits || 0,
+                    availableUnits,
+                    utilizationPercentage,
+                    category,
+                    estimatedMonthlyCost,
+                    capabilityStatus: sku.capabilityStatus || 'Unknown',
+                    servicePlans: sku.servicePlans?.map((plan: any) => ({
+                        servicePlanId: plan.servicePlanId,
+                        servicePlanName: plan.servicePlanName,
+                        provisioningStatus: plan.provisioningStatus
+                    })) || []
+                };
+            }) || [];
+
+            // Calculate overview metrics
+            const totalLicenses = licenseTypes.reduce((sum: number, license: any) => sum + license.totalUnits, 0);
+            const assignedLicenses = licenseTypes.reduce((sum: number, license: any) => sum + license.assignedUnits, 0);
+            const availableLicenses = totalLicenses - assignedLicenses;
+            const utilizationPercentage = totalLicenses > 0 ? Math.round((assignedLicenses / totalLicenses) * 100) : 0;
+            const totalCost = licenseTypes.reduce((sum: number, license: any) => sum + license.estimatedMonthlyCost, 0);
+
+            // Generate recommendations
+            const recommendations: string[] = [];
+            
+            if (utilizationPercentage < 40) {
+                recommendations.push(`Low license utilization (${utilizationPercentage}%). Consider reducing unused licenses to optimize costs.`);
+            } else if (utilizationPercentage > 90) {
+                recommendations.push(`High license utilization (${utilizationPercentage}%). Consider purchasing additional licenses.`);
+            }
+
+            const unusedLicenses = licenseTypes.filter((license: any) => license.utilizationPercentage < 50);
+            if (unusedLicenses.length > 0) {
+                recommendations.push(`${unusedLicenses.length} license type(s) have low utilization. Review: ${unusedLicenses.map((l: any) => l.skuPartNumber).join(', ')}`);
+            }
+
+            const premiumLicenses = licenseTypes.filter((license: any) => license.category === 'Premium');
+            if (premiumLicenses.length > 0) {
+                recommendations.push('Premium licenses detected. Ensure advanced security features are being utilized.');
+            }
+
+            if (totalUsers > 0 && licensedUsers / totalUsers < 0.8) {
+                recommendations.push(`${totalUsers - licensedUsers} users may not have proper license assignments.`);
+            }
+
+            const result = {
+                overview: {
+                    totalLicenses,
+                    assignedLicenses,
+                    availableLicenses,
+                    utilizationPercentage,
+                    totalCost: Math.round(totalCost)
+                },
+                licenseTypes,
+                userAssignmentSummary: {
+                    totalUsers,
+                    licensedUsers,
+                    unlicensedUsers: totalUsers - licensedUsers,
+                    usersWithMultipleLicenses: 0 // Would need more detailed analysis
+                },
+                recommendations,
+                lastUpdated: new Date().toISOString()
+            };
+
+            console.log('✅ GraphApiService: Detailed license report generated successfully');
+            return result;
+
+        } catch (error: any) {
+            console.error('❌ GraphApiService: Failed to fetch detailed license report:', error);
+            
+            if (error.code === 'Forbidden') {
+                throw new Error('Insufficient permissions to read license and user information. Ensure Organization.Read.All and User.Read.All permissions are granted and consented.');
+            }
+            if (error.code === 'Unauthorized') {
+                throw new Error('Authentication failed. Please verify the app registration has been consented to by the customer tenant admin.');
+            }
+            
+            throw new Error(`Failed to fetch detailed license report: ${error.message || error}`);
+        }
+    }
 }
 
 // Singleton instance for reuse across functions

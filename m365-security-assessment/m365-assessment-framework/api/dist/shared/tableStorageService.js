@@ -432,6 +432,47 @@ class TableStorageService {
             continuationToken: undefined // Could be implemented for pagination
         };
     }
+    /**
+     * Get assessment history for a specific customer
+     */
+    async getCustomerAssessmentHistory(customerId) {
+        await this.initialize();
+        const filter = (0, data_tables_1.odata) `customerId eq ${customerId}`;
+        const iterator = this.historyTable.listEntities({
+            queryOptions: { filter }
+        });
+        const history = [];
+        for await (const entity of iterator) {
+            history.push({
+                id: entity.rowKey,
+                tenantId: entity.tenantId,
+                customerId: entity.customerId,
+                date: new Date(entity.date),
+                overallScore: entity.overallScore,
+                categoryScores: entity.categoryScores ? JSON.parse(entity.categoryScores) : {}
+            });
+        }
+        return history.sort((a, b) => b.date.getTime() - a.date.getTime());
+    }
+    /**
+     * Get all assessment history across all tenants/customers
+     */
+    async getAllAssessmentHistory() {
+        await this.initialize();
+        const iterator = this.historyTable.listEntities();
+        const history = [];
+        for await (const entity of iterator) {
+            history.push({
+                id: entity.rowKey,
+                tenantId: entity.tenantId,
+                customerId: entity.customerId,
+                date: new Date(entity.date),
+                overallScore: entity.overallScore,
+                categoryScores: entity.categoryScores ? JSON.parse(entity.categoryScores) : {}
+            });
+        }
+        return history.sort((a, b) => b.date.getTime() - a.date.getTime());
+    }
 }
 exports.TableStorageService = TableStorageService;
 //# sourceMappingURL=tableStorageService.js.map

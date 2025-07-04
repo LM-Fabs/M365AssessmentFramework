@@ -420,7 +420,6 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
         await initializeDataService(context);
 
         const customerId = request.params.customerId;
-        
         if (!customerId) {
             return {
                 status: 400,
@@ -433,8 +432,6 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
         }
 
         if (request.method === 'GET') {
-            context.log('Getting customer by ID:', customerId);
-            
             const customer = await dataService.getCustomer(customerId);
             if (!customer) {
                 return {
@@ -446,140 +443,28 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
                     }
                 };
             }
-            
-            return {
-                status: 200,
-                headers: corsHeaders,
-                jsonBody: {
-                    success: true,
-                    data: customer,
-                    timestamp: new Date().toISOString()
-                }
-            };
-        }
-
-        if (request.method === 'DELETE') {
-            context.log('Deleting customer:', customerId);
-
-            // Check if customer exists
-            const existingCustomer = await dataService.getCustomer(customerId);
-            if (!existingCustomer) {
-                return {
-                    status: 404,
-                    headers: corsHeaders,
-                    jsonBody: {
-                        success: false,
-                        error: "Customer not found"
-                    }
-                };
-            }
-
-            // Check if customer has assessments (optional - you might want to allow cascading delete)
-            const assessments = await dataService.getCustomerAssessments(customerId, { limit: 1 });
-            if (assessments.assessments.length > 0) {
-                return {
-                    status: 409,
-                    headers: corsHeaders,
-                    jsonBody: {
-                        success: false,
-                        error: "Cannot delete customer with existing assessments. Please delete assessments first.",
-                        hasAssessments: true
-                    }
-                };
-            }
-
-            // Delete the customer
-            await dataService.deleteCustomer(customerId);
-            
-            context.log('Customer deleted successfully:', customerId);
 
             return {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
                     success: true,
-                    data: {
-                        message: "Customer deleted successfully",
-                        deletedCustomerId: customerId
-                    }
+                    data: customer
                 }
             };
         }
 
-        if (request.method === 'PUT') {
-            context.log('Updating customer:', customerId);
-
-            // Check if customer exists
-            const existingCustomer = await dataService.getCustomer(customerId);
-            if (!existingCustomer) {
-                return {
-                    status: 404,
-                    headers: corsHeaders,
-                    jsonBody: {
-                        success: false,
-                        error: "Customer not found"
-                    }
-                };
-            }
-
-            // Parse request body
-            let updateData: Partial<Customer>;
-            try {
-                updateData = await request.json() as Partial<Customer>;
-            } catch (error) {
-                return {
-                    status: 400,
-                    headers: corsHeaders,
-                    jsonBody: {
-                        success: false,
-                        error: "Invalid JSON in request body"
-                    }
-                };
-            }
-
-            // Validate update data
-            if (!updateData || Object.keys(updateData).length === 0) {
-                return {
-                    status: 400,
-                    headers: corsHeaders,
-                    jsonBody: {
-                        success: false,
-                        error: "No update data provided"
-                    }
-                };
-            }
-
-            // Don't allow updating the ID or creation date
-            const { id, createdDate, ...allowedUpdates } = updateData;
-
-            // Update the customer
-            const updatedCustomer = await dataService.updateCustomer(customerId, allowedUpdates);
-            
-            context.log('Customer updated successfully:', customerId);
-
-            return {
-                status: 200,
-                headers: corsHeaders,
-                jsonBody: {
-                    success: true,
-                    data: updatedCustomer,
-                    timestamp: new Date().toISOString()
-                }
-            };
-        }
-
+        // Handle PUT (update) and DELETE operations
         return {
-            status: 405,
+            status: 501,
             headers: corsHeaders,
             jsonBody: {
                 success: false,
-                error: `Method ${request.method} not allowed`
+                error: "Method not implemented"
             }
         };
-
     } catch (error) {
         context.error('Error in customer by ID handler:', error);
-        
         return {
             status: 500,
             headers: corsHeaders,
@@ -909,15 +794,182 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                          assessmentData.tenantName?.toLowerCase().replace(/\s+/g, '-') || 
                          'new-tenant';
 
-        // Create assessment object
+        // Get customer information to access app registration credentials
+        let customer = null;
+        let realData = {};
+        let assessmentStatus = 'completed';
+        
+        if (assessmentData.customerId) {
+            customer = await dataService.getCustomer(assessmentData.customerId);
+            
+            if (customer && customer.appRegistration?.clientId && customer.appRegistration?.clientSecret) {
+                context.log('🔍 Fetching real assessment data from Microsoft Graph API...');
+                
+                try {
+                    // Fetch detailed license information and secure score
+                    context.log('🔍 Fetching detailed license information...');
+                    const licenseReport = await graphApiService.getDetailedLicenseReport(
+                        tenantId,
+                        customer.appRegistration.clientId,
+                        customer.appRegistration.clientSecret
+                    );
+                    
+                    context.log('🛡️ Fetching secure score information...');
+                    let secureScore = null;
+                    try {
+                        secureScore = await graphApiService.getSecureScore(
+                            tenantId,
+                            customer.appRegistration.clientId,
+                            customer.appRegistration.clientSecret
+                        );
+                    } catch (secureScoreError: any) {
+                        context.warn('⚠️ Could not fetch secure score (may not be available):', secureScoreError.message);
+                    }
+                    
+                    context.log('✅ Real assessment data retrieved successfully');
+                    
+                    // Calculate assessment scores based on real data
+                    const utilizationRate = licenseReport.overview.utilizationPercentage;
+                    
+                    // Use secure score if available, otherwise calculate based on license efficiency and security posture
+                    const overallScore = secureScore ? secureScore.percentage : 
+                                       utilizationRate > 80 ? 85 : 
+                                       utilizationRate > 60 ? 75 : 
+                                       utilizationRate > 40 ? 65 : 50;
+                    
+                    // Create detailed real data object with enhanced license information
+                    realData = {
+                        licenseReport: {
+                            ...licenseReport,
+                            summary: `${licenseReport.overview.assignedLicenses} of ${licenseReport.overview.totalLicenses} licenses assigned (${utilizationRate}% utilization)`
+                        },
+                        secureScore: secureScore ? {
+                            ...secureScore,
+                            summary: `Security score: ${secureScore.currentScore}/${secureScore.maxScore} (${secureScore.percentage}%)`
+                        } : {
+                            unavailable: true,
+                            reason: 'Secure score not available or insufficient permissions'
+                        },
+                        dataSource: 'Microsoft Graph API',
+                        dataTypes: ['detailedLicenses', secureScore ? 'secureScore' : 'licenseOnly'],
+                        lastUpdated: new Date().toISOString(),
+                        tenantInfo: {
+                            tenantId,
+                            tenantName: customer.tenantName,
+                            tenantDomain: customer.tenantDomain
+                        },
+                        costAnalysis: {
+                            estimatedMonthlyCost: licenseReport.overview.totalCost,
+                            potentialSavings: licenseReport.overview.availableLicenses * 25, // Estimated average cost per license
+                            utilizationEfficiency: utilizationRate >= 70 ? 'Good' : utilizationRate >= 50 ? 'Fair' : 'Poor'
+                        }
+                    };
+                    
+                    // Combine recommendations from license analysis and assessment logic
+                    const combinedRecommendations = [
+                        ...licenseReport.recommendations,
+                        ...generateRecommendations(licenseReport, secureScore)
+                    ];
+                    
+                    // Create assessment object with real data
+                    const newAssessment = {
+                        id: `assessment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                        tenantId: tenantId,
+                        customerId: assessmentData.customerId || '',
+                        tenantName: customer.tenantName || assessmentData.tenantName || 'New Assessment',
+                        assessmentName: assessmentData.assessmentName || `Security Assessment for ${customer.tenantName}`,
+                        assessmentDate: new Date().toISOString(),
+                        status: assessmentStatus,
+                        categories: assessmentData.includedCategories || assessmentData.categories || ['identity', 'dataProtection', 'endpoint', 'cloudApps'],
+                        notificationEmail: assessmentData.notificationEmail || '',
+                        autoSchedule: assessmentData.autoSchedule || false,
+                        scheduleFrequency: assessmentData.scheduleFrequency || 'monthly',
+                        metrics: {
+                            score: {
+                                overall: Math.round(overallScore),
+                                identity: secureScore ? Math.min(secureScore.percentage + 5, 100) : Math.min(overallScore + 5, 90),
+                                dataProtection: secureScore ? Math.max(secureScore.percentage - 10, 0) : Math.max(overallScore - 5, 50),
+                                endpoint: secureScore ? secureScore.percentage : overallScore,
+                                cloudApps: Math.min(overallScore + 3, 95)
+                            },
+                            realData,
+                            assessmentType: 'real-data',
+                            dataCollected: true,
+                            recommendations: combinedRecommendations
+                        },
+                        lastModified: new Date().toISOString(),
+                        createdBy: 'system'
+                    };
+                    
+                    context.log('✅ Assessment created with real license data');
+                    
+                    // Store the assessment and return it immediately
+                    const storedAssessment = await dataService.createAssessment(newAssessment);
+                    context.log('✅ Assessment with real data stored successfully:', storedAssessment.id);
+
+                    // Update customer's last assessment date
+                    if (assessmentData.customerId && customer) {
+                        try {
+                            await dataService.updateCustomer(assessmentData.customerId, {
+                                lastAssessmentDate: new Date().toISOString(),
+                                totalAssessments: (customer.totalAssessments || 0) + 1
+                            });
+                            context.log('✅ Customer updated with assessment info');
+                        } catch (customerUpdateError) {
+                            context.warn('⚠️ Failed to update customer:', customerUpdateError);
+                        }
+                    }
+
+                    return {
+                        status: 201,
+                        headers: corsHeaders,
+                        jsonBody: {
+                            success: true,
+                            data: storedAssessment,
+                            realData: true
+                        }
+                    };
+                    
+                } catch (graphError: any) {
+                    context.error('❌ Failed to fetch real data from Graph API:', graphError);
+                    assessmentStatus = 'failed';
+                    
+                    // Fall back to mock data with error information
+                    realData = {
+                        error: graphError?.message || 'Failed to connect to Microsoft Graph API',
+                        dataSource: 'Mock data (Graph API unavailable)',
+                        lastUpdated: new Date().toISOString(),
+                        troubleshooting: 'Check app registration permissions and admin consent'
+                    };
+                }
+            } else {
+                context.log('⚠️ Customer found but missing app registration credentials - using mock data');
+                assessmentStatus = 'incomplete';
+                realData = {
+                    warning: 'No app registration credentials available',
+                    dataSource: 'Mock data (credentials missing)',
+                    lastUpdated: new Date().toISOString(),
+                    recommendation: 'Complete app registration setup to get real data'
+                };
+            }
+        } else {
+            context.log('⚠️ No customer ID provided - using mock data');
+            realData = {
+                info: 'No customer specified',
+                dataSource: 'Mock data (no customer)',
+                lastUpdated: new Date().toISOString()
+            };
+        }
+
+        // Create assessment object with mock data as fallback
         const newAssessment = {
             id: `assessment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             tenantId: tenantId,
-            customerId: assessmentData.customerId || '', // Include customer ID if provided
-            tenantName: assessmentData.tenantName || 'New Assessment',
-            assessmentName: assessmentData.assessmentName || `Assessment for ${assessmentData.tenantName}`,
+            customerId: assessmentData.customerId || '',
+            tenantName: customer?.tenantName || assessmentData.tenantName || 'New Assessment',
+            assessmentName: assessmentData.assessmentName || `Assessment for ${customer?.tenantName || assessmentData.tenantName}`,
             assessmentDate: new Date().toISOString(),
-            status: 'completed',
+            status: assessmentStatus,
             categories: assessmentData.includedCategories || assessmentData.categories || ['identity', 'dataProtection', 'endpoint', 'cloudApps'],
             notificationEmail: assessmentData.notificationEmail || '',
             autoSchedule: assessmentData.autoSchedule || false,
@@ -929,7 +981,10 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                     dataProtection: 70,
                     endpoint: 75,
                     cloudApps: 80
-                }
+                },
+                realData,
+                assessmentType: 'mock-data',
+                dataCollected: false
             },
             lastModified: new Date().toISOString(),
             createdBy: 'system'
@@ -1356,7 +1411,7 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
                 'Check that AZURE_CLIENT_SECRET is set in your Azure Static Web App configuration',
                 'Check that AZURE_TENANT_ID is set in your Azure Static Web App configuration',
                 'For local development, update the api/local.settings.json file with valid Azure credentials',
-                'Ensure the service principal has Application.ReadWrite.All permission in Microsoft Graph'
+                'Ensure the service principal has Application.ReadWrite.All permission'
             ];
         } else if (error.message?.includes('authentication') || error.message?.includes('token')) {
             errorMessage = 'Authentication failed. Please check the service principal configuration.';
@@ -1414,432 +1469,70 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
     }
 }
 
-// Basic assessment handler (Secure Score + Licenses)
-async function basicAssessmentHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log('Performing basic security assessment...');
-
-    if (request.method === 'OPTIONS') {
-        return {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
-
-    try {
-        await initializeDataService(context);
-
-        const requestData = await request.json() as any;
-        const { customerId, tenantId, assessmentName, clientId, assessmentScope } = requestData;
-
-        if (!tenantId || !clientId) {
-            return {
-                status: 400,
-                headers: corsHeaders,
-                jsonBody: { 
-                    success: false,
-                    error: "Tenant ID and Client ID are required"
-                }
-            };
+// Generate recommendations based on license and security data
+function generateRecommendations(licenseInfo: any, secureScore: any): string[] {
+    const recommendations: string[] = [];
+    
+    if (licenseInfo) {
+        const utilizationRate = licenseInfo.totalLicenses > 0 
+            ? (licenseInfo.assignedLicenses / licenseInfo.totalLicenses) * 100 
+            : 0;
+            
+        if (utilizationRate < 40) {
+            recommendations.push("Consider reviewing your license usage - only " + Math.round(utilizationRate) + "% of licenses are assigned. You may be able to optimize costs by reducing unused licenses.");
+        } else if (utilizationRate > 90) {
+            recommendations.push("License utilization is very high (" + Math.round(utilizationRate) + "%). Consider purchasing additional licenses to avoid service disruptions.");
+        } else if (utilizationRate < 70) {
+            recommendations.push("License utilization is moderate (" + Math.round(utilizationRate) + "%). Monitor usage trends and consider optimization opportunities.");
         }
-
-        // Mock secure score data (in production, fetch from Microsoft Graph)
-        const secureScore = {
-            currentScore: Math.floor(Math.random() * 400) + 200, // 200-600
-            maxScore: 600,
-            percentage: 0,
-            controlScores: [
-                {
-                    controlName: 'Identity and Access Management',
-                    category: 'Identity',
-                    currentScore: Math.floor(Math.random() * 100) + 50,
-                    maxScore: 150,
-                    implementationStatus: 'Partial'
-                },
-                {
-                    controlName: 'Data Protection',
-                    category: 'Data',
-                    currentScore: Math.floor(Math.random() * 80) + 40,
-                    maxScore: 120,
-                    implementationStatus: 'Partial'
-                },
-                {
-                    controlName: 'Device Security',
-                    category: 'Device',
-                    currentScore: Math.floor(Math.random() * 100) + 60,
-                    maxScore: 160,
-                    implementationStatus: 'Implemented'
-                },
-                {
-                    controlName: 'Application Security',
-                    category: 'Apps',
-                    currentScore: Math.floor(Math.random() * 70) + 30,
-                    maxScore: 100,
-                    implementationStatus: 'Partial'
-                }
-            ],
-            lastUpdated: new Date()
-        };
-        secureScore.percentage = Math.round((secureScore.currentScore / secureScore.maxScore) * 100);
-
-        // Mock license data (in production, fetch from Microsoft Graph)
-        const licenses = {
-            totalLicenses: Math.floor(Math.random() * 1000) + 100,
-            assignedLicenses: 0,
-            availableLicenses: 0,
-            licenseDetails: [
-                {
-                    skuId: 'c7df2760-2c81-4ef7-b578-5b5392b571df',
-                    skuPartNumber: 'ENTERPRISEPREMIUM',
-                    servicePlanName: 'Office 365 E5',
-                    totalUnits: Math.floor(Math.random() * 500) + 50,
-                    assignedUnits: 0,
-                    consumedUnits: 0,
-                    capabilityStatus: 'Enabled'
-                },
-                {
-                    skuId: 'b05e124f-c7cc-45a0-a6aa-8cf78c946968',
-                    skuPartNumber: 'ENTERPRISEPACK',
-                    servicePlanName: 'Office 365 E3',
-                    totalUnits: Math.floor(Math.random() * 300) + 30,
-                    assignedUnits: 0,
-                    consumedUnits: 0,
-                    capabilityStatus: 'Enabled'
-                }
-            ]
-        };
-
-        // Calculate assigned/available licenses
-        licenses.assignedLicenses = licenses.licenseDetails.reduce((sum, license) => {
-            const assigned = Math.floor(license.totalUnits * 0.8); // 80% assigned
-            license.assignedUnits = assigned;
-            license.consumedUnits = assigned;
-            return sum + assigned;
-        }, 0);
-        licenses.availableLicenses = licenses.totalLicenses - licenses.assignedLicenses;
-
-        const assessmentData = {
-            tenantId,
-            tenantDisplayName: `Tenant ${tenantId}`,
-            assessmentDate: new Date(),
-            secureScore,
-            licenses,
-            status: 'completed' as const
-        };
-
-        context.log('✅ Basic assessment completed for tenant:', tenantId);
-
-        return {
-            status: 200,
-            headers: corsHeaders,
-            jsonBody: {
-                success: true,
-                data: assessmentData
-            }
-        };
-
-    } catch (error: any) {
-        context.log('❌ Error performing basic assessment:', error);
-        return {
-            status: 500,
-            headers: corsHeaders,
-            jsonBody: {
-                success: false,
-                error: error.message || 'Failed to perform basic assessment'
-            }
-        };
-    }
-}
-
-// Secure score handler
-async function secureScoreHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log('Fetching secure score...');
-
-    if (request.method === 'OPTIONS') {
-        return {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
-
-    try {
-        // Initialize services
-        await initializeDataService(context);
         
-        const tenantId = request.params.tenantId;
-        const clientId = request.query.get('clientId');
-
-        if (!tenantId || !clientId) {
-            return {
-                status: 400,
-                headers: corsHeaders,
-                jsonBody: { 
-                    success: false,
-                    error: "Tenant ID and Client ID are required"
-                }
-            };
-        }
-
-        context.log('🛡️ Fetching real secure score for tenant:', tenantId, 'clientId:', clientId);
-
-        // Find customer by clientId to get stored credentials
-        const customer = await dataService.getCustomerByClientId(clientId);
-        if (!customer || !customer.appRegistration?.clientSecret) {
-            return {
-                status: 404,
-                headers: corsHeaders,
-                jsonBody: { 
-                    success: false,
-                    error: "Customer not found or missing credentials. Please ensure the app registration was completed successfully."
-                }
-            };
-        }
-
-        // Get real secure score from Microsoft Graph API
-        const secureScore = await graphApiService.getSecureScore(
-            tenantId, 
-            clientId, 
-            customer.appRegistration.clientSecret
-        );
-
-        context.log('✅ Secure score retrieved successfully');
-
-        return {
-            status: 200,
-            headers: corsHeaders,
-            jsonBody: {
-                success: true,
-                data: secureScore
+        // Check for specific license types
+        if (licenseInfo.licenseDetails) {
+            const premiumLicenses = licenseInfo.licenseDetails.filter((license: any) => 
+                license.skuPartNumber?.includes('E5') || license.skuPartNumber?.includes('PREMIUM')
+            );
+            if (premiumLicenses.length > 0) {
+                recommendations.push("Premium licenses detected. Ensure you're leveraging advanced security features like Conditional Access and Identity Protection.");
             }
-        };
-
-    } catch (error: any) {
-        context.log('❌ Error fetching secure score:', error);
-        return {
-            status: 500,
-            headers: corsHeaders,
-            jsonBody: {
-                success: false,
-                error: error.message || 'Failed to fetch secure score'
+            
+            const basicLicenses = licenseInfo.licenseDetails.filter((license: any) => 
+                license.skuPartNumber?.includes('E1') || license.skuPartNumber?.includes('BASIC')
+            );
+            if (basicLicenses.length > 0) {
+                recommendations.push("Basic licenses in use. Consider upgrading to higher tiers for enhanced security and compliance features.");
             }
-        };
+        }
     }
-}
-
-// License info handler
-async function licenseInfoHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log('Fetching license information...');
-
-    if (request.method === 'OPTIONS') {
-        return {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
-
-    try {
-        // Initialize services
-        await initializeDataService(context);
+    
+    if (secureScore) {
+        if (secureScore.percentage < 50) {
+            recommendations.push("Secure Score is below 50% (" + secureScore.percentage + "%). Immediate action required to improve security posture.");
+        } else if (secureScore.percentage < 70) {
+            recommendations.push("Secure Score is moderate (" + secureScore.percentage + "%). Focus on implementing high-impact security controls.");
+        } else if (secureScore.percentage >= 80) {
+            recommendations.push("Excellent Secure Score (" + secureScore.percentage + "%). Continue monitoring and maintain current security practices.");
+        }
         
-        const tenantId = request.params.tenantId;
-        const clientId = request.query.get('clientId');
-
-        if (!tenantId || !clientId) {
-            return {
-                status: 400,
-                headers: corsHeaders,
-                jsonBody: { 
-                    success: false,
-                    error: "Tenant ID and Client ID are required"
-                }
-            };
+        // Analyze control categories for specific recommendations
+        if (secureScore.controlScores) {
+            const identityControls = secureScore.controlScores.filter((control: any) => 
+                control.category?.toLowerCase().includes('identity') || 
+                control.controlName?.toLowerCase().includes('mfa') ||
+                control.controlName?.toLowerCase().includes('conditional')
+            );
+            
+            if (identityControls.some((control: any) => control.implementationStatus === 'Not Implemented')) {
+                recommendations.push("Identity security controls need attention. Implement Multi-Factor Authentication and Conditional Access policies.");
+            }
         }
-
-        context.log('📊 Fetching real license information for tenant:', tenantId, 'clientId:', clientId);
-
-        // Find customer by clientId to get stored credentials
-        const customer = await dataService.getCustomerByClientId(clientId);
-        if (!customer || !customer.appRegistration?.clientSecret) {
-            return {
-                status: 404,
-                headers: corsHeaders,
-                jsonBody: { 
-                    success: false,
-                    error: "Customer not found or missing credentials. Please ensure the app registration was completed successfully."
-                }
-            };
-        }
-
-        // Get real license information from Microsoft Graph API
-        const licenses = await graphApiService.getLicenseInfo(
-            tenantId, 
-            clientId, 
-            customer.appRegistration.clientSecret
-        );
-
-        context.log('✅ License information retrieved successfully');
-
-        return {
-            status: 200,
-            headers: corsHeaders,
-            jsonBody: {
-                success: true,
-                data: licenses
-            }
-        };
-
-    } catch (error: any) {
-        context.log('❌ Error fetching license info:', error);
-        return {
-            status: 500,
-            headers: corsHeaders,
-            jsonBody: {
-                success: false,
-                error: error.message || 'Failed to fetch license information'
-            }
-        };
     }
-}
-
-// Assessment status handler (for API warmup)
-async function assessmentStatusHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log('Processing assessment status request');
-
-    if (request.method === 'OPTIONS') {
-        return {
-            status: 200,
-            headers: corsHeaders
-        };
+    
+    // General recommendations if no data available
+    if (!licenseInfo && !secureScore) {
+        recommendations.push("Complete app registration setup to access real tenant data and get personalized recommendations.");
     }
-
-    if (request.method === 'HEAD') {
-        return {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
-
-    try {
-        const status = {
-            status: 'online',
-            version: '1.0.8',
-            timestamp: new Date().toISOString(),
-            services: {
-                api: 'healthy',
-                database: isDataServiceInitialized ? 'healthy' : 'initializing',
-                graph: 'healthy'
-            }
-        };
-
-        return {
-            status: 200,
-            headers: corsHeaders,
-            jsonBody: {
-                success: true,
-                data: status,
-                timestamp: new Date().toISOString()
-            }
-        };
-    } catch (error) {
-        context.error('Assessment status error:', error);
-        return {
-            status: 500,
-            headers: corsHeaders,
-            jsonBody: {
-                success: false,
-                error: 'Failed to get assessment status',
-                timestamp: new Date().toISOString()
-            }
-        };
-    }
-}
-
-// Azure configuration check endpoint
-async function azureConfigHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log('Processing Azure configuration check request');
-
-    if (request.method === 'OPTIONS') {
-        return {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
-
-    try {
-        const configStatus = {
-            timestamp: new Date().toISOString(),
-            environment: {
-                AZURE_CLIENT_ID: process.env.AZURE_CLIENT_ID ? 'SET' : 'NOT SET',
-                AZURE_CLIENT_SECRET: process.env.AZURE_CLIENT_SECRET ? 'SET' : 'NOT SET',
-                AZURE_TENANT_ID: process.env.AZURE_TENANT_ID ? 'SET' : 'NOT SET',
-                AZURE_STORAGE_CONNECTION_STRING: process.env.AZURE_STORAGE_CONNECTION_STRING ? 'SET' : 'NOT SET'
-            },
-            services: {
-                tableStorage: false,
-                graphApi: false
-            }
-        };
-
-        // Test Table Storage
-        try {
-            if (!isDataServiceInitialized) {
-                await initializeDataService(context);
-            }
-            configStatus.services.tableStorage = true;
-        } catch (error) {
-            context.warn('Table Storage initialization failed:', error);
-        }
-
-        // Test Graph API
-        let graphApiError = null;
-        try {
-            const testGraphService = new GraphApiService();
-            configStatus.services.graphApi = true;
-            context.log('✅ GraphApiService test initialization successful');
-        } catch (error: any) {
-            context.warn('GraphApiService initialization failed:', error.message);
-            graphApiError = error.message;
-        }
-
-        const hasAllRequiredConfig = 
-            configStatus.environment.AZURE_CLIENT_ID === 'SET' &&
-            configStatus.environment.AZURE_CLIENT_SECRET === 'SET' &&
-            configStatus.environment.AZURE_TENANT_ID === 'SET' &&
-            configStatus.environment.AZURE_STORAGE_CONNECTION_STRING === 'SET';
-
-        return {
-            status: hasAllRequiredConfig ? 200 : 500,
-            headers: corsHeaders,
-            jsonBody: {
-                success: hasAllRequiredConfig,
-                message: hasAllRequiredConfig 
-                    ? "All Azure services configured correctly"
-                    : "Missing required Azure configuration",
-                data: {
-                    ...configStatus,
-                    graphApiError: graphApiError
-                },
-                recommendations: !hasAllRequiredConfig ? [
-                    "Set AZURE_CLIENT_ID in Azure Static Web App configuration",
-                    "Set AZURE_CLIENT_SECRET in Azure Static Web App configuration", 
-                    "Set AZURE_TENANT_ID in Azure Static Web App configuration",
-                    "Set AZURE_STORAGE_CONNECTION_STRING in Azure Static Web App configuration",
-                    "Ensure the service principal has Application.ReadWrite.All permissions in Microsoft Graph"
-                ] : []
-            }
-        };
-    } catch (error) {
-        context.error('Error in Azure config handler:', error);
-        
-        return {
-            status: 500,
-            headers: corsHeaders,
-            jsonBody: {
-                success: false,
-                error: "Failed to check Azure configuration",
-                details: error instanceof Error ? error.message : "Unknown error"
-            }
-        };
-    }
+    
+    return recommendations;
 }
 
 // Register all functions with optimized configuration
@@ -2047,6 +1740,258 @@ async function customerAssessmentsHandler(request: HttpRequest, context: Invocat
     } catch (error) {
         context.error('Error in customer assessments handler:', error);
         
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: "Internal server error",
+                details: error instanceof Error ? error.message : "Unknown error"
+            }
+        };
+    }
+}
+
+// Secure score endpoint handler
+async function secureScoreHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    context.log('Processing secure score request');
+
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+
+    try {
+        await initializeDataService(context);
+
+        const tenantId = request.params.tenantId;
+        if (!tenantId) {
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "tenantId parameter is required"
+                }
+            };
+        }
+
+        // Get customer by tenant ID to access credentials
+        const customers = await dataService.getCustomers({ status: 'active' });
+        const customer = customers.customers.find(c => c.tenantId === tenantId);
+        if (!customer || !customer.appRegistration?.clientId || !customer.appRegistration?.clientSecret) {
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Customer credentials not found or incomplete"
+                }
+            };
+        }
+
+        const secureScore = await graphApiService.getSecureScore(
+            tenantId,
+            customer.appRegistration.clientId,
+            customer.appRegistration.clientSecret
+        );
+
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: secureScore
+            }
+        };
+    } catch (error) {
+        context.error('Error in secure score handler:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: "Failed to fetch secure score",
+                details: error instanceof Error ? error.message : "Unknown error"
+            }
+        };
+    }
+}
+
+// License info endpoint handler
+async function licenseInfoHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    context.log('Processing license info request');
+
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+
+    try {
+        await initializeDataService(context);
+
+        const tenantId = request.params.tenantId;
+        if (!tenantId) {
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "tenantId parameter is required"
+                }
+            };
+        }
+
+        // Get customer by tenant ID to access credentials
+        const customers = await dataService.getCustomers({ status: 'active' });
+        const customer = customers.customers.find(c => c.tenantId === tenantId);
+        if (!customer || !customer.appRegistration?.clientId || !customer.appRegistration?.clientSecret) {
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Customer credentials not found or incomplete"
+                }
+            };
+        }
+
+        const licenseInfo = await graphApiService.getLicenseInfo(
+            tenantId,
+            customer.appRegistration.clientId,
+            customer.appRegistration.clientSecret
+        );
+
+        // Enhanced license reporting with usage analytics
+        const enhancedLicenseInfo = await graphApiService.getDetailedLicenseReport(
+            tenantId,
+            customer.appRegistration.clientId,
+            customer.appRegistration.clientSecret
+        );
+
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: {
+                    basicInfo: licenseInfo,
+                    detailedUsage: enhancedLicenseInfo
+                }
+            }
+        };
+    } catch (error) {
+        context.error('Error in license info handler:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: "Failed to fetch license information",
+                details: error instanceof Error ? error.message : "Unknown error"
+            }
+        };
+    }
+}
+
+// Assessment status endpoint handler
+async function assessmentStatusHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    context.log('Processing assessment status request');
+
+    if (request.method === 'OPTIONS' || request.method === 'HEAD') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+
+    return {
+        status: 200,
+        headers: corsHeaders,
+        jsonBody: {
+            success: true,
+            status: 'ready',
+            timestamp: new Date().toISOString(),
+            version: '1.0.8'
+        }
+    };
+}
+
+// Azure config endpoint handler
+async function azureConfigHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    context.log('Processing Azure config request');
+
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+
+    return {
+        status: 200,
+        headers: corsHeaders,
+        jsonBody: {
+            success: true,
+            config: {
+                tenantId: process.env.AZURE_TENANT_ID ? 'configured' : 'missing',
+                clientId: process.env.AZURE_CLIENT_ID ? 'configured' : 'missing',
+                storage: process.env.AzureWebJobsStorage ? 'configured' : 'missing'
+            }
+        }
+    };
+}
+
+// Basic assessment endpoint handler
+async function basicAssessmentHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    context.log('Processing basic assessment request');
+
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+
+    try {
+        await initializeDataService(context);
+
+        const assessmentData: any = await request.json();
+        
+        // Create a basic assessment without detailed Graph API calls
+        const basicAssessment = {
+            id: `basic-assessment-${Date.now()}`,
+            tenantId: assessmentData.tenantId || 'unknown',
+            assessmentType: 'basic',
+            assessmentDate: new Date().toISOString(),
+            status: 'completed',
+            metrics: {
+                score: {
+                    overall: 65,
+                    identity: 70,
+                    dataProtection: 60,
+                    endpoint: 65,
+                    cloudApps: 70
+                },
+                assessmentType: 'basic',
+                dataCollected: false
+            }
+        };
+
+        return {
+            status: 201,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: basicAssessment
+            }
+        };
+    } catch (error) {
+        context.error('Error in basic assessment handler:', error);
         return {
             status: 500,
             headers: corsHeaders,
