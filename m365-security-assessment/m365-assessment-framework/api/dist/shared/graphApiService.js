@@ -68,6 +68,19 @@ class GraphApiService {
             console.log('🏢 GraphApiService: Creating multi-tenant app for:', customerData.tenantName);
             console.log('🔧 GraphApiService: Target tenant ID:', customerData.targetTenantId);
             console.log('🔧 GraphApiService: Target tenant domain:', customerData.tenantDomain);
+            // Attempt to resolve domain to actual tenant ID if we have a domain
+            let resolvedTenantId = customerData.targetTenantId;
+            if (customerData.tenantDomain && customerData.tenantDomain !== 'unknown.onmicrosoft.com') {
+                console.log('🔍 GraphApiService: Attempting to resolve domain to tenant ID...');
+                const discoveredTenantId = await this.resolveDomainToTenantId(customerData.tenantDomain);
+                if (discoveredTenantId && discoveredTenantId !== customerData.tenantDomain) {
+                    console.log('✅ GraphApiService: Domain resolved to tenant ID:', discoveredTenantId);
+                    resolvedTenantId = discoveredTenantId;
+                }
+                else {
+                    console.log('⚠️ GraphApiService: Using original tenant identifier:', customerData.targetTenantId);
+                }
+            }
             // Define required permissions for security assessment (read-only)
             const permissions = customerData.requiredPermissions || [
                 'Organization.Read.All',
@@ -135,8 +148,8 @@ class GraphApiService {
                 .api(`/applications/${application.id}/addPassword`)
                 .post(passwordCredential);
             console.log('✅ GraphApiService: Client secret generated');
-            // Generate admin consent URL for the target tenant
-            const consentUrl = this.generateConsentUrl(application.appId, customerData.targetTenantId, permissions, redirectUri);
+            // Generate admin consent URL for the target tenant using resolved tenant ID
+            const consentUrl = this.generateConsentUrl(application.appId, resolvedTenantId, permissions, redirectUri);
             const result = {
                 applicationId: application.id,
                 clientId: application.appId,
@@ -144,7 +157,8 @@ class GraphApiService {
                 clientSecret: secretResponse.secretText,
                 consentUrl,
                 redirectUri: redirectUri,
-                permissions
+                permissions,
+                resolvedTenantId: resolvedTenantId // Include the resolved tenant ID
             };
             console.log('🎉 GraphApiService: Multi-tenant app created successfully');
             return result;
@@ -492,6 +506,69 @@ class GraphApiService {
         catch (error) {
             console.error('Microsoft Graph API health check failed:', error);
             return false;
+        }
+    }
+    /**
+     * Resolve a domain name to its Azure AD tenant ID
+     * This method attempts to find the tenant ID associated with a domain
+     */
+    async resolveDomainToTenantId(domain) {
+        try {
+            console.log('🔍 GraphApiService: Attempting to resolve domain to tenant ID:', domain);
+            // For well-known domains like *.onmicrosoft.com, extract tenant name
+            if (domain.endsWith('.onmicrosoft.com')) {
+                console.log('✅ GraphApiService: OnMicrosoft domain detected, using as-is');
+                return domain;
+            }
+            // For custom domains, we'll try to resolve using the tenant info endpoint
+            // This approach uses the public tenant discovery endpoint
+            try {
+                const tenantDiscoveryUrl = `https://login.microsoftonline.com/${domain}/v2.0/.well-known/openid_configuration`;
+                console.log('🌐 GraphApiService: Trying tenant discovery for domain:', domain);
+                // Use fetch to call the public endpoint (doesn't require authentication)
+                const response = await fetch(tenantDiscoveryUrl);
+                if (response.ok) {
+                    const config = await response.json();
+                    // Extract tenant ID from the issuer URL
+                    const issuerMatch = config.issuer?.match(/https:\/\/login\.microsoftonline\.com\/([^\/]+)\/v2\.0/);
+                    if (issuerMatch && issuerMatch[1]) {
+                        const tenantId = issuerMatch[1];
+                        console.log('✅ GraphApiService: Domain resolved to tenant ID:', tenantId);
+                        return tenantId;
+                    }
+                }
+            }
+            catch (discoveryError) {
+                console.log('⚠️ GraphApiService: Tenant discovery failed for domain:', domain, discoveryError);
+            }
+            // If discovery fails, try using Microsoft Graph's domains endpoint
+            // This requires our service principal to have directory read permissions on the target tenant
+            try {
+                console.log('🔍 GraphApiService: Trying Graph API domains endpoint');
+                // Query for organizations that have this domain
+                // Note: This approach has limited success as it requires cross-tenant permissions
+                const domainsResponse = await this.graphClient
+                    .api('/domains')
+                    .filter(`id eq '${domain}'`)
+                    .get();
+                if (domainsResponse?.value?.length > 0) {
+                    // Extract tenant ID from the domain info
+                    const domainInfo = domainsResponse.value[0];
+                    console.log('✅ GraphApiService: Found domain info via Graph API:', domainInfo);
+                    // The response should contain tenant information
+                    // However, this approach is limited by cross-tenant permissions
+                    return domain; // Return domain as fallback
+                }
+            }
+            catch (graphError) {
+                console.log('⚠️ GraphApiService: Graph API domains query failed:', graphError);
+            }
+            console.log('⚠️ GraphApiService: Could not resolve domain to tenant ID, using domain as-is:', domain);
+            return domain; // Return the domain as-is if resolution fails
+        }
+        catch (error) {
+            console.error('❌ GraphApiService: Error resolving domain to tenant ID:', error);
+            return domain; // Return the domain as-is if there's an error
         }
     }
 }

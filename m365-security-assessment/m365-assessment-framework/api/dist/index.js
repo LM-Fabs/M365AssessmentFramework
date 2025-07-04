@@ -996,11 +996,14 @@ async function createMultiTenantAppHandler(request, context) {
         context.log('🔧 Target tenant domain:', targetTenantDomain || 'not provided');
         // Create actual multi-tenant app registration using GraphApiService
         const appRegistration = await graphApiService.createMultiTenantAppRegistration(customerData);
+        // Use the resolved tenant ID from the GraphApiService if available
+        const actualTenantId = appRegistration.resolvedTenantId || finalTenantId;
+        context.log('🎯 Actual tenant ID to use:', actualTenantId);
         // Determine the correct tenant identifier for auth URLs
-        let authTenantId = finalTenantId;
-        if (finalTenantId.includes('.') && !finalTenantId.includes('.onmicrosoft.com') &&
-            !finalTenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-            context.log('⚠️ Using common auth endpoint for custom domain:', finalTenantId);
+        let authTenantId = actualTenantId;
+        if (actualTenantId.includes('.') && !actualTenantId.includes('.onmicrosoft.com') &&
+            !actualTenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+            context.log('⚠️ Using common auth endpoint for custom domain:', actualTenantId);
             authTenantId = 'common';
         }
         // Prepare response with app registration details
@@ -1010,21 +1013,28 @@ async function createMultiTenantAppHandler(request, context) {
             clientId: appRegistration.clientId,
             servicePrincipalId: appRegistration.servicePrincipalId,
             clientSecret: appRegistration.clientSecret,
-            tenantId: finalTenantId, // Use the resolved tenant ID
+            tenantId: actualTenantId, // Use the resolved/actual tenant ID
+            originalTenantId: finalTenantId, // Keep track of what was originally provided
             consentUrl: appRegistration.consentUrl,
             authUrl: `https://login.microsoftonline.com/${authTenantId}/oauth2/v2.0/authorize`,
             redirectUri: appRegistration.redirectUri,
             permissions: appRegistration.permissions,
-            isReal: true // Flag to indicate this is a real app registration
+            isReal: true, // Flag to indicate this is a real app registration
+            domainResolved: actualTenantId !== finalTenantId // Flag to indicate if domain was resolved
         };
         context.log('✅ Real multi-tenant app created successfully:', appRegistration.clientId);
+        // Create success message with domain resolution info
+        let successMessage = 'Azure AD app registration created successfully. Admin consent is required in the target tenant.';
+        if (actualTenantId !== finalTenantId) {
+            successMessage += ` Domain '${finalTenantId}' was resolved to tenant ID '${actualTenantId}'.`;
+        }
         return {
             status: 200,
             headers: corsHeaders,
             jsonBody: {
                 success: true,
                 data: response,
-                message: 'Azure AD app registration created successfully. Admin consent is required in the target tenant.'
+                message: successMessage
             }
         };
     }
