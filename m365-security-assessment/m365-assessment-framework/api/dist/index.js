@@ -54,6 +54,13 @@ async function diagnosticsHandler(request, context) {
             headers: corsHeaders
         };
     }
+    // Handle HEAD request for API warmup
+    if (request.method === 'HEAD') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
     try {
         const diagnostics = {
             timestamp: new Date().toISOString(),
@@ -104,13 +111,27 @@ async function testHandler(request, context) {
             headers: corsHeaders
         };
     }
+    // Handle GET request
+    if (request.method === 'GET') {
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                message: "API is running",
+                timestamp: new Date().toISOString(),
+                method: request.method
+            }
+        };
+    }
     return {
         status: 200,
         headers: corsHeaders,
         jsonBody: {
+            success: true,
             message: "M365 Assessment API is working!",
             timestamp: new Date().toISOString(),
-            version: "1.0.7",
+            version: "1.0.8",
             status: "healthy"
         }
     };
@@ -669,6 +690,13 @@ async function currentAssessmentHandler(request, context) {
             headers: corsHeaders
         };
     }
+    // Handle HEAD request for API warmup
+    if (request.method === 'HEAD') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
     try {
         // Return null for current assessment since we don't have one
         context.log(`Current assessment retrieved`);
@@ -980,6 +1008,25 @@ async function createMultiTenantAppHandler(request, context) {
                     error: "Target tenant ID or domain is required",
                     expectedFormat: "{ targetTenantId?: string, targetTenantDomain?: string, tenantName?: string, assessmentName?: string }",
                     message: "Provide either targetTenantId or targetTenantDomain to identify the target tenant"
+                }
+            };
+        }
+        // Validate that we have the required Azure configuration
+        if (!process.env.AZURE_CLIENT_ID || !process.env.AZURE_CLIENT_SECRET || !process.env.AZURE_TENANT_ID) {
+            context.log('❌ Missing required Azure environment variables for app registration');
+            return {
+                status: 500,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Azure configuration is incomplete",
+                    message: "Missing required environment variables for Azure AD app registration",
+                    troubleshooting: [
+                        "Check that AZURE_CLIENT_ID is set in your configuration",
+                        "Check that AZURE_CLIENT_SECRET is set in your configuration",
+                        "Check that AZURE_TENANT_ID is set in your configuration",
+                        "Ensure the service principal has Application.ReadWrite.All permission"
+                    ]
                 }
             };
         }
@@ -1474,13 +1521,13 @@ async function azureConfigHandler(request, context) {
 }
 // Register all functions with optimized configuration
 functions_1.app.http('diagnostics', {
-    methods: ['GET', 'OPTIONS'],
+    methods: ['GET', 'HEAD', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'diagnostics',
     handler: diagnosticsHandler
 });
 functions_1.app.http('test', {
-    methods: ['GET', 'HEAD'],
+    methods: ['GET', 'HEAD', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'test',
     handler: testHandler
@@ -1505,7 +1552,7 @@ functions_1.app.http('assessments', {
     handler: assessmentsHandler
 });
 functions_1.app.http('currentAssessment', {
-    methods: ['GET', 'OPTIONS'],
+    methods: ['GET', 'HEAD', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'assessment/current',
     handler: currentAssessmentHandler

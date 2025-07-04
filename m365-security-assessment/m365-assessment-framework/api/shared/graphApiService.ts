@@ -97,16 +97,25 @@ export class GraphApiService {
 
             // Attempt to resolve domain to actual tenant ID if we have a domain
             let resolvedTenantId = customerData.targetTenantId;
+            let domainResolutionAttempted = false;
             
             if (customerData.tenantDomain && customerData.tenantDomain !== 'unknown.onmicrosoft.com') {
                 console.log('🔍 GraphApiService: Attempting to resolve domain to tenant ID...');
-                const discoveredTenantId = await this.resolveDomainToTenantId(customerData.tenantDomain);
+                domainResolutionAttempted = true;
                 
-                if (discoveredTenantId && discoveredTenantId !== customerData.tenantDomain) {
-                    console.log('✅ GraphApiService: Domain resolved to tenant ID:', discoveredTenantId);
-                    resolvedTenantId = discoveredTenantId;
-                } else {
-                    console.log('⚠️ GraphApiService: Using original tenant identifier:', customerData.targetTenantId);
+                try {
+                    const discoveredTenantId = await this.resolveDomainToTenantId(customerData.tenantDomain);
+                    
+                    if (discoveredTenantId && discoveredTenantId !== customerData.tenantDomain && 
+                        discoveredTenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                        console.log('✅ GraphApiService: Domain resolved to tenant ID:', discoveredTenantId);
+                        resolvedTenantId = discoveredTenantId;
+                    } else {
+                        console.log('⚠️ GraphApiService: Domain resolution did not return a GUID, using original identifier:', customerData.targetTenantId);
+                    }
+                } catch (resolutionError) {
+                    console.error('❌ GraphApiService: Domain resolution failed:', resolutionError);
+                    console.log('⚠️ GraphApiService: Falling back to original tenant identifier:', customerData.targetTenantId);
                 }
             }
 
@@ -152,12 +161,37 @@ export class GraphApiService {
 
             console.log('📝 GraphApiService: Creating application with config:', JSON.stringify(applicationRequest, null, 2));
 
-            // Create the application
-            const application = await this.graphClient
-                .api('/applications')
-                .post(applicationRequest) as Application;
+            // Create the application with retry logic
+            let application: Application | undefined;
+            let retryCount = 0;
+            const maxRetries = 3;
+            
+            while (retryCount < maxRetries) {
+                try {
+                    application = await this.graphClient
+                        .api('/applications')
+                        .post(applicationRequest) as Application;
+                    break; // Success, exit retry loop
+                } catch (createError: any) {
+                    retryCount++;
+                    console.error(`❌ GraphApiService: Application creation attempt ${retryCount} failed:`, createError);
+                    
+                    if (retryCount >= maxRetries) {
+                        if (createError.message?.includes('insufficient privileges')) {
+                            throw new Error(`Insufficient permissions to create application. Ensure the service principal has Application.ReadWrite.All permission in Microsoft Graph. Error: ${createError.message}`);
+                        } else if (createError.message?.includes('authentication')) {
+                            throw new Error(`Authentication failed while creating application. Check service principal credentials. Error: ${createError.message}`);
+                        } else {
+                            throw new Error(`Failed to create application after ${maxRetries} attempts. Error: ${createError.message}`);
+                        }
+                    }
+                    
+                    // Wait before retry
+                    await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+                }
+            }
 
-            if (!application.appId || !application.id) {
+            if (!application || !application.appId || !application.id) {
                 throw new Error('Failed to create application - missing required IDs in response');
             }
 
@@ -173,11 +207,17 @@ export class GraphApiService {
                 ]
             };
 
-            const servicePrincipal = await this.graphClient
-                .api('/servicePrincipals')
-                .post(servicePrincipalRequest) as ServicePrincipal;
-
-            console.log('✅ GraphApiService: Service principal created:', servicePrincipal.id);
+            let servicePrincipal: ServicePrincipal;
+            try {
+                servicePrincipal = await this.graphClient
+                    .api('/servicePrincipals')
+                    .post(servicePrincipalRequest) as ServicePrincipal;
+                
+                console.log('✅ GraphApiService: Service principal created:', servicePrincipal.id);
+            } catch (spError: any) {
+                console.error('❌ GraphApiService: Failed to create service principal:', spError);
+                throw new Error(`Failed to create service principal: ${spError.message}`);
+            }
 
             // Generate client secret with 2-year expiry
             const passwordCredential = {
@@ -185,11 +225,21 @@ export class GraphApiService {
                 endDateTime: new Date(Date.now() + (2 * 365 * 24 * 60 * 60 * 1000)).toISOString() // 2 years
             };
 
-            const secretResponse = await this.graphClient
-                .api(`/applications/${application.id}/addPassword`)
-                .post(passwordCredential);
-
-            console.log('✅ GraphApiService: Client secret generated');
+            let secretResponse: any;
+            try {
+                secretResponse = await this.graphClient
+                    .api(`/applications/${application.id}/addPassword`)
+                    .post(passwordCredential);
+                
+                console.log('✅ GraphApiService: Client secret generated');
+                
+                if (!secretResponse.secretText) {
+                    throw new Error('Client secret was not returned in the response');
+                }
+            } catch (secretError: any) {
+                console.error('❌ GraphApiService: Failed to create client secret:', secretError);
+                throw new Error(`Failed to create client secret: ${secretError.message}`);
+            }
 
             // Generate admin consent URL for the target tenant using resolved tenant ID
             const consentUrl = this.generateConsentUrl(
@@ -653,7 +703,18 @@ export class GraphApiService {
                 console.log('🌐 GraphApiService: Trying tenant discovery for domain:', domain);
                 
                 // Use fetch to call the public endpoint (doesn't require authentication)
-                const response = await fetch(tenantDiscoveryUrl);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+                
+                const response = await fetch(tenantDiscoveryUrl, {
+                    signal: controller.signal,
+                    headers: {
+                        'Accept': 'application/json',
+                        'User-Agent': 'M365-Assessment-Framework/1.0'
+                    }
+                });
+                
+                clearTimeout(timeoutId);
                 
                 if (response.ok) {
                     const config = await response.json() as { issuer?: string };
@@ -661,37 +722,62 @@ export class GraphApiService {
                     const issuerMatch = config.issuer?.match(/https:\/\/login\.microsoftonline\.com\/([^\/]+)\/v2\.0/);
                     if (issuerMatch && issuerMatch[1]) {
                         const tenantId = issuerMatch[1];
-                        console.log('✅ GraphApiService: Domain resolved to tenant ID:', tenantId);
-                        return tenantId;
+                        
+                        // Validate it looks like a proper GUID
+                        if (tenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                            console.log('✅ GraphApiService: Domain resolved to tenant ID:', tenantId);
+                            return tenantId;
+                        } else {
+                            console.log('⚠️ GraphApiService: Resolved tenant ID does not appear to be a GUID:', tenantId);
+                        }
                     }
+                } else {
+                    console.log('⚠️ GraphApiService: Tenant discovery returned status:', response.status, response.statusText);
                 }
-            } catch (discoveryError) {
-                console.log('⚠️ GraphApiService: Tenant discovery failed for domain:', domain, discoveryError);
+            } catch (discoveryError: any) {
+                if (discoveryError.name === 'AbortError') {
+                    console.log('⚠️ GraphApiService: Tenant discovery timed out for domain:', domain);
+                } else {
+                    console.log('⚠️ GraphApiService: Tenant discovery failed for domain:', domain, discoveryError.message);
+                }
             }
             
-            // If discovery fails, try using Microsoft Graph's domains endpoint
-            // This requires our service principal to have directory read permissions on the target tenant
+            // Alternative approach: Try to get tenant info from Microsoft's tenant resolution API
             try {
-                console.log('🔍 GraphApiService: Trying Graph API domains endpoint');
+                console.log('🔍 GraphApiService: Trying alternative tenant resolution');
                 
-                // Query for organizations that have this domain
-                // Note: This approach has limited success as it requires cross-tenant permissions
-                const domainsResponse = await this.graphClient
-                    .api('/domains')
-                    .filter(`id eq '${domain}'`)
-                    .get();
+                const tenantResolveUrl = `https://login.microsoftonline.com/common/userrealm/${domain}?api-version=2.1`;
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
                 
-                if (domainsResponse?.value?.length > 0) {
-                    // Extract tenant ID from the domain info
-                    const domainInfo = domainsResponse.value[0];
-                    console.log('✅ GraphApiService: Found domain info via Graph API:', domainInfo);
+                const response = await fetch(tenantResolveUrl, {
+                    signal: controller.signal,
+                    headers: {
+                        'Accept': 'application/json',
+                        'User-Agent': 'M365-Assessment-Framework/1.0'
+                    }
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (response.ok) {
+                    const realmInfo = await response.json() as { 
+                        TenantId?: string;
+                        account_type?: string;
+                        cloud_instance_name?: string;
+                    };
                     
-                    // The response should contain tenant information
-                    // However, this approach is limited by cross-tenant permissions
-                    return domain; // Return domain as fallback
+                    if (realmInfo.TenantId && realmInfo.TenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                        console.log('✅ GraphApiService: Domain resolved via realm API to tenant ID:', realmInfo.TenantId);
+                        return realmInfo.TenantId;
+                    }
                 }
-            } catch (graphError) {
-                console.log('⚠️ GraphApiService: Graph API domains query failed:', graphError);
+            } catch (realmError: any) {
+                if (realmError.name === 'AbortError') {
+                    console.log('⚠️ GraphApiService: Realm API timed out for domain:', domain);
+                } else {
+                    console.log('⚠️ GraphApiService: Realm API failed for domain:', domain, realmError.message);
+                }
             }
             
             console.log('⚠️ GraphApiService: Could not resolve domain to tenant ID, using domain as-is:', domain);
