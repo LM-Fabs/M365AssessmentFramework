@@ -992,8 +992,17 @@ async function createMultiTenantAppHandler(request, context) {
             requiredPermissions
         };
         context.log('🏢 Creating real Azure AD app registration for tenant:', customerData.tenantName);
+        context.log('🔧 Target tenant identifier:', finalTenantId);
+        context.log('🔧 Target tenant domain:', targetTenantDomain || 'not provided');
         // Create actual multi-tenant app registration using GraphApiService
         const appRegistration = await graphApiService.createMultiTenantAppRegistration(customerData);
+        // Determine the correct tenant identifier for auth URLs
+        let authTenantId = finalTenantId;
+        if (finalTenantId.includes('.') && !finalTenantId.includes('.onmicrosoft.com') &&
+            !finalTenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+            context.log('⚠️ Using common auth endpoint for custom domain:', finalTenantId);
+            authTenantId = 'common';
+        }
         // Prepare response with app registration details
         const response = {
             applicationId: appRegistration.applicationId,
@@ -1003,7 +1012,7 @@ async function createMultiTenantAppHandler(request, context) {
             clientSecret: appRegistration.clientSecret,
             tenantId: finalTenantId, // Use the resolved tenant ID
             consentUrl: appRegistration.consentUrl,
-            authUrl: `https://login.microsoftonline.com/${finalTenantId}/oauth2/v2.0/authorize`,
+            authUrl: `https://login.microsoftonline.com/${authTenantId}/oauth2/v2.0/authorize`,
             redirectUri: appRegistration.redirectUri,
             permissions: appRegistration.permissions,
             isReal: true // Flag to indicate this is a real app registration

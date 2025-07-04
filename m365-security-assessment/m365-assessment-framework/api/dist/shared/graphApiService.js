@@ -66,6 +66,8 @@ class GraphApiService {
     async createMultiTenantAppRegistration(customerData) {
         try {
             console.log('🏢 GraphApiService: Creating multi-tenant app for:', customerData.tenantName);
+            console.log('🔧 GraphApiService: Target tenant ID:', customerData.targetTenantId);
+            console.log('🔧 GraphApiService: Target tenant domain:', customerData.tenantDomain);
             // Define required permissions for security assessment (read-only)
             const permissions = customerData.requiredPermissions || [
                 'Organization.Read.All',
@@ -276,8 +278,17 @@ class GraphApiService {
      * Generate admin consent URL for multi-tenant app
      */
     generateConsentUrl(clientId, tenantId, permissions, redirectUri) {
+        // Determine the correct tenant identifier for the consent URL
+        let consentTenantId = tenantId;
+        // If the tenantId looks like a custom domain (contains dots but not onmicrosoft.com), 
+        // use 'common' endpoint which allows consent from any tenant
+        if (tenantId.includes('.') && !tenantId.includes('.onmicrosoft.com') &&
+            !tenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+            console.log('⚠️ GraphApiService: Using common consent endpoint for custom domain:', tenantId);
+            consentTenantId = 'common';
+        }
         // For admin consent, we use the standard admin consent endpoint
-        return `https://login.microsoftonline.com/${tenantId}/adminconsent` +
+        return `https://login.microsoftonline.com/${consentTenantId}/adminconsent` +
             `?client_id=${clientId}` +
             `&redirect_uri=${encodeURIComponent(redirectUri)}`;
     }
