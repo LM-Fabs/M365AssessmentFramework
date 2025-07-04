@@ -454,13 +454,70 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
             };
         }
 
-        // Handle PUT (update) and DELETE operations
+        if (request.method === 'DELETE') {
+            try {
+                await dataService.deleteCustomer(customerId);
+                context.log('✅ Customer deleted successfully:', customerId);
+
+                return {
+                    status: 200,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: true,
+                        message: "Customer deleted successfully",
+                        customerId: customerId
+                    }
+                };
+            } catch (deleteError) {
+                context.error('❌ Failed to delete customer:', deleteError);
+                return {
+                    status: 500,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Failed to delete customer",
+                        details: deleteError instanceof Error ? deleteError.message : "Unknown error"
+                    }
+                };
+            }
+        }
+
+        if (request.method === 'PUT') {
+            try {
+                const updateData: any = await request.json();
+                const updatedCustomer = await dataService.updateCustomer(customerId, updateData);
+                context.log('✅ Customer updated successfully:', customerId);
+
+                return {
+                    status: 200,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: true,
+                        data: updatedCustomer,
+                        message: "Customer updated successfully"
+                    }
+                };
+            } catch (updateError) {
+                context.error('❌ Failed to update customer:', updateError);
+                return {
+                    status: 500,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Failed to update customer",
+                        details: updateError instanceof Error ? updateError.message : "Unknown error"
+                    }
+                };
+            }
+        }
+
+        // Unsupported method
         return {
-            status: 501,
+            status: 405,
             headers: corsHeaders,
             jsonBody: {
                 success: false,
-                error: "Method not implemented"
+                error: `Method ${request.method} not allowed`
             }
         };
     } catch (error) {
@@ -1689,6 +1746,22 @@ app.http('azureConfig', {
     handler: azureConfigHandler
 });
 
+// Detailed assessment with license info endpoint
+app.http('detailedAssessment', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/detailed/{assessmentId}',
+    handler: detailedAssessmentHandler
+});
+
+// Assessment details endpoint with real-time data
+app.http('assessmentDetails', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/details/{tenantId}',
+    handler: assessmentDetailsHandler
+});
+
 // Customer assessments endpoint - get assessments for a specific customer
 async function customerAssessmentsHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log(`Processing ${request.method} request for customer assessments`);
@@ -1736,10 +1809,8 @@ async function customerAssessmentsHandler(request: HttpRequest, context: Invocat
                 timestamp: new Date().toISOString()
             }
         };
-
     } catch (error) {
         context.error('Error in customer assessments handler:', error);
-        
         return {
             status: 500,
             headers: corsHeaders,
@@ -1752,254 +1823,64 @@ async function customerAssessmentsHandler(request: HttpRequest, context: Invocat
     }
 }
 
-// Secure score endpoint handler
-async function secureScoreHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log('Processing secure score request');
-
-    if (request.method === 'OPTIONS') {
-        return {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
-
-    try {
-        await initializeDataService(context);
-
-        const tenantId = request.params.tenantId;
-        if (!tenantId) {
+// Get a specific assessment by ID, including license info and all metrics
+app.http('assessmentById', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/{assessmentId}',
+    handler: async function assessmentByIdHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+        context.log('Processing request for assessment by ID');
+        if (request.method === 'OPTIONS') {
             return {
-                status: 400,
+                status: 200,
+                headers: corsHeaders
+            };
+        }
+        try {
+            await initializeDataService(context);
+            const assessmentId = request.params.assessmentId;
+            if (!assessmentId) {
+                return {
+                    status: 400,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "assessmentId parameter is required"
+                    }
+                };
+            }
+            // Find the assessment by ID
+            const all = await dataService.getAssessments();
+            const assessment = all.assessments.find(a => a.id === assessmentId);
+            if (!assessment) {
+                return {
+                    status: 404,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Assessment not found"
+                    }
+                };
+            }
+            return {
+                status: 200,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: true,
+                    data: assessment
+                }
+            };
+        } catch (error) {
+            context.error('Error in assessmentByIdHandler:', error);
+            return {
+                status: 500,
                 headers: corsHeaders,
                 jsonBody: {
                     success: false,
-                    error: "tenantId parameter is required"
+                    error: "Internal server error",
+                    details: error instanceof Error ? error.message : "Unknown error"
                 }
             };
         }
-
-        // Get customer by tenant ID to access credentials
-        const customers = await dataService.getCustomers({ status: 'active' });
-        const customer = customers.customers.find(c => c.tenantId === tenantId);
-        if (!customer || !customer.appRegistration?.clientId || !customer.appRegistration?.clientSecret) {
-            return {
-                status: 400,
-                headers: corsHeaders,
-                jsonBody: {
-                    success: false,
-                    error: "Customer credentials not found or incomplete"
-                }
-            };
-        }
-
-        const secureScore = await graphApiService.getSecureScore(
-            tenantId,
-            customer.appRegistration.clientId,
-            customer.appRegistration.clientSecret
-        );
-
-        return {
-            status: 200,
-            headers: corsHeaders,
-            jsonBody: {
-                success: true,
-                data: secureScore
-            }
-        };
-    } catch (error) {
-        context.error('Error in secure score handler:', error);
-        return {
-            status: 500,
-            headers: corsHeaders,
-            jsonBody: {
-                success: false,
-                error: "Failed to fetch secure score",
-                details: error instanceof Error ? error.message : "Unknown error"
-            }
-        };
     }
-}
-
-// License info endpoint handler
-async function licenseInfoHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log('Processing license info request');
-
-    if (request.method === 'OPTIONS') {
-        return {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
-
-    try {
-        await initializeDataService(context);
-
-        const tenantId = request.params.tenantId;
-        if (!tenantId) {
-            return {
-                status: 400,
-                headers: corsHeaders,
-                jsonBody: {
-                    success: false,
-                    error: "tenantId parameter is required"
-                }
-            };
-        }
-
-        // Get customer by tenant ID to access credentials
-        const customers = await dataService.getCustomers({ status: 'active' });
-        const customer = customers.customers.find(c => c.tenantId === tenantId);
-        if (!customer || !customer.appRegistration?.clientId || !customer.appRegistration?.clientSecret) {
-            return {
-                status: 400,
-                headers: corsHeaders,
-                jsonBody: {
-                    success: false,
-                    error: "Customer credentials not found or incomplete"
-                }
-            };
-        }
-
-        const licenseInfo = await graphApiService.getLicenseInfo(
-            tenantId,
-            customer.appRegistration.clientId,
-            customer.appRegistration.clientSecret
-        );
-
-        // Enhanced license reporting with usage analytics
-        const enhancedLicenseInfo = await graphApiService.getDetailedLicenseReport(
-            tenantId,
-            customer.appRegistration.clientId,
-            customer.appRegistration.clientSecret
-        );
-
-        return {
-            status: 200,
-            headers: corsHeaders,
-            jsonBody: {
-                success: true,
-                data: {
-                    basicInfo: licenseInfo,
-                    detailedUsage: enhancedLicenseInfo
-                }
-            }
-        };
-    } catch (error) {
-        context.error('Error in license info handler:', error);
-        return {
-            status: 500,
-            headers: corsHeaders,
-            jsonBody: {
-                success: false,
-                error: "Failed to fetch license information",
-                details: error instanceof Error ? error.message : "Unknown error"
-            }
-        };
-    }
-}
-
-// Assessment status endpoint handler
-async function assessmentStatusHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log('Processing assessment status request');
-
-    if (request.method === 'OPTIONS' || request.method === 'HEAD') {
-        return {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
-
-    return {
-        status: 200,
-        headers: corsHeaders,
-        jsonBody: {
-            success: true,
-            status: 'ready',
-            timestamp: new Date().toISOString(),
-            version: '1.0.8'
-        }
-    };
-}
-
-// Azure config endpoint handler
-async function azureConfigHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log('Processing Azure config request');
-
-    if (request.method === 'OPTIONS') {
-        return {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
-
-    return {
-        status: 200,
-        headers: corsHeaders,
-        jsonBody: {
-            success: true,
-            config: {
-                tenantId: process.env.AZURE_TENANT_ID ? 'configured' : 'missing',
-                clientId: process.env.AZURE_CLIENT_ID ? 'configured' : 'missing',
-                storage: process.env.AzureWebJobsStorage ? 'configured' : 'missing'
-            }
-        }
-    };
-}
-
-// Basic assessment endpoint handler
-async function basicAssessmentHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log('Processing basic assessment request');
-
-    if (request.method === 'OPTIONS') {
-        return {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
-
-    try {
-        await initializeDataService(context);
-
-        const assessmentData: any = await request.json();
-        
-        // Create a basic assessment without detailed Graph API calls
-        const basicAssessment = {
-            id: `basic-assessment-${Date.now()}`,
-            tenantId: assessmentData.tenantId || 'unknown',
-            assessmentType: 'basic',
-            assessmentDate: new Date().toISOString(),
-            status: 'completed',
-            metrics: {
-                score: {
-                    overall: 65,
-                    identity: 70,
-                    dataProtection: 60,
-                    endpoint: 65,
-                    cloudApps: 70
-                },
-                assessmentType: 'basic',
-                dataCollected: false
-            }
-        };
-
-        return {
-            status: 201,
-            headers: corsHeaders,
-            jsonBody: {
-                success: true,
-                data: basicAssessment
-            }
-        };
-    } catch (error) {
-        context.error('Error in basic assessment handler:', error);
-        return {
-            status: 500,
-            headers: corsHeaders,
-            jsonBody: {
-                success: false,
-                error: "Internal server error",
-                details: error instanceof Error ? error.message : "Unknown error"
-            }
-        };
-    }
-}
+});
