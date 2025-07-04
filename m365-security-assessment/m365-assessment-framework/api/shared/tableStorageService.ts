@@ -3,6 +3,7 @@ import { DefaultAzureCredential } from "@azure/identity";
 
 export interface Customer {
     id: string;
+    tenantId: string;  // Add tenantId field
     tenantName: string;
     tenantDomain: string;
     contactEmail?: string;
@@ -126,6 +127,7 @@ export class TableStorageService {
             
             customers.push({
                 id: entity.rowKey as string,
+                tenantId: entity.tenantId as string || '',  // Include tenant ID
                 tenantName: entity.tenantName as string,
                 tenantDomain: entity.tenantDomain as string,
                 contactEmail: entity.contactEmail as string || '',
@@ -151,6 +153,7 @@ export class TableStorageService {
             for await (const entity of iterator) {
                 return {
                     id: entity.rowKey as string,
+                    tenantId: entity.tenantId as string || '',  // Include tenant ID
                     tenantName: entity.tenantName as string,
                     tenantDomain: entity.tenantDomain as string,
                     contactEmail: entity.contactEmail as string || '',
@@ -174,6 +177,7 @@ export class TableStorageService {
         const customerId = `customer-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const customer: Customer = {
             id: customerId,
+            tenantId: customerRequest.tenantId || '',  // Include tenant ID
             tenantName: customerRequest.tenantName,
             tenantDomain: customerRequest.tenantDomain,
             contactEmail: customerRequest.contactEmail || '',
@@ -187,6 +191,7 @@ export class TableStorageService {
         const entity = {
             partitionKey: 'customer',
             rowKey: customerId,
+            tenantId: customerRequest.tenantId || '',  // Store the actual tenant ID
             tenantName: customer.tenantName,
             tenantDomain: customer.tenantDomain,
             contactEmail: customer.contactEmail,
@@ -218,6 +223,7 @@ export class TableStorageService {
             
             return {
                 id: entity.rowKey as string,
+                tenantId: entity.tenantId as string || '',  // Include the tenant ID
                 tenantName: entity.tenantName as string,
                 tenantDomain: entity.tenantDomain as string,
                 contactEmail: entity.contactEmail as string || '',
@@ -259,6 +265,7 @@ export class TableStorageService {
             const updatedEntity = {
                 partitionKey: 'customer',
                 rowKey: customerId,
+                tenantId: updates.tenantId ?? existingEntity.tenantId ?? '',  // Include tenant ID
                 tenantName: updates.tenantName ?? existingEntity.tenantName,
                 tenantDomain: updates.tenantDomain ?? existingEntity.tenantDomain,
                 contactEmail: updates.contactEmail ?? existingEntity.contactEmail ?? '',
@@ -277,6 +284,7 @@ export class TableStorageService {
             // Return the updated customer
             return {
                 id: customerId,
+                tenantId: updatedEntity.tenantId as string,  // Include tenant ID
                 tenantName: updatedEntity.tenantName as string,
                 tenantDomain: updatedEntity.tenantDomain as string,
                 contactEmail: updatedEntity.contactEmail as string,
@@ -308,6 +316,7 @@ export class TableStorageService {
             if (appRegistration && appRegistration.clientId === clientId) {
                 return {
                     id: entity.rowKey as string,
+                    tenantId: entity.tenantId as string || '',  // Include tenant ID
                     tenantName: entity.tenantName as string,
                     tenantDomain: entity.tenantDomain as string,
                     contactEmail: (entity.contactEmail as string) || '',

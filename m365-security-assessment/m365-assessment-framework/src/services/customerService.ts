@@ -16,13 +16,12 @@ export interface Customer {
   permissions: string[];
   contactEmail?: string;
   notes?: string;
-  consentGranted?: boolean;
-  consentDate?: string;
 }
 
 export interface CreateCustomerRequest {
   tenantName: string;
   tenantDomain: string;
+  tenantId?: string;  // Optional tenant ID
   contactEmail?: string;
   notes?: string;
 }

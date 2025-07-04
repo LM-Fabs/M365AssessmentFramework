@@ -165,7 +165,7 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 const appReg = customer.appRegistration || {};
                 return {
                     id: customer.id,
-                    tenantId: appReg.servicePrincipalId || '',
+                    tenantId: customer.tenantId || '',  // Use the actual tenant ID, not servicePrincipalId
                     tenantName: customer.tenantName,
                     tenantDomain: customer.tenantDomain,
                     applicationId: appReg.applicationId || '',
@@ -241,14 +241,6 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 }
             }
 
-            // Create customer using Table Storage service
-            const customerRequest = {
-                tenantName: customerData.tenantName,
-                tenantDomain: customerData.tenantDomain,
-                contactEmail: customerData.contactEmail || '',
-                notes: customerData.notes || ''
-            };
-
             // Extract tenant ID from domain or use provided tenant ID
             let targetTenantId = customerData.tenantId;
             
@@ -269,6 +261,15 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     }
                 };
             }
+
+            // Create customer using Table Storage service
+            const customerRequest = {
+                tenantName: customerData.tenantName,
+                tenantDomain: customerData.tenantDomain,
+                tenantId: targetTenantId,  // Include the actual tenant ID
+                contactEmail: customerData.contactEmail || '',
+                notes: customerData.notes || ''
+            };
 
             context.log('🏢 Creating customer without auto app registration (will be created manually)');
 

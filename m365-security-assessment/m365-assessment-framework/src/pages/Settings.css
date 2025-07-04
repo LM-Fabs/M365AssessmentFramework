@@ -55,6 +55,13 @@
   color: #475569;
 }
 
+.form-field .field-help {
+  font-weight: normal;
+  color: #64748b;
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
 .form-field input,
 .form-field select {
   width: 100%;

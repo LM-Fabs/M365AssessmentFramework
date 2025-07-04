@@ -46,6 +46,7 @@ export interface Customer {
 export interface CreateCustomerRequest {
     tenantName: string;
     tenantDomain: string;
+    tenantId?: string;  // Optional tenant ID
     contactEmail?: string;
     notes?: string;
 }

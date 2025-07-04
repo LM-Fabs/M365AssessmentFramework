@@ -20,6 +20,7 @@ const Settings = () => {
   const [newCustomerData, setNewCustomerData] = useState({
     tenantName: '',
     tenantDomain: '',
+    tenantId: '',  // Add tenant ID field
     contactEmail: '',
     notes: ''
   });
@@ -138,6 +139,7 @@ const Settings = () => {
       const newCustomer = await customerService.createCustomer({
         tenantName: newCustomerData.tenantName,
         tenantDomain: newCustomerData.tenantDomain,
+        tenantId: newCustomerData.tenantId || undefined,  // Include tenantId if provided
         contactEmail: newCustomerData.contactEmail,
         notes: newCustomerData.notes
       });
@@ -153,6 +155,7 @@ const Settings = () => {
       setNewCustomerData({
         tenantName: '',
         tenantDomain: '',
+        tenantId: '',  // Include tenant ID in reset
         contactEmail: '',
         notes: ''
       });
@@ -483,6 +486,21 @@ const Settings = () => {
                       onChange={(e) => setNewCustomerData(prev => ({ ...prev, tenantDomain: e.target.value }))}
                       placeholder="e.g., contoso.onmicrosoft.com"
                       required
+                      disabled={creatingCustomer}
+                    />
+                  </div>
+                  
+                  <div className="form-field">
+                    <label htmlFor="newTenantId">
+                      Tenant ID (GUID) 
+                      <span className="field-help"> - Optional, will be resolved from domain if not provided</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="newTenantId"
+                      value={newCustomerData.tenantId}
+                      onChange={(e) => setNewCustomerData(prev => ({ ...prev, tenantId: e.target.value }))}
+                      placeholder="e.g., 12345678-1234-1234-1234-123456789012"
                       disabled={creatingCustomer}
                     />
                   </div>
