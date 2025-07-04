@@ -245,10 +245,10 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
             let targetTenantId = customerData.tenantId;
             
             if (!targetTenantId && customerData.tenantDomain) {
-                // For now, require the tenant ID to be provided explicitly
-                // In a production system, you would need to resolve domain to tenant ID
-                context.log('⚠️ Tenant ID not provided - using domain as fallback (consider implementing domain resolution)');
-                targetTenantId = customerData.tenantDomain.replace(/\./g, '-').toLowerCase();
+                // Use the domain as-is as the tenant identifier
+                // This works for custom domains and *.onmicrosoft.com domains
+                context.log('⚠️ Tenant ID not provided - using domain as tenant identifier');
+                targetTenantId = customerData.tenantDomain.toLowerCase();
             }
 
             if (!targetTenantId) {

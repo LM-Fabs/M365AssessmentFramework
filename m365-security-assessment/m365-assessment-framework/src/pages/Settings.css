@@ -1,5 +1,5 @@
 .settings-page {
-  max-width: 800px;
+  max-width: 1200px;  /* Increased from 800px to make it wider */
   margin: 0 auto;
   padding: 2rem;
 }
