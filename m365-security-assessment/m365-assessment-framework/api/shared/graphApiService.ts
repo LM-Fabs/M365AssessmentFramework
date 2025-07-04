@@ -1,6 +1,7 @@
 import { Client } from "@microsoft/microsoft-graph-client";
 import { DefaultAzureCredential, ClientSecretCredential } from "@azure/identity";
 import { Application, ServicePrincipal } from "@microsoft/microsoft-graph-types";
+import * as https from 'https';
 
 /**
  * Microsoft Graph API Service for Azure AD app registration management
@@ -12,6 +13,44 @@ import { Application, ServicePrincipal } from "@microsoft/microsoft-graph-types"
  * - App Registration API: https://docs.microsoft.com/en-us/graph/api/application-post-applications
  * - Service Principal API: https://docs.microsoft.com/en-us/graph/api/serviceprincipal-post-serviceprincipals
  */
+
+/**
+ * Helper function to make HTTPS requests without external dependencies
+ */
+function httpsRequest(url: string, timeout: number = 10000): Promise<any> {
+    return new Promise((resolve, reject) => {
+        const request = https.get(url, { timeout }, (response) => {
+            let data = '';
+            
+            response.on('data', (chunk) => {
+                data += chunk;
+            });
+            
+            response.on('end', () => {
+                try {
+                    if (response.statusCode && response.statusCode >= 200 && response.statusCode < 300) {
+                        const jsonData = JSON.parse(data);
+                        resolve(jsonData);
+                    } else {
+                        reject(new Error(`HTTP ${response.statusCode}: ${data}`));
+                    }
+                } catch (parseError) {
+                    reject(new Error(`Failed to parse JSON response: ${parseError}`));
+                }
+            });
+        });
+        
+        request.on('error', (error) => {
+            reject(error);
+        });
+        
+        request.on('timeout', () => {
+            request.destroy();
+            reject(new Error('Request timed out'));
+        });
+    });
+}
+
 export class GraphApiService {
     private graphClient: Client;
     private isInitialized = false;
@@ -702,40 +741,24 @@ export class GraphApiService {
                 const tenantDiscoveryUrl = `https://login.microsoftonline.com/${domain}/v2.0/.well-known/openid_configuration`;
                 console.log('🌐 GraphApiService: Trying tenant discovery for domain:', domain);
                 
-                // Use fetch to call the public endpoint (doesn't require authentication)
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+                // Use httpsRequest instead of fetch for better compatibility
+                const config = await httpsRequest(tenantDiscoveryUrl, 10000) as { issuer?: string };
                 
-                const response = await fetch(tenantDiscoveryUrl, {
-                    signal: controller.signal,
-                    headers: {
-                        'Accept': 'application/json',
-                        'User-Agent': 'M365-Assessment-Framework/1.0'
+                // Extract tenant ID from the issuer URL
+                const issuerMatch = config.issuer?.match(/https:\/\/login\.microsoftonline\.com\/([^\/]+)\/v2\.0/);
+                if (issuerMatch && issuerMatch[1]) {
+                    const tenantId = issuerMatch[1];
+                    
+                    // Validate it looks like a proper GUID
+                    if (tenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                        console.log('✅ GraphApiService: Domain resolved to tenant ID:', tenantId);
+                        return tenantId;
+                    } else {
+                        console.log('⚠️ GraphApiService: Resolved tenant ID does not appear to be a GUID:', tenantId);
                     }
-                });
-                
-                clearTimeout(timeoutId);
-                
-                if (response.ok) {
-                    const config = await response.json() as { issuer?: string };
-                    // Extract tenant ID from the issuer URL
-                    const issuerMatch = config.issuer?.match(/https:\/\/login\.microsoftonline\.com\/([^\/]+)\/v2\.0/);
-                    if (issuerMatch && issuerMatch[1]) {
-                        const tenantId = issuerMatch[1];
-                        
-                        // Validate it looks like a proper GUID
-                        if (tenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-                            console.log('✅ GraphApiService: Domain resolved to tenant ID:', tenantId);
-                            return tenantId;
-                        } else {
-                            console.log('⚠️ GraphApiService: Resolved tenant ID does not appear to be a GUID:', tenantId);
-                        }
-                    }
-                } else {
-                    console.log('⚠️ GraphApiService: Tenant discovery returned status:', response.status, response.statusText);
                 }
             } catch (discoveryError: any) {
-                if (discoveryError.name === 'AbortError') {
+                if (discoveryError.message?.includes('timed out') || discoveryError.message?.includes('timeout')) {
                     console.log('⚠️ GraphApiService: Tenant discovery timed out for domain:', domain);
                 } else {
                     console.log('⚠️ GraphApiService: Tenant discovery failed for domain:', domain, discoveryError.message);
@@ -747,33 +770,19 @@ export class GraphApiService {
                 console.log('🔍 GraphApiService: Trying alternative tenant resolution');
                 
                 const tenantResolveUrl = `https://login.microsoftonline.com/common/userrealm/${domain}?api-version=2.1`;
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
                 
-                const response = await fetch(tenantResolveUrl, {
-                    signal: controller.signal,
-                    headers: {
-                        'Accept': 'application/json',
-                        'User-Agent': 'M365-Assessment-Framework/1.0'
-                    }
-                });
+                const realmInfo = await httpsRequest(tenantResolveUrl, 5000) as { 
+                    TenantId?: string;
+                    account_type?: string;
+                    cloud_instance_name?: string;
+                };
                 
-                clearTimeout(timeoutId);
-                
-                if (response.ok) {
-                    const realmInfo = await response.json() as { 
-                        TenantId?: string;
-                        account_type?: string;
-                        cloud_instance_name?: string;
-                    };
-                    
-                    if (realmInfo.TenantId && realmInfo.TenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-                        console.log('✅ GraphApiService: Domain resolved via realm API to tenant ID:', realmInfo.TenantId);
-                        return realmInfo.TenantId;
-                    }
+                if (realmInfo.TenantId && realmInfo.TenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                    console.log('✅ GraphApiService: Domain resolved via realm API to tenant ID:', realmInfo.TenantId);
+                    return realmInfo.TenantId;
                 }
             } catch (realmError: any) {
-                if (realmError.name === 'AbortError') {
+                if (realmError.message?.includes('timed out') || realmError.message?.includes('timeout')) {
                     console.log('⚠️ GraphApiService: Realm API timed out for domain:', domain);
                 } else {
                     console.log('⚠️ GraphApiService: Realm API failed for domain:', domain, realmError.message);
