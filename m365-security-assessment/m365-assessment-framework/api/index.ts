@@ -1818,6 +1818,14 @@ app.http('customerById', {
     handler: customerByIdHandler
 });
 
+// Customer assessments endpoint
+app.http('customerAssessments', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'customers/{customerId}/assessments',
+    handler: customerAssessmentsHandler
+});
+
 app.http('assessments', {
     methods: ['GET', 'POST', 'OPTIONS'],
     authLevel: 'anonymous',
@@ -1933,3 +1941,66 @@ app.http('azureConfig', {
     route: 'azure/config',
     handler: azureConfigHandler
 });
+
+// Customer assessments endpoint - get assessments for a specific customer
+async function customerAssessmentsHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    context.log(`Processing ${request.method} request for customer assessments`);
+
+    // Handle preflight OPTIONS request immediately
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+
+    try {
+        // Initialize data service
+        await initializeDataService(context);
+
+        const customerId = request.params.customerId;
+        
+        if (!customerId) {
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Customer ID is required"
+                }
+            };
+        }
+
+        context.log('Getting assessments for customer:', customerId);
+
+        // Get assessments for the specific customer
+        const result = await dataService.getCustomerAssessments(customerId);
+        
+        context.log(`Customer assessments retrieved. Count: ${result.assessments.length}`);
+
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: result.assessments,
+                count: result.assessments.length,
+                customerId: customerId,
+                timestamp: new Date().toISOString()
+            }
+        };
+
+    } catch (error) {
+        context.error('Error in customer assessments handler:', error);
+        
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: "Internal server error",
+                details: error instanceof Error ? error.message : "Unknown error"
+            }
+        };
+    }
+}

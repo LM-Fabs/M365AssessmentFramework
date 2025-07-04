@@ -174,13 +174,28 @@ export class GraphApiService {
             // Create the app registration with multi-tenant configuration
             const appName = `M365-Security-Assessment-${customerData.tenantName.replace(/\s+/g, '-')}`;
             
-            // Use a default redirect URI for multi-tenant apps (Azure portal standard)
-            const redirectUri = process.env.REDIRECT_URI || "https://portal.azure.com/";
+            // Define proper redirect URIs for the application
+            const redirectUris = [
+                "https://portal.azure.com/",                    // Azure Portal (standard for admin consent)
+                "https://login.microsoftonline.com/common/oauth2/nativeclient", // Native client fallback
+                "https://localhost:3000/auth/callback",         // Local development
+                "urn:ietf:wg:oauth:2.0:oob"                    // Out-of-band flow
+            ];
+            
+            // Use environment variable if provided, otherwise use Azure Portal
+            const primaryRedirectUri = process.env.REDIRECT_URI || "https://portal.azure.com/";
             
             const applicationRequest = {
                 displayName: appName,
                 description: `M365 Security Assessment Application for ${customerData.tenantName} (${customerData.tenantDomain})`,
                 signInAudience: "AzureADMultipleOrgs", // Multi-tenant application
+                web: {
+                    redirectUris: redirectUris,
+                    implicitGrantSettings: {
+                        enableAccessTokenIssuance: false,
+                        enableIdTokenIssuance: true
+                    }
+                },
                 requiredResourceAccess: [
                     {
                         resourceAppId: "00000003-0000-0000-c000-000000000000", // Microsoft Graph
@@ -285,7 +300,7 @@ export class GraphApiService {
                 application.appId,
                 resolvedTenantId,
                 permissions,
-                redirectUri
+                primaryRedirectUri
             );
 
             const result = {
@@ -294,7 +309,7 @@ export class GraphApiService {
                 servicePrincipalId: servicePrincipal.id || '',
                 clientSecret: secretResponse.secretText,
                 consentUrl,
-                redirectUri: redirectUri,
+                redirectUri: primaryRedirectUri,
                 permissions,
                 resolvedTenantId: resolvedTenantId // Include the resolved tenant ID
             };

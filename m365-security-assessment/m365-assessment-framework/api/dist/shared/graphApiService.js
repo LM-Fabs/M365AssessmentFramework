@@ -1,9 +1,43 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GraphApiService = void 0;
 exports.getGraphApiService = getGraphApiService;
 const microsoft_graph_client_1 = require("@microsoft/microsoft-graph-client");
 const identity_1 = require("@azure/identity");
+const https = __importStar(require("https"));
 /**
  * Microsoft Graph API Service for Azure AD app registration management
  * Uses managed identity for authentication and implements proper error handling
@@ -14,6 +48,40 @@ const identity_1 = require("@azure/identity");
  * - App Registration API: https://docs.microsoft.com/en-us/graph/api/application-post-applications
  * - Service Principal API: https://docs.microsoft.com/en-us/graph/api/serviceprincipal-post-serviceprincipals
  */
+/**
+ * Helper function to make HTTPS requests without external dependencies
+ */
+function httpsRequest(url, timeout = 10000) {
+    return new Promise((resolve, reject) => {
+        const request = https.get(url, { timeout }, (response) => {
+            let data = '';
+            response.on('data', (chunk) => {
+                data += chunk;
+            });
+            response.on('end', () => {
+                try {
+                    if (response.statusCode && response.statusCode >= 200 && response.statusCode < 300) {
+                        const jsonData = JSON.parse(data);
+                        resolve(jsonData);
+                    }
+                    else {
+                        reject(new Error(`HTTP ${response.statusCode}: ${data}`));
+                    }
+                }
+                catch (parseError) {
+                    reject(new Error(`Failed to parse JSON response: ${parseError}`));
+                }
+            });
+        });
+        request.on('error', (error) => {
+            reject(error);
+        });
+        request.on('timeout', () => {
+            request.destroy();
+            reject(new Error('Request timed out'));
+        });
+    });
+}
 class GraphApiService {
     constructor() {
         this.isInitialized = false;
@@ -104,12 +172,26 @@ class GraphApiService {
             ];
             // Create the app registration with multi-tenant configuration
             const appName = `M365-Security-Assessment-${customerData.tenantName.replace(/\s+/g, '-')}`;
-            // Use a default redirect URI for multi-tenant apps (Azure portal standard)
-            const redirectUri = process.env.REDIRECT_URI || "https://portal.azure.com/";
+            // Define proper redirect URIs for the application
+            const redirectUris = [
+                "https://portal.azure.com/", // Azure Portal (standard for admin consent)
+                "https://login.microsoftonline.com/common/oauth2/nativeclient", // Native client fallback
+                "https://localhost:3000/auth/callback", // Local development
+                "urn:ietf:wg:oauth:2.0:oob" // Out-of-band flow
+            ];
+            // Use environment variable if provided, otherwise use Azure Portal
+            const primaryRedirectUri = process.env.REDIRECT_URI || "https://portal.azure.com/";
             const applicationRequest = {
                 displayName: appName,
                 description: `M365 Security Assessment Application for ${customerData.tenantName} (${customerData.tenantDomain})`,
                 signInAudience: "AzureADMultipleOrgs", // Multi-tenant application
+                web: {
+                    redirectUris: redirectUris,
+                    implicitGrantSettings: {
+                        enableAccessTokenIssuance: false,
+                        enableIdTokenIssuance: true
+                    }
+                },
                 requiredResourceAccess: [
                     {
                         resourceAppId: "00000003-0000-0000-c000-000000000000", // Microsoft Graph
@@ -200,14 +282,14 @@ class GraphApiService {
                 throw new Error(`Failed to create client secret: ${secretError.message}`);
             }
             // Generate admin consent URL for the target tenant using resolved tenant ID
-            const consentUrl = this.generateConsentUrl(application.appId, resolvedTenantId, permissions, redirectUri);
+            const consentUrl = this.generateConsentUrl(application.appId, resolvedTenantId, permissions, primaryRedirectUri);
             const result = {
                 applicationId: application.id,
                 clientId: application.appId,
                 servicePrincipalId: servicePrincipal.id || '',
                 clientSecret: secretResponse.secretText,
                 consentUrl,
-                redirectUri: redirectUri,
+                redirectUri: primaryRedirectUri,
                 permissions,
                 resolvedTenantId: resolvedTenantId // Include the resolved tenant ID
             };
@@ -576,39 +658,24 @@ class GraphApiService {
             try {
                 const tenantDiscoveryUrl = `https://login.microsoftonline.com/${domain}/v2.0/.well-known/openid_configuration`;
                 console.log('🌐 GraphApiService: Trying tenant discovery for domain:', domain);
-                // Use fetch to call the public endpoint (doesn't require authentication)
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-                const response = await fetch(tenantDiscoveryUrl, {
-                    signal: controller.signal,
-                    headers: {
-                        'Accept': 'application/json',
-                        'User-Agent': 'M365-Assessment-Framework/1.0'
+                // Use httpsRequest instead of fetch for better compatibility
+                const config = await httpsRequest(tenantDiscoveryUrl, 10000);
+                // Extract tenant ID from the issuer URL
+                const issuerMatch = config.issuer?.match(/https:\/\/login\.microsoftonline\.com\/([^\/]+)\/v2\.0/);
+                if (issuerMatch && issuerMatch[1]) {
+                    const tenantId = issuerMatch[1];
+                    // Validate it looks like a proper GUID
+                    if (tenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                        console.log('✅ GraphApiService: Domain resolved to tenant ID:', tenantId);
+                        return tenantId;
                     }
-                });
-                clearTimeout(timeoutId);
-                if (response.ok) {
-                    const config = await response.json();
-                    // Extract tenant ID from the issuer URL
-                    const issuerMatch = config.issuer?.match(/https:\/\/login\.microsoftonline\.com\/([^\/]+)\/v2\.0/);
-                    if (issuerMatch && issuerMatch[1]) {
-                        const tenantId = issuerMatch[1];
-                        // Validate it looks like a proper GUID
-                        if (tenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-                            console.log('✅ GraphApiService: Domain resolved to tenant ID:', tenantId);
-                            return tenantId;
-                        }
-                        else {
-                            console.log('⚠️ GraphApiService: Resolved tenant ID does not appear to be a GUID:', tenantId);
-                        }
+                    else {
+                        console.log('⚠️ GraphApiService: Resolved tenant ID does not appear to be a GUID:', tenantId);
                     }
-                }
-                else {
-                    console.log('⚠️ GraphApiService: Tenant discovery returned status:', response.status, response.statusText);
                 }
             }
             catch (discoveryError) {
-                if (discoveryError.name === 'AbortError') {
+                if (discoveryError.message?.includes('timed out') || discoveryError.message?.includes('timeout')) {
                     console.log('⚠️ GraphApiService: Tenant discovery timed out for domain:', domain);
                 }
                 else {
@@ -619,26 +686,14 @@ class GraphApiService {
             try {
                 console.log('🔍 GraphApiService: Trying alternative tenant resolution');
                 const tenantResolveUrl = `https://login.microsoftonline.com/common/userrealm/${domain}?api-version=2.1`;
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-                const response = await fetch(tenantResolveUrl, {
-                    signal: controller.signal,
-                    headers: {
-                        'Accept': 'application/json',
-                        'User-Agent': 'M365-Assessment-Framework/1.0'
-                    }
-                });
-                clearTimeout(timeoutId);
-                if (response.ok) {
-                    const realmInfo = await response.json();
-                    if (realmInfo.TenantId && realmInfo.TenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-                        console.log('✅ GraphApiService: Domain resolved via realm API to tenant ID:', realmInfo.TenantId);
-                        return realmInfo.TenantId;
-                    }
+                const realmInfo = await httpsRequest(tenantResolveUrl, 5000);
+                if (realmInfo.TenantId && realmInfo.TenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                    console.log('✅ GraphApiService: Domain resolved via realm API to tenant ID:', realmInfo.TenantId);
+                    return realmInfo.TenantId;
                 }
             }
             catch (realmError) {
-                if (realmError.name === 'AbortError') {
+                if (realmError.message?.includes('timed out') || realmError.message?.includes('timeout')) {
                     console.log('⚠️ GraphApiService: Realm API timed out for domain:', domain);
                 }
                 else {
