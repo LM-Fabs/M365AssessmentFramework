@@ -501,10 +501,10 @@ export class AssessmentService {
     scheduleFrequency: string;
   }): Promise<Assessment> {
     try {
-      console.log('Creating assessment for customer with URL:', `${this.baseUrl}/assessment/customer`);
+      console.log('Creating assessment for customer with URL:', `${this.baseUrl}/assessment/create`);
       console.log('Data being sent:', JSON.stringify(data, null, 2));
       
-      const response = await axios.post(`${this.baseUrl}/assessment/customer`, data);
+      const response = await axios.post(`${this.baseUrl}/assessment/create`, data);
       console.log('Create customer assessment response:', response.status, response.statusText);
       
       const assessment = response.data;
