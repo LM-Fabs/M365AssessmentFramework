@@ -81,6 +81,7 @@ class TableStorageService {
                 notes: entity.notes || '',
                 status: entity.status,
                 createdDate: new Date(entity.createdDate),
+                lastAssessmentDate: entity.lastAssessmentDate,
                 appRegistration: entity.appRegistration ? JSON.parse(entity.appRegistration) : undefined,
                 totalAssessments: entity.totalAssessments || 0
             });
@@ -138,7 +139,7 @@ class TableStorageService {
             contactEmail: customer.contactEmail,
             notes: customer.notes,
             status: customer.status,
-            createdDate: customer.createdDate.toISOString(),
+            createdDate: customer.createdDate instanceof Date ? customer.createdDate.toISOString() : customer.createdDate,
             appRegistration: JSON.stringify(customer.appRegistration),
             totalAssessments: 0
         };
@@ -167,6 +168,7 @@ class TableStorageService {
                 contactEmail: entity.contactEmail || '',
                 notes: entity.notes || '',
                 createdDate: new Date(entity.createdDate),
+                lastAssessmentDate: entity.lastAssessmentDate,
                 status: entity.status,
                 totalAssessments: entity.totalAssessments || 0,
                 appRegistration: JSON.parse(entity.appRegistration)
@@ -207,6 +209,9 @@ class TableStorageService {
                 notes: updates.notes ?? existingEntity.notes ?? '',
                 status: updates.status ?? existingEntity.status,
                 createdDate: existingEntity.createdDate, // Keep original creation date
+                lastAssessmentDate: updates.lastAssessmentDate
+                    ? (updates.lastAssessmentDate instanceof Date ? updates.lastAssessmentDate.toISOString() : updates.lastAssessmentDate)
+                    : existingEntity.lastAssessmentDate,
                 totalAssessments: updates.totalAssessments ?? existingEntity.totalAssessments ?? 0,
                 appRegistration: updates.appRegistration
                     ? JSON.stringify(updates.appRegistration)
@@ -223,6 +228,7 @@ class TableStorageService {
                 contactEmail: updatedEntity.contactEmail,
                 notes: updatedEntity.notes,
                 createdDate: new Date(updatedEntity.createdDate),
+                lastAssessmentDate: updatedEntity.lastAssessmentDate,
                 status: updatedEntity.status,
                 totalAssessments: updatedEntity.totalAssessments || 0,
                 appRegistration: JSON.parse(updatedEntity.appRegistration)
@@ -382,6 +388,49 @@ class TableStorageService {
             categoryScores: JSON.stringify(historyData.categoryScores)
         };
         await this.historyTable.createEntity(entity);
+    }
+    // Get all assessments with optional filtering
+    async getAssessments(options) {
+        await this.initialize();
+        const assessments = [];
+        let filter = '';
+        const filters = [];
+        if (options?.customerId) {
+            filters.push((0, data_tables_1.odata) `customerId eq ${options.customerId}`);
+        }
+        if (options?.tenantId) {
+            filters.push((0, data_tables_1.odata) `tenantId eq ${options.tenantId}`);
+        }
+        if (options?.status) {
+            filters.push((0, data_tables_1.odata) `status eq ${options.status}`);
+        }
+        if (filters.length > 0) {
+            filter = filters.join(' and ');
+        }
+        const iterator = this.assessmentsTable.listEntities({
+            queryOptions: { filter }
+        });
+        let count = 0;
+        const maxItems = options?.maxItemCount || 50;
+        for await (const entity of iterator) {
+            if (count >= maxItems)
+                break;
+            assessments.push({
+                id: entity.rowKey,
+                customerId: entity.customerId,
+                tenantId: entity.tenantId,
+                date: new Date(entity.date),
+                status: entity.status,
+                score: entity.score,
+                metrics: entity.metrics ? JSON.parse(entity.metrics) : {},
+                recommendations: entity.recommendations ? JSON.parse(entity.recommendations) : []
+            });
+            count++;
+        }
+        return {
+            assessments,
+            continuationToken: undefined // Could be implemented for pagination
+        };
     }
 }
 exports.TableStorageService = TableStorageService;

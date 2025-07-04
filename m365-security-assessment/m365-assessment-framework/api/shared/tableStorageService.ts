@@ -8,7 +8,8 @@ export interface Customer {
     tenantDomain: string;
     contactEmail?: string;
     notes?: string;
-    createdDate: Date;
+    createdDate: Date | string;  // Can be Date object or ISO string
+    lastAssessmentDate?: Date | string;  // Can be Date object or ISO string
     status: string;
     totalAssessments?: number;
     appRegistration?: {
@@ -134,6 +135,7 @@ export class TableStorageService {
                 notes: entity.notes as string || '',
                 status: entity.status as string,
                 createdDate: new Date(entity.createdDate as string),
+                lastAssessmentDate: entity.lastAssessmentDate as string,
                 appRegistration: entity.appRegistration ? JSON.parse(entity.appRegistration as string) : undefined,
                 totalAssessments: (entity.totalAssessments as number) || 0
             });
@@ -197,7 +199,7 @@ export class TableStorageService {
             contactEmail: customer.contactEmail,
             notes: customer.notes,
             status: customer.status,
-            createdDate: customer.createdDate.toISOString(),
+            createdDate: customer.createdDate instanceof Date ? customer.createdDate.toISOString() : customer.createdDate,
             appRegistration: JSON.stringify(customer.appRegistration),
             totalAssessments: 0
         };
@@ -229,6 +231,7 @@ export class TableStorageService {
                 contactEmail: entity.contactEmail as string || '',
                 notes: entity.notes as string || '',
                 createdDate: new Date(entity.createdDate as string),
+                lastAssessmentDate: entity.lastAssessmentDate as string,
                 status: entity.status as string,
                 totalAssessments: (entity.totalAssessments as number) || 0,
                 appRegistration: JSON.parse(entity.appRegistration as string)
@@ -272,6 +275,9 @@ export class TableStorageService {
                 notes: updates.notes ?? existingEntity.notes ?? '',
                 status: updates.status ?? existingEntity.status,
                 createdDate: existingEntity.createdDate, // Keep original creation date
+                lastAssessmentDate: updates.lastAssessmentDate 
+                    ? (updates.lastAssessmentDate instanceof Date ? updates.lastAssessmentDate.toISOString() : updates.lastAssessmentDate)
+                    : existingEntity.lastAssessmentDate,
                 totalAssessments: updates.totalAssessments ?? existingEntity.totalAssessments ?? 0,
                 appRegistration: updates.appRegistration 
                     ? JSON.stringify(updates.appRegistration)
@@ -290,6 +296,7 @@ export class TableStorageService {
                 contactEmail: updatedEntity.contactEmail as string,
                 notes: updatedEntity.notes as string,
                 createdDate: new Date(updatedEntity.createdDate as string),
+                lastAssessmentDate: updatedEntity.lastAssessmentDate as string,
                 status: updatedEntity.status as string,
                 totalAssessments: (updatedEntity.totalAssessments as number) || 0,
                 appRegistration: JSON.parse(updatedEntity.appRegistration as string)
@@ -476,5 +483,62 @@ export class TableStorageService {
         };
 
         await this.historyTable.createEntity(entity);
+    }
+
+    // Get all assessments with optional filtering
+    async getAssessments(options?: { 
+        customerId?: string; 
+        tenantId?: string; 
+        status?: string; 
+        maxItemCount?: number 
+    }): Promise<{ assessments: Assessment[]; continuationToken?: string }> {
+        await this.initialize();
+
+        const assessments: Assessment[] = [];
+        let filter = '';
+        
+        const filters: string[] = [];
+        if (options?.customerId) {
+            filters.push(odata`customerId eq ${options.customerId}`);
+        }
+        if (options?.tenantId) {
+            filters.push(odata`tenantId eq ${options.tenantId}`);
+        }
+        if (options?.status) {
+            filters.push(odata`status eq ${options.status}`);
+        }
+        
+        if (filters.length > 0) {
+            filter = filters.join(' and ');
+        }
+
+        const iterator = this.assessmentsTable.listEntities({ 
+            queryOptions: { filter }
+        });
+
+        let count = 0;
+        const maxItems = options?.maxItemCount || 50;
+
+        for await (const entity of iterator) {
+            if (count >= maxItems) break;
+
+            assessments.push({
+                id: entity.rowKey as string,
+                customerId: entity.customerId as string,
+                tenantId: entity.tenantId as string,
+                date: new Date(entity.date as string),
+                status: entity.status as string,
+                score: entity.score as number,
+                metrics: entity.metrics ? JSON.parse(entity.metrics as string) : {},
+                recommendations: entity.recommendations ? JSON.parse(entity.recommendations as string) : []
+            });
+
+            count++;
+        }
+
+        return {
+            assessments,
+            continuationToken: undefined // Could be implemented for pagination
+        };
     }
 }

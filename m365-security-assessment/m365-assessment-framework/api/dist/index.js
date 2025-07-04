@@ -652,9 +652,12 @@ async function assessmentsHandler(request, context) {
             assessments = result.assessments;
         }
         else {
-            // For now, return empty array since we don't have a method to get all assessments
-            // This would need to be implemented if needed
-            assessments = [];
+            // Get all assessments with optional filtering
+            const result = await dataService.getAssessments({
+                status: status || undefined,
+                maxItemCount: limit
+            });
+            assessments = result.assessments;
         }
         context.log(`Assessments retrieved. Count: ${assessments.length}`);
         return {
@@ -799,14 +802,25 @@ async function createAssessmentHandler(request, context) {
             };
         }
         context.log('Creating assessment with data:', assessmentData);
-        // Create mock assessment
-        const mockAssessment = {
+        // Initialize data service to store assessment
+        await initializeDataService(context);
+        // Extract tenant ID from the provided data
+        const tenantId = assessmentData.tenantId ||
+            assessmentData.tenantName?.toLowerCase().replace(/\s+/g, '-') ||
+            'new-tenant';
+        // Create assessment object
+        const newAssessment = {
             id: `assessment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            tenantId: assessmentData.tenantName?.toLowerCase().replace(/\s+/g, '-') || 'new-tenant',
+            tenantId: tenantId,
+            customerId: assessmentData.customerId || '', // Include customer ID if provided
             tenantName: assessmentData.tenantName || 'New Assessment',
+            assessmentName: assessmentData.assessmentName || `Assessment for ${assessmentData.tenantName}`,
             assessmentDate: new Date().toISOString(),
             status: 'completed',
-            categories: assessmentData.categories || ['identity', 'dataProtection', 'endpoint', 'cloudApps'],
+            categories: assessmentData.includedCategories || assessmentData.categories || ['identity', 'dataProtection', 'endpoint', 'cloudApps'],
+            notificationEmail: assessmentData.notificationEmail || '',
+            autoSchedule: assessmentData.autoSchedule || false,
+            scheduleFrequency: assessmentData.scheduleFrequency || 'monthly',
             metrics: {
                 score: {
                     overall: 75,
@@ -815,16 +829,53 @@ async function createAssessmentHandler(request, context) {
                     endpoint: 75,
                     cloudApps: 80
                 }
-            }
+            },
+            lastModified: new Date().toISOString(),
+            createdBy: 'system'
         };
-        return {
-            status: 201,
-            headers: corsHeaders,
-            jsonBody: {
-                success: true,
-                data: mockAssessment
+        try {
+            // Store the assessment in the data service
+            const storedAssessment = await dataService.createAssessment(newAssessment);
+            context.log('✅ Assessment stored successfully:', storedAssessment.id);
+            // If we have a customer ID, update the customer's last assessment date
+            if (assessmentData.customerId) {
+                try {
+                    const customer = await dataService.getCustomer(assessmentData.customerId);
+                    if (customer) {
+                        await dataService.updateCustomer(assessmentData.customerId, {
+                            lastAssessmentDate: new Date().toISOString(),
+                            totalAssessments: (customer.totalAssessments || 0) + 1
+                        });
+                        context.log('✅ Customer updated with assessment info');
+                    }
+                }
+                catch (customerUpdateError) {
+                    context.warn('⚠️ Failed to update customer:', customerUpdateError);
+                    // Don't fail the assessment creation if customer update fails
+                }
             }
-        };
+            return {
+                status: 201,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: true,
+                    data: storedAssessment
+                }
+            };
+        }
+        catch (storageError) {
+            context.error('❌ Failed to store assessment:', storageError);
+            // Return the assessment even if storage fails, but with a warning
+            return {
+                status: 201,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: true,
+                    data: newAssessment,
+                    warning: 'Assessment created but storage failed'
+                }
+            };
+        }
     }
     catch (error) {
         context.error('Error in create assessment handler:', error);
