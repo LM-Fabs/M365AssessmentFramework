@@ -4,6 +4,9 @@ import { useAuth } from './hooks/useAuth';
 import { ApiWarmupService } from './services/apiWarmupService';
 import Navigation from './components/layout/Navigation';
 import Dashboard from './pages/Dashboard';
+import Assessments from './pages/Assessments';
+import BestPractices from './pages/BestPractices';
+import Reports from './pages/Reports';
 import Login from './pages/Login';
 import History from './pages/History';
 import Settings from './pages/Settings';
@@ -55,9 +58,9 @@ function AppContent() {
         <Routes>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/" element={<Dashboard />} />
-          <Route path="/assessments" element={<Dashboard />} />
-          <Route path="/best-practices" element={<Dashboard />} />
-          <Route path="/reports" element={<Dashboard />} />
+          <Route path="/assessments" element={<Assessments />} />
+          <Route path="/best-practices" element={<BestPractices />} />
+          <Route path="/reports" element={<Reports />} />
           <Route path="/history" element={<History />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/assessment-results/:assessmentId" element={<AssessmentResults />} />

@@ -51,18 +51,15 @@ const Dashboard: React.FC = () => {
   };
 
   const handleNewAssessment = () => {
-    navigate('/settings');
+    navigate('/assessments');
   };
 
-  const handleCompareAssessments = () => {
-    if (filteredAssessments.length >= 2) {
-      navigate('/compare', { 
-        state: { 
-          assessments: filteredAssessments.slice(0, 2),
-          customer: selectedCustomer 
-        } 
-      });
-    }
+  const handleViewReports = () => {
+    navigate('/reports');
+  };
+
+  const handleViewBestPractices = () => {
+    navigate('/best-practices');
   };
 
   if (!isAuthenticated) {
@@ -183,15 +180,19 @@ const Dashboard: React.FC = () => {
   return (
     <div className="dashboard">
       <div className="dashboard-header">
-        <h1 className="dashboard-title">Dashboard</h1>
+        <h1 className="dashboard-title">Security Dashboard</h1>
+        <p className="dashboard-subtitle">
+          Get an overview of your Microsoft 365 security posture and recent assessments.
+        </p>
         <div className="dashboard-actions">
           <button 
             className="lm-button secondary"
-            onClick={handleCompareAssessments}
-            disabled={filteredAssessments.length < 2}
-            title={filteredAssessments.length < 2 ? "Need at least 2 assessments to compare" : "Compare assessments"}
+            onClick={handleViewReports}
           >
-            Compare Assessments
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            View Reports
           </button>
           <button 
             className="lm-button primary"
