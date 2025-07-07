@@ -863,30 +863,55 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                 context.log('🔍 Fetching real assessment data from Microsoft Graph API...');
                 
                 try {
-                    // Fetch real license information and secure score
-                    context.log('🔍 Fetching license information...');
-                    const licenseInfo = await graphApiService.getLicenseInfo(
-                        tenantId,
-                        customer.appRegistration.clientId,
-                        customer.appRegistration.clientSecret
-                    );
+                    // Only fetch data for the specifically requested categories to avoid GraphAPI overload
+                    const requestedCategories = assessmentData.includedCategories || assessmentData.categories || ['license', 'secureScore'];
+                    context.log('📋 Fetching data for requested categories:', requestedCategories);
                     
-                    context.log('🛡️ Fetching secure score information...');
+                    let licenseInfo = null;
                     let secureScore = null;
-                    try {
-                        secureScore = await graphApiService.getSecureScore(
-                            tenantId,
-                            customer.appRegistration.clientId,
-                            customer.appRegistration.clientSecret
-                        );
-                    } catch (secureScoreError: any) {
-                        context.warn('⚠️ Could not fetch secure score (may not be available):', secureScoreError.message);
+                    const dataFetchResults = [];
+                    
+                    // Fetch license information only if requested
+                    if (requestedCategories.includes('license')) {
+                        try {
+                            context.log('🔍 Fetching license information...');
+                            licenseInfo = await graphApiService.getLicenseInfo(
+                                tenantId,
+                                customer.appRegistration.clientId,
+                                customer.appRegistration.clientSecret
+                            );
+                            dataFetchResults.push('license: success');
+                        } catch (licenseError: any) {
+                            context.warn('⚠️ License data fetch failed:', licenseError.message);
+                            dataFetchResults.push(`license: failed (${licenseError.message})`);
+                        }
                     }
                     
-                    context.log('✅ Real assessment data retrieved successfully');
+                    // Fetch secure score only if requested
+                    if (requestedCategories.includes('secureScore')) {
+                        try {
+                            context.log('🛡️ Fetching secure score information...');
+                            secureScore = await graphApiService.getSecureScore(
+                                tenantId,
+                                customer.appRegistration.clientId,
+                                customer.appRegistration.clientSecret
+                            );
+                            dataFetchResults.push('secureScore: success');
+                        } catch (secureScoreError: any) {
+                            context.warn('⚠️ Secure score fetch failed:', secureScoreError.message);
+                            dataFetchResults.push(`secureScore: failed (${secureScoreError.message})`);
+                        }
+                    }
                     
-                    // Calculate assessment scores based on real data
-                    const utilizationRate = licenseInfo.totalLicenses > 0 
+                    // If we couldn't fetch any data, throw an error
+                    if (!licenseInfo && !secureScore) {
+                        throw new Error(`Unable to fetch any assessment data. Results: ${dataFetchResults.join(', ')}`);
+                    }
+                    
+                    context.log('✅ Partial/full assessment data retrieved. Results:', dataFetchResults);
+                    
+                    // Calculate assessment scores based on available real data
+                    const utilizationRate = licenseInfo && licenseInfo.totalLicenses > 0 
                         ? (licenseInfo.assignedLicenses / licenseInfo.totalLicenses) * 100 
                         : 0;
                     
@@ -896,12 +921,15 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                                        utilizationRate > 60 ? 75 : 
                                        utilizationRate > 40 ? 65 : 50;
                     
-                    // Create detailed real data object
+                    // Create detailed real data object with null-safe handling
                     realData = {
-                        licenseInfo: {
+                        licenseInfo: licenseInfo ? {
                             ...licenseInfo,
                             utilizationRate: Math.round(utilizationRate * 100) / 100,
                             summary: `${licenseInfo.assignedLicenses} of ${licenseInfo.totalLicenses} licenses assigned (${Math.round(utilizationRate)}% utilization)`
+                        } : {
+                            unavailable: true,
+                            reason: 'License information not available - not requested or fetch failed'
                         },
                         secureScore: secureScore ? {
                             ...secureScore,
@@ -936,7 +964,7 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                         metrics: {
                             score: {
                                 overall: Math.round(overallScore),
-                                license: utilizationRate,
+                                license: licenseInfo ? Math.round(utilizationRate) : 0,
                                 secureScore: secureScore ? secureScore.percentage : Math.round(overallScore)
                             },
                             realData,
