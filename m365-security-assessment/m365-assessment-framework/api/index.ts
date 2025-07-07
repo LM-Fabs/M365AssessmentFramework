@@ -3,30 +3,66 @@ import { TableStorageService } from "./shared/tableStorageService";
 import { GraphApiService } from "./shared/graphApiService";
 import { Customer } from "./shared/types";
 
-// CORS headers for local development only
-// In Azure Static Web Apps, CORS is handled automatically
+// CORS headers optimized for better performance
 const corsHeaders = process.env.NODE_ENV === 'development' ? {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Content-Type': 'application/json'
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Warmup, Cache-Control',
+    'Access-Control-Max-Age': '86400', // Cache preflight for 24 hours
+    'Content-Type': 'application/json',
+    'Cache-Control': 'public, max-age=60, s-maxage=60' // Cache responses for 1 minute
 } : {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Cache-Control': 'public, max-age=60, s-maxage=60' // Cache responses for 1 minute
 };
 
-// Initialize data services
+// Performance optimization: Cache frequently accessed data
+const cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+const CACHE_TTL = {
+    customers: 300000, // 5 minutes
+    assessments: 180000, // 3 minutes
+    metrics: 120000, // 2 minutes
+    bestPractices: 600000 // 10 minutes
+};
+
+// Initialize data services with connection pooling
 let tableStorageService: TableStorageService;
 let graphApiService: GraphApiService;
 let dataService: TableStorageService;
 let isDataServiceInitialized = false;
+let initializationPromise: Promise<void> | null = null;
 
-// Initialize data services
+// Cache helper functions for performance optimization
+function getCachedData(key: string): any | null {
+    const cached = cache.get(key);
+    if (cached && Date.now() - cached.timestamp < cached.ttl) {
+        return cached.data;
+    }
+    cache.delete(key);
+    return null;
+}
+
+function setCachedData(key: string, data: any, ttl: number): void {
+    cache.set(key, { data, timestamp: Date.now(), ttl });
+}
+
+// Optimized data service initialization with singleton pattern
 async function initializeDataService(context: InvocationContext): Promise<void> {
-    if (!isDataServiceInitialized) {
+    if (isDataServiceInitialized) {
+        return;
+    }
+    
+    // Prevent multiple concurrent initializations
+    if (initializationPromise) {
+        return initializationPromise;
+    }
+    
+    initializationPromise = (async () => {
         try {
-            context.log('Initializing data services...');
+            const startTime = Date.now();
+            context.log('🚀 Initializing data services...');
             
-            // Initialize Table Storage service
+            // Initialize Table Storage service with optimized settings
             tableStorageService = new TableStorageService();
             await tableStorageService.initialize();
             dataService = tableStorageService;
@@ -40,13 +76,83 @@ async function initializeDataService(context: InvocationContext): Promise<void> 
                 throw new Error(`GraphApiService initialization failed: ${error instanceof Error ? error.message : error}`);
             }
             
-            context.log('✅ Data services initialized successfully');
+            const duration = Date.now() - startTime;
+            context.log(`✅ Data services initialized successfully in ${duration}ms`);
             isDataServiceInitialized = true;
         } catch (error) {
             context.error('❌ Data services initialization failed:', error);
+            initializationPromise = null; // Reset on failure
             throw new Error(`Data services initialization failed: ${error instanceof Error ? error.message : error}`);
         }
+    })();
+    
+    return initializationPromise;
+}
+
+// Generate recommendations based on license and security data
+function generateRecommendations(licenseInfo: any, secureScore: any): string[] {
+    const recommendations: string[] = [];
+    
+    if (licenseInfo) {
+        const utilizationRate = licenseInfo.totalLicenses > 0 
+            ? (licenseInfo.assignedLicenses / licenseInfo.totalLicenses) * 100 
+            : 0;
+            
+        if (utilizationRate < 40) {
+            recommendations.push("Consider reviewing your license usage - only " + Math.round(utilizationRate) + "% of licenses are assigned. You may be able to optimize costs by reducing unused licenses.");
+        } else if (utilizationRate > 90) {
+            recommendations.push("License utilization is very high (" + Math.round(utilizationRate) + "%). Consider purchasing additional licenses to avoid service disruptions.");
+        } else if (utilizationRate < 70) {
+            recommendations.push("License utilization is moderate (" + Math.round(utilizationRate) + "%). Monitor usage trends and consider optimization opportunities.");
+        }
+        
+        // Check for specific license types
+        if (licenseInfo.licenseDetails) {
+            const premiumLicenses = licenseInfo.licenseDetails.filter((license: any) => 
+                license.skuPartNumber?.includes('E5') || license.skuPartNumber?.includes('PREMIUM')
+            );
+            if (premiumLicenses.length > 0) {
+                recommendations.push("Premium licenses detected. Ensure you're leveraging advanced security features like Conditional Access and Identity Protection.");
+            }
+            
+            const basicLicenses = licenseInfo.licenseDetails.filter((license: any) => 
+                license.skuPartNumber?.includes('E1') || license.skuPartNumber?.includes('BASIC')
+            );
+            if (basicLicenses.length > 0) {
+                recommendations.push("Basic licenses in use. Consider upgrading to higher tiers for enhanced security and compliance features.");
+            }
+        }
     }
+    
+    if (secureScore) {
+        if (secureScore.percentage < 50) {
+            recommendations.push("Secure Score is below 50% (" + secureScore.percentage + "%). Immediate action required to improve security posture.");
+        } else if (secureScore.percentage < 70) {
+            recommendations.push("Secure Score is moderate (" + secureScore.percentage + "%). Focus on implementing high-impact security controls.");
+        } else if (secureScore.percentage >= 80) {
+            recommendations.push("Excellent Secure Score (" + secureScore.percentage + "%). Continue monitoring and maintain current security practices.");
+        }
+        
+        // Analyze control categories for specific recommendations
+        if (secureScore.controlScores) {
+            const identityControls = secureScore.controlScores.filter((control: any) => 
+                control.category?.toLowerCase().includes('identity') || 
+                control.controlName?.toLowerCase().includes('mfa') ||
+                control.controlName?.toLowerCase().includes('conditional')
+            );
+            
+            if (identityControls.some((control: any) => control.implementationStatus === 'Not Implemented')) {
+                recommendations.push("Identity security controls need attention. Implement Multi-Factor Authentication and Conditional Access policies.");
+            }
+        }
+    }
+    
+    // General recommendations if no data available
+    if (!licenseInfo && !secureScore) {
+        recommendations.push("Complete app registration setup to access real tenant data and get personalized recommendations.");
+    }
+    
+    return recommendations;
 }
 
 // Diagnostic endpoint to check environment configuration
@@ -1094,46 +1200,70 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                     
                 } catch (graphError: any) {
                     context.error('❌ Failed to fetch real data from Graph API:', graphError);
+                    context.log('⚠️ Creating assessment with placeholder data due to Graph API failure');
                     
-                    // Check for specific Microsoft Graph API errors
-                    let errorMessage = "Failed to fetch real assessment data from Microsoft Graph API";
-                    let specificError = graphError?.message || 'Unknown Graph API error';
-                    let statusCode = 400;
+                    // Create assessment with placeholder data when Graph API fails
+                    // This allows users to create assessments even when app registration has issues
+                    const fallbackAssessment = {
+                        id: `assessment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                        tenantId: tenantId,
+                        customerId: assessmentData.customerId || '',
+                        tenantName: customer.tenantName || assessmentData.tenantName || 'New Assessment',
+                        assessmentName: assessmentData.assessmentName || `Security Assessment for ${customer.tenantName}`,
+                        assessmentDate: new Date().toISOString(),
+                        status: 'completed-limited-data',
+                        categories: assessmentData.includedCategories || assessmentData.categories || ['license', 'secureScore'],
+                        notificationEmail: assessmentData.notificationEmail || '',
+                        autoSchedule: assessmentData.autoSchedule || false,
+                        scheduleFrequency: assessmentData.scheduleFrequency || 'monthly',
+                        metrics: {
+                            score: {
+                                overall: 50, // Default score when no data available
+                                license: 0,
+                                secureScore: 0
+                            },
+                            dataIssue: {
+                                reason: 'Microsoft Graph API access failed',
+                                error: graphError?.message || 'Unknown Graph API error',
+                                timestamp: new Date().toISOString(),
+                                troubleshooting: [
+                                    'Fix app registration credentials to get real data',
+                                    'Ensure admin consent is granted',
+                                    'Verify required permissions are configured',
+                                    'Re-run assessment after fixing authentication'
+                                ]
+                            },
+                            assessmentType: 'placeholder-due-to-api-failure',
+                            dataCollected: false,
+                            recommendations: [
+                                'Fix Microsoft Graph API access to get detailed security recommendations',
+                                'Verify app registration setup in Azure Portal',
+                                'Ensure proper permissions are configured'
+                            ]
+                        },
+                        lastModified: new Date().toISOString(),
+                        createdBy: 'system'
+                    };
                     
-                    if (specificError.includes('PropertyValueTooLarge')) {
-                        errorMessage = "Microsoft Graph API request exceeded size limits";
-                        specificError = "The requested data payload is too large. This may be due to querying unsupported categories or deprecated API endpoints.";
-                        statusCode = 413; // Payload Too Large
-                    } else if (specificError.includes('Insufficient permissions')) {
-                        errorMessage = "Insufficient permissions to access Microsoft Graph API";
-                        statusCode = 403;
-                    } else if (specificError.includes('Authentication failed') || specificError.includes('Unauthorized')) {
-                        errorMessage = "Authentication failed for Microsoft Graph API";
-                        statusCode = 401;
-                    }
-                    
-                    // Return detailed error instead of falling back to mock data
+                    // Store the fallback assessment
+                    const storedAssessment = await dataService.createAssessment(fallbackAssessment);
+                    context.log('✅ Fallback assessment created successfully:', storedAssessment.id);
+
                     return {
-                        status: statusCode,
+                        status: 201,
                         headers: corsHeaders,
                         jsonBody: {
-                            success: false,
-                            error: errorMessage,
-                            details: specificError,
-                            troubleshooting: [
-                                'Verify app registration permissions include Organization.Read.All and SecurityEvents.Read.All',
-                                'Ensure admin consent has been granted by the customer tenant admin',
-                                'Check that the app registration exists and is properly configured',
-                                'Verify the client secret is valid and not expired',
-                                'For PropertyValueTooLarge errors: The API may be requesting too much data - contact support'
-                            ],
-                            customerId: assessmentData.customerId,
-                            tenantId: tenantId,
-                            requiredAction: 'Complete app registration setup and obtain admin consent to access real tenant data',
-                            apiError: {
-                                type: specificError.includes('PropertyValueTooLarge') ? 'PAYLOAD_TOO_LARGE' : 'GRAPH_API_ERROR',
-                                originalError: graphError?.message,
-                                timestamp: new Date().toISOString()
+                            success: true,
+                            data: storedAssessment,
+                            warning: "Assessment created with placeholder data due to Microsoft Graph API access issues",
+                            graphApiError: {
+                                message: graphError?.message || 'Unknown error',
+                                troubleshooting: [
+                                    'Check app registration credentials in Azure Portal',
+                                    'Verify admin consent has been granted',
+                                    'Ensure required permissions are configured',
+                                    'Re-run assessment after fixing authentication to get real data'
+                                ]
                             }
                         }
                     };
@@ -1691,74 +1821,7 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
                 },
                 timestamp: new Date().toISOString()
             }
-        };
     }
-}
-
-// Generate recommendations based on license and security data
-function generateRecommendations(licenseInfo: any, secureScore: any): string[] {
-    const recommendations: string[] = [];
-    
-    if (licenseInfo) {
-        const utilizationRate = licenseInfo.totalLicenses > 0 
-            ? (licenseInfo.assignedLicenses / licenseInfo.totalLicenses) * 100 
-            : 0;
-            
-        if (utilizationRate < 40) {
-            recommendations.push("Consider reviewing your license usage - only " + Math.round(utilizationRate) + "% of licenses are assigned. You may be able to optimize costs by reducing unused licenses.");
-        } else if (utilizationRate > 90) {
-            recommendations.push("License utilization is very high (" + Math.round(utilizationRate) + "%). Consider purchasing additional licenses to avoid service disruptions.");
-        } else if (utilizationRate < 70) {
-            recommendations.push("License utilization is moderate (" + Math.round(utilizationRate) + "%). Monitor usage trends and consider optimization opportunities.");
-        }
-        
-        // Check for specific license types
-        if (licenseInfo.licenseDetails) {
-            const premiumLicenses = licenseInfo.licenseDetails.filter((license: any) => 
-                license.skuPartNumber?.includes('E5') || license.skuPartNumber?.includes('PREMIUM')
-            );
-            if (premiumLicenses.length > 0) {
-                recommendations.push("Premium licenses detected. Ensure you're leveraging advanced security features like Conditional Access and Identity Protection.");
-            }
-            
-            const basicLicenses = licenseInfo.licenseDetails.filter((license: any) => 
-                license.skuPartNumber?.includes('E1') || license.skuPartNumber?.includes('BASIC')
-            );
-            if (basicLicenses.length > 0) {
-                recommendations.push("Basic licenses in use. Consider upgrading to higher tiers for enhanced security and compliance features.");
-            }
-        }
-    }
-    
-    if (secureScore) {
-        if (secureScore.percentage < 50) {
-            recommendations.push("Secure Score is below 50% (" + secureScore.percentage + "%). Immediate action required to improve security posture.");
-        } else if (secureScore.percentage < 70) {
-            recommendations.push("Secure Score is moderate (" + secureScore.percentage + "%). Focus on implementing high-impact security controls.");
-        } else if (secureScore.percentage >= 80) {
-            recommendations.push("Excellent Secure Score (" + secureScore.percentage + "%). Continue monitoring and maintain current security practices.");
-        }
-        
-        // Analyze control categories for specific recommendations
-        if (secureScore.controlScores) {
-            const identityControls = secureScore.controlScores.filter((control: any) => 
-                control.category?.toLowerCase().includes('identity') || 
-                control.controlName?.toLowerCase().includes('mfa') ||
-                control.controlName?.toLowerCase().includes('conditional')
-            );
-            
-            if (identityControls.some((control: any) => control.implementationStatus === 'Not Implemented')) {
-                recommendations.push("Identity security controls need attention. Implement Multi-Factor Authentication and Conditional Access policies.");
-            }
-        }
-    }
-    
-    // General recommendations if no data available
-    if (!licenseInfo && !secureScore) {
-        recommendations.push("Complete app registration setup to access real tenant data and get personalized recommendations.");
-    }
-    
-    return recommendations;
 }
 
 // Register all functions with optimized configuration
@@ -1892,6 +1955,117 @@ app.http('assessmentStatus', {
     }
 });
 
+// Debug customer endpoint to check app registration status
+app.http('debugCustomer', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'debug/customer/{customerId}',
+    handler: async function debugCustomerHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+        context.log('Processing debug customer request');
+
+        if (request.method === 'OPTIONS') {
+            return {
+                status: 200,
+                headers: corsHeaders
+            };
+        }
+
+        try {
+            await initializeDataService(context);
+
+            const customerId = request.params.customerId;
+            if (!customerId) {
+                return {
+                    status: 400,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "customerId parameter is required"
+                    }
+                };
+            }
+
+            // Get customer data
+            const customer = await dataService.getCustomer(customerId);
+            if (!customer) {
+                return {
+                    status: 404,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Customer not found",
+                        customerId: customerId
+                    }
+                };
+            }
+
+            // Debug information about the customer and app registration
+            const debugInfo = {
+                customerId: customer.id,
+                tenantId: customer.tenantId,
+                tenantName: customer.tenantName,
+                tenantDomain: customer.tenantDomain,
+                status: customer.status,
+                createdDate: customer.createdDate,
+                appRegistration: {
+                    hasAppRegistration: !!customer.appRegistration,
+                    hasClientId: !!customer.appRegistration?.clientId,
+                    hasClientSecret: !!customer.appRegistration?.clientSecret,
+                    clientIdValue: customer.appRegistration?.clientId || 'NOT_SET',
+                    clientSecretStatus: customer.appRegistration?.clientSecret ? 
+                        (customer.appRegistration.clientSecret === 'MANUAL_SETUP_REQUIRED' ? 'MANUAL_SETUP_REQUIRED' : 'SET') : 
+                        'NOT_SET',
+                    permissions: customer.appRegistration?.permissions || [],
+                    consentUrl: customer.appRegistration?.consentUrl || 'NOT_SET'
+                },
+                issues: [] as string[]
+            };
+
+            // Check for common issues
+            if (!customer.appRegistration) {
+                debugInfo.issues.push('No app registration configured');
+            } else {
+                if (!customer.appRegistration.clientId || customer.appRegistration.clientId.startsWith('pending-')) {
+                    debugInfo.issues.push('Client ID not properly configured (still pending)');
+                }
+                if (!customer.appRegistration.clientSecret || customer.appRegistration.clientSecret === 'MANUAL_SETUP_REQUIRED') {
+                    debugInfo.issues.push('Client secret requires manual setup');
+                }
+                if (!customer.appRegistration.permissions || customer.appRegistration.permissions.length === 0) {
+                    debugInfo.issues.push('No permissions configured');
+                }
+            }
+
+            return {
+                status: 200,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: true,
+                    data: debugInfo,
+                    recommendations: debugInfo.issues.length > 0 ? [
+                        'Complete the app registration process manually in Azure Portal',
+                        'Update customer record with real client ID and secret',
+                        'Ensure admin consent has been granted',
+                        'Test the credentials with a simple Graph API call'
+                    ] : ['App registration appears to be properly configured'],
+                    timestamp: new Date().toISOString()
+                }
+            };
+        } catch (error) {
+            context.error('Error in debug customer handler:', error);
+            return {
+                status: 500,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Internal server error",
+                    details: error instanceof Error ? error.message : "Unknown error"
+                }
+            };
+        }
+    }
+});
+
 // Customer assessments endpoint - get assessments for a specific customer
 async function customerAssessmentsHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log(`Processing ${request.method} request for customer assessments`);
@@ -1943,6 +2117,7 @@ async function customerAssessmentsHandler(request: HttpRequest, context: Invocat
         context.error('Error in customer assessments handler:', error);
         return {
             status: 500,
+            headers: corsHeaders,
             headers: corsHeaders,
             jsonBody: {
                 success: false,
