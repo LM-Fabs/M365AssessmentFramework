@@ -90,18 +90,39 @@ export class TableStorageService {
         if (this.initialized) return;
 
         try {
-            // Create tables if they don't exist
-            await this.customersTable.createTable();
-            await this.assessmentsTable.createTable();
-            await this.historyTable.createTable();
+            console.log('🔧 TableStorageService: Creating tables if they don\'t exist...');
             
+            // Create tables if they don't exist with detailed logging
+            await this.customersTable.createTable().catch(error => {
+                if (error?.statusCode !== 409) {
+                    console.error('❌ Failed to create customers table:', error);
+                    throw error;
+                }
+                console.log('✅ Customers table already exists');
+            });
+            
+            await this.assessmentsTable.createTable().catch(error => {
+                if (error?.statusCode !== 409) {
+                    console.error('❌ Failed to create assessments table:', error);
+                    throw error;
+                }
+                console.log('✅ Assessments table already exists');
+            });
+            
+            await this.historyTable.createTable().catch(error => {
+                if (error?.statusCode !== 409) {
+                    console.error('❌ Failed to create history table:', error);
+                    throw error;
+                }
+                console.log('✅ History table already exists');
+            });
+            
+            console.log('✅ TableStorageService: All tables initialized successfully');
             this.initialized = true;
         } catch (error: any) {
-            // Ignore "table already exists" errors
-            if (error?.statusCode !== 409) {
-                throw error;
-            }
-            this.initialized = true;
+            console.error('❌ TableStorageService initialization failed:', error);
+            // Don't set initialized to true on failure
+            throw new Error(`Table Storage initialization failed: ${error.message || error}`);
         }
     }
 

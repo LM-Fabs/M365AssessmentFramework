@@ -43,4 +43,15 @@ export interface Metrics {
     secureScore: number;
   };
   lastUpdated: Date;
+  // Add missing properties for real assessment data
+  recommendations?: string[];
+  realData?: {
+    licenseInfo?: any;
+    secureScore?: any;
+    dataSource?: string;
+    lastUpdated?: string;
+    tenantInfo?: any;
+  };
+  assessmentType?: string;
+  dataCollected?: boolean;
 }

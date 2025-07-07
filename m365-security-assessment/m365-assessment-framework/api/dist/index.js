@@ -74,10 +74,20 @@ async function initializeDataService(context) {
         catch (error) {
             context.error('❌ Data services initialization failed:', error);
             initializationPromise = null; // Reset on failure
+            isDataServiceInitialized = false; // Reset flag
+            // If it's a table/storage related error, provide helpful context
+            if (error instanceof Error && (error.message.includes('table') || error.message.includes('storage'))) {
+                throw new Error(`Storage initialization failed - tables may need to be recreated: ${error.message}`);
+            }
             throw new Error(`Data services initialization failed: ${error instanceof Error ? error.message : error}`);
         }
     })();
     return initializationPromise;
+}
+// Function to reset data service state - useful when tables are cleared
+function resetDataServiceState() {
+    isDataServiceInitialized = false;
+    initializationPromise = null;
 }
 // Generate recommendations based on license and security data
 function generateRecommendations(licenseInfo, secureScore) {
@@ -246,42 +256,121 @@ async function customersHandler(request, context) {
         await initializeDataService(context);
         if (request.method === 'GET') {
             context.log('Getting all customers from data service');
-            const result = await dataService.getCustomers({
-                status: 'active',
-                maxItemCount: 100
-            });
-            context.log('Retrieved customers from data service:', result.customers.length);
-            // Transform customers to match frontend interface
-            const transformedCustomers = result.customers.map((customer) => {
-                const appReg = customer.appRegistration || {};
+            try {
+                const result = await dataService.getCustomers({
+                    status: 'active',
+                    maxItemCount: 100
+                });
+                context.log('Retrieved customers from data service:', result.customers.length);
+                // Transform customers to match frontend interface
+                const transformedCustomers = result.customers.map((customer) => {
+                    const appReg = customer.appRegistration || {};
+                    return {
+                        id: customer.id,
+                        tenantId: customer.tenantId || '', // Use the actual tenant ID, not servicePrincipalId
+                        tenantName: customer.tenantName,
+                        tenantDomain: customer.tenantDomain,
+                        applicationId: appReg.applicationId || '',
+                        clientId: appReg.clientId || '',
+                        servicePrincipalId: appReg.servicePrincipalId || '',
+                        createdDate: customer.createdDate,
+                        lastAssessmentDate: customer.lastAssessmentDate,
+                        totalAssessments: customer.totalAssessments || 0,
+                        status: customer.status,
+                        permissions: appReg.permissions || [],
+                        contactEmail: customer.contactEmail,
+                        notes: customer.notes
+                    };
+                });
                 return {
-                    id: customer.id,
-                    tenantId: customer.tenantId || '', // Use the actual tenant ID, not servicePrincipalId
-                    tenantName: customer.tenantName,
-                    tenantDomain: customer.tenantDomain,
-                    applicationId: appReg.applicationId || '',
-                    clientId: appReg.clientId || '',
-                    servicePrincipalId: appReg.servicePrincipalId || '',
-                    createdDate: customer.createdDate,
-                    lastAssessmentDate: customer.lastAssessmentDate,
-                    totalAssessments: customer.totalAssessments || 0,
-                    status: customer.status,
-                    permissions: appReg.permissions || [],
-                    contactEmail: customer.contactEmail,
-                    notes: customer.notes
+                    status: 200,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: true,
+                        data: transformedCustomers,
+                        count: transformedCustomers.length,
+                        timestamp: new Date().toISOString(),
+                        continuationToken: result.continuationToken
+                    }
                 };
-            });
-            return {
-                status: 200,
-                headers: corsHeaders,
-                jsonBody: {
-                    success: true,
-                    data: transformedCustomers,
-                    count: transformedCustomers.length,
-                    timestamp: new Date().toISOString(),
-                    continuationToken: result.continuationToken
+            }
+            catch (customerError) {
+                context.error('❌ Failed to retrieve customers:', customerError);
+                // Check if it's a table initialization error
+                if (customerError instanceof Error && customerError.message.includes('table')) {
+                    context.log('🔧 Table initialization issue detected, attempting to reinitialize...');
+                    try {
+                        // Force re-initialization
+                        await dataService.initialize();
+                        // Retry the operation
+                        const result = await dataService.getCustomers({
+                            status: 'active',
+                            maxItemCount: 100
+                        });
+                        context.log('✅ Successfully retrieved customers after reinitializing:', result.customers.length);
+                        const transformedCustomers = result.customers.map((customer) => {
+                            const appReg = customer.appRegistration || {};
+                            return {
+                                id: customer.id,
+                                tenantId: customer.tenantId || '',
+                                tenantName: customer.tenantName,
+                                tenantDomain: customer.tenantDomain,
+                                applicationId: appReg.applicationId || '',
+                                clientId: appReg.clientId || '',
+                                servicePrincipalId: appReg.servicePrincipalId || '',
+                                createdDate: customer.createdDate,
+                                lastAssessmentDate: customer.lastAssessmentDate,
+                                totalAssessments: customer.totalAssessments || 0,
+                                status: customer.status,
+                                permissions: appReg.permissions || [],
+                                contactEmail: customer.contactEmail,
+                                notes: customer.notes
+                            };
+                        });
+                        return {
+                            status: 200,
+                            headers: corsHeaders,
+                            jsonBody: {
+                                success: true,
+                                data: transformedCustomers,
+                                count: transformedCustomers.length,
+                                timestamp: new Date().toISOString(),
+                                continuationToken: result.continuationToken
+                            }
+                        };
+                    }
+                    catch (retryError) {
+                        context.error('❌ Retry failed:', retryError);
+                        return {
+                            status: 500,
+                            headers: corsHeaders,
+                            jsonBody: {
+                                success: false,
+                                error: "Failed to initialize storage tables",
+                                details: retryError instanceof Error ? retryError.message : "Unknown error",
+                                troubleshooting: [
+                                    'Check Azure Storage account connection string',
+                                    'Verify storage account exists and is accessible',
+                                    'Check environment variable: AZURE_STORAGE_CONNECTION_STRING',
+                                    'Tables were cleared - reinitializing automatically'
+                                ],
+                                timestamp: new Date().toISOString()
+                            }
+                        };
+                    }
                 }
-            };
+                // For other errors, return generic error
+                return {
+                    status: 500,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Failed to retrieve customers",
+                        details: customerError instanceof Error ? customerError.message : "Unknown error",
+                        timestamp: new Date().toISOString()
+                    }
+                };
+            }
         }
         if (request.method === 'POST') {
             let customerData = {};
@@ -473,7 +562,7 @@ async function customerByIdHandler(request, context) {
                     details: initError instanceof Error ? initError.message : "Unknown initialization error",
                     troubleshooting: [
                         'Check Azure Storage connection string configuration',
-                        'Verify storage account exists and is accessible',
+                        'Verify the storage account exists and is accessible',
                         'Check environment variables: AzureWebJobsStorage or AZURE_STORAGE_CONNECTION_STRING'
                     ],
                     timestamp: new Date().toISOString()
