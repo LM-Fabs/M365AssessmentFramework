@@ -827,17 +827,15 @@ async function createAssessmentHandler(request, context) {
                         assessmentName: assessmentData.assessmentName || `Security Assessment for ${customer.tenantName}`,
                         assessmentDate: new Date().toISOString(),
                         status: assessmentStatus,
-                        categories: assessmentData.includedCategories || assessmentData.categories || ['identity', 'dataProtection', 'endpoint', 'cloudApps'],
+                        categories: assessmentData.includedCategories || assessmentData.categories || ['license', 'secureScore'],
                         notificationEmail: assessmentData.notificationEmail || '',
                         autoSchedule: assessmentData.autoSchedule || false,
                         scheduleFrequency: assessmentData.scheduleFrequency || 'monthly',
                         metrics: {
                             score: {
                                 overall: Math.round(overallScore),
-                                identity: secureScore ? Math.min(secureScore.percentage + 5, 100) : Math.min(overallScore + 5, 90),
-                                dataProtection: secureScore ? Math.max(secureScore.percentage - 10, 0) : Math.max(overallScore - 5, 50),
-                                endpoint: secureScore ? secureScore.percentage : overallScore,
-                                cloudApps: Math.min(overallScore + 3, 95)
+                                license: utilizationRate,
+                                secureScore: secureScore ? secureScore.percentage : Math.round(overallScore)
                             },
                             realData,
                             assessmentType: 'real-data',
@@ -1049,14 +1047,12 @@ async function getMetricsHandler(request, context) {
                 }
             };
         }
-        // Mock metrics data
+        // Mock metrics data using only supported categories
         const mockMetrics = {
             score: {
-                overall: 75,
-                identity: 80,
-                dataProtection: 70,
-                endpoint: 75,
-                cloudApps: 80
+                overall: 78,
+                license: 82,
+                secureScore: 75
             },
             compliance: {
                 mfa: { enabled: true, coverage: 85 },
@@ -1064,8 +1060,8 @@ async function getMetricsHandler(request, context) {
                 dlp: { enabled: false, policies: 0 }
             },
             risks: [
-                { category: 'Identity', severity: 'Medium', count: 3 },
-                { category: 'Data Protection', severity: 'High', count: 1 }
+                { category: 'License', severity: 'Medium', count: 2 },
+                { category: 'Secure Score', severity: 'High', count: 1 }
             ]
         };
         return {

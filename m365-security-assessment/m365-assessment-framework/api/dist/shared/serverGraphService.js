@@ -232,13 +232,14 @@ class ServerGraphService {
     }
     mapControlCategory(category) {
         const categoryMap = {
-            'Identity': 'identity',
-            'Data': 'dataProtection',
-            'Device': 'endpoint',
-            'Apps': 'cloudApps',
-            'Infrastructure': 'informationProtection'
+            'Identity': 'secureScore',
+            'Data': 'secureScore',
+            'Device': 'secureScore',
+            'Apps': 'secureScore',
+            'Infrastructure': 'secureScore',
+            'License': 'license'
         };
-        return categoryMap[category] || 'identity';
+        return categoryMap[category] || 'secureScore';
     }
     mapControlSeverity(rank) {
         if (rank <= 3)

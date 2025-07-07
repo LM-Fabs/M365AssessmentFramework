@@ -344,13 +344,14 @@ export class ServerGraphService {
 
   private mapControlCategory(category: string): string {
     const categoryMap: { [key: string]: string } = {
-      'Identity': 'identity',
-      'Data': 'dataProtection',
-      'Device': 'endpoint',
-      'Apps': 'cloudApps',
-      'Infrastructure': 'informationProtection'
+      'Identity': 'secureScore',
+      'Data': 'secureScore',
+      'Device': 'secureScore',
+      'Apps': 'secureScore',
+      'Infrastructure': 'secureScore',
+      'License': 'license'
     };
-    return categoryMap[category] || 'identity';
+    return categoryMap[category] || 'secureScore';
   }
 
   private mapControlSeverity(rank: number): 'low' | 'medium' | 'high' | 'critical' {

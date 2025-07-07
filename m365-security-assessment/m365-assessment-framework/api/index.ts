@@ -1170,14 +1170,12 @@ async function getMetricsHandler(request: HttpRequest, context: InvocationContex
             };
         }
 
-        // Mock metrics data
+        // Mock metrics data using only supported categories
         const mockMetrics = {
             score: {
-                overall: 75,
-                identity: 80,
-                dataProtection: 70,
-                endpoint: 75,
-                cloudApps: 80
+                overall: 78,
+                license: 82,
+                secureScore: 75
             },
             compliance: {
                 mfa: { enabled: true, coverage: 85 },
@@ -1185,8 +1183,8 @@ async function getMetricsHandler(request: HttpRequest, context: InvocationContex
                 dlp: { enabled: false, policies: 0 }
             },
             risks: [
-                { category: 'Identity', severity: 'Medium', count: 3 },
-                { category: 'Data Protection', severity: 'High', count: 1 }
+                { category: 'License', severity: 'Medium', count: 2 },
+                { category: 'Secure Score', severity: 'High', count: 1 }
             ]
         };
 
