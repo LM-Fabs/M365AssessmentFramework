@@ -856,6 +856,13 @@ async function bestPracticesHandler(request, context) {
             headers: corsHeaders
         };
     }
+    // Handle HEAD request for API warmup
+    if (request.method === 'HEAD') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
     try {
         const mockBestPractices = [
             {
@@ -1737,7 +1744,7 @@ functions_1.app.http('assessmentHistoryByCustomer', {
 });
 // Best practices endpoint
 functions_1.app.http('bestPractices', {
-    methods: ['GET', 'OPTIONS'],
+    methods: ['GET', 'HEAD', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'best-practices',
     handler: bestPracticesHandler

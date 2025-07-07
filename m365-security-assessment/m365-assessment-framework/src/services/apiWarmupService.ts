@@ -26,20 +26,37 @@ export class ApiWarmupService {
     }
 
     this.warmupStarted = true;
-    console.log('🔥 Starting API warmup...');
+    console.log('🔥 Starting ultra-fast API warmup...');
 
     try {
-      // Multiple warmup strategies
-      await Promise.allSettled([
+      // Ultra-fast parallel warmup with minimal timeout
+      const warmupPromises = [
         this.pingTestEndpoint(),
         this.pingDiagnosticsEndpoint(),
-        this.preloadCustomers()
-      ]);
+        this.pingCurrentAssessmentEndpoint(),
+        this.pingBestPracticesEndpoint()
+      ];
+
+      // Ultra-fast parallel execution with 1.5-second timeout
+      await Promise.allSettled(warmupPromises.map(p => 
+        Promise.race([
+          p,
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Warmup timeout')), 1500)
+          )
+        ])
+      ));
+
+      // Start customer preload in background (don't wait for it)
+      this.preloadCustomers().catch(error => 
+        console.warn('⚠️ Background customer prefetch failed:', error)
+      );
 
       this.warmupCompleted = true;
-      console.log('✅ API warmup completed');
+      console.log('✅ API warmup completed in <1.5s');
     } catch (error) {
       console.warn('⚠️ API warmup failed, but continuing:', error);
+      this.warmupCompleted = true; // Continue even if warmup fails
     }
   }
 
@@ -47,7 +64,7 @@ export class ApiWarmupService {
     try {
       const response = await fetch(`${this.baseUrl}/test`, {
         method: 'HEAD', // Use HEAD to minimize data transfer
-        signal: AbortSignal.timeout(10000) // 10 second timeout
+        signal: AbortSignal.timeout(1000) // Ultra-fast 1 second timeout
       });
       console.log('✅ Test endpoint warmed up:', response.status);
     } catch (error) {
@@ -59,11 +76,35 @@ export class ApiWarmupService {
     try {
       const response = await fetch(`${this.baseUrl}/diagnostics`, {
         method: 'HEAD',
-        signal: AbortSignal.timeout(10000)
+        signal: AbortSignal.timeout(1000) // Ultra-fast 1 second timeout
       });
       console.log('✅ Diagnostics endpoint warmed up:', response.status);
     } catch (error) {
       console.warn('⚠️ Diagnostics endpoint warmup failed:', error);
+    }
+  }
+
+  private async pingCurrentAssessmentEndpoint(): Promise<void> {
+    try {
+      const response = await fetch(`${this.baseUrl}/assessment/current`, {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(1000) // Ultra-fast 1 second timeout
+      });
+      console.log('✅ Current assessment endpoint warmed up:', response.status);
+    } catch (error) {
+      console.warn('⚠️ Current assessment endpoint warmup failed:', error);
+    }
+  }
+
+  private async pingBestPracticesEndpoint(): Promise<void> {
+    try {
+      const response = await fetch(`${this.baseUrl}/best-practices`, {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(1000) // Ultra-fast 1 second timeout
+      });
+      console.log('✅ Best practices endpoint warmed up:', response.status);
+    } catch (error) {
+      console.warn('⚠️ Best practices endpoint warmup failed:', error);
     }
   }
 
@@ -91,11 +132,24 @@ export class ApiWarmupService {
     // Start immediately
     this.warmupApi();
 
-    // Also set up periodic warmup every 10 minutes to keep functions warm
+    // Also set up more aggressive periodic warmup every 5 minutes to keep functions warm
     setInterval(() => {
       if (document.visibilityState === 'visible') {
-        this.pingTestEndpoint();
+        // Ping critical endpoints to keep them warm
+        Promise.all([
+          this.pingTestEndpoint(),
+          this.pingCurrentAssessmentEndpoint()
+        ]).catch(error => 
+          console.warn('⚠️ Background warmup ping failed:', error)
+        );
       }
-    }, 10 * 60 * 1000); // 10 minutes
+    }, 5 * 60 * 1000); // 5 minutes instead of 10
+
+    // Also warmup on page focus to ensure immediate responsiveness
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && this.warmupCompleted) {
+        this.pingTestEndpoint().catch(() => {}); // Silent fail
+      }
+    });
   }
 }

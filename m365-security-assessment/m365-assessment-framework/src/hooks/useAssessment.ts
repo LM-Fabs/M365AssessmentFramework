@@ -21,33 +21,22 @@ export const useAssessment = (): UseAssessmentReturn => {
   const { fetchMetrics } = useMetrics();
   const assessmentService = AssessmentService.getInstance();
 
-  // Auto-load current assessment on hook initialization
-  useEffect(() => {
-    const loadCurrentAssessment = async () => {
-      setLoading(true);
-      try {
-        const currentAssessment = await assessmentService.getCurrentAssessment();
-        setAssessment(currentAssessment);
-      } catch (error: any) {
-        console.error('Error loading current assessment:', error);
-        setError(error.message || 'Failed to load current assessment');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadCurrentAssessment();
-  }, []);
+  // Don't auto-load current assessment on hook initialization
+  // This was causing unnecessary API calls and 404 errors
+  // Instead, components can call refreshAssessment when needed
 
   const refreshAssessment = useCallback(async () => {
+    // Only refresh if we actually need current assessment
+    // Most components should load specific assessments instead
     setLoading(true);
     setError(null);
     try {
       const currentAssessment = await assessmentService.getCurrentAssessment();
       setAssessment(currentAssessment);
     } catch (error: any) {
-      console.error('Error refreshing assessment:', error);
-      setError(error.message || 'Failed to refresh assessment');
+      console.warn('Current assessment not available:', error.message);
+      // Don't set error state for missing current assessment
+      setAssessment(null);
     } finally {
       setLoading(false);
     }
