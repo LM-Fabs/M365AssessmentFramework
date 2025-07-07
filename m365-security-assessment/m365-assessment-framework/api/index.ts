@@ -863,9 +863,9 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                 context.log('🔍 Fetching real assessment data from Microsoft Graph API...');
                 
                 try {
-                    // Fetch license information and secure score
-                    context.log('🔍 Fetching license information...');
-                    const licenseInfo = await graphApiService.getLicenseInfo(
+                    // Fetch detailed license information and secure score
+                    context.log('🔍 Fetching detailed license information...');
+                    const licenseReport = await graphApiService.getDetailedLicenseReport(
                         tenantId,
                         customer.appRegistration.clientId,
                         customer.appRegistration.clientSecret
@@ -886,22 +886,19 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                     context.log('✅ Real assessment data retrieved successfully');
                     
                     // Calculate assessment scores based on real data
-                    const utilizationRate = licenseInfo.totalLicenses > 0 
-                        ? (licenseInfo.assignedLicenses / licenseInfo.totalLicenses) * 100 
-                        : 0;
+                    const utilizationRate = licenseReport.overview.utilizationPercentage;
                     
-                    // Use secure score if available, otherwise calculate based on license efficiency
+                    // Use secure score if available, otherwise calculate based on license efficiency and security posture
                     const overallScore = secureScore ? secureScore.percentage : 
                                        utilizationRate > 80 ? 85 : 
                                        utilizationRate > 60 ? 75 : 
                                        utilizationRate > 40 ? 65 : 50;
                     
-                    // Create detailed real data object
+                    // Create detailed real data object with enhanced license information
                     realData = {
-                        licenseInfo: {
-                            ...licenseInfo,
-                            utilizationRate: Math.round(utilizationRate * 100) / 100,
-                            summary: `${licenseInfo.assignedLicenses} of ${licenseInfo.totalLicenses} licenses assigned (${Math.round(utilizationRate)}% utilization)`
+                        licenseReport: {
+                            ...licenseReport,
+                            summary: `${licenseReport.overview.assignedLicenses} of ${licenseReport.overview.totalLicenses} licenses assigned (${utilizationRate}% utilization)`
                         },
                         secureScore: secureScore ? {
                             ...secureScore,
@@ -911,14 +908,25 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                             reason: 'Secure score not available or insufficient permissions'
                         },
                         dataSource: 'Microsoft Graph API',
-                        dataTypes: ['licenses', secureScore ? 'secureScore' : 'licenseOnly'],
+                        dataTypes: ['detailedLicenses', secureScore ? 'secureScore' : 'licenseOnly'],
                         lastUpdated: new Date().toISOString(),
                         tenantInfo: {
                             tenantId,
                             tenantName: customer.tenantName,
                             tenantDomain: customer.tenantDomain
+                        },
+                        costAnalysis: {
+                            estimatedMonthlyCost: licenseReport.overview.totalCost,
+                            potentialSavings: licenseReport.overview.availableLicenses * 25, // Estimated average cost per license
+                            utilizationEfficiency: utilizationRate >= 70 ? 'Good' : utilizationRate >= 50 ? 'Fair' : 'Poor'
                         }
                     };
+                    
+                    // Combine recommendations from license analysis and assessment logic
+                    const combinedRecommendations = [
+                        ...licenseReport.recommendations,
+                        ...generateRecommendations(licenseReport, secureScore)
+                    ];
                     
                     // Create assessment object with real data
                     const newAssessment = {
@@ -944,7 +952,7 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                             realData,
                             assessmentType: 'real-data',
                             dataCollected: true,
-                            recommendations: generateRecommendations(licenseInfo, secureScore)
+                            recommendations: combinedRecommendations
                         },
                         lastModified: new Date().toISOString(),
                         createdBy: 'system'
@@ -1698,143 +1706,23 @@ app.http('createMultiTenantApp', {
     handler: createMultiTenantAppHandler
 });
 
-// License info endpoint handler (for detailed license reporting)
-async function licenseInfoHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log('Processing license info request');
+// Basic assessment endpoint
+app.http('basicAssessment', {
+    methods: ['POST', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/basic',
+    handler: basicAssessmentHandler
+});
 
-    if (request.method === 'OPTIONS') {
-        return {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
+// Secure score endpoint
+app.http('secureScore', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/secure-score/{tenantId}',
+    handler: secureScoreHandler
+});
 
-    try {
-        await initializeDataService(context);
-
-        const tenantId = request.params.tenantId;
-        if (!tenantId) {
-            return {
-                status: 400,
-                headers: corsHeaders,
-                jsonBody: {
-                    success: false,
-                    error: "tenantId parameter is required"
-                }
-            };
-        }
-
-        // Get customer by tenant ID to access credentials
-        const customers = await dataService.getCustomers({ status: 'active' });
-        const customer = customers.customers.find(c => c.tenantId === tenantId);
-        if (!customer || !customer.appRegistration?.clientId || !customer.appRegistration?.clientSecret) {
-            return {
-                status: 400,
-                headers: corsHeaders,
-                jsonBody: {
-                    success: false,
-                    error: "Customer credentials not found or incomplete"
-                }
-            };
-        }
-
-        const licenseInfo = await graphApiService.getLicenseInfo(
-            tenantId,
-            customer.appRegistration.clientId,
-            customer.appRegistration.clientSecret
-        );
-
-        return {
-            status: 200,
-            headers: corsHeaders,
-            jsonBody: {
-                success: true,
-                data: licenseInfo
-            }
-        };
-    } catch (error) {
-        context.error('Error in license info handler:', error);
-        return {
-            status: 500,
-            headers: corsHeaders,
-            jsonBody: {
-                success: false,
-                error: "Failed to fetch license information",
-                details: error instanceof Error ? error.message : "Unknown error"
-            }
-        };
-    }
-}
-
-// Secure score endpoint handler  
-async function secureScoreHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log('Processing secure score request');
-
-    if (request.method === 'OPTIONS') {
-        return {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
-
-    try {
-        await initializeDataService(context);
-
-        const tenantId = request.params.tenantId;
-        if (!tenantId) {
-            return {
-                status: 400,
-                headers: corsHeaders,
-                jsonBody: {
-                    success: false,
-                    error: "tenantId parameter is required"
-                }
-            };
-        }
-
-        // Get customer by tenant ID to access credentials
-        const customers = await dataService.getCustomers({ status: 'active' });
-        const customer = customers.customers.find(c => c.tenantId === tenantId);
-        if (!customer || !customer.appRegistration?.clientId || !customer.appRegistration?.clientSecret) {
-            return {
-                status: 400,
-                headers: corsHeaders,
-                jsonBody: {
-                    success: false,
-                    error: "Customer credentials not found or incomplete"
-                }
-            };
-        }
-
-        const secureScore = await graphApiService.getSecureScore(
-            tenantId,
-            customer.appRegistration.clientId,
-            customer.appRegistration.clientSecret
-        );
-
-        return {
-            status: 200,
-            headers: corsHeaders,
-            jsonBody: {
-                success: true,
-                data: secureScore
-            }
-        };
-    } catch (error) {
-        context.error('Error in secure score handler:', error);
-        return {
-            status: 500,
-            headers: corsHeaders,
-            jsonBody: {
-                success: false,
-                error: "Failed to fetch secure score",
-                details: error instanceof Error ? error.message : "Unknown error"
-            }
-        };
-    }
-}
-
-// Re-add the license info and secure score endpoints
+// License info endpoint
 app.http('licenseInfo', {
     methods: ['GET', 'OPTIONS'],
     authLevel: 'anonymous',
@@ -1842,9 +1730,157 @@ app.http('licenseInfo', {
     handler: licenseInfoHandler
 });
 
-app.http('secureScore', {
+// Assessment status endpoint for frontend warmup
+app.http('assessmentStatus', {
+    methods: ['GET', 'OPTIONS', 'HEAD'],
+    authLevel: 'anonymous',
+    route: 'assessment/status',
+    handler: assessmentStatusHandler
+});
+
+// Azure configuration check endpoint
+app.http('azureConfig', {
     methods: ['GET', 'OPTIONS'],
     authLevel: 'anonymous',
-    route: 'assessment/secure-score/{tenantId}',
-    handler: secureScoreHandler
+    route: 'azure/config',
+    handler: azureConfigHandler
+});
+
+// Detailed assessment with license info endpoint
+app.http('detailedAssessment', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/detailed/{assessmentId}',
+    handler: detailedAssessmentHandler
+});
+
+// Assessment details endpoint with real-time data
+app.http('assessmentDetails', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/details/{tenantId}',
+    handler: assessmentDetailsHandler
+});
+
+// Customer assessments endpoint - get assessments for a specific customer
+async function customerAssessmentsHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    context.log(`Processing ${request.method} request for customer assessments`);
+
+    // Handle preflight OPTIONS request immediately
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
+
+    try {
+        // Initialize data service
+        await initializeDataService(context);
+
+        const customerId = request.params.customerId;
+        
+        if (!customerId) {
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Customer ID is required"
+                }
+            };
+        }
+
+        context.log('Getting assessments for customer:', customerId);
+
+        // Get assessments for the specific customer
+        const result = await dataService.getCustomerAssessments(customerId);
+        
+        context.log(`Customer assessments retrieved. Count: ${result.assessments.length}`);
+
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                data: result.assessments,
+                count: result.assessments.length,
+                customerId: customerId,
+                timestamp: new Date().toISOString()
+            }
+        };
+    } catch (error) {
+        context.error('Error in customer assessments handler:', error);
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: "Internal server error",
+                details: error instanceof Error ? error.message : "Unknown error"
+            }
+        };
+    }
+}
+
+// Get a specific assessment by ID, including license info and all metrics
+app.http('assessmentById', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/{assessmentId}',
+    handler: async function assessmentByIdHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+        context.log('Processing request for assessment by ID');
+        if (request.method === 'OPTIONS') {
+            return {
+                status: 200,
+                headers: corsHeaders
+            };
+        }
+        try {
+            await initializeDataService(context);
+            const assessmentId = request.params.assessmentId;
+            if (!assessmentId) {
+                return {
+                    status: 400,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "assessmentId parameter is required"
+                    }
+                };
+            }
+            // Find the assessment by ID
+            const all = await dataService.getAssessments();
+            const assessment = all.assessments.find(a => a.id === assessmentId);
+            if (!assessment) {
+                return {
+                    status: 404,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Assessment not found"
+                    }
+                };
+            }
+            return {
+                status: 200,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: true,
+                    data: assessment
+                }
+            };
+        } catch (error) {
+            context.error('Error in assessmentByIdHandler:', error);
+            return {
+                status: 500,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Internal server error",
+                    details: error instanceof Error ? error.message : "Unknown error"
+                }
+            };
+        }
+    }
 });
