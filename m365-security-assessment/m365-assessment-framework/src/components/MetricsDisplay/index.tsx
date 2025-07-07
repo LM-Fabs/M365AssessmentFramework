@@ -8,7 +8,7 @@ interface MetricsDisplayProps {
   historicalData?: Assessment[];
 }
 
-type MetricScoreCategory = 'overall' | 'identity' | 'dataProtection' | 'endpoint' | 'cloudApps' | 'informationProtection' | 'threatProtection';
+type MetricScoreCategory = 'overall' | 'license' | 'secureScore';
 
 const MetricsDisplay: React.FC<MetricsDisplayProps> = ({ 
   assessment,

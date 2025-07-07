@@ -929,17 +929,15 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                         assessmentName: assessmentData.assessmentName || `Security Assessment for ${customer.tenantName}`,
                         assessmentDate: new Date().toISOString(),
                         status: assessmentStatus,
-                        categories: assessmentData.includedCategories || assessmentData.categories || ['identity', 'dataProtection', 'endpoint', 'cloudApps'],
+                        categories: assessmentData.includedCategories || assessmentData.categories || ['license', 'secureScore'],
                         notificationEmail: assessmentData.notificationEmail || '',
                         autoSchedule: assessmentData.autoSchedule || false,
                         scheduleFrequency: assessmentData.scheduleFrequency || 'monthly',
                         metrics: {
                             score: {
                                 overall: Math.round(overallScore),
-                                identity: secureScore ? Math.min(secureScore.percentage + 5, 100) : Math.min(overallScore + 5, 90),
-                                dataProtection: secureScore ? Math.max(secureScore.percentage - 10, 0) : Math.max(overallScore - 5, 50),
-                                endpoint: secureScore ? secureScore.percentage : overallScore,
-                                cloudApps: Math.min(overallScore + 3, 95)
+                                license: utilizationRate,
+                                secureScore: secureScore ? secureScore.percentage : Math.round(overallScore)
                             },
                             realData,
                             assessmentType: 'real-data',

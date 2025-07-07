@@ -225,20 +225,25 @@ export class GraphService {
     };
 
     return {
-      identity,
-      dataProtection,
-      endpoint,
-      cloudApps,
-      informationProtection,
-      threatProtection,
-      score: await this.calculateScores({
-        identity,
-        dataProtection,
-        endpoint,
-        cloudApps,
-        informationProtection,
-        threatProtection
-      } as Metrics),
+      license: {
+        totalLicenses: 100,
+        assignedLicenses: 85,
+        utilizationRate: 85,
+        licenseDetails: [],
+        summary: 'Mock license data'
+      },
+      secureScore: {
+        percentage: 75,
+        currentScore: 75,
+        maxScore: 100,
+        controlScores: [],
+        summary: 'Mock secure score'
+      },
+      score: {
+        overall: 80,
+        license: 85,
+        secureScore: 75
+      },
       lastUpdated: new Date()
     };
   }
@@ -305,31 +310,5 @@ export class GraphService {
     const totalUsers = mfaReport.length;
     const mfaRegisteredUsers = mfaReport.filter(user => user.isRegistered).length;
     return totalUsers > 0 ? mfaRegisteredUsers / totalUsers : 0;
-  }
-
-  private async calculateScores(metrics: Metrics): Promise<{
-    overall: number;
-    identity: number;
-    dataProtection: number;
-    endpoint: number;
-    cloudApps: number;
-    informationProtection: number;
-    threatProtection: number;
-  }> {
-    // This would typically fetch secure scores from Microsoft 365
-    // For now, we'll calculate based on our metrics
-    const scores = {
-      identity: 85,
-      dataProtection: 78,
-      endpoint: 92,
-      cloudApps: 88,
-      informationProtection: 75,
-      threatProtection: 82
-    };
-
-    return {
-      ...scores,
-      overall: Object.values(scores).reduce((sum, score) => sum + score, 0) / Object.keys(scores).length
-    };
   }
 }

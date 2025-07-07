@@ -12,90 +12,35 @@ export interface SecurityMetrics {
 }
 
 export interface Metrics {
-  identity: {
-    mfaAdoption: number;
-    conditionalAccessPolicies: number;
-    passwordPolicies: {
-      complexity: boolean;
-      expiration: boolean;
-      mfaRequired: boolean;
-    };
-    adminAccounts: {
-      total: number;
-      protected: number;
-    };
-    guestAccess: {
-      total: number;
-      reviewed: number;
-    };
+  license: {
+    totalLicenses: number;
+    assignedLicenses: number;
+    utilizationRate: number;
+    licenseDetails: Array<{
+      skuPartNumber: string;
+      skuDisplayName: string;
+      totalLicenses: number;
+      assignedLicenses: number;
+    }>;
+    summary: string;
   };
-  dataProtection: {
-    sensitivityLabels: {
-      total: number;
-      inUse: number;
-    };
-    dlpPolicies: {
-      total: number;
-      active: number;
-    };
-    sharingSettings: {
-      external: boolean;
-      anonymous: boolean;
-      restrictions: string[];
-    };
-  };
-  endpoint: {
-    deviceCompliance: {
-      total: number;
-      compliant: number;
-    };
-    defenderStatus: {
-      enabled: boolean;
-      upToDate: boolean;
-    };
-    updateCompliance: number;
-  };
-  cloudApps: {
-    securityPolicies: {
-      total: number;
-      active: number;
-    };
-    oauthApps: {
-      total: number;
-      reviewed: number;
-      highRisk: number;
-    };
-  };
-  informationProtection: {
-    aipLabels: {
-      total: number;
-      applied: number;
-    };
-    encryption: {
-      enabled: boolean;
-      usage: number;
-    };
-  };
-  threatProtection: {
-    alerts: {
-      high: number;
-      medium: number;
-      low: number;
-      resolved: number;
-    };
-    incidentResponse: {
-      meanTimeToRespond: number;
-      openIncidents: number;
-    };
+  secureScore: {
+    percentage: number;
+    currentScore: number;
+    maxScore: number;
+    controlScores: Array<{
+      controlName: string;
+      category: string;
+      implementationStatus: string;
+      score: number;
+      maxScore: number;
+    }>;
+    summary: string;
   };
   score: {
     overall: number;
-    identity: number;
-    dataProtection: number;
-    endpoint: number;
-    cloudApps: number;
-    informationProtection: number;
-    threatProtection: number;
+    license: number;
+    secureScore: number;
   };
   lastUpdated: Date;
 }

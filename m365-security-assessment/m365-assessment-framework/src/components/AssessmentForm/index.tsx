@@ -79,90 +79,24 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
       lastModified: new Date(),
       recommendations: [],
       metrics: {
-        identity: {
-          mfaAdoption: 0,
-          conditionalAccessPolicies: 0,
-          passwordPolicies: {
-            complexity: false,
-            expiration: false,
-            mfaRequired: false
-          },
-          adminAccounts: {
-            total: 0,
-            protected: 0
-          },
-          guestAccess: {
-            total: 0,
-            reviewed: 0
-          }
+        license: {
+          totalLicenses: 0,
+          assignedLicenses: 0,
+          utilizationRate: 0,
+          licenseDetails: [],
+          summary: 'No license data available'
         },
-        dataProtection: {
-          sensitivityLabels: {
-            total: 0,
-            inUse: 0
-          },
-          dlpPolicies: {
-            total: 0,
-            active: 0
-          },
-          sharingSettings: {
-            external: false,
-            anonymous: false,
-            restrictions: []
-          }
-        },
-        endpoint: {
-          deviceCompliance: {
-            total: 0,
-            compliant: 0
-          },
-          defenderStatus: {
-            enabled: false,
-            upToDate: false
-          },
-          updateCompliance: 0
-        },
-        cloudApps: {
-          securityPolicies: {
-            total: 0,
-            active: 0
-          },
-          oauthApps: {
-            total: 0,
-            reviewed: 0,
-            highRisk: 0
-          }
-        },
-        informationProtection: {
-          aipLabels: {
-            total: 0,
-            applied: 0
-          },
-          encryption: {
-            enabled: false,
-            usage: 0
-          }
-        },
-        threatProtection: {
-          alerts: {
-            high: 0,
-            medium: 0,
-            low: 0,
-            resolved: 0
-          },
-          incidentResponse: {
-            meanTimeToRespond: 0,
-            openIncidents: 0
-          }
+        secureScore: {
+          percentage: 0,
+          currentScore: 0,
+          maxScore: 100,
+          controlScores: [],
+          summary: 'No secure score data available'
         },
         score: {
           overall: 0,
-          identity: 0,
-          dataProtection: 0,
-          endpoint: 0,
-          cloudApps: 0,
-          informationProtection: 0,
-          threatProtection: 0
+          license: 0,
+          secureScore: 0
         },
         lastUpdated: new Date()
       }

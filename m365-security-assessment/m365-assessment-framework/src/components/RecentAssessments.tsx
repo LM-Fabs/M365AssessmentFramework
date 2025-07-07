@@ -14,10 +14,8 @@ interface AssessmentHistory {
   date: Date;
   overallScore: number;
   categoryScores: {
-    identity: number;
-    dataProtection: number;
-    endpoint: number;
-    cloudApps: number;
+    license: number;
+    secureScore: number;
   };
 }
 
@@ -209,20 +207,12 @@ const RecentAssessments: React.FC<RecentAssessmentsProps> = ({ tenantId, limit =
             
             <div className="category-scores-mini">
               <div className="category-mini">
-                <span className="category-label">ID</span>
-                <span className="category-value">{assessment.categoryScores.identity}%</span>
+                <span className="category-label">License</span>
+                <span className="category-value">{Math.round(assessment.categoryScores.license)}%</span>
               </div>
               <div className="category-mini">
-                <span className="category-label">Data</span>
-                <span className="category-value">{assessment.categoryScores.dataProtection}%</span>
-              </div>
-              <div className="category-mini">
-                <span className="category-label">EP</span>
-                <span className="category-value">{assessment.categoryScores.endpoint}%</span>
-              </div>
-              <div className="category-mini">
-                <span className="category-label">Cloud</span>
-                <span className="category-value">{assessment.categoryScores.cloudApps}%</span>
+                <span className="category-label">Score</span>
+                <span className="category-value">{Math.round(assessment.categoryScores.secureScore)}%</span>
               </div>
             </div>
           </div>

@@ -6,10 +6,8 @@ interface AssessmentHistory {
   date: Date;
   overallScore: number;
   categoryScores: {
-    identity: number;
-    dataProtection: number;
-    endpoint: number;
-    cloudApps: number;
+    license: number;
+    secureScore: number;
   };
   metrics: any;
 }
@@ -24,10 +22,8 @@ interface ScoreComparison {
 interface AssessmentComparison {
   overall: ScoreComparison;
   categories: {
-    identity: ScoreComparison;
-    dataProtection: ScoreComparison;
-    endpoint: ScoreComparison;
-    cloudApps: ScoreComparison;
+    license: ScoreComparison;
+    secureScore: ScoreComparison;
   };
   timespan: {
     current: Date;
@@ -66,10 +62,8 @@ export class AssessmentHistoryService {
         date: assessment.assessmentDate,
         overallScore: score.overall || 0,
         categoryScores: {
-          identity: score.identity || 0,
-          dataProtection: score.dataProtection || 0,
-          endpoint: score.endpoint || 0,
-          cloudApps: score.cloudApps || 0
+          license: score.license || 0,
+          secureScore: score.secureScore || 0
         },
         metrics: metrics
       };
@@ -165,10 +159,8 @@ export class AssessmentHistoryService {
         date: currentAssessment.assessmentDate,
         overallScore: currentAssessment.metrics.score?.overall || 0,
         categoryScores: {
-          identity: currentAssessment.metrics.score?.identity || 0,
-          dataProtection: currentAssessment.metrics.score?.dataProtection || 0,
-          endpoint: currentAssessment.metrics.score?.endpoint || 0,
-          cloudApps: currentAssessment.metrics.score?.cloudApps || 0
+          license: currentAssessment.metrics.score?.license || 0,
+          secureScore: currentAssessment.metrics.score?.secureScore || 0
         }
       };
 
@@ -187,10 +179,8 @@ export class AssessmentHistoryService {
       const comparison: AssessmentComparison = {
         overall: calculateComparison(current.overallScore, previous.overallScore),
         categories: {
-          identity: calculateComparison(current.categoryScores.identity, previous.categoryScores.identity),
-          dataProtection: calculateComparison(current.categoryScores.dataProtection, previous.categoryScores.dataProtection),
-          endpoint: calculateComparison(current.categoryScores.endpoint, previous.categoryScores.endpoint),
-          cloudApps: calculateComparison(current.categoryScores.cloudApps, previous.categoryScores.cloudApps)
+          license: calculateComparison(current.categoryScores.license, previous.categoryScores.license),
+          secureScore: calculateComparison(current.categoryScores.secureScore, previous.categoryScores.secureScore)
         },
         timespan: {
           current: current.date,

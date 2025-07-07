@@ -44,10 +44,8 @@ const SecurityScoreCard: React.FC<SecurityScoreCardProps> = ({ assessment, tenan
   // Access the score from the correct path in the Assessment model
   const overallScore = assessment.metrics.score?.overall || 0;
   const metrics = {
-    identity: assessment.metrics.score?.identity || 0,
-    data: assessment.metrics.score?.dataProtection || 0,
-    devices: assessment.metrics.score?.endpoint || 0,
-    infrastructure: assessment.metrics.score?.cloudApps || 0
+    license: assessment.metrics.score?.license || 0,
+    secureScore: assessment.metrics.score?.secureScore || 0
   };
   
   const formatScoreChange = (change: number, changePercent: number) => {
@@ -93,31 +91,13 @@ const SecurityScoreCard: React.FC<SecurityScoreCardProps> = ({ assessment, tenan
     }
   };
 
-  const renderCategoryChange = (category: keyof typeof comparison.categories) => {
+  const renderCategoryChange = (category: string) => {
     if (loading) {
       return <span className="category-change loading">...</span>;
     }
     
-    if (!comparison || !comparison.categories[category]) {
-      return <span className="category-change neutral">New</span>;
-    }
-
-    const categoryComparison = comparison.categories[category];
-    const change = categoryComparison.change;
-    const changePercent = categoryComparison.changePercent;
-    
-    if (change === 0) {
-      return <span className="category-change neutral">0%</span>;
-    }
-
-    const sign = change > 0 ? '+' : '';
-    const className = `category-change ${getChangeClass(change)}`;
-    
-    return (
-      <span className={className}>
-        {sign}{change}%
-      </span>
-    );
+    // For now, show "New" since we're migrating to new category structure
+    return <span className="category-change neutral">New</span>;
   };
 
   return (
@@ -161,63 +141,34 @@ const SecurityScoreCard: React.FC<SecurityScoreCardProps> = ({ assessment, tenan
         </div>
 
         <div className="category-scores">
-          <div className="category-score-card" onClick={() => onCategoryClick('identity')}>
-            <div className="category-icon identity-icon">
+          <div className="category-score-card" onClick={() => onCategoryClick('license')}>
+            <div className="category-icon license-icon">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14,2 14,8 20,8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10,9 9,9 8,9"></polyline>
               </svg>
             </div>
             <div className="category-details">
-              <span className="category-name">Identity</span>
-              <span className="category-score">{metrics.identity}%</span>
-              {renderCategoryChange('identity')}
+              <span className="category-name">License Usage</span>
+              <span className="category-score">{Math.round(metrics.license)}%</span>
+              {renderCategoryChange('license')}
             </div>
           </div>
 
-          <div className="category-score-card" onClick={() => onCategoryClick('data')}>
-            <div className="category-icon data-icon">
+          <div className="category-score-card" onClick={() => onCategoryClick('secureScore')}>
+            <div className="category-icon securescore-icon">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-                <path d="M2 17l10 5 10-5"></path>
-                <path d="M2 12l10 5 10-5"></path>
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                <path d="M9 12l2 2 4-4"></path>
               </svg>
             </div>
             <div className="category-details">
-              <span className="category-name">Data</span>
-              <span className="category-score">{metrics.data}%</span>
-              {renderCategoryChange('dataProtection')}
-            </div>
-          </div>
-
-          <div className="category-score-card" onClick={() => onCategoryClick('devices')}>
-            <div className="category-icon devices-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                <line x1="8" y1="21" x2="16" y2="21"></line>
-                <line x1="12" y1="17" x2="12" y2="21"></line>
-              </svg>
-            </div>
-            <div className="category-details">
-              <span className="category-name">Devices</span>
-              <span className="category-score">{metrics.devices}%</span>
-              {renderCategoryChange('endpoint')}
-            </div>
-          </div>
-
-          <div className="category-score-card" onClick={() => onCategoryClick('infrastructure')}>
-            <div className="category-icon infrastructure-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
-                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
-                <line x1="6" y1="6" x2="6.01" y2="6"></line>
-                <line x1="6" y1="18" x2="6.01" y2="18"></line>
-              </svg>
-            </div>
-            <div className="category-details">
-              <span className="category-name">Infrastructure</span>
-              <span className="category-score">{metrics.infrastructure}%</span>
-              {renderCategoryChange('cloudApps')}
+              <span className="category-name">Secure Score</span>
+              <span className="category-score">{Math.round(metrics.secureScore)}%</span>
+              {renderCategoryChange('secureScore')}
             </div>
           </div>
         </div>

@@ -30,37 +30,28 @@ export const useComparison = (): UseComparisonReturn => {
     setLoading(true);
     setError(null);
     try {
-      const bestPractices = await assessmentService.getBestPractices();
       const results: ComparisonResult[] = [];
 
-      // Compare identity metrics
+      // Compare license utilization
       results.push({
-        category: 'Identity',
-        metric: 'MFA Adoption',
-        current: assessment.metrics.identity.mfaAdoption,
-        target: bestPractices.identity.mfaAdoption,
-        gap: bestPractices.identity.mfaAdoption - assessment.metrics.identity.mfaAdoption,
-        impact: 'high'
+        category: 'License',
+        metric: 'License Utilization',
+        current: assessment.metrics.score.license,
+        target: 85, // Target 85% utilization
+        gap: Math.max(0, 85 - assessment.metrics.score.license),
+        impact: assessment.metrics.score.license < 60 ? 'high' : 
+                assessment.metrics.score.license < 80 ? 'medium' : 'low'
       });
 
-      // Compare data protection metrics
+      // Compare secure score
       results.push({
-        category: 'Data Protection',
-        metric: 'DLP Policies',
-        current: assessment.metrics.dataProtection.dlpPolicies.active,
-        target: bestPractices.dataProtection.dlpPolicies.minimum,
-        gap: bestPractices.dataProtection.dlpPolicies.minimum - assessment.metrics.dataProtection.dlpPolicies.active,
-        impact: 'high'
-      });
-
-      // Compare endpoint security metrics
-      results.push({
-        category: 'Endpoint Security',
-        metric: 'Device Compliance',
-        current: (assessment.metrics.endpoint.deviceCompliance.compliant / assessment.metrics.endpoint.deviceCompliance.total) * 100,
-        target: 95, // Best practice target percentage
-        gap: 95 - (assessment.metrics.endpoint.deviceCompliance.compliant / assessment.metrics.endpoint.deviceCompliance.total) * 100,
-        impact: 'medium'
+        category: 'Secure Score',
+        metric: 'Security Score',
+        current: assessment.metrics.score.secureScore,
+        target: 80, // Target 80% secure score
+        gap: Math.max(0, 80 - assessment.metrics.score.secureScore),
+        impact: assessment.metrics.score.secureScore < 60 ? 'high' : 
+                assessment.metrics.score.secureScore < 75 ? 'medium' : 'low'
       });
 
       setComparisonResults(results);

@@ -29,19 +29,11 @@ export const SCORE_THRESHOLDS = {
 };
 
 export const SECURITY_CATEGORIES = {
-  identity: 'Identity & Access Management',
-  dataProtection: 'Data Protection',
-  endpoint: 'Endpoint Security',
-  cloudApps: 'Cloud Apps Security',
-  informationProtection: 'Information Protection',
-  threatProtection: 'Threat Protection'
+  license: 'License Usage & Management',
+  secureScore: 'Microsoft Secure Score'
 } as const;
 
 export const METRIC_WEIGHTS = {
-  identity: 0.25,
-  dataProtection: 0.2,
-  endpoint: 0.15,
-  cloudApps: 0.15,
-  informationProtection: 0.15,
-  threatProtection: 0.1
+  license: 0.4,
+  secureScore: 0.6
 } as const;
