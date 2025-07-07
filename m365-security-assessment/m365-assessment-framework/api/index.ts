@@ -981,105 +981,66 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                     
                 } catch (graphError: any) {
                     context.error('❌ Failed to fetch real data from Graph API:', graphError);
-                    assessmentStatus = 'failed';
                     
-                    // Fall back to mock data with error information
-                    realData = {
-                        error: graphError?.message || 'Failed to connect to Microsoft Graph API',
-                        dataSource: 'Mock data (Graph API unavailable)',
-                        lastUpdated: new Date().toISOString(),
-                        troubleshooting: 'Check app registration permissions and admin consent'
+                    // Return detailed error instead of falling back to mock data
+                    return {
+                        status: 400,
+                        headers: corsHeaders,
+                        jsonBody: {
+                            success: false,
+                            error: "Failed to fetch real assessment data from Microsoft Graph API",
+                            details: graphError?.message || 'Failed to connect to Microsoft Graph API',
+                            troubleshooting: [
+                                'Verify app registration permissions include Organization.Read.All and SecurityEvents.Read.All',
+                                'Ensure admin consent has been granted by the customer tenant admin',
+                                'Check that the app registration exists and is properly configured',
+                                'Verify the client secret is valid and not expired'
+                            ],
+                            customerId: assessmentData.customerId,
+                            tenantId: tenantId,
+                            requiredAction: 'Complete app registration setup and obtain admin consent to access real tenant data'
+                        }
                     };
                 }
             } else {
-                context.log('⚠️ Customer found but missing app registration credentials - using mock data');
-                assessmentStatus = 'incomplete';
-                realData = {
-                    warning: 'No app registration credentials available',
-                    dataSource: 'Mock data (credentials missing)',
-                    lastUpdated: new Date().toISOString(),
-                    recommendation: 'Complete app registration setup to get real data'
+                context.log('⚠️ Customer found but missing app registration credentials');
+                
+                // Return error instead of falling back to mock data
+                return {
+                    status: 400,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "App registration credentials missing",
+                        details: "Customer exists but app registration setup is incomplete",
+                        troubleshooting: [
+                            'Complete the app registration process for this customer',
+                            'Ensure clientId and clientSecret are properly configured',
+                            'Verify admin consent has been granted by the customer tenant'
+                        ],
+                        customerId: assessmentData.customerId,
+                        customerName: customer?.tenantName,
+                        requiredAction: 'Complete app registration setup to enable real data collection'
+                    }
                 };
             }
         } else {
-            context.log('⚠️ No customer ID provided - using mock data');
-            realData = {
-                info: 'No customer specified',
-                dataSource: 'Mock data (no customer)',
-                lastUpdated: new Date().toISOString()
-            };
-        }
-
-        // Create assessment object with mock data as fallback
-        const newAssessment = {
-            id: `assessment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            tenantId: tenantId,
-            customerId: assessmentData.customerId || '',
-            tenantName: customer?.tenantName || assessmentData.tenantName || 'New Assessment',
-            assessmentName: assessmentData.assessmentName || `Assessment for ${customer?.tenantName || assessmentData.tenantName}`,
-            assessmentDate: new Date().toISOString(),
-            status: assessmentStatus,
-            categories: assessmentData.includedCategories || assessmentData.categories || ['identity', 'dataProtection', 'endpoint', 'cloudApps'],
-            notificationEmail: assessmentData.notificationEmail || '',
-            autoSchedule: assessmentData.autoSchedule || false,
-            scheduleFrequency: assessmentData.scheduleFrequency || 'monthly',
-            metrics: {
-                score: {
-                    overall: 75,
-                    identity: 80,
-                    dataProtection: 70,
-                    endpoint: 75,
-                    cloudApps: 80
-                },
-                realData,
-                assessmentType: 'mock-data',
-                dataCollected: false
-            },
-            lastModified: new Date().toISOString(),
-            createdBy: 'system'
-        };
-
-        try {
-            // Store the assessment in the data service
-            const storedAssessment = await dataService.createAssessment(newAssessment);
-            context.log('✅ Assessment stored successfully:', storedAssessment.id);
-
-            // If we have a customer ID, update the customer's last assessment date
-            if (assessmentData.customerId) {
-                try {
-                    const customer = await dataService.getCustomer(assessmentData.customerId);
-                    if (customer) {
-                        await dataService.updateCustomer(assessmentData.customerId, {
-                            lastAssessmentDate: new Date().toISOString(),
-                            totalAssessments: (customer.totalAssessments || 0) + 1
-                        });
-                        context.log('✅ Customer updated with assessment info');
-                    }
-                } catch (customerUpdateError) {
-                    context.warn('⚠️ Failed to update customer:', customerUpdateError);
-                    // Don't fail the assessment creation if customer update fails
-                }
-            }
-
-            return {
-                status: 201,
-                headers: corsHeaders,
-                jsonBody: {
-                    success: true,
-                    data: storedAssessment
-                }
-            };
-        } catch (storageError) {
-            context.error('❌ Failed to store assessment:', storageError);
+            context.log('⚠️ No customer ID provided');
             
-            // Return the assessment even if storage fails, but with a warning
+            // Return error instead of falling back to mock data
             return {
-                status: 201,
+                status: 400,
                 headers: corsHeaders,
                 jsonBody: {
-                    success: true,
-                    data: newAssessment,
-                    warning: 'Assessment created but storage failed'
+                    success: false,
+                    error: "Customer ID required for real data assessment",
+                    details: "Assessment creation requires a valid customer with proper app registration",
+                    troubleshooting: [
+                        'Provide a valid customerId in the request',
+                        'Ensure the customer has been created and configured',
+                        'Complete app registration setup for the customer'
+                    ],
+                    requiredAction: 'Select or create a customer before creating an assessment'
                 }
             };
         }
@@ -1809,13 +1770,41 @@ app.http('licenseInfo', {
             // Get customer by tenant ID to access credentials
             const customers = await dataService.getCustomers({ status: 'active' });
             const customer = customers.customers.find(c => c.tenantId === tenantId);
-            if (!customer || !customer.appRegistration?.clientId || !customer.appRegistration?.clientSecret) {
+            
+            if (!customer) {
+                return {
+                    status: 404,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Customer not found for tenant ID",
+                        details: `No customer configuration found for tenant: ${tenantId}`,
+                        troubleshooting: [
+                            'Verify the tenant ID is correct',
+                            'Ensure the customer has been created in the system',
+                            'Check that the customer status is active'
+                        ],
+                        tenantId: tenantId
+                    }
+                };
+            }
+            
+            if (!customer.appRegistration?.clientId || !customer.appRegistration?.clientSecret) {
                 return {
                     status: 400,
                     headers: corsHeaders,
                     jsonBody: {
                         success: false,
-                        error: "Customer credentials not found or incomplete"
+                        error: "App registration credentials incomplete",
+                        details: "Customer exists but app registration setup is not complete",
+                        troubleshooting: [
+                            'Complete the app registration process for this customer',
+                            'Ensure clientId and clientSecret are properly configured',
+                            'Verify admin consent has been granted by the customer tenant admin'
+                        ],
+                        customerId: customer.id,
+                        customerName: customer.tenantName,
+                        tenantId: tenantId
                     }
                 };
             }
@@ -1851,13 +1840,36 @@ app.http('licenseInfo', {
             };
         } catch (error) {
             context.error('Error in license info handler:', error);
+            
+            // Provide detailed error information for license data failures
+            let errorMessage = "Failed to fetch license information";
+            let statusCode = 500;
+            
+            if (error instanceof Error) {
+                if (error.message.includes('Insufficient permissions')) {
+                    errorMessage = "Insufficient permissions to access license data";
+                    statusCode = 403;
+                } else if (error.message.includes('Authentication failed')) {
+                    errorMessage = "Authentication failed - app registration consent required";
+                    statusCode = 401;
+                }
+            }
+            
             return {
-                status: 500,
+                status: statusCode,
                 headers: corsHeaders,
                 jsonBody: {
                     success: false,
-                    error: "Failed to fetch license information",
-                    details: error instanceof Error ? error.message : "Unknown error"
+                    error: errorMessage,
+                    details: error instanceof Error ? error.message : "Unknown error",
+                    troubleshooting: [
+                        'Verify Organization.Read.All permission is granted and consented',
+                        'Ensure the app registration has been consented to by customer tenant admin',
+                        'Check that the client secret is valid and not expired',
+                        'Verify the tenant ID and customer configuration are correct'
+                    ],
+                    tenantId: request.params.tenantId,
+                    timestamp: new Date().toISOString()
                 }
             };
         }
@@ -1897,13 +1909,41 @@ app.http('secureScore', {
             // Get customer by tenant ID to access credentials
             const customers = await dataService.getCustomers({ status: 'active' });
             const customer = customers.customers.find(c => c.tenantId === tenantId);
-            if (!customer || !customer.appRegistration?.clientId || !customer.appRegistration?.clientSecret) {
+            
+            if (!customer) {
+                return {
+                    status: 404,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Customer not found for tenant ID",
+                        details: `No customer configuration found for tenant: ${tenantId}`,
+                        troubleshooting: [
+                            'Verify the tenant ID is correct',
+                            'Ensure the customer has been created in the system',
+                            'Check that the customer status is active'
+                        ],
+                        tenantId: tenantId
+                    }
+                };
+            }
+            
+            if (!customer.appRegistration?.clientId || !customer.appRegistration?.clientSecret) {
                 return {
                     status: 400,
                     headers: corsHeaders,
                     jsonBody: {
                         success: false,
-                        error: "Customer credentials not found or incomplete"
+                        error: "App registration credentials incomplete", 
+                        details: "Customer exists but app registration setup is not complete",
+                        troubleshooting: [
+                            'Complete the app registration process for this customer',
+                            'Ensure clientId and clientSecret are properly configured',
+                            'Verify admin consent has been granted by the customer tenant admin'
+                        ],
+                        customerId: customer.id,
+                        customerName: customer.tenantName,
+                        tenantId: tenantId
                     }
                 };
             }
@@ -1924,13 +1964,40 @@ app.http('secureScore', {
             };
         } catch (error) {
             context.error('Error in secure score handler:', error);
+            
+            // Provide detailed error information for secure score failures
+            let errorMessage = "Failed to fetch secure score";
+            let statusCode = 500;
+            
+            if (error instanceof Error) {
+                if (error.message.includes('Insufficient permissions')) {
+                    errorMessage = "Insufficient permissions to access secure score data";
+                    statusCode = 403;
+                } else if (error.message.includes('Authentication failed')) {
+                    errorMessage = "Authentication failed - app registration consent required";
+                    statusCode = 401;
+                } else if (error.message.includes('No secure score data available')) {
+                    errorMessage = "No secure score data available for this tenant";
+                    statusCode = 404;
+                }
+            }
+            
             return {
-                status: 500,
+                status: statusCode,
                 headers: corsHeaders,
                 jsonBody: {
                     success: false,
-                    error: "Failed to fetch secure score",
-                    details: error instanceof Error ? error.message : "Unknown error"
+                    error: errorMessage,
+                    details: error instanceof Error ? error.message : "Unknown error",
+                    troubleshooting: [
+                        'Verify SecurityEvents.Read.All permission is granted and consented',
+                        'Ensure the app registration has been consented to by customer tenant admin',
+                        'Check that the client secret is valid and not expired',
+                        'Verify the tenant has Microsoft Secure Score enabled',
+                        'Some tenants may not have secure score data available'
+                    ],
+                    tenantId: request.params.tenantId,
+                    timestamp: new Date().toISOString()
                 }
             };
         }
