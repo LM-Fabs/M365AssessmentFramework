@@ -416,17 +416,53 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
     }
 
     try {
-        // Initialize data service
-        await initializeDataService(context);
+        // Initialize data service with detailed error logging
+        try {
+            await initializeDataService(context);
+            context.log('✅ Data service initialized for customer operations');
+        } catch (initError) {
+            context.error('❌ Data service initialization failed:', initError);
+            return {
+                status: 500,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Data service initialization failed",
+                    details: initError instanceof Error ? initError.message : "Unknown initialization error",
+                    troubleshooting: [
+                        'Check Azure Storage connection string configuration',
+                        'Verify storage account exists and is accessible',
+                        'Check environment variables: AzureWebJobsStorage or AZURE_STORAGE_CONNECTION_STRING'
+                    ],
+                    timestamp: new Date().toISOString()
+                }
+            };
+        }
 
         const customerId = request.params.customerId;
+        context.log('📋 Customer ID from request params:', customerId);
+        
         if (!customerId) {
             return {
                 status: 400,
                 headers: corsHeaders,
                 jsonBody: {
                     success: false,
-                    error: "Customer ID is required"
+                    error: "Customer ID is required",
+                    details: "Customer ID parameter is missing from the request URL"
+                }
+            };
+        }
+
+        if (typeof customerId !== 'string' || customerId.trim().length === 0) {
+            return {
+                status: 400,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Invalid customer ID format",
+                    details: "Customer ID must be a non-empty string",
+                    providedValue: customerId
                 }
             };
         }
@@ -456,6 +492,27 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
 
         if (request.method === 'DELETE') {
             try {
+                context.log('🗑️ Attempting to delete customer:', customerId);
+                
+                // Check if customer exists first
+                const existingCustomer = await dataService.getCustomer(customerId);
+                if (!existingCustomer) {
+                    context.log('❌ Customer not found for deletion:', customerId);
+                    return {
+                        status: 404,
+                        headers: corsHeaders,
+                        jsonBody: {
+                            success: false,
+                            error: "Customer not found",
+                            details: `Customer with ID ${customerId} does not exist`,
+                            customerId: customerId
+                        }
+                    };
+                }
+
+                context.log('✅ Customer found, proceeding with deletion:', customerId);
+                
+                // Attempt to delete the customer
                 await dataService.deleteCustomer(customerId);
                 context.log('✅ Customer deleted successfully:', customerId);
 
@@ -470,13 +527,43 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
                 };
             } catch (deleteError) {
                 context.error('❌ Failed to delete customer:', deleteError);
+                
+                // Enhanced error details
+                let errorMessage = "Failed to delete customer";
+                let statusCode = 500;
+                let troubleshooting: string[] = [];
+                
+                if (deleteError instanceof Error) {
+                    if (deleteError.message.includes('Customer not found')) {
+                        errorMessage = "Customer not found";
+                        statusCode = 404;
+                        troubleshooting = ['Verify the customer ID is correct', 'Check if the customer was already deleted'];
+                    } else if (deleteError.message.includes('not initialized')) {
+                        errorMessage = "Data service not properly initialized";
+                        statusCode = 500;
+                        troubleshooting = ['Check storage account configuration', 'Verify connection strings'];
+                    } else if (deleteError.message.includes('storage') || deleteError.message.includes('table')) {
+                        errorMessage = "Storage service error";
+                        statusCode = 500;
+                        troubleshooting = [
+                            'Check Azure Storage account connectivity',
+                            'Verify table exists and is accessible',
+                            'Check storage account permissions'
+                        ];
+                    }
+                }
+                
                 return {
-                    status: 500,
+                    status: statusCode,
                     headers: corsHeaders,
                     jsonBody: {
                         success: false,
-                        error: "Failed to delete customer",
-                        details: deleteError instanceof Error ? deleteError.message : "Unknown error"
+                        error: errorMessage,
+                        details: deleteError instanceof Error ? deleteError.message : "Unknown error",
+                        customerId: customerId,
+                        troubleshooting: troubleshooting,
+                        timestamp: new Date().toISOString(),
+                        errorType: deleteError instanceof Error ? deleteError.constructor.name : 'UnknownError'
                     }
                 };
             }
