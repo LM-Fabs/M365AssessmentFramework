@@ -1312,35 +1312,21 @@ async function getMetricsHandler(request: HttpRequest, context: InvocationContex
         } catch (dataError: any) {
             context.error('Error accessing assessment data:', dataError);
             
-            // Fallback to mock data if database access fails
-            const fallbackMetrics = {
-                score: {
-                    overall: 78,
-                    license: 82,
-                    secureScore: 75
-                },
-                compliance: {
-                    mfa: { enabled: true, coverage: 85 },
-                    conditionalAccess: { enabled: true, policies: 5 },
-                    dlp: { enabled: false, policies: 0 }
-                },
-                risks: [
-                    { category: 'License', severity: 'Medium', count: 2 },
-                    { category: 'Secure Score', severity: 'High', count: 1 }
-                ],
-                hasAssessment: false,
-                dataSource: 'fallback-mock',
-                error: 'Could not access stored assessment data'
-            };
-
             return {
-                status: 200,
+                status: 500,
                 headers: corsHeaders,
                 jsonBody: {
-                    success: true,
-                    data: fallbackMetrics,
+                    success: false,
+                    error: "Failed to access assessment data",
+                    details: dataError?.message || 'Database access error',
+                    troubleshooting: [
+                        'Check database connectivity and configuration',
+                        'Verify the data service is properly initialized',
+                        'Ensure the storage account and table exist',
+                        'Create an assessment for this tenant first'
+                    ],
                     tenantId: tenantId,
-                    warning: 'Using fallback data due to database access issue'
+                    timestamp: new Date().toISOString()
                 }
             };
         }
