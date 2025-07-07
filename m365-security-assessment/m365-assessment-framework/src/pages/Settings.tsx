@@ -246,15 +246,9 @@ const Settings = () => {
           contactEmail: customer.contactEmail,
           assessmentName: `M365 Security Assessment - ${customer.tenantName}`,
           requiredPermissions: [
-            'Organization.Read.All',
-            'Reports.Read.All',
-            'Directory.Read.All',
-            'Policy.Read.All',
-            'SecurityEvents.Read.All',
-            'IdentityRiskyUser.Read.All',
-            'DeviceManagementManagedDevices.Read.All',
-            'AuditLog.Read.All',
-            'ThreatIndicators.Read.All'
+            // Minimal permissions for license and secure score assessment only
+            'Organization.Read.All',      // Required for license data (/subscribedSkus)
+            'SecurityEvents.Read.All'     // Required for secure score data (/security/secureScores, /security/secureScoreControlProfiles)
           ]
         })
       });

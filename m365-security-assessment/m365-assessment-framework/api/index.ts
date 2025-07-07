@@ -412,15 +412,9 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 consentUrl: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
                 redirectUri: process.env.REDIRECT_URI || "https://portal.azure.com/",
                 permissions: [
-                    'Organization.Read.All',
-                    'Reports.Read.All', 
-                    'Directory.Read.All',
-                    'Policy.Read.All',
-                    'SecurityEvents.Read.All',
-                    'IdentityRiskyUser.Read.All',
-                    'DeviceManagementManagedDevices.Read.All',
-                    'AuditLog.Read.All',
-                    'ThreatIndicators.Read.All'
+                    // Minimal permissions for license and secure score assessment only
+                    'Organization.Read.All',      // Required for license data (/subscribedSkus)
+                    'SecurityEvents.Read.All'     // Required for secure score data (/security/secureScores, /security/secureScoreControlProfiles)
                 ]
             };
 
@@ -1175,6 +1169,24 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                     const storedAssessment = await dataService.createAssessment(newAssessment);
                     context.log('✅ Assessment with real data stored successfully:', storedAssessment.id);
 
+                    // Store in assessment history for frontend queries
+                    try {
+                        await dataService.storeAssessmentHistory({
+                            id: storedAssessment.id,
+                            tenantId: storedAssessment.tenantId,
+                            customerId: storedAssessment.customerId,
+                            date: new Date(),
+                            overallScore: storedAssessment.metrics?.score?.overall || 0,
+                            categoryScores: {
+                                license: storedAssessment.metrics?.score?.license || 0,
+                                secureScore: storedAssessment.metrics?.score?.secureScore || 0
+                            }
+                        });
+                        context.log('✅ Assessment history stored successfully');
+                    } catch (historyError) {
+                        context.warn('⚠️ Failed to store assessment history:', historyError);
+                    }
+
                     // Update customer's last assessment date
                     if (assessmentData.customerId && customer) {
                         try {
@@ -1248,6 +1260,24 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                     // Store the fallback assessment
                     const storedAssessment = await dataService.createAssessment(fallbackAssessment);
                     context.log('✅ Fallback assessment created successfully:', storedAssessment.id);
+
+                    // Store in assessment history for frontend queries
+                    try {
+                        await dataService.storeAssessmentHistory({
+                            id: storedAssessment.id,
+                            tenantId: storedAssessment.tenantId,
+                            customerId: storedAssessment.customerId,
+                            date: new Date(),
+                            overallScore: storedAssessment.metrics?.score?.overall || 0,
+                            categoryScores: {
+                                license: storedAssessment.metrics?.score?.license || 0,
+                                secureScore: storedAssessment.metrics?.score?.secureScore || 0
+                            }
+                        });
+                        context.log('✅ Fallback assessment history stored successfully');
+                    } catch (historyError) {
+                        context.warn('⚠️ Failed to store fallback assessment history:', historyError);
+                    }
 
                     return {
                         status: 201,
@@ -1380,10 +1410,8 @@ async function saveAssessmentHandler(request: HttpRequest, context: InvocationCo
                 date: new Date(),
                 overallScore: savedAssessment.score || 0,
                 categoryScores: {
-                    securityBaseline: savedAssessment.metrics?.securityBaseline || 0,
-                    complianceScore: savedAssessment.metrics?.complianceScore || 0,
-                    userTraining: savedAssessment.metrics?.userTraining || 0,
-                    incidentResponse: savedAssessment.metrics?.incidentResponse || 0
+                    license: savedAssessment.metrics?.score?.license || 0,
+                    secureScore: savedAssessment.metrics?.score?.secureScore || 0
                 }
             });
         }

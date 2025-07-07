@@ -51,13 +51,9 @@ export const createMultiTenantAppHandler = app.http('createMultiTenantApp', {
                 targetTenantDomain,
                 assessmentName = "M365 Security Assessment",
                 requiredPermissions = [
-                    "Organization.Read.All",
-                    "Reports.Read.All", 
-                    "Directory.Read.All",
-                    "Policy.Read.All",
-                    "SecurityEvents.Read.All",
-                    "IdentityRiskyUser.Read.All",
-                    "DeviceManagementManagedDevices.Read.All"
+                    // Minimal permissions for license and secure score assessment only
+                    "Organization.Read.All",      // Required for license data (/subscribedSkus)
+                    "SecurityEvents.Read.All"     // Required for secure score data (/security/secureScores, /security/secureScoreControlProfiles)
                 ]
             } = requestData;
 
@@ -73,16 +69,9 @@ export const createMultiTenantAppHandler = app.http('createMultiTenantApp', {
                         resourceAppId: "00000003-0000-0000-c000-000000000000", // Microsoft Graph
                         resourceAccess: [
                             // Security and compliance permissions
-                            { id: "df021288-bdef-4463-88db-98f22de89214", type: "Role" }, // Organization.Read.All
-                            { id: "230c1aed-a721-4c5d-9cb4-a90514e508ef", type: "Role" }, // Reports.Read.All
-                            { id: "7ab1d382-f21e-4acd-a863-ba3e13f7da61", type: "Role" }, // Directory.Read.All
-                            { id: "246dd0d5-5bd0-4def-940b-0421030a5b68", type: "Role" }, // Policy.Read.All
-                            { id: "bf394140-e372-4bf9-a898-299cfc7564e5", type: "Role" }, // SecurityEvents.Read.All
-                            { id: "dc5007c0-2d7d-4c42-879c-2dab87571379", type: "Role" }, // IdentityRiskyUser.Read.All
-                            { id: "2f51be20-0bb4-4fed-bf7b-db946066c75e", type: "Role" }, // DeviceManagementManagedDevices.Read.All
-                            // Additional security-specific permissions
-                            { id: "ee928332-e9d2-4747-91b6-7c2c54de8c51", type: "Role" }, // ThreatIndicators.Read.All
-                            { id: "b0afded3-3588-46d8-8b3d-9842eff778da", type: "Role" }, // AuditLog.Read.All
+                            // Minimal permissions for license and secure score assessment only
+                            { id: "498476ce-e0fe-48b0-b801-37ba7e2685c6", type: "Role" }, // Organization.Read.All
+                            { id: "bf394140-e372-4bf9-a898-299cfc7564e5", type: "Role" }  // SecurityEvents.Read.All
                         ]
                     }
                 ],

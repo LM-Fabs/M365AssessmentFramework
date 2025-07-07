@@ -14,12 +14,9 @@ export enum SecurityImpact {
 
 export const GRAPH_SCOPES = [
   'User.Read',
-  'Organization.Read.All',
-  'Reports.Read.All',
-  'SecurityEvents.Read.All',
-  'Directory.Read.All',
-  'Policy.Read.All',
-  'Application.ReadWrite.All'
+  // Minimal scopes for license and secure score assessment only
+  'Organization.Read.All',      // Required for license data (/subscribedSkus)
+  'SecurityEvents.Read.All'     // Required for secure score data (/security/secureScores, /security/secureScoreControlProfiles)
 ];
 
 export const SCORE_THRESHOLDS = {

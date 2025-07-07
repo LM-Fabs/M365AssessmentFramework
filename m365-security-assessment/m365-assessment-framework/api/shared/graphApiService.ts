@@ -523,8 +523,8 @@ export class GraphApiService {
             'SecurityEvents.Read.All': 'bf394140-e372-4bf9-a898-299cfc7564e5',
             'IdentityRiskyUser.Read.All': 'dc5007c0-2d7d-4c42-879c-2dab87571379',
             'DeviceManagementManagedDevices.Read.All': '2f51be20-0bb4-4fed-bf7b-db946066c75e',
-            'AuditLog.Read.All': 'b0afded3-3588-46d8-8b3d-9842eff778da',
-            'ThreatIndicators.Read.All': 'ee928332-e9d2-4747-91b6-7c2c54de8c51'
+            'AuditLog.Read.All': 'b0afded3-3588-46d8-8b3d-9842eff778da'
+            // Removed invalid ThreatIndicators.Read.All permission
         };
 
         const permissionId = permissionMap[permissionName];
@@ -549,8 +549,8 @@ export class GraphApiService {
                 'IdentityRiskyUser.Read.All': 'dc5007c0-2d7d-4c42-879c-2dab87571379',
                 'DeviceManagementManagedDevices.Read.All': '2f51be20-0bb4-4fed-bf7b-db946066c75e',
                 'AuditLog.Read.All': 'b0afded3-3588-46d8-8b3d-9842eff778da',
-                'ThreatIndicators.Read.All': 'ee928332-e9d2-4747-91b6-7c2c54de8c51',
                 'Directory.ReadWrite.All': '19dbc75e-c2e2-444c-a770-ec69d8559fc7'
+                // Removed invalid ThreatIndicators.Read.All permission
             };
 
             const resourceAccess = permissions.map(permission => ({

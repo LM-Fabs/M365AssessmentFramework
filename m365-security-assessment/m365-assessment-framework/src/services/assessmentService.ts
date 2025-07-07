@@ -118,16 +118,9 @@ export class AssessmentService {
           targetTenantDomain: data.targetTenantDomain,
           assessmentName: data.assessmentName || 'M365 Security Assessment',
           requiredPermissions: [
-            // Security assessment read permissions only
-            'Organization.Read.All',          // Basic organization info
-            'Reports.Read.All',              // Security reports
-            'Directory.Read.All',            // User and group info  
-            'Policy.Read.All',               // Security policies
-            'SecurityEvents.Read.All',       // Security events
-            'IdentityRiskyUser.Read.All',    // Risky users
-            'DeviceManagementManagedDevices.Read.All', // Device compliance
-            'AuditLog.Read.All',             // Audit logs
-            'ThreatIndicators.Read.All'      // Threat intelligence
+            // Minimal permissions for license and secure score assessment
+            'Organization.Read.All',          // Required for license data (/subscribedSkus)
+            'SecurityEvents.Read.All'         // Required for secure score data (/security/secureScores, /security/secureScoreControlProfiles)
           ]
         }, {
           timeout: 30000,
