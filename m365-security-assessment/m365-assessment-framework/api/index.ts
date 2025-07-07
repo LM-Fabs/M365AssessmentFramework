@@ -1821,6 +1821,7 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
                 },
                 timestamp: new Date().toISOString()
             }
+        };
     }
 }
 
@@ -2117,7 +2118,6 @@ async function customerAssessmentsHandler(request: HttpRequest, context: Invocat
         context.error('Error in customer assessments handler:', error);
         return {
             status: 500,
-            headers: corsHeaders,
             headers: corsHeaders,
             jsonBody: {
                 success: false,
