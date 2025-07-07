@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import History from './pages/History';
 import Settings from './pages/Settings';
 import AuthCallback from './pages/AuthCallback';
+import { AssessmentResults } from './components/AssessmentResults';
 import './App.css';
 
 function App() {
@@ -59,6 +60,7 @@ function AppContent() {
           <Route path="/reports" element={<Dashboard />} />
           <Route path="/history" element={<History />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/assessment-results/:assessmentId" element={<AssessmentResults />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>

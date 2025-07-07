@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AssessmentHistoryService } from '../services/assessmentHistoryService';
 import './RecentAssessments.css';
 
@@ -23,6 +24,7 @@ const RecentAssessments: React.FC<RecentAssessmentsProps> = ({ tenantId, limit =
   const [assessments, setAssessments] = useState<AssessmentHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const historyService = AssessmentHistoryService.getInstance();
 
@@ -81,6 +83,14 @@ const RecentAssessments: React.FC<RecentAssessmentsProps> = ({ tenantId, limit =
       hour: '2-digit',
       minute: '2-digit'
     }).format(date);
+  };
+
+  const handleViewAssessment = (assessmentId: string) => {
+    navigate(`/assessment-results/${assessmentId}`);
+  };
+
+  const handleViewAllAssessments = () => {
+    navigate('/history');
   };
 
   const calculateTrend = (assessments: AssessmentHistory[]): { direction: 'up' | 'down' | 'stable', change: number } => {
@@ -187,7 +197,12 @@ const RecentAssessments: React.FC<RecentAssessmentsProps> = ({ tenantId, limit =
 
       <div className="assessments-list">
         {assessments.map((assessment, index) => (
-          <div key={assessment.assessmentId} className={`assessment-item ${index === 0 ? 'latest' : ''}`}>
+          <div 
+            key={assessment.assessmentId} 
+            className={`assessment-item ${index === 0 ? 'latest' : ''} clickable`}
+            onClick={() => handleViewAssessment(assessment.assessmentId)}
+            title="Click to view detailed assessment results"
+          >
             <div className="assessment-main">
               <div className="assessment-date">
                 {formatDate(assessment.date)}
@@ -221,7 +236,7 @@ const RecentAssessments: React.FC<RecentAssessmentsProps> = ({ tenantId, limit =
 
       {assessments.length > 0 && (
         <div className="view-all-link">
-          <button className="link-button">
+          <button className="link-button" onClick={handleViewAllAssessments}>
             View Full History →
           </button>
         </div>

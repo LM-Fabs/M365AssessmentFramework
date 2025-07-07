@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AssessmentService } from '../../services/assessmentService';
+import { LicenseReport } from '../LicenseReport';
 import './BasicAssessment.css';
 
 interface BasicAssessmentProps {
@@ -268,6 +269,8 @@ export const BasicAssessment: React.FC<BasicAssessmentProps> = ({
       {assessmentResult && !error && (
         <div className="assessment-results">
           <h3>✅ Assessment Complete</h3>
+          
+          {/* Quick Summary Cards */}
           <div className="results-summary">
             <div className="result-card">
               <h4>🛡️ Secure Score</h4>
@@ -282,14 +285,26 @@ export const BasicAssessment: React.FC<BasicAssessmentProps> = ({
             </div>
 
             <div className="result-card">
-              <h4>📄 Licenses</h4>
+              <h4>📄 License Summary</h4>
               <div className="license-display">
                 <p><strong>Total:</strong> {assessmentResult.licenseInfo.totalLicenses}</p>
                 <p><strong>Assigned:</strong> {assessmentResult.licenseInfo.assignedLicenses}</p>
                 <p><strong>Available:</strong> {assessmentResult.licenseInfo.availableLicenses}</p>
+                <p><strong>Utilization:</strong> {((assessmentResult.licenseInfo.assignedLicenses / assessmentResult.licenseInfo.totalLicenses) * 100).toFixed(1)}%</p>
               </div>
             </div>
           </div>
+
+          {/* Detailed License Report */}
+          {assessmentResult.licenseInfo && (
+            <div className="detailed-license-section">
+              <LicenseReport
+                licenseInfo={assessmentResult.licenseInfo}
+                tenantName={tenantDomain || tenantId}
+                assessmentDate={new Date().toISOString()}
+              />
+            </div>
+          )}
 
           <div className="assessment-actions">
             <button 
