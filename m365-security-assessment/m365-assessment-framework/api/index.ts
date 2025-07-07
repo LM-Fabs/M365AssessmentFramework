@@ -863,9 +863,9 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                 context.log('🔍 Fetching real assessment data from Microsoft Graph API...');
                 
                 try {
-                    // Fetch detailed license information and secure score
-                    context.log('🔍 Fetching detailed license information...');
-                    const licenseReport = await graphApiService.getDetailedLicenseReport(
+                    // Fetch real license information and secure score
+                    context.log('🔍 Fetching license information...');
+                    const licenseInfo = await graphApiService.getLicenseInfo(
                         tenantId,
                         customer.appRegistration.clientId,
                         customer.appRegistration.clientSecret
@@ -886,19 +886,22 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                     context.log('✅ Real assessment data retrieved successfully');
                     
                     // Calculate assessment scores based on real data
-                    const utilizationRate = licenseReport.overview.utilizationPercentage;
+                    const utilizationRate = licenseInfo.totalLicenses > 0 
+                        ? (licenseInfo.assignedLicenses / licenseInfo.totalLicenses) * 100 
+                        : 0;
                     
-                    // Use secure score if available, otherwise calculate based on license efficiency and security posture
+                    // Use secure score if available, otherwise calculate based on license efficiency
                     const overallScore = secureScore ? secureScore.percentage : 
                                        utilizationRate > 80 ? 85 : 
                                        utilizationRate > 60 ? 75 : 
                                        utilizationRate > 40 ? 65 : 50;
                     
-                    // Create detailed real data object with enhanced license information
+                    // Create detailed real data object
                     realData = {
-                        licenseReport: {
-                            ...licenseReport,
-                            summary: `${licenseReport.overview.assignedLicenses} of ${licenseReport.overview.totalLicenses} licenses assigned (${utilizationRate}% utilization)`
+                        licenseInfo: {
+                            ...licenseInfo,
+                            utilizationRate: Math.round(utilizationRate * 100) / 100,
+                            summary: `${licenseInfo.assignedLicenses} of ${licenseInfo.totalLicenses} licenses assigned (${Math.round(utilizationRate)}% utilization)`
                         },
                         secureScore: secureScore ? {
                             ...secureScore,
@@ -908,25 +911,14 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                             reason: 'Secure score not available or insufficient permissions'
                         },
                         dataSource: 'Microsoft Graph API',
-                        dataTypes: ['detailedLicenses', secureScore ? 'secureScore' : 'licenseOnly'],
+                        dataTypes: ['licenses', secureScore ? 'secureScore' : 'licenseOnly'],
                         lastUpdated: new Date().toISOString(),
                         tenantInfo: {
                             tenantId,
                             tenantName: customer.tenantName,
                             tenantDomain: customer.tenantDomain
-                        },
-                        costAnalysis: {
-                            estimatedMonthlyCost: licenseReport.overview.totalCost,
-                            potentialSavings: licenseReport.overview.availableLicenses * 25, // Estimated average cost per license
-                            utilizationEfficiency: utilizationRate >= 70 ? 'Good' : utilizationRate >= 50 ? 'Fair' : 'Poor'
                         }
                     };
-                    
-                    // Combine recommendations from license analysis and assessment logic
-                    const combinedRecommendations = [
-                        ...licenseReport.recommendations,
-                        ...generateRecommendations(licenseReport, secureScore)
-                    ];
                     
                     // Create assessment object with real data
                     const newAssessment = {
@@ -952,7 +944,7 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                             realData,
                             assessmentType: 'real-data',
                             dataCollected: true,
-                            recommendations: combinedRecommendations
+                            recommendations: generateRecommendations(licenseInfo, secureScore)
                         },
                         lastModified: new Date().toISOString(),
                         createdBy: 'system'
@@ -1706,60 +1698,21 @@ app.http('createMultiTenantApp', {
     handler: createMultiTenantAppHandler
 });
 
-// Basic assessment endpoint
-app.http('basicAssessment', {
-    methods: ['POST', 'OPTIONS'],
-    authLevel: 'anonymous',
-    route: 'assessment/basic',
-    handler: basicAssessmentHandler
-});
-
-// Secure score endpoint
-app.http('secureScore', {
-    methods: ['GET', 'OPTIONS'],
-    authLevel: 'anonymous',
-    route: 'assessment/secure-score/{tenantId}',
-    handler: secureScoreHandler
-});
-
-// License info endpoint
-app.http('licenseInfo', {
-    methods: ['GET', 'OPTIONS'],
-    authLevel: 'anonymous',
-    route: 'assessment/license-info/{tenantId}',
-    handler: licenseInfoHandler
-});
-
 // Assessment status endpoint for frontend warmup
 app.http('assessmentStatus', {
     methods: ['GET', 'OPTIONS', 'HEAD'],
     authLevel: 'anonymous',
     route: 'assessment/status',
-    handler: assessmentStatusHandler
-});
-
-// Azure configuration check endpoint
-app.http('azureConfig', {
-    methods: ['GET', 'OPTIONS'],
-    authLevel: 'anonymous',
-    route: 'azure/config',
-    handler: azureConfigHandler
-});
-
-// Detailed assessment with license info endpoint
-app.http('detailedAssessment', {
-    methods: ['GET', 'OPTIONS'],
-    authLevel: 'anonymous',
-    route: 'assessment/detailed/{assessmentId}',
-    handler: detailedAssessmentHandler
-});
-
-// Assessment details endpoint with real-time data
-app.http('assessmentDetails', {
-    methods: ['GET', 'OPTIONS'],
-    authLevel: 'anonymous',
-    route: 'assessment/details/{tenantId}',
-    handler: assessmentDetailsHandler
+    handler: async function assessmentStatusHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+        if (request.method === 'OPTIONS' || request.method === 'HEAD') {
+            return { status: 200, headers: corsHeaders };
+        }
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: { success: true, status: 'ready', timestamp: new Date().toISOString() }
+        };
+    }
 });
 
 // Customer assessments endpoint - get assessments for a specific customer
