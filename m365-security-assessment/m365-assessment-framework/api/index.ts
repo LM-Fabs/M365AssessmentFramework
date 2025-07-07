@@ -1776,6 +1776,167 @@ async function customerAssessmentsHandler(request: HttpRequest, context: Invocat
     }
 }
 
+// License information endpoint
+app.http('licenseInfo', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/license-info/{tenantId}',
+    handler: async function licenseInfoHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+        context.log('Processing license info request');
+
+        if (request.method === 'OPTIONS') {
+            return {
+                status: 200,
+                headers: corsHeaders
+            };
+        }
+
+        try {
+            await initializeDataService(context);
+
+            const tenantId = request.params.tenantId;
+            if (!tenantId) {
+                return {
+                    status: 400,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "tenantId parameter is required"
+                    }
+                };
+            }
+
+            // Get customer by tenant ID to access credentials
+            const customers = await dataService.getCustomers({ status: 'active' });
+            const customer = customers.customers.find(c => c.tenantId === tenantId);
+            if (!customer || !customer.appRegistration?.clientId || !customer.appRegistration?.clientSecret) {
+                return {
+                    status: 400,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Customer credentials not found or incomplete"
+                    }
+                };
+            }
+
+            const licenseInfo = await graphApiService.getLicenseInfo(
+                tenantId,
+                customer.appRegistration.clientId,
+                customer.appRegistration.clientSecret
+            );
+
+            // Enhanced license reporting with usage analytics
+            let detailedLicenseInfo = null;
+            try {
+                detailedLicenseInfo = await graphApiService.getDetailedLicenseReport(
+                    tenantId,
+                    customer.appRegistration.clientId,
+                    customer.appRegistration.clientSecret
+                );
+            } catch (error) {
+                context.warn('Could not fetch detailed license report:', error);
+            }
+
+            return {
+                status: 200,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: true,
+                    data: {
+                        basicInfo: licenseInfo,
+                        detailedUsage: detailedLicenseInfo
+                    }
+                }
+            };
+        } catch (error) {
+            context.error('Error in license info handler:', error);
+            return {
+                status: 500,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Failed to fetch license information",
+                    details: error instanceof Error ? error.message : "Unknown error"
+                }
+            };
+        }
+    }
+});
+
+// Secure score endpoint
+app.http('secureScore', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessment/secure-score/{tenantId}',
+    handler: async function secureScoreHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+        context.log('Processing secure score request');
+
+        if (request.method === 'OPTIONS') {
+            return {
+                status: 200,
+                headers: corsHeaders
+            };
+        }
+
+        try {
+            await initializeDataService(context);
+
+            const tenantId = request.params.tenantId;
+            if (!tenantId) {
+                return {
+                    status: 400,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "tenantId parameter is required"
+                    }
+                };
+            }
+
+            // Get customer by tenant ID to access credentials
+            const customers = await dataService.getCustomers({ status: 'active' });
+            const customer = customers.customers.find(c => c.tenantId === tenantId);
+            if (!customer || !customer.appRegistration?.clientId || !customer.appRegistration?.clientSecret) {
+                return {
+                    status: 400,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Customer credentials not found or incomplete"
+                    }
+                };
+            }
+
+            const secureScore = await graphApiService.getSecureScore(
+                tenantId,
+                customer.appRegistration.clientId,
+                customer.appRegistration.clientSecret
+            );
+
+            return {
+                status: 200,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: true,
+                    data: secureScore
+                }
+            };
+        } catch (error) {
+            context.error('Error in secure score handler:', error);
+            return {
+                status: 500,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Failed to fetch secure score",
+                    details: error instanceof Error ? error.message : "Unknown error"
+                }
+            };
+        }
+    }
+});
+
 // Get a specific assessment by ID, including license info and all metrics
 app.http('assessmentById', {
     methods: ['GET', 'OPTIONS'],
