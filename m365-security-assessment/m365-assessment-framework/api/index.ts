@@ -980,23 +980,46 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                 } catch (graphError: any) {
                     context.error('❌ Failed to fetch real data from Graph API:', graphError);
                     
+                    // Check for specific Microsoft Graph API errors
+                    let errorMessage = "Failed to fetch real assessment data from Microsoft Graph API";
+                    let specificError = graphError?.message || 'Unknown Graph API error';
+                    let statusCode = 400;
+                    
+                    if (specificError.includes('PropertyValueTooLarge')) {
+                        errorMessage = "Microsoft Graph API request exceeded size limits";
+                        specificError = "The requested data payload is too large. This may be due to querying unsupported categories or deprecated API endpoints.";
+                        statusCode = 413; // Payload Too Large
+                    } else if (specificError.includes('Insufficient permissions')) {
+                        errorMessage = "Insufficient permissions to access Microsoft Graph API";
+                        statusCode = 403;
+                    } else if (specificError.includes('Authentication failed') || specificError.includes('Unauthorized')) {
+                        errorMessage = "Authentication failed for Microsoft Graph API";
+                        statusCode = 401;
+                    }
+                    
                     // Return detailed error instead of falling back to mock data
                     return {
-                        status: 400,
+                        status: statusCode,
                         headers: corsHeaders,
                         jsonBody: {
                             success: false,
-                            error: "Failed to fetch real assessment data from Microsoft Graph API",
-                            details: graphError?.message || 'Failed to connect to Microsoft Graph API',
+                            error: errorMessage,
+                            details: specificError,
                             troubleshooting: [
                                 'Verify app registration permissions include Organization.Read.All and SecurityEvents.Read.All',
                                 'Ensure admin consent has been granted by the customer tenant admin',
                                 'Check that the app registration exists and is properly configured',
-                                'Verify the client secret is valid and not expired'
+                                'Verify the client secret is valid and not expired',
+                                'For PropertyValueTooLarge errors: The API may be requesting too much data - contact support'
                             ],
                             customerId: assessmentData.customerId,
                             tenantId: tenantId,
-                            requiredAction: 'Complete app registration setup and obtain admin consent to access real tenant data'
+                            requiredAction: 'Complete app registration setup and obtain admin consent to access real tenant data',
+                            apiError: {
+                                type: specificError.includes('PropertyValueTooLarge') ? 'PAYLOAD_TOO_LARGE' : 'GRAPH_API_ERROR',
+                                originalError: graphError?.message,
+                                timestamp: new Date().toISOString()
+                            }
                         }
                     };
                 }
