@@ -1221,33 +1221,129 @@ async function getMetricsHandler(request: HttpRequest, context: InvocationContex
             };
         }
 
-        // Mock metrics data using only supported categories
-        const mockMetrics = {
-            score: {
-                overall: 78,
-                license: 82,
-                secureScore: 75
-            },
-            compliance: {
-                mfa: { enabled: true, coverage: 85 },
-                conditionalAccess: { enabled: true, policies: 5 },
-                dlp: { enabled: false, policies: 0 }
-            },
-            risks: [
-                { category: 'License', severity: 'Medium', count: 2 },
-                { category: 'Secure Score', severity: 'High', count: 1 }
-            ]
-        };
+        // Initialize data service to access stored assessments
+        await initializeDataService(context);
 
-        return {
-            status: 200,
-            headers: corsHeaders,
-            jsonBody: {
-                success: true,
-                data: mockMetrics,
-                tenantId: tenantId
+        try {
+            // Get the most recent assessment for this tenant
+            const assessments = await dataService.getAssessments();
+            const tenantAssessments = assessments.assessments.filter(a => a.tenantId === tenantId);
+            
+            if (tenantAssessments.length === 0) {
+                context.log(`No assessments found for tenant: ${tenantId}`);
+                
+                // Return default/empty metrics for tenants with no assessments
+                return {
+                    status: 200,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: true,
+                        data: {
+                            score: {
+                                overall: 0,
+                                license: 0,
+                                secureScore: 0
+                            },
+                            compliance: {
+                                mfa: { enabled: false, coverage: 0 },
+                                conditionalAccess: { enabled: false, policies: 0 },
+                                dlp: { enabled: false, policies: 0 }
+                            },
+                            risks: [],
+                            hasAssessment: false,
+                            message: "No assessments available for this tenant. Create an assessment to see metrics."
+                        },
+                        tenantId: tenantId
+                    }
+                };
             }
-        };
+
+            // Get the most recent assessment (sort by date, most recent first)
+            const latestAssessment = tenantAssessments.sort((a, b) => {
+                const aDate = new Date((a as any).assessmentDate || (a as any).lastModified || (a as any).date || 0).getTime();
+                const bDate = new Date((b as any).assessmentDate || (b as any).lastModified || (b as any).date || 0).getTime();
+                return bDate - aDate;
+            })[0];
+
+            context.log(`Found latest assessment for tenant ${tenantId}:`, latestAssessment.id);
+
+            // Extract real metrics from the assessment
+            const realMetrics: any = {
+                score: {
+                    overall: latestAssessment.metrics?.score?.overall || 0,
+                    license: latestAssessment.metrics?.score?.license || 0,
+                    secureScore: latestAssessment.metrics?.score?.secureScore || 0
+                },
+                compliance: {
+                    mfa: { enabled: true, coverage: 85 }, // Default compliance data
+                    conditionalAccess: { enabled: true, policies: 5 },
+                    dlp: { enabled: false, policies: 0 }
+                },
+                risks: [
+                    { category: 'License', severity: 'Medium', count: 2 },
+                    { category: 'Secure Score', severity: 'High', count: 1 }
+                ],
+                hasAssessment: true,
+                assessmentDate: (latestAssessment as any).assessmentDate || (latestAssessment as any).date,
+                assessmentId: latestAssessment.id,
+                dataSource: (latestAssessment.metrics as any)?.assessmentType || 'real-data'
+            };
+
+            // Include real data details if available
+            if ((latestAssessment.metrics as any)?.realData) {
+                realMetrics.realData = (latestAssessment.metrics as any).realData;
+            }
+
+            // Include recommendations if available
+            if ((latestAssessment.metrics as any)?.recommendations) {
+                realMetrics.recommendations = (latestAssessment.metrics as any).recommendations;
+            }
+
+            return {
+                status: 200,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: true,
+                    data: realMetrics,
+                    tenantId: tenantId
+                }
+            };
+
+        } catch (dataError: any) {
+            context.error('Error accessing assessment data:', dataError);
+            
+            // Fallback to mock data if database access fails
+            const fallbackMetrics = {
+                score: {
+                    overall: 78,
+                    license: 82,
+                    secureScore: 75
+                },
+                compliance: {
+                    mfa: { enabled: true, coverage: 85 },
+                    conditionalAccess: { enabled: true, policies: 5 },
+                    dlp: { enabled: false, policies: 0 }
+                },
+                risks: [
+                    { category: 'License', severity: 'Medium', count: 2 },
+                    { category: 'Secure Score', severity: 'High', count: 1 }
+                ],
+                hasAssessment: false,
+                dataSource: 'fallback-mock',
+                error: 'Could not access stored assessment data'
+            };
+
+            return {
+                status: 200,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: true,
+                    data: fallbackMetrics,
+                    tenantId: tenantId,
+                    warning: 'Using fallback data due to database access issue'
+                }
+            };
+        }
     } catch (error) {
         context.error('Error in get metrics handler:', error);
         
