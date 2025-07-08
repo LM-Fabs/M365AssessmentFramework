@@ -90,8 +90,13 @@ const Reports: React.FC = () => {
     try {
       // Get the most recent assessment for this customer
       const assessments = await AssessmentService.getInstance().getAssessments();
-      const customerAssessments = assessments.filter(a => a.tenantId === selectedCustomer.tenantId);
-      
+      // Filter for valid assessments: correct tenantId, has assessmentDate, has metrics
+      const customerAssessments = assessments.filter(a =>
+        a.tenantId === selectedCustomer.tenantId &&
+        (a.assessmentDate || a.lastModified) &&
+        a.metrics && typeof a.metrics === 'object'
+      );
+
       if (customerAssessments.length === 0) {
         setError(null); // Clear any previous errors
         setCustomerAssessment(null);
@@ -99,11 +104,19 @@ const Reports: React.FC = () => {
         return;
       }
 
-      // Get the most recent assessment
-      const latestAssessment = customerAssessments.sort((a, b) => 
-        new Date(b.assessmentDate || b.lastModified || 0).getTime() - 
+      // Get the most recent valid assessment
+      const latestAssessment = customerAssessments.sort((a, b) =>
+        new Date(b.assessmentDate || b.lastModified || 0).getTime() -
         new Date(a.assessmentDate || a.lastModified || 0).getTime()
       )[0];
+
+      // Extra validation: check for required fields in metrics
+      if (!latestAssessment.metrics || typeof latestAssessment.metrics !== 'object') {
+        setError('Assessment data is invalid or incomplete.');
+        setCustomerAssessment(null);
+        generateFallbackData();
+        return;
+      }
 
       setCustomerAssessment(latestAssessment);
       generateReportData(latestAssessment);
@@ -126,66 +139,75 @@ const Reports: React.FC = () => {
       assessment.metrics?.license ||
       assessment.metrics?.licenses; // fallback for plural
 
-    if (licenseInfo) {
+    // Defensive: skip if licenseInfo is empty, null, or not an object/array
+    if (licenseInfo && (Array.isArray(licenseInfo) ? licenseInfo.length > 0 : typeof licenseInfo === 'object')) {
       // Support both array and object (in case of legacy or backend mismatch)
       const info = Array.isArray(licenseInfo) ? licenseInfo[0] : licenseInfo;
-      const utilizationRate = info.utilizationRate ||
-        (info.totalLicenses > 0 ? (info.assignedLicenses / info.totalLicenses) * 100 : 0);
+      // Defensive: skip if info is not an object or missing required fields
+      if (info && typeof info === 'object' && (info.totalLicenses !== undefined || info.assignedLicenses !== undefined)) {
+        const totalLicenses = Number(info.totalLicenses) || 0;
+        const assignedLicenses = Number(info.assignedLicenses) || 0;
+        const utilizationRate = info.utilizationRate !== undefined
+          ? Number(info.utilizationRate)
+          : (totalLicenses > 0 ? (assignedLicenses / totalLicenses) * 100 : 0);
 
-      reports.push({
-        category: 'license',
-        metrics: {
-          totalLicenses: info.totalLicenses || 0,
-          assignedLicenses: info.assignedLicenses || 0,
-          unutilizedLicenses: (info.totalLicenses || 0) - (info.assignedLicenses || 0),
-          utilizationRate: Math.round(utilizationRate),
-          costData: info.costData || null,
-          licenseTypes: info.licenseTypes || info.licenseDetails || []
-        },
-        charts: [
-          {
-            type: 'donut',
-            title: 'License Utilization',
-            data: [
-              { label: 'Assigned', value: info.assignedLicenses || 0, color: '#28a745' },
-              { label: 'Available', value: (info.totalLicenses || 0) - (info.assignedLicenses || 0), color: '#dc3545' }
-            ]
+        reports.push({
+          category: 'license',
+          metrics: {
+            totalLicenses,
+            assignedLicenses,
+            unutilizedLicenses: totalLicenses - assignedLicenses,
+            utilizationRate: Math.round(utilizationRate),
+            costData: info.costData || null,
+            licenseTypes: info.licenseTypes || info.licenseDetails || []
           },
-          {
-            type: 'bar',
-            title: 'License Types Distribution',
-            data: (info.licenseTypes || info.licenseDetails || []).map((type: any, index: number) => ({
-              label: type.name || type.skuDisplayName || `License ${index + 1}`,
-              value: type.assignedCount || type.assignedLicenses || 0,
-              color: `hsl(${index * 60}, 70%, 60%)`
-            }))
-          }
-        ],
-        insights: [
-          `License utilization is at ${Math.round(utilizationRate)}%`,
-          `${(info.totalLicenses || 0) - (info.assignedLicenses || 0)} licenses are currently unused`,
-          utilizationRate < 60 ? 'Consider optimizing license allocation to reduce costs' : 'License utilization is within acceptable range'
-        ],
-        recommendations: [
-          utilizationRate < 60 ? 'Review and reallocate unused licenses' : 'Monitor for capacity planning',
-          'Implement regular license usage reviews',
-          'Consider upgrading high-usage users to premium licenses'
-        ]
-      });
+          charts: [
+            {
+              type: 'donut',
+              title: 'License Utilization',
+              data: [
+                { label: 'Assigned', value: assignedLicenses, color: '#28a745' },
+                { label: 'Available', value: totalLicenses - assignedLicenses, color: '#dc3545' }
+              ]
+            },
+            {
+              type: 'bar',
+              title: 'License Types Distribution',
+              data: (info.licenseTypes || info.licenseDetails || []).map((type: any, index: number) => ({
+                label: type.name || type.skuDisplayName || `License ${index + 1}`,
+                value: type.assignedCount || type.assignedLicenses || 0,
+                color: `hsl(${index * 60}, 70%, 60%)`
+              }))
+            }
+          ],
+          insights: [
+            `License utilization is at ${Math.round(utilizationRate)}%`,
+            `${totalLicenses - assignedLicenses} licenses are currently unused`,
+            utilizationRate < 60 ? 'Consider optimizing license allocation to reduce costs' : 'License utilization is within acceptable range'
+          ],
+          recommendations: [
+            utilizationRate < 60 ? 'Review and reallocate unused licenses' : 'Monitor for capacity planning',
+            'Implement regular license usage reviews',
+            'Consider upgrading high-usage users to premium licenses'
+          ]
+        });
+      }
     }
 
     // Secure Score Report
     const secureScore = assessment.metrics?.realData?.secureScore || assessment.metrics?.secureScore;
-    
-    if (secureScore) {
+    if (secureScore && typeof secureScore === 'object' && (secureScore.currentScore !== undefined || secureScore.maxScore !== undefined)) {
+      const currentScore = Number(secureScore.currentScore) || 0;
+      const maxScore = Number(secureScore.maxScore) || 100;
+      const percentage = maxScore > 0 ? Math.round((currentScore / maxScore) * 100) : 0;
       reports.push({
         category: 'secureScore',
         metrics: {
-          currentScore: secureScore.currentScore || 0,
-          maxScore: secureScore.maxScore || 100,
-          percentage: Math.round(((secureScore.currentScore || 0) / (secureScore.maxScore || 100)) * 100),
-          controlsImplemented: secureScore.controlsImplemented || 0,
-          totalControls: secureScore.totalControls || 0,
+          currentScore,
+          maxScore,
+          percentage,
+          controlsImplemented: Number(secureScore.controlsImplemented) || 0,
+          totalControls: Number(secureScore.totalControls) || 0,
           improvementActions: secureScore.improvementActions || []
         },
         charts: [
@@ -193,9 +215,9 @@ const Reports: React.FC = () => {
             type: 'gauge',
             title: 'Security Score',
             data: {
-              current: secureScore.currentScore || 0,
-              max: secureScore.maxScore || 100,
-              percentage: Math.round(((secureScore.currentScore || 0) / (secureScore.maxScore || 100)) * 100)
+              current: currentScore,
+              max: maxScore,
+              percentage
             }
           },
           {
@@ -209,9 +231,9 @@ const Reports: React.FC = () => {
           }
         ],
         insights: [
-          `Current secure score: ${secureScore.currentScore || 0}/${secureScore.maxScore || 100}`,
-          `${secureScore.controlsImplemented || 0} out of ${secureScore.totalControls || 0} security controls are implemented`,
-          secureScore.currentScore < 60 ? 'Security posture needs significant improvement' : 'Security posture is good but can be enhanced'
+          `Current secure score: ${currentScore}/${maxScore}`,
+          `${Number(secureScore.controlsImplemented) || 0} out of ${Number(secureScore.totalControls) || 0} security controls are implemented`,
+          currentScore < 60 ? 'Security posture needs significant improvement' : 'Security posture is good but can be enhanced'
         ],
         recommendations: [
           'Implement high-impact security controls first',
@@ -223,56 +245,168 @@ const Reports: React.FC = () => {
     }
 
     // Identity & Access Report
-    const identityMetrics = assessment.metrics?.realData?.identityMetrics || {};
-    reports.push({
-      category: 'identity',
-      metrics: {
-        totalUsers: identityMetrics.totalUsers || 0,
-        mfaEnabledUsers: identityMetrics.mfaEnabledUsers || 0,
-        mfaCoverage: identityMetrics.mfaCoverage || 0,
-        adminUsers: identityMetrics.adminUsers || 0,
-        guestUsers: identityMetrics.guestUsers || 0,
-        conditionalAccessPolicies: identityMetrics.conditionalAccessPolicies || 0
-      },
-      charts: [
-        {
-          type: 'donut',
-          title: 'MFA Coverage',
-          data: [
-            { label: 'MFA Enabled', value: identityMetrics.mfaEnabledUsers || 0, color: '#28a745' },
-            { label: 'MFA Disabled', value: (identityMetrics.totalUsers || 0) - (identityMetrics.mfaEnabledUsers || 0), color: '#dc3545' }
-          ]
+    const identityMetrics = assessment.metrics?.realData?.identityMetrics || assessment.metrics?.identityMetrics || {};
+    // Defensive: only add if at least one key metric is present
+    if (
+      identityMetrics &&
+      (identityMetrics.totalUsers !== undefined || identityMetrics.mfaEnabledUsers !== undefined || identityMetrics.adminUsers !== undefined)
+    ) {
+      const totalUsers = Number(identityMetrics.totalUsers) || 0;
+      const mfaEnabledUsers = Number(identityMetrics.mfaEnabledUsers) || 0;
+      const mfaCoverage = identityMetrics.mfaCoverage !== undefined ? Number(identityMetrics.mfaCoverage) : (totalUsers > 0 ? Math.round((mfaEnabledUsers / totalUsers) * 100) : 0);
+      const adminUsers = Number(identityMetrics.adminUsers) || 0;
+      const guestUsers = Number(identityMetrics.guestUsers) || 0;
+      const conditionalAccessPolicies = Number(identityMetrics.conditionalAccessPolicies) || 0;
+      reports.push({
+        category: 'identity',
+        metrics: {
+          totalUsers,
+          mfaEnabledUsers,
+          mfaCoverage,
+          adminUsers,
+          guestUsers,
+          conditionalAccessPolicies
         },
-        {
-          type: 'bar',
-          title: 'User Types',
-          data: [
-            { label: 'Regular Users', value: (identityMetrics.totalUsers || 0) - (identityMetrics.adminUsers || 0) - (identityMetrics.guestUsers || 0), color: '#007bff' },
-            { label: 'Admin Users', value: identityMetrics.adminUsers || 0, color: '#fd7e14' },
-            { label: 'Guest Users', value: identityMetrics.guestUsers || 0, color: '#6f42c1' }
-          ]
-        }
-      ],
-      insights: [
-        `${identityMetrics.mfaCoverage || 0}% of users have MFA enabled`,
-        `${identityMetrics.adminUsers || 0} admin users require special attention`,
-        `${identityMetrics.conditionalAccessPolicies || 0} conditional access policies are configured`
-      ],
-      recommendations: [
-        'Enable MFA for all users, especially administrators',
-        'Implement conditional access policies',
-        'Regularly review admin user permissions',
-        'Monitor and audit guest user access'
-      ]
-    });
+        charts: [
+          {
+            type: 'donut',
+            title: 'MFA Coverage',
+            data: [
+              { label: 'MFA Enabled', value: mfaEnabledUsers, color: '#28a745' },
+              { label: 'MFA Disabled', value: totalUsers - mfaEnabledUsers, color: '#dc3545' }
+            ]
+          },
+          {
+            type: 'bar',
+            title: 'User Types',
+            data: [
+              { label: 'Regular Users', value: totalUsers - adminUsers - guestUsers, color: '#007bff' },
+              { label: 'Admin Users', value: adminUsers, color: '#fd7e14' },
+              { label: 'Guest Users', value: guestUsers, color: '#6f42c1' }
+            ]
+          }
+        ],
+        insights: [
+          `${mfaCoverage}% of users have MFA enabled`,
+          `${adminUsers} admin users require special attention`,
+          `${conditionalAccessPolicies} conditional access policies are configured`
+        ],
+        recommendations: [
+          'Enable MFA for all users, especially administrators',
+          'Implement conditional access policies',
+          'Regularly review admin user permissions',
+          'Monitor and audit guest user access'
+        ]
+      });
+    }
 
     // Ensure all categories are represented with fallback data if necessary
     const allCategories = ['license', 'secureScore', 'identity', 'dataProtection', 'compliance'];
-    
+
     allCategories.forEach(categoryId => {
       if (!reports.find(r => r.category === categoryId)) {
         // Add fallback data for missing categories
         switch (categoryId) {
+          case 'license':
+            reports.push({
+              category: 'license',
+              metrics: {
+                totalLicenses: 0,
+                assignedLicenses: 0,
+                unutilizedLicenses: 0,
+                utilizationRate: 0,
+                costData: null,
+                licenseTypes: []
+              },
+              charts: [
+                {
+                  type: 'donut',
+                  title: 'License Utilization',
+                  data: [
+                    { label: 'No data available', value: 1, color: '#e9ecef' }
+                  ]
+                }
+              ],
+              insights: [
+                'No license data available for this customer',
+                'Run an assessment to collect license information',
+                'License analysis helps optimize costs and usage'
+              ],
+              recommendations: [
+                'Create an assessment to gather license data',
+                'Review license allocation policies',
+                'Monitor license usage regularly'
+              ]
+            });
+            break;
+          case 'secureScore':
+            reports.push({
+              category: 'secureScore',
+              metrics: {
+                currentScore: 0,
+                maxScore: 100,
+                percentage: 0,
+                controlsImplemented: 0,
+                totalControls: 0,
+                improvementActions: []
+              },
+              charts: [
+                {
+                  type: 'gauge',
+                  title: 'Security Score',
+                  data: {
+                    current: 0,
+                    max: 100,
+                    percentage: 0
+                  }
+                }
+              ],
+              insights: [
+                'No security score data available',
+                'Run an assessment to evaluate security posture',
+                'Security scoring helps identify improvement areas'
+              ],
+              recommendations: [
+                'Create an assessment to gather security data',
+                'Enable multi-factor authentication',
+                'Configure conditional access policies',
+                'Review security settings regularly'
+              ]
+            });
+            break;
+          case 'identity':
+            reports.push({
+              category: 'identity',
+              metrics: {
+                totalUsers: 0,
+                mfaEnabledUsers: 0,
+                mfaCoverage: 0,
+                adminUsers: 0,
+                guestUsers: 0,
+                conditionalAccessPolicies: 0
+              },
+              charts: [
+                {
+                  type: 'donut',
+                  title: 'MFA Coverage',
+                  data: [
+                    { label: 'No data available', value: 1, color: '#e9ecef' }
+                  ]
+                }
+              ],
+              insights: [
+                'No identity data available',
+                'Run an assessment to analyze user security',
+                'Identity management is crucial for security'
+              ],
+              recommendations: [
+                'Create an assessment to gather identity data',
+                'Enable MFA for all users',
+                'Implement conditional access policies',
+                'Review admin user permissions'
+              ]
+            });
+            break;
           case 'dataProtection':
             reports.push({
               category: 'dataProtection',
