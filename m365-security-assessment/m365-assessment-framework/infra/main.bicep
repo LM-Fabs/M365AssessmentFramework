@@ -375,7 +375,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         }
         {
           name: 'AZURE_CLIENT_ID'
-          value: ''
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=azure-client-id)'
         }
         {
           name: 'AZURE_TENANT_ID'
@@ -383,7 +383,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         }
         {
           name: 'AZURE_CLIENT_SECRET'
-          value: ''
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=azure-client-secret)'
         }
         {
           name: 'AZURE_STORAGE_CONNECTION_STRING'

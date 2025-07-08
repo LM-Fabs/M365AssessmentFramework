@@ -8,7 +8,7 @@ import { DefaultAzureCredential } from "@azure/identity";
  */
 export class KeyVaultService {
     private client: SecretClient;
-    private isInitialized = false;
+    private _isInitialized = false;
 
     constructor() {
         // Use managed identity for authentication (Azure best practice)
@@ -21,7 +21,14 @@ export class KeyVaultService {
         }
 
         this.client = new SecretClient(keyVaultUrl, credential);
-        this.isInitialized = true;
+        this._isInitialized = true;
+    }
+
+    /**
+     * Check if Key Vault service is properly initialized
+     */
+    get isInitialized(): boolean {
+        return this._isInitialized;
     }
 
     /**
