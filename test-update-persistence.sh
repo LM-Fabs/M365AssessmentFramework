@@ -12,7 +12,7 @@ CREATE_RESPONSE=$(curl -s -X POST http://localhost:7071/api/customers \
   -H "Content-Type: application/json" \
   -d "{
     \"tenantName\": \"Debug Customer\",
-    \"tenantDomain\": \"debug.onmicrosoft.com\",
+    \"tenantDomain\": \"debug$(date +%s).onmicrosoft.com\",
     \"contactEmail\": \"debug@test.com\",
     \"manual\": true
   }")
@@ -21,7 +21,7 @@ echo "Create Response:"
 echo "$CREATE_RESPONSE" | jq '.'
 
 # Extract the actual customer ID from the response
-CUSTOMER_ID=$(echo "$CREATE_RESPONSE" | jq -r '.data.customer.id // .data.id // "not-found"')
+CUSTOMER_ID=$(echo "$CREATE_RESPONSE" | jq -r '.data.customer.id // .data.id // .existingCustomerId // "not-found"')
 echo "Actual Customer ID: $CUSTOMER_ID"
 
 echo ""

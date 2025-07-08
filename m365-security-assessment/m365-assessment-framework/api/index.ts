@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { TableStorageService } from "./shared/tableStorageService";
 import { GraphApiService } from "./shared/graphApiService";
+import { getKeyVaultService, KeyVaultService } from "./shared/keyVaultService";
 import { Customer } from "./shared/types";
 
 // CORS headers optimized for better performance
@@ -28,6 +29,7 @@ const CACHE_TTL = {
 // Initialize data services with connection pooling
 let tableStorageService: TableStorageService;
 let graphApiService: GraphApiService;
+let keyVaultService: KeyVaultService | null = null;
 let dataService: TableStorageService;
 let isDataServiceInitialized = false;
 let initializationPromise: Promise<void> | null = null;
@@ -76,30 +78,26 @@ async function initializeDataService(context: InvocationContext): Promise<void> 
                 throw new Error(`GraphApiService initialization failed: ${error instanceof Error ? error.message : error}`);
             }
             
+            // Initialize Key Vault service (optional - may not be available in all environments)
+            try {
+                keyVaultService = getKeyVaultService();
+                context.log('✅ KeyVaultService initialized successfully');
+            } catch (error) {
+                context.warn('⚠️ KeyVaultService not available (this is normal in development):', error);
+                keyVaultService = null;
+            }
+            
             const duration = Date.now() - startTime;
             context.log(`✅ Data services initialized successfully in ${duration}ms`);
             isDataServiceInitialized = true;
         } catch (error) {
             context.error('❌ Data services initialization failed:', error);
             initializationPromise = null; // Reset on failure
-            isDataServiceInitialized = false; // Reset flag
-            
-            // If it's a table/storage related error, provide helpful context
-            if (error instanceof Error && (error.message.includes('table') || error.message.includes('storage'))) {
-                throw new Error(`Storage initialization failed - tables may need to be recreated: ${error.message}`);
-            }
-            
             throw new Error(`Data services initialization failed: ${error instanceof Error ? error.message : error}`);
         }
     })();
     
     return initializationPromise;
-}
-
-// Function to reset data service state - useful when tables are cleared
-function resetDataServiceState(): void {
-    isDataServiceInitialized = false;
-    initializationPromise = null;
 }
 
 // Generate recommendations based on license and security data
@@ -295,130 +293,45 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
         if (request.method === 'GET') {
             context.log('Getting all customers from data service');
             
-            try {
-                const result = await dataService.getCustomers({
-                    status: 'active',
-                    maxItemCount: 100
-                });
-                
-                context.log('Retrieved customers from data service:', result.customers.length);
-                
-                // Transform customers to match frontend interface
-                const transformedCustomers = result.customers.map((customer: any) => {
-                    const appReg = customer.appRegistration || {};
-                    return {
-                        id: customer.id,
-                        tenantId: customer.tenantId || '',  // Use the actual tenant ID, not servicePrincipalId
-                        tenantName: customer.tenantName,
-                        tenantDomain: customer.tenantDomain,
-                        applicationId: appReg.applicationId || '',
-                        clientId: appReg.clientId || '',
-                        servicePrincipalId: appReg.servicePrincipalId || '',
-                        createdDate: customer.createdDate,
-                        lastAssessmentDate: customer.lastAssessmentDate,
-                        totalAssessments: customer.totalAssessments || 0,
-                        status: customer.status as 'active' | 'inactive' | 'pending',
-                        permissions: appReg.permissions || [],
-                        contactEmail: customer.contactEmail,
-                        notes: customer.notes
-                    };
-                });
-                
+            const result = await dataService.getCustomers({
+                status: 'active',
+                maxItemCount: 100
+            });
+            
+            context.log('Retrieved customers from data service:', result.customers.length);
+            
+            // Transform customers to match frontend interface
+            const transformedCustomers = result.customers.map((customer: any) => {
+                const appReg = customer.appRegistration || {};
                 return {
-                    status: 200,
-                    headers: corsHeaders,
-                    jsonBody: {
-                        success: true,
-                        data: transformedCustomers,
-                        count: transformedCustomers.length,
-                        timestamp: new Date().toISOString(),
-                        continuationToken: result.continuationToken
-                    }
+                    id: customer.id,
+                    tenantId: customer.tenantId || '',  // Use the actual tenant ID, not servicePrincipalId
+                    tenantName: customer.tenantName,
+                    tenantDomain: customer.tenantDomain,
+                    applicationId: appReg.applicationId || '',
+                    clientId: appReg.clientId || '',
+                    servicePrincipalId: appReg.servicePrincipalId || '',
+                    createdDate: customer.createdDate,
+                    lastAssessmentDate: customer.lastAssessmentDate,
+                    totalAssessments: customer.totalAssessments || 0,
+                    status: customer.status as 'active' | 'inactive' | 'pending',
+                    permissions: appReg.permissions || [],
+                    contactEmail: customer.contactEmail,
+                    notes: customer.notes
                 };
-            } catch (customerError) {
-                context.error('❌ Failed to retrieve customers:', customerError);
-                
-                // Check if it's a table initialization error
-                if (customerError instanceof Error && customerError.message.includes('table')) {
-                    context.log('🔧 Table initialization issue detected, attempting to reinitialize...');
-                    
-                    try {
-                        // Force re-initialization
-                        await dataService.initialize();
-                        
-                        // Retry the operation
-                        const result = await dataService.getCustomers({
-                            status: 'active',
-                            maxItemCount: 100
-                        });
-                        
-                        context.log('✅ Successfully retrieved customers after reinitializing:', result.customers.length);
-                        
-                        const transformedCustomers = result.customers.map((customer: any) => {
-                            const appReg = customer.appRegistration || {};
-                            return {
-                                id: customer.id,
-                                tenantId: customer.tenantId || '',
-                                tenantName: customer.tenantName,
-                                tenantDomain: customer.tenantDomain,
-                                applicationId: appReg.applicationId || '',
-                                clientId: appReg.clientId || '',
-                                servicePrincipalId: appReg.servicePrincipalId || '',
-                                createdDate: customer.createdDate,
-                                lastAssessmentDate: customer.lastAssessmentDate,
-                                totalAssessments: customer.totalAssessments || 0,
-                                status: customer.status as 'active' | 'inactive' | 'pending',
-                                permissions: appReg.permissions || [],
-                                contactEmail: customer.contactEmail,
-                                notes: customer.notes
-                            };
-                        });
-                        
-                        return {
-                            status: 200,
-                            headers: corsHeaders,
-                            jsonBody: {
-                                success: true,
-                                data: transformedCustomers,
-                                count: transformedCustomers.length,
-                                timestamp: new Date().toISOString(),
-                                continuationToken: result.continuationToken
-                            }
-                        };
-                    } catch (retryError) {
-                        context.error('❌ Retry failed:', retryError);
-                        
-                        return {
-                            status: 500,
-                            headers: corsHeaders,
-                            jsonBody: {
-                                success: false,
-                                error: "Failed to initialize storage tables",
-                                details: retryError instanceof Error ? retryError.message : "Unknown error",
-                                troubleshooting: [
-                                    'Check Azure Storage account connection string',
-                                    'Verify storage account exists and is accessible',
-                                    'Check environment variable: AZURE_STORAGE_CONNECTION_STRING',
-                                    'Tables were cleared - reinitializing automatically'
-                                ],
-                                timestamp: new Date().toISOString()
-                            }
-                        };
-                    }
+            });
+            
+            return {
+                status: 200,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: true,
+                    data: transformedCustomers,
+                    count: transformedCustomers.length,
+                    timestamp: new Date().toISOString(),
+                    continuationToken: result.continuationToken
                 }
-                
-                // For other errors, return generic error
-                return {
-                    status: 500,
-                    headers: corsHeaders,
-                    jsonBody: {
-                        success: false,
-                        error: "Failed to retrieve customers",
-                        details: customerError instanceof Error ? customerError.message : "Unknown error",
-                        timestamp: new Date().toISOString()
-                    }
-                };
-            }
+            };
         }
 
         if (request.method === 'POST') {
@@ -495,59 +408,205 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 tenantDomain: customerData.tenantDomain,
                 tenantId: targetTenantId,  // Include the actual tenant ID
                 contactEmail: customerData.contactEmail || '',
-                notes: customerData.notes || ''
+                notes: customerData.notes || '',
+                skipAutoAppRegistration: customerData.skipAutoAppRegistration || false
             };
 
-            context.log('🏢 Creating customer without auto app registration (will be created manually)');
-
-            // For now, skip automatic Azure AD app registration creation
-            // This should be done manually by the admin with proper permissions
-            let appRegistration = {
-                applicationId: `pending-${Date.now()}`,
-                clientId: `pending-${Date.now()}`,
-                servicePrincipalId: `pending-${Date.now()}`,
-                clientSecret: 'MANUAL_SETUP_REQUIRED',
-                consentUrl: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
-                redirectUri: process.env.REDIRECT_URI || "https://portal.azure.com/",
-                permissions: [
-                    // Minimal permissions for license and secure score assessment only
-                    'Organization.Read.All',      // Required for license data (/subscribedSkus)
-                    'SecurityEvents.Read.All'     // Required for secure score data (/security/secureScores, /security/secureScoreControlProfiles)
-                ]
-            };
-
-            context.log('⚠️ Skipping automatic Azure AD app registration - manual setup required');
-
-            const newCustomer = await dataService.createCustomer(customerRequest, {
-                applicationId: appRegistration.applicationId,
-                clientId: appRegistration.clientId,
-                servicePrincipalId: appRegistration.servicePrincipalId,
-                permissions: appRegistration.permissions,
-                clientSecret: appRegistration.clientSecret,
-                consentUrl: appRegistration.consentUrl,
-                redirectUri: appRegistration.redirectUri
-            });
+            const skipAutoRegistration = customerData.skipAutoAppRegistration === true;
             
-            context.log('✅ Customer and Azure AD app created successfully:', newCustomer.id);
+            if (skipAutoRegistration) {
+                context.log('🏢 Creating customer with manual app registration workflow');
+            } else {
+                context.log('🏢 Creating customer and triggering automatic Azure AD app registration');
+            }
+
+            // 1. Create customer with appropriate app registration setup
+            let appRegistration;
+            
+            if (skipAutoRegistration) {
+                // Manual setup - provide guidance for admin with real placeholder values
+                appRegistration = {
+                    applicationId: `app-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    clientId: `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    servicePrincipalId: `sp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    clientSecret: 'REPLACE_WITH_REAL_SECRET',
+                    consentUrl: `https://login.microsoftonline.com/${targetTenantId}/oauth2/v2.0/authorize?client_id=REPLACE_CLIENT_ID&response_type=code&redirect_uri=https%3A//portal.azure.com/&response_mode=query&scope=https://graph.microsoft.com/.default&state=12345&prompt=admin_consent`,
+                    redirectUri: process.env.REDIRECT_URI || "https://portal.azure.com/",
+                    permissions: [
+                        'Organization.Read.All',
+                        'SecurityEvents.Read.All',
+                        'Reports.Read.All',
+                        'Directory.Read.All',
+                        'Policy.Read.All',
+                        'IdentityRiskyUser.Read.All',
+                        'AuditLog.Read.All'
+                    ],
+                    isManualSetup: true,
+                    setupInstructions: [
+                        '1. Go to Azure Portal > App Registrations',
+                        '2. Create new registration with multi-tenant support',
+                        '3. Add required API permissions (listed above)',
+                        '4. Grant admin consent for your organization',
+                        '5. Generate client secret and update customer record',
+                        '6. Admin consent will be automatically granted during creation'
+                    ],
+                    setupStatus: 'pending',
+                    createdDate: new Date().toISOString()
+                };
+            } else {
+                // Automatic setup - create placeholder that will be replaced
+                appRegistration = {
+                    applicationId: `pending-${Date.now()}`,
+                    clientId: `pending-${Date.now()}`,
+                    servicePrincipalId: `pending-${Date.now()}`,
+                    clientSecret: 'MANUAL_SETUP_REQUIRED',
+                    consentUrl: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
+                    redirectUri: process.env.REDIRECT_URI || "https://portal.azure.com/",
+                    permissions: [
+                        'Organization.Read.All',
+                        'SecurityEvents.Read.All'
+                    ]
+                };
+            }
+
+            let newCustomer = await dataService.createCustomer(customerRequest, appRegistration);
+            
+            if (skipAutoRegistration) {
+                context.log('✅ Customer created with manual app registration setup:', newCustomer.id);
+            } else {
+                context.log('✅ Customer created with placeholder app registration:', newCustomer.id);
+            }
+
+            // Enhanced permissions for comprehensive assessment (defined outside try block for error handling)
+            const requiredPermissions = [
+                'Organization.Read.All',        // Required for license data
+                'SecurityEvents.Read.All',      // Required for secure score
+                'Reports.Read.All',             // Required for usage reports
+                'Directory.Read.All',           // Required for user/group data
+                'Policy.Read.All',              // Required for conditional access policies
+                'IdentityRiskyUser.Read.All',   // Required for identity protection
+                'AuditLog.Read.All'             // Required for audit logs
+            ];
+
+            // 2. Only trigger automatic app registration if not skipping
+            if (!skipAutoRegistration) {
+                try {
+                    context.log('🚀 Triggering real Azure AD app registration for new customer:', newCustomer.tenantDomain);
+                
+                // Validate required environment variables before attempting app registration
+                const azureClientId = process.env.AZURE_CLIENT_ID;
+                const azureClientSecret = process.env.AZURE_CLIENT_SECRET;
+                const azureTenantId = process.env.AZURE_TENANT_ID;
+
+                if (!azureClientId || !azureClientSecret || !azureTenantId) {
+                    throw new Error(`Missing Azure configuration: CLIENT_ID=${!!azureClientId}, CLIENT_SECRET=${!!azureClientSecret}, TENANT_ID=${!!azureTenantId}`);
+                }
+
+                const appRegResult = await graphApiService.createMultiTenantAppRegistration({
+                    tenantName: newCustomer.tenantName,
+                    tenantDomain: newCustomer.tenantDomain,
+                    targetTenantId: newCustomer.tenantId,
+                    contactEmail: newCustomer.contactEmail,
+                    requiredPermissions: requiredPermissions
+                });
+
+                // Store client secret securely in Key Vault if available
+                let storedSecret = appRegResult.clientSecret;
+                try {
+                    if (keyVaultService && keyVaultService.isInitialized) {
+                        await keyVaultService.storeClientSecret(
+                            newCustomer.id,
+                            newCustomer.tenantDomain,
+                            appRegResult.clientSecret
+                        );
+                        storedSecret = 'STORED_IN_KEY_VAULT';
+                        context.log('✅ Client secret stored securely in Key Vault');
+                    }
+                } catch (kvError) {
+                    context.log('⚠️ Failed to store secret in Key Vault, keeping in database:', kvError);
+                }
+
+                // Prepare app registration object for storage
+                const realAppReg = {
+                    applicationId: appRegResult.applicationId,
+                    clientId: appRegResult.clientId,
+                    servicePrincipalId: appRegResult.servicePrincipalId,
+                    clientSecret: storedSecret,
+                    tenantId: newCustomer.tenantId,
+                    consentUrl: appRegResult.consentUrl,
+                    authUrl: `https://login.microsoftonline.com/${newCustomer.tenantId}/oauth2/v2.0/authorize`,
+                    redirectUri: appRegResult.redirectUri,
+                    permissions: appRegResult.permissions,
+                    isReal: true,
+                    createdDate: new Date().toISOString(),
+                    secretExpiryDate: new Date(Date.now() + (2 * 365 * 24 * 60 * 60 * 1000)).toISOString() // 2 years
+                };
+
+                // Update customer with real app registration
+                newCustomer = await dataService.updateCustomer(newCustomer.id, {
+                    appRegistration: realAppReg
+                });
+                context.log('✅ Customer updated with real app registration:', newCustomer.id);
+                
+            } catch (err: any) {
+                context.log('❌ Failed to create real app registration for new customer:', err);
+                context.log('❌ Error details:', {
+                    message: err.message,
+                    code: err.code,
+                    stack: err.stack
+                });
+                
+                // Update customer with detailed error info for troubleshooting
+                const errorAppReg = {
+                    applicationId: 'ERROR_DURING_CREATION',
+                    clientId: 'ERROR_DURING_CREATION',
+                    servicePrincipalId: 'ERROR_DURING_CREATION',
+                    permissions: requiredPermissions, // Include the required permissions
+                    clientSecret: 'ERROR_DURING_CREATION',
+                    consentUrl: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
+                    error: err.message,
+                    errorCode: err.code,
+                    errorTimestamp: new Date().toISOString(),
+                    troubleshooting: [
+                        'Check Azure service principal configuration',
+                        'Verify AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID are set correctly',
+                        'Ensure service principal has Application.ReadWrite.All permission',
+                        'Verify admin consent has been granted for the service principal'
+                    ]
+                };
+                
+                try {
+                    newCustomer = await dataService.updateCustomer(newCustomer.id, {
+                        appRegistration: errorAppReg
+                    });
+                } catch (updateErr) {
+                    context.log('❌ Failed to update customer with error details:', updateErr);
+                }
+            } // End of automatic app registration try-catch block
+            } // End of skipAutoRegistration conditional
 
             // Transform customer data to match frontend interface
             const transformedCustomer = {
                 id: newCustomer.id,
-                tenantId: targetTenantId,
+                tenantId: newCustomer.tenantId,
                 tenantName: newCustomer.tenantName,
                 tenantDomain: newCustomer.tenantDomain,
-                applicationId: appRegistration.applicationId,
-                clientId: appRegistration.clientId,
-                servicePrincipalId: appRegistration.servicePrincipalId,
+                applicationId: newCustomer.appRegistration?.applicationId || '',
+                clientId: newCustomer.appRegistration?.clientId || '',
+                servicePrincipalId: newCustomer.appRegistration?.servicePrincipalId || '',
                 createdDate: newCustomer.createdDate,
-                lastAssessmentDate: undefined,
-                totalAssessments: 0,
+                lastAssessmentDate: newCustomer.lastAssessmentDate,
+                totalAssessments: newCustomer.totalAssessments || 0,
                 status: newCustomer.status as 'active' | 'inactive' | 'pending',
-                permissions: appRegistration.permissions,
+                permissions: newCustomer.appRegistration?.permissions || [],
                 contactEmail: newCustomer.contactEmail,
                 notes: newCustomer.notes,
-                consentUrl: appRegistration.consentUrl
+                consentUrl: newCustomer.appRegistration?.consentUrl || ''
             };
+
+            const successMessage = skipAutoRegistration 
+                ? 'Customer created successfully with manual app registration setup. Please follow the setup instructions in the customer record.'
+                : 'Customer created successfully. App registration has been triggered. Please complete admin consent.';
 
             return {
                 status: 201,
@@ -556,23 +615,9 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     success: true,
                     data: {
                         customer: transformedCustomer,
-                        appRegistration: {
-                            clientId: appRegistration.clientId,
-                            consentUrl: appRegistration.consentUrl,
-                            redirectUri: appRegistration.redirectUri,
-                            permissions: appRegistration.permissions
-                        },
-                        message: "Customer and Azure AD app registration created successfully",
-                        nextSteps: [
-                            "Customer created successfully in Table Storage",
-                            "⚠️ Azure AD app registration setup required manually:",
-                            "1. Go to Azure Portal > App Registrations",
-                            "2. Create new multi-tenant application", 
-                            "3. Add required Microsoft Graph API permissions",
-                            "4. Update customer record with app registration details",
-                            "5. Customer admin must consent to permissions"
-                        ]
-                    }
+                    },
+                    message: successMessage,
+                    isManualSetup: skipAutoRegistration
                 }
             };
         }
@@ -629,7 +674,7 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
                     details: initError instanceof Error ? initError.message : "Unknown initialization error",
                     troubleshooting: [
                         'Check Azure Storage connection string configuration',
-                        'Verify the storage account exists and is accessible',
+                        'Verify storage account exists and is accessible',
                         'Check environment variables: AzureWebJobsStorage or AZURE_STORAGE_CONNECTION_STRING'
                     ],
                     timestamp: new Date().toISOString()
@@ -1861,6 +1906,45 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
 
         context.log('✅ Real multi-tenant app created successfully:', appRegistration.clientId);
 
+        // Patch: Update or create customer record with real app registration details
+        let customer = null;
+        try {
+            // Get all customers and find by tenantId
+            const { customers } = await tableStorageService.getCustomers({});
+            customer = customers.find((c) => c.tenantId === actualTenantId);
+        } catch (err) {
+            context.log('⚠️ Could not fetch customers for tenantId lookup:', err);
+        }
+
+        if (customer) {
+            // Update existing customer with real app registration
+            try {
+                customer = await tableStorageService.updateCustomer(customer.id, {
+                    tenantId: actualTenantId,
+                    tenantName: customer.tenantName,
+                    tenantDomain: customer.tenantDomain,
+                    contactEmail: customer.contactEmail,
+                    appRegistration: response
+                });
+                context.log('✅ Customer updated with real app registration:', customer.id);
+            } catch (err) {
+                context.log('❌ Failed to update customer with real app registration:', err);
+            }
+        } else {
+            // Create new customer with real app registration
+            try {
+                customer = await tableStorageService.createCustomer({
+                    tenantId: actualTenantId,
+                    tenantName: tenantName || targetTenantDomain || actualTenantId,
+                    tenantDomain: targetTenantDomain || 'unknown.onmicrosoft.com',
+                    contactEmail: contactEmail || '',
+                }, response);
+                context.log('✅ Customer created with real app registration:', customer.id);
+            } catch (err) {
+                context.log('❌ Failed to create customer with real app registration:', err);
+            }
+        }
+
         // Create success message with domain resolution info
         let successMessage = 'Azure AD app registration created successfully. Admin consent is required in the target tenant.';
         if (actualTenantId !== finalTenantId) {
@@ -1873,6 +1957,7 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
             jsonBody: {
                 success: true,
                 data: response,
+                customer,
                 message: successMessage
             }
         };

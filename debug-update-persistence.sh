@@ -63,18 +63,22 @@ echo ""
 echo "🧪 Testing customer update via API..."
 
 # Test customer update via API
-CUSTOMER_ID="test-customer-$(date +%s)"
-
-# Create test customer first
-echo "📝 Creating test customer: $CUSTOMER_ID"
-curl -s -X POST http://localhost:7071/api/customers \
+echo "📝 Creating test customer..."
+CREATE_RESPONSE=$(curl -s -X POST http://localhost:7071/api/customers \
   -H "Content-Type: application/json" \
   -d "{
-    \"tenantName\": \"Test Customer for Update\",
-    \"tenantDomain\": \"testupdate.onmicrosoft.com\",
+    \"tenantName\": \"Test Customer for Update $(date +%s)\",
+    \"tenantDomain\": \"testupdate$(date +%s).onmicrosoft.com\",
     \"contactEmail\": \"test@testupdate.com\",
     \"manual\": true
-  }" | jq '.'
+  }")
+
+echo "Create Response:"
+echo "$CREATE_RESPONSE" | jq '.'
+
+# Extract the actual customer ID from the response
+CUSTOMER_ID=$(echo "$CREATE_RESPONSE" | jq -r '.data.customer.id // .data.id // .existingCustomerId // "not-found"')
+echo "📋 Extracted Customer ID: $CUSTOMER_ID"
 
 echo ""
 echo "⏱️ Waiting 2 seconds for creation to complete..."
