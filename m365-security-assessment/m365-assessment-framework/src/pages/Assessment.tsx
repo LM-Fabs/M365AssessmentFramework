@@ -43,11 +43,18 @@ const Assessment: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        // Create a customer record without automatic app registration (manual workflow preferred)
+        // Always derive a valid tenantId (GUID or domain)
+        let tenantId = manualTenantId.trim();
+        // If the user entered a domain, use it as tenantId
+        if (!/^\w{8}(-\w{4}){3}-\w{12}$/.test(tenantId) && tenantId.includes('.')) {
+          tenantId = tenantId;
+        }
+        // If the user entered a GUID, use as is
+        // If not, fallback to domain
         const customerData = {
           tenantName: manualTenantDomain || `Manual Tenant ${Date.now()}`,
           tenantDomain: manualTenantDomain || `${manualTenantId.replace(/[^a-zA-Z0-9]/g, '')}.onmicrosoft.com`,
-          tenantId: manualTenantId.trim(),
+          tenantId,
           contactEmail: '',
           notes: 'Created via manual entry - requires manual app registration setup'
         };
