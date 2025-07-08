@@ -124,8 +124,8 @@ const BestPractices: React.FC = () => {
       const customerAssessments = assessments.filter(a => a.tenantId === selectedCustomer.tenantId);
       
       if (customerAssessments.length === 0) {
-        setError('No assessments found for this customer. Create an assessment first.');
-        setComparisonResults([]);
+        setError(null); // Clear any previous errors
+        generateFallbackComparison(); // Generate fallback comparison data
         return;
       }
 
@@ -144,23 +144,33 @@ const BestPractices: React.FC = () => {
         let improvement = '';
 
         // Extract customer value based on practice type
-        if (practice.id === 'license-utilization' && latestAssessment.metrics?.realData?.licenseInfo) {
-          const licenseInfo = latestAssessment.metrics.realData.licenseInfo;
-          customerValue = licenseInfo.utilizationRate || 
-            (licenseInfo.totalLicenses > 0 ? (licenseInfo.assignedLicenses / licenseInfo.totalLicenses) * 100 : 0);
-        } else if (practice.id === 'secure-score' && latestAssessment.metrics?.realData?.secureScore) {
-          const secureScore = latestAssessment.metrics.realData.secureScore;
-          customerValue = Math.round(((secureScore.currentScore || 0) / (secureScore.maxScore || 100)) * 100);
-        } else if (practice.id === 'mfa-coverage' && latestAssessment.metrics?.realData?.secureScore) {
+        if (practice.id === 'license-utilization') {
+          // Check multiple sources for license data
+          const licenseInfo = latestAssessment.metrics?.realData?.licenseInfo || latestAssessment.metrics?.license;
+          if (licenseInfo) {
+            customerValue = licenseInfo.utilizationRate || 
+              (licenseInfo.totalLicenses > 0 ? (licenseInfo.assignedLicenses / licenseInfo.totalLicenses) * 100 : 0);
+          }
+        } else if (practice.id === 'secure-score') {
+          // Check multiple sources for secure score data
+          const secureScore = latestAssessment.metrics?.realData?.secureScore || latestAssessment.metrics?.secureScore;
+          if (secureScore) {
+            customerValue = Math.round(((secureScore.currentScore || 0) / (secureScore.maxScore || 100)) * 100);
+          }
+        } else if (practice.id === 'mfa-coverage') {
           // For MFA coverage, we'll derive it from secure score data if available
           // This is a simplified approach - in a real implementation, you'd get this from Graph API
-          const secureScore = latestAssessment.metrics.realData.secureScore;
-          customerValue = Math.min(secureScore.currentScore / secureScore.maxScore * 100, 100) || 0;
-        } else if (practice.id === 'admin-mfa' && latestAssessment.metrics?.realData?.secureScore) {
+          const secureScore = latestAssessment.metrics?.realData?.secureScore || latestAssessment.metrics?.secureScore;
+          if (secureScore) {
+            customerValue = Math.min(secureScore.currentScore / secureScore.maxScore * 100, 100) || 0;
+          }
+        } else if (practice.id === 'admin-mfa') {
           // For admin MFA, we'll use a similar approach
           // In a real implementation, this would be calculated specifically for admin users
-          const secureScore = latestAssessment.metrics.realData.secureScore;
-          customerValue = Math.min(secureScore.currentScore / secureScore.maxScore * 100, 100) || 0;
+          const secureScore = latestAssessment.metrics?.realData?.secureScore || latestAssessment.metrics?.secureScore;
+          if (secureScore) {
+            customerValue = Math.min(secureScore.currentScore / secureScore.maxScore * 100, 100) || 0;
+          }
         }
 
         const gap = practice.benchmark - customerValue;
@@ -197,6 +207,18 @@ const BestPractices: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const generateFallbackComparison = () => {
+    const fallbackResults: ComparisonResult[] = bestPractices.map(practice => ({
+      practice,
+      customerValue: 0,
+      gap: practice.benchmark,
+      status: 'critical' as const,
+      improvement: 'No assessment data available. Create an assessment to see your organization\'s performance against this benchmark.'
+    }));
+
+    setComparisonResults(fallbackResults);
   };
 
   const getStatusColor = (status: ComparisonResult['status']) => {

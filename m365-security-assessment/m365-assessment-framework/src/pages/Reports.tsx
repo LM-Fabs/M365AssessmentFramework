@@ -93,8 +93,9 @@ const Reports: React.FC = () => {
       const customerAssessments = assessments.filter(a => a.tenantId === selectedCustomer.tenantId);
       
       if (customerAssessments.length === 0) {
-        setError('No assessments found for this customer. Create an assessment first.');
-        setReportData([]);
+        setError(null); // Clear any previous errors
+        setCustomerAssessment(null);
+        generateFallbackData(); // Generate fallback data instead of showing error
         return;
       }
 
@@ -119,8 +120,10 @@ const Reports: React.FC = () => {
     const reports: ReportData[] = [];
 
     // License Management Report
-    if (assessment.metrics?.realData?.licenseInfo) {
-      const licenseInfo = assessment.metrics.realData.licenseInfo;
+    // Check multiple sources for license data
+    const licenseInfo = assessment.metrics?.realData?.licenseInfo || assessment.metrics?.license;
+    
+    if (licenseInfo) {
       const utilizationRate = licenseInfo.utilizationRate || 
         (licenseInfo.totalLicenses > 0 ? (licenseInfo.assignedLicenses / licenseInfo.totalLicenses) * 100 : 0);
 
@@ -132,7 +135,7 @@ const Reports: React.FC = () => {
           unutilizedLicenses: (licenseInfo.totalLicenses || 0) - (licenseInfo.assignedLicenses || 0),
           utilizationRate: Math.round(utilizationRate),
           costData: licenseInfo.costData || null,
-          licenseTypes: licenseInfo.licenseTypes || []
+          licenseTypes: licenseInfo.licenseTypes || licenseInfo.licenseDetails || []
         },
         charts: [
           {
@@ -146,9 +149,9 @@ const Reports: React.FC = () => {
           {
             type: 'bar',
             title: 'License Types Distribution',
-            data: (licenseInfo.licenseTypes || []).map((type: any, index: number) => ({
-              label: type.name || `License ${index + 1}`,
-              value: type.assignedCount || 0,
+            data: (licenseInfo.licenseTypes || licenseInfo.licenseDetails || []).map((type: any, index: number) => ({
+              label: type.name || type.skuDisplayName || `License ${index + 1}`,
+              value: type.assignedCount || type.assignedLicenses || 0,
               color: `hsl(${index * 60}, 70%, 60%)`
             }))
           }
@@ -167,9 +170,9 @@ const Reports: React.FC = () => {
     }
 
     // Secure Score Report
-    if (assessment.metrics?.realData?.secureScore) {
-      const secureScore = assessment.metrics.realData.secureScore;
-      
+    const secureScore = assessment.metrics?.realData?.secureScore || assessment.metrics?.secureScore;
+    
+    if (secureScore) {
       reports.push({
         category: 'secureScore',
         metrics: {
@@ -258,7 +261,187 @@ const Reports: React.FC = () => {
       ]
     });
 
+    // Ensure all categories are represented with fallback data if necessary
+    const allCategories = ['license', 'secureScore', 'identity', 'dataProtection', 'compliance'];
+    
+    allCategories.forEach(categoryId => {
+      if (!reports.find(r => r.category === categoryId)) {
+        // Add fallback data for missing categories
+        switch (categoryId) {
+          case 'dataProtection':
+            reports.push({
+              category: 'dataProtection',
+              metrics: {},
+              charts: [],
+              insights: [
+                'No data protection data available',
+                'Run an assessment to evaluate DLP policies',
+                'Data protection is essential for compliance'
+              ],
+              recommendations: [
+                'Create an assessment to gather data protection info',
+                'Implement data loss prevention policies',
+                'Configure data encryption',
+                'Review data governance policies'
+              ]
+            });
+            break;
+          case 'compliance':
+            reports.push({
+              category: 'compliance',
+              metrics: {},
+              charts: [],
+              insights: [
+                'No compliance data available',
+                'Run an assessment to check compliance status',
+                'Compliance monitoring helps avoid risks'
+              ],
+              recommendations: [
+                'Create an assessment to gather compliance data',
+                'Review regulatory requirements',
+                'Implement compliance policies',
+                'Schedule regular compliance audits'
+              ]
+            });
+            break;
+        }
+      }
+    });
+
     setReportData(reports);
+  };
+
+  const generateFallbackData = () => {
+    const fallbackReports: ReportData[] = [
+      {
+        category: 'license',
+        metrics: {
+          totalLicenses: 0,
+          assignedLicenses: 0,
+          unutilizedLicenses: 0,
+          utilizationRate: 0,
+          costData: null,
+          licenseTypes: []
+        },
+        charts: [
+          {
+            type: 'donut',
+            title: 'License Utilization',
+            data: [
+              { label: 'No data available', value: 1, color: '#e9ecef' }
+            ]
+          }
+        ],
+        insights: [
+          'No license data available for this customer',
+          'Run an assessment to collect license information',
+          'License analysis helps optimize costs and usage'
+        ],
+        recommendations: [
+          'Create an assessment to gather license data',
+          'Review license allocation policies',
+          'Monitor license usage regularly'
+        ]
+      },
+      {
+        category: 'secureScore',
+        metrics: {
+          currentScore: 0,
+          maxScore: 100,
+          percentage: 0,
+          controlsImplemented: 0,
+          totalControls: 0,
+          improvementActions: []
+        },
+        charts: [
+          {
+            type: 'gauge',
+            title: 'Security Score',
+            data: {
+              current: 0,
+              max: 100,
+              percentage: 0
+            }
+          }
+        ],
+        insights: [
+          'No security score data available',
+          'Run an assessment to evaluate security posture',
+          'Security scoring helps identify improvement areas'
+        ],
+        recommendations: [
+          'Create an assessment to gather security data',
+          'Enable multi-factor authentication',
+          'Configure conditional access policies',
+          'Review security settings regularly'
+        ]
+      },
+      {
+        category: 'identity',
+        metrics: {
+          totalUsers: 0,
+          mfaEnabledUsers: 0,
+          mfaCoverage: 0,
+          adminUsers: 0,
+          guestUsers: 0,
+          conditionalAccessPolicies: 0
+        },
+        charts: [
+          {
+            type: 'donut',
+            title: 'MFA Coverage',
+            data: [
+              { label: 'No data available', value: 1, color: '#e9ecef' }
+            ]
+          }
+        ],
+        insights: [
+          'No identity data available',
+          'Run an assessment to analyze user security',
+          'Identity management is crucial for security'
+        ],
+        recommendations: [
+          'Create an assessment to gather identity data',
+          'Enable MFA for all users',
+          'Implement conditional access policies',
+          'Review admin user permissions'
+        ]
+      },
+      {
+        category: 'dataProtection',
+        metrics: {},
+        charts: [],
+        insights: [
+          'No data protection data available',
+          'Run an assessment to evaluate DLP policies',
+          'Data protection is essential for compliance'
+        ],
+        recommendations: [
+          'Create an assessment to gather data protection info',
+          'Implement data loss prevention policies',
+          'Configure data encryption',
+          'Review data governance policies'
+        ]
+      },
+      {
+        category: 'compliance',
+        metrics: {},
+        charts: [],
+        insights: [
+          'No compliance data available',
+          'Run an assessment to check compliance status',
+          'Compliance monitoring helps avoid risks'
+        ],
+        recommendations: [
+          'Create an assessment to gather compliance data',
+          'Review regulatory requirements',
+          'Implement compliance policies',
+          'Schedule regular compliance audits'
+        ]
+      }
+    ];
+
+    setReportData(fallbackReports);
   };
 
   const getCurrentTabData = () => {
@@ -403,7 +586,6 @@ const Reports: React.FC = () => {
                 key={category.id}
                 className={`tab-button ${activeTab === category.id ? 'active' : ''}`}
                 onClick={() => setActiveTab(category.id)}
-                disabled={!reportData.find(r => r.category === category.id)}
               >
                 <span className="tab-icon">{category.icon}</span>
                 <span className="tab-label">{category.name}</span>
@@ -412,54 +594,68 @@ const Reports: React.FC = () => {
           </div>
 
           {/* Tab Content */}
-          {currentTabData && (
-            <div className="tab-content">
-              <div className="tab-header">
-                <h3>{securityCategories.find(c => c.id === activeTab)?.name}</h3>
-                <p>{securityCategories.find(c => c.id === activeTab)?.description}</p>
-              </div>
-
-              {/* Key Metrics */}
-              <div className="metrics-grid">
-                {Object.entries(currentTabData.metrics).map(([key, value]) => (
-                  <div key={key} className="metric-card">
-                    <div className="metric-label">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</div>
-                    <div className="metric-value">{typeof value === 'number' ? value.toLocaleString() : String(value)}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Charts */}
-              <div className="charts-grid">
-                {currentTabData.charts.map((chart, index) => (
-                  <div key={index} className="chart-card">
-                    {renderChart(chart)}
-                  </div>
-                ))}
-              </div>
-
-              {/* Insights and Recommendations */}
-              <div className="insights-recommendations">
-                <div className="insights-section">
-                  <h4>Key Insights</h4>
-                  <ul>
-                    {currentTabData.insights.map((insight, index) => (
-                      <li key={index}>{insight}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="recommendations-section">
-                  <h4>Recommendations</h4>
-                  <ul>
-                    {currentTabData.recommendations.map((recommendation, index) => (
-                      <li key={index}>{recommendation}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+          <div className="tab-content">
+            <div className="tab-header">
+              <h3>{securityCategories.find(c => c.id === activeTab)?.name}</h3>
+              <p>{securityCategories.find(c => c.id === activeTab)?.description}</p>
             </div>
-          )}
+
+            {currentTabData ? (
+              <>
+                {/* Key Metrics */}
+                {Object.keys(currentTabData.metrics).length > 0 && (
+                  <div className="metrics-grid">
+                    {Object.entries(currentTabData.metrics).map(([key, value]) => (
+                      <div key={key} className="metric-card">
+                        <div className="metric-label">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</div>
+                        <div className="metric-value">{typeof value === 'number' ? value.toLocaleString() : String(value)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Charts */}
+                {currentTabData.charts.length > 0 && (
+                  <div className="charts-grid">
+                    {currentTabData.charts.map((chart, index) => (
+                      <div key={index} className="chart-card">
+                        {renderChart(chart)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Insights and Recommendations */}
+                <div className="insights-recommendations">
+                  <div className="insights-section">
+                    <h4>Key Insights</h4>
+                    <ul>
+                      {currentTabData.insights.map((insight, index) => (
+                        <li key={index}>{insight}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="recommendations-section">
+                    <h4>Recommendations</h4>
+                    <ul>
+                      {currentTabData.recommendations.map((recommendation, index) => (
+                        <li key={index}>{recommendation}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="no-tab-data">
+                <div className="no-data-message">
+                  <h4>No Data Available</h4>
+                  <p>This security category requires an assessment to display information.</p>
+                  <p>Create an assessment for {selectedCustomer.tenantName} to see detailed analysis here.</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
