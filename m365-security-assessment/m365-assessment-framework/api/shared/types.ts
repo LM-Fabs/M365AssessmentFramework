@@ -49,6 +49,7 @@ export interface CreateCustomerRequest {
     tenantId?: string;  // Optional tenant ID
     contactEmail?: string;
     notes?: string;
+    skipAutoAppRegistration?: boolean;  // Flag to skip automatic app registration
 }
 
 export interface AppRegistrationResult {
