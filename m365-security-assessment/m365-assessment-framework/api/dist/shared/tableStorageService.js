@@ -214,9 +214,21 @@ class TableStorageService {
     async updateCustomer(customerId, updates) {
         await this.initialize();
         try {
+            console.log('🔄 TableStorageService: Updating customer:', customerId);
+            console.log('📝 TableStorageService: Update data:', JSON.stringify(updates, null, 2));
             // First get the existing customer
             const existingEntity = await this.customersTable.getEntity('customer', customerId);
-            // Create updated entity
+            console.log('📊 TableStorageService: Existing entity:', JSON.stringify(existingEntity, null, 2));
+            // Handle app registration update with special logging
+            let newAppRegistration;
+            if (updates.appRegistration) {
+                console.log('🔧 TableStorageService: Updating app registration with:', JSON.stringify(updates.appRegistration, null, 2));
+                newAppRegistration = JSON.stringify(updates.appRegistration);
+            }
+            else {
+                newAppRegistration = existingEntity.appRegistration;
+            }
+            // Create updated entity - use Replace mode to ensure all changes are persisted
             const updatedEntity = {
                 partitionKey: 'customer',
                 rowKey: customerId,
@@ -231,13 +243,24 @@ class TableStorageService {
                     ? (updates.lastAssessmentDate instanceof Date ? updates.lastAssessmentDate.toISOString() : updates.lastAssessmentDate)
                     : existingEntity.lastAssessmentDate,
                 totalAssessments: updates.totalAssessments ?? existingEntity.totalAssessments ?? 0,
-                appRegistration: updates.appRegistration
-                    ? JSON.stringify(updates.appRegistration)
-                    : existingEntity.appRegistration
+                appRegistration: newAppRegistration
             };
-            // Update the entity (merge mode)
-            await this.customersTable.updateEntity(updatedEntity, 'Merge');
-            // Return the updated customer
+            console.log('💾 TableStorageService: Final entity to save:', JSON.stringify(updatedEntity, null, 2));
+            // Update the entity (Replace mode to ensure all changes are persisted)
+            await this.customersTable.updateEntity(updatedEntity, 'Replace');
+            console.log('✅ TableStorageService: Entity updated successfully');
+            // Verify the update by fetching the entity again
+            const verificationEntity = await this.customersTable.getEntity('customer', customerId);
+            console.log('🔍 TableStorageService: Verification - stored app registration:', verificationEntity.appRegistration);
+            // Return the updated customer with proper app registration parsing
+            let parsedAppRegistration;
+            try {
+                parsedAppRegistration = updatedEntity.appRegistration ? JSON.parse(updatedEntity.appRegistration) : undefined;
+            }
+            catch (parseError) {
+                console.error('❌ TableStorageService: Failed to parse app registration:', parseError);
+                parsedAppRegistration = undefined;
+            }
             return {
                 id: customerId,
                 tenantId: updatedEntity.tenantId, // Include tenant ID
@@ -249,10 +272,11 @@ class TableStorageService {
                 lastAssessmentDate: updatedEntity.lastAssessmentDate,
                 status: updatedEntity.status,
                 totalAssessments: updatedEntity.totalAssessments || 0,
-                appRegistration: JSON.parse(updatedEntity.appRegistration)
+                appRegistration: parsedAppRegistration
             };
         }
         catch (error) {
+            console.error('❌ TableStorageService: Failed to update customer:', error);
             if (error?.statusCode === 404) {
                 throw new Error('Customer not found');
             }
@@ -299,6 +323,25 @@ class TableStorageService {
         for await (const entity of iterator) {
             if (count >= maxItems)
                 break;
+            // Reconstruct chunked data
+            const metricsJson = this.reconstructChunkedData(entity, 'metrics');
+            const recommendationsJson = this.reconstructChunkedData(entity, 'recommendations');
+            let metrics;
+            let recommendations;
+            try {
+                metrics = metricsJson ? JSON.parse(metricsJson) : undefined;
+            }
+            catch (e) {
+                console.warn('Failed to parse metrics JSON:', e);
+                metrics = undefined;
+            }
+            try {
+                recommendations = recommendationsJson ? JSON.parse(recommendationsJson) : undefined;
+            }
+            catch (e) {
+                console.warn('Failed to parse recommendations JSON:', e);
+                recommendations = undefined;
+            }
             assessments.push({
                 id: entity.rowKey,
                 customerId: entity.customerId,
@@ -306,8 +349,8 @@ class TableStorageService {
                 date: new Date(entity.date),
                 status: entity.status,
                 score: entity.score,
-                metrics: entity.metrics ? JSON.parse(entity.metrics) : undefined,
-                recommendations: entity.recommendations ? JSON.parse(entity.recommendations) : undefined
+                metrics,
+                recommendations
             });
             count++;
         }
@@ -333,12 +376,41 @@ class TableStorageService {
             tenantId: assessment.tenantId,
             date: assessment.date.toISOString(),
             status: assessment.status,
-            score: assessment.score,
-            metrics: JSON.stringify(assessment.metrics || {}),
-            recommendations: JSON.stringify(assessment.recommendations || [])
+            score: assessment.score
         };
-        await this.assessmentsTable.createEntity(entity);
-        return assessment;
+        // Handle large data with chunking to avoid 64KB limit
+        const metricsJson = JSON.stringify(assessment.metrics || {});
+        const recommendationsJson = JSON.stringify(assessment.recommendations || []);
+        console.log(`📊 Assessment data sizes - Metrics: ${metricsJson.length} chars, Recommendations: ${recommendationsJson.length} chars`);
+        this.prepareLargeDataForStorage(entity, 'metrics', metricsJson);
+        this.prepareLargeDataForStorage(entity, 'recommendations', recommendationsJson);
+        try {
+            await this.assessmentsTable.createEntity(entity);
+            console.log('✅ Assessment created successfully with chunked data support');
+            return assessment;
+        }
+        catch (error) {
+            console.error('❌ Failed to create assessment:', error);
+            // If still failing due to size, create a minimal assessment
+            if (error.message?.includes('PropertyValueTooLarge') || error.message?.includes('64KB')) {
+                console.log('⚠️ Creating minimal assessment due to size constraints');
+                const minimalEntity = {
+                    partitionKey: 'assessment',
+                    rowKey: assessmentId,
+                    customerId: assessment.customerId,
+                    tenantId: assessment.tenantId,
+                    date: assessment.date.toISOString(),
+                    status: 'completed_with_size_limit',
+                    score: assessment.score,
+                    metrics: '{"error":"Data too large for storage"}',
+                    recommendations: '[]',
+                    dataSizeError: true
+                };
+                await this.assessmentsTable.createEntity(minimalEntity);
+                return assessment;
+            }
+            throw error;
+        }
     }
     async updateAssessment(assessmentId, customerId, assessmentData) {
         await this.initialize();
@@ -349,11 +421,39 @@ class TableStorageService {
             tenantId: assessmentData.tenantId || '',
             date: new Date().toISOString(),
             status: assessmentData.status || 'completed',
-            score: assessmentData.score || 0,
-            metrics: JSON.stringify(assessmentData.metrics || {}),
-            recommendations: JSON.stringify(assessmentData.recommendations || [])
+            score: assessmentData.score || 0
         };
-        await this.assessmentsTable.updateEntity(entity, 'Replace');
+        // Handle large data with chunking to avoid 64KB limit
+        const metricsJson = JSON.stringify(assessmentData.metrics || {});
+        const recommendationsJson = JSON.stringify(assessmentData.recommendations || []);
+        this.prepareLargeDataForStorage(entity, 'metrics', metricsJson);
+        this.prepareLargeDataForStorage(entity, 'recommendations', recommendationsJson);
+        try {
+            await this.assessmentsTable.updateEntity(entity, 'Replace');
+        }
+        catch (error) {
+            console.error('❌ Failed to update assessment:', error);
+            // If still failing due to size, update with minimal data
+            if (error.message?.includes('PropertyValueTooLarge') || error.message?.includes('64KB')) {
+                console.log('⚠️ Updating with minimal assessment due to size constraints');
+                const minimalEntity = {
+                    partitionKey: 'assessment',
+                    rowKey: assessmentId,
+                    customerId: customerId,
+                    tenantId: assessmentData.tenantId || '',
+                    date: new Date().toISOString(),
+                    status: 'completed_with_size_limit',
+                    score: assessmentData.score || 0,
+                    metrics: '{"error":"Data too large for storage"}',
+                    recommendations: '[]',
+                    dataSizeError: true
+                };
+                await this.assessmentsTable.updateEntity(minimalEntity, 'Replace');
+            }
+            else {
+                throw error;
+            }
+        }
         return {
             id: assessmentId,
             customerId: customerId,
@@ -490,6 +590,55 @@ class TableStorageService {
             });
         }
         return history.sort((a, b) => b.date.getTime() - a.date.getTime());
+    }
+    /**
+     * Helper method to chunk large string data into smaller pieces for Azure Table Storage
+     * Azure Table Storage has a 64KB limit per property
+     */
+    chunkLargeData(data, maxSize = 60000) {
+        if (data.length <= maxSize) {
+            return { chunks: [data], isChunked: false };
+        }
+        const chunks = [];
+        for (let i = 0; i < data.length; i += maxSize) {
+            chunks.push(data.substring(i, i + maxSize));
+        }
+        return { chunks, isChunked: true };
+    }
+    /**
+     * Helper method to reconstruct chunked data
+     */
+    reconstructChunkedData(entity, propertyName) {
+        if (entity[`${propertyName}_isChunked`]) {
+            const chunkCount = entity[`${propertyName}_chunkCount`] || 0;
+            let reconstructed = '';
+            for (let i = 0; i < chunkCount; i++) {
+                reconstructed += entity[`${propertyName}_chunk${i}`] || '';
+            }
+            return reconstructed;
+        }
+        return entity[propertyName] || '';
+    }
+    /**
+     * Helper method to store large data with chunking support
+     */
+    prepareLargeDataForStorage(entity, propertyName, data) {
+        const { chunks, isChunked } = this.chunkLargeData(data);
+        if (isChunked) {
+            // Store chunked data
+            entity[`${propertyName}_isChunked`] = true;
+            entity[`${propertyName}_chunkCount`] = chunks.length;
+            chunks.forEach((chunk, index) => {
+                entity[`${propertyName}_chunk${index}`] = chunk;
+            });
+            // Remove the original property to avoid confusion
+            delete entity[propertyName];
+        }
+        else {
+            // Store as single property
+            entity[propertyName] = data;
+            entity[`${propertyName}_isChunked`] = false;
+        }
     }
 }
 exports.TableStorageService = TableStorageService;

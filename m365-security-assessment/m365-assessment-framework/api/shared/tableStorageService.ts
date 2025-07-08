@@ -406,6 +406,27 @@ export class TableStorageService {
         for await (const entity of iterator) {
             if (count >= maxItems) break;
             
+            // Reconstruct chunked data
+            const metricsJson = this.reconstructChunkedData(entity, 'metrics');
+            const recommendationsJson = this.reconstructChunkedData(entity, 'recommendations');
+            
+            let metrics;
+            let recommendations;
+            
+            try {
+                metrics = metricsJson ? JSON.parse(metricsJson) : undefined;
+            } catch (e) {
+                console.warn('Failed to parse metrics JSON:', e);
+                metrics = undefined;
+            }
+            
+            try {
+                recommendations = recommendationsJson ? JSON.parse(recommendationsJson) : undefined;
+            } catch (e) {
+                console.warn('Failed to parse recommendations JSON:', e);
+                recommendations = undefined;
+            }
+            
             assessments.push({
                 id: entity.rowKey as string,
                 customerId: entity.customerId as string,
@@ -413,8 +434,8 @@ export class TableStorageService {
                 date: new Date(entity.date as string),
                 status: entity.status as string,
                 score: entity.score as number,
-                metrics: entity.metrics ? JSON.parse(entity.metrics as string) : undefined,
-                recommendations: entity.recommendations ? JSON.parse(entity.recommendations as string) : undefined
+                metrics,
+                recommendations
             });
             count++;
         }
@@ -444,13 +465,44 @@ export class TableStorageService {
             tenantId: assessment.tenantId,
             date: assessment.date.toISOString(),
             status: assessment.status,
-            score: assessment.score,
-            metrics: JSON.stringify(assessment.metrics || {}),
-            recommendations: JSON.stringify(assessment.recommendations || [])
+            score: assessment.score
         };
 
-        await this.assessmentsTable.createEntity(entity);
-        return assessment;
+        // Handle large data with chunking to avoid 64KB limit
+        const metricsJson = JSON.stringify(assessment.metrics || {});
+        const recommendationsJson = JSON.stringify(assessment.recommendations || []);
+        
+        console.log(`📊 Assessment data sizes - Metrics: ${metricsJson.length} chars, Recommendations: ${recommendationsJson.length} chars`);
+        
+        this.prepareLargeDataForStorage(entity, 'metrics', metricsJson);
+        this.prepareLargeDataForStorage(entity, 'recommendations', recommendationsJson);
+
+        try {
+            await this.assessmentsTable.createEntity(entity);
+            console.log('✅ Assessment created successfully with chunked data support');
+            return assessment;
+        } catch (error: any) {
+            console.error('❌ Failed to create assessment:', error);
+            // If still failing due to size, create a minimal assessment
+            if (error.message?.includes('PropertyValueTooLarge') || error.message?.includes('64KB')) {
+                console.log('⚠️ Creating minimal assessment due to size constraints');
+                const minimalEntity = {
+                    partitionKey: 'assessment',
+                    rowKey: assessmentId,
+                    customerId: assessment.customerId,
+                    tenantId: assessment.tenantId,
+                    date: assessment.date.toISOString(),
+                    status: 'completed_with_size_limit',
+                    score: assessment.score,
+                    metrics: '{"error":"Data too large for storage"}',
+                    recommendations: '[]',
+                    dataSizeError: true
+                };
+                await this.assessmentsTable.createEntity(minimalEntity);
+                return assessment;
+            }
+            throw error;
+        }
     }
 
     async updateAssessment(assessmentId: string, customerId: string, assessmentData: any): Promise<Assessment> {
@@ -463,12 +515,40 @@ export class TableStorageService {
             tenantId: assessmentData.tenantId || '',
             date: new Date().toISOString(),
             status: assessmentData.status || 'completed',
-            score: assessmentData.score || 0,
-            metrics: JSON.stringify(assessmentData.metrics || {}),
-            recommendations: JSON.stringify(assessmentData.recommendations || [])
+            score: assessmentData.score || 0
         };
 
-        await this.assessmentsTable.updateEntity(entity, 'Replace');
+        // Handle large data with chunking to avoid 64KB limit
+        const metricsJson = JSON.stringify(assessmentData.metrics || {});
+        const recommendationsJson = JSON.stringify(assessmentData.recommendations || []);
+        
+        this.prepareLargeDataForStorage(entity, 'metrics', metricsJson);
+        this.prepareLargeDataForStorage(entity, 'recommendations', recommendationsJson);
+
+        try {
+            await this.assessmentsTable.updateEntity(entity, 'Replace');
+        } catch (error: any) {
+            console.error('❌ Failed to update assessment:', error);
+            // If still failing due to size, update with minimal data
+            if (error.message?.includes('PropertyValueTooLarge') || error.message?.includes('64KB')) {
+                console.log('⚠️ Updating with minimal assessment due to size constraints');
+                const minimalEntity = {
+                    partitionKey: 'assessment',
+                    rowKey: assessmentId,
+                    customerId: customerId,
+                    tenantId: assessmentData.tenantId || '',
+                    date: new Date().toISOString(),
+                    status: 'completed_with_size_limit',
+                    score: assessmentData.score || 0,
+                    metrics: '{"error":"Data too large for storage"}',
+                    recommendations: '[]',
+                    dataSizeError: true
+                };
+                await this.assessmentsTable.updateEntity(minimalEntity, 'Replace');
+            } else {
+                throw error;
+            }
+        }
         
         return {
             id: assessmentId,
@@ -637,5 +717,59 @@ export class TableStorageService {
         }
 
         return history.sort((a, b) => b.date.getTime() - a.date.getTime());
+    }
+
+    /**
+     * Helper method to chunk large string data into smaller pieces for Azure Table Storage
+     * Azure Table Storage has a 64KB limit per property
+     */
+    private chunkLargeData(data: string, maxSize: number = 60000): { chunks: string[], isChunked: boolean } {
+        if (data.length <= maxSize) {
+            return { chunks: [data], isChunked: false };
+        }
+
+        const chunks: string[] = [];
+        for (let i = 0; i < data.length; i += maxSize) {
+            chunks.push(data.substring(i, i + maxSize));
+        }
+        
+        return { chunks, isChunked: true };
+    }
+
+    /**
+     * Helper method to reconstruct chunked data
+     */
+    private reconstructChunkedData(entity: any, propertyName: string): string {
+        if (entity[`${propertyName}_isChunked`]) {
+            const chunkCount = entity[`${propertyName}_chunkCount`] || 0;
+            let reconstructed = '';
+            for (let i = 0; i < chunkCount; i++) {
+                reconstructed += entity[`${propertyName}_chunk${i}`] || '';
+            }
+            return reconstructed;
+        }
+        return entity[propertyName] || '';
+    }
+
+    /**
+     * Helper method to store large data with chunking support
+     */
+    private prepareLargeDataForStorage(entity: any, propertyName: string, data: string): void {
+        const { chunks, isChunked } = this.chunkLargeData(data);
+        
+        if (isChunked) {
+            // Store chunked data
+            entity[`${propertyName}_isChunked`] = true;
+            entity[`${propertyName}_chunkCount`] = chunks.length;
+            chunks.forEach((chunk, index) => {
+                entity[`${propertyName}_chunk${index}`] = chunk;
+            });
+            // Remove the original property to avoid confusion
+            delete entity[propertyName];
+        } else {
+            // Store as single property
+            entity[propertyName] = data;
+            entity[`${propertyName}_isChunked`] = false;
+        }
     }
 }
