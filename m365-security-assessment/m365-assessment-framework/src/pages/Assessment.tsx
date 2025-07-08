@@ -169,7 +169,18 @@ const Assessment: React.FC = () => {
 
             <div className="manual-entry-section">
               <h3>Add New Customer</h3>
-              <p>Register a new customer with automatic Azure AD app registration for assessments:</p>
+              <div className="info-box">
+                <h4>🔧 Manual App Registration Workflow</h4>
+                <p>This system uses a <strong>manual app registration process</strong> for reliability and security:</p>
+                <ol>
+                  <li><strong>Create customer record</strong> - Enter tenant details below</li>
+                  <li><strong>Manual Azure AD setup</strong> - Create app registration in Azure Portal</li>
+                  <li><strong>Configure permissions</strong> - Add required Microsoft Graph permissions</li>
+                  <li><strong>Admin consent</strong> - Customer admin grants permissions</li>
+                  <li><strong>Update customer</strong> - Add app registration details to customer record</li>
+                </ol>
+                <p>📋 See <strong>MANUAL-APP-REGISTRATION-GUIDE.md</strong> for detailed instructions.</p>
+              </div>
               
               <div className="manual-form">
                 <div className="form-group">
@@ -203,11 +214,13 @@ const Assessment: React.FC = () => {
                   <div>
                     <strong>What happens next:</strong>
                     <ul>
-                      <li>A real Azure AD app registration will be created automatically</li>
-                      <li>The customer will be added to your customers list</li>
-                      <li>Admin consent will be required before assessments can run</li>
-                      <li>You'll receive a consent URL for the customer admin</li>
+                      <li>A customer record will be created with manual setup instructions</li>
+                      <li>You'll need to create an Azure AD app registration manually</li>
+                      <li>Configure the required Microsoft Graph API permissions</li>
+                      <li>Customer admin must grant consent for the permissions</li>
+                      <li>Update the customer record with app registration details</li>
                     </ul>
+                    <p><strong>📋 Manual setup is recommended for production environments</strong></p>
                   </div>
                 </div>
 
@@ -216,7 +229,7 @@ const Assessment: React.FC = () => {
                   onClick={handleManualEntry}
                   disabled={!manualTenantId.trim() || loading}
                 >
-                  {loading ? 'Creating Customer...' : 'Create Customer & Start Assessment'}
+                  {loading ? 'Creating Customer Record...' : 'Create Customer Record'}
                 </button>
               </div>
             </div>

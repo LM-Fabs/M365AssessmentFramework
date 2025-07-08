@@ -1,0 +1,241 @@
+/* App Registration Form Styles */
+.app-registration-form {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.form-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.form-header h3 {
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+}
+
+.form-header p {
+  color: #6c757d;
+  margin: 0;
+}
+
+.form-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  background: #f8f9fa;
+}
+
+.form-section h4 {
+  color: #495057;
+  margin-bottom: 1rem;
+  border-bottom: 2px solid #007bff;
+  padding-bottom: 0.5rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.form-input:invalid {
+  border-color: #dc3545;
+}
+
+.form-help {
+  display: block;
+  margin-top: 0.25rem;
+  color: #6c757d;
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+.consent-url-section {
+  background: #e7f3ff;
+  padding: 1rem;
+  border-radius: 6px;
+  border-left: 4px solid #007bff;
+}
+
+.consent-url {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.consent-url-input {
+  flex: 1;
+  font-family: 'Courier New', monospace;
+  font-size: 0.75rem;
+  background: #ffffff;
+}
+
+.copy-btn {
+  padding: 0.5rem 1rem;
+  white-space: nowrap;
+  font-size: 0.75rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #0056b3;
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #545b62;
+  transform: translateY(-1px);
+}
+
+.btn-secondary:disabled {
+  background-color: #adb5bd;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.error-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1rem;
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+  border-radius: 6px;
+  margin-bottom: 1.5rem;
+}
+
+.error-message span {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.error-message p {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.help-section {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #28a745;
+}
+
+.help-section h4 {
+  color: #155724;
+  margin-bottom: 1rem;
+}
+
+.help-section ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.help-section li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e9ecef;
+  font-size: 0.875rem;
+}
+
+.help-section li:last-child {
+  border-bottom: none;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .app-registration-form {
+    padding: 1rem;
+    margin: 1rem;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .consent-url {
+    flex-direction: column;
+  }
+  
+  .consent-url-input {
+    font-size: 0.7rem;
+  }
+}
+
+/* Focus management for accessibility */
+.form-input:focus-visible {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
