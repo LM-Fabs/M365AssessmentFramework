@@ -11,7 +11,7 @@ const identity_1 = require("@azure/identity");
  */
 class KeyVaultService {
     constructor() {
-        this.isInitialized = false;
+        this._isInitialized = false;
         // Use managed identity for authentication (Azure best practice)
         const credential = new identity_1.DefaultAzureCredential();
         // Get Key Vault URL from environment variables
@@ -20,7 +20,13 @@ class KeyVaultService {
             throw new Error("KEY_VAULT_URL environment variable is required");
         }
         this.client = new keyvault_secrets_1.SecretClient(keyVaultUrl, credential);
-        this.isInitialized = true;
+        this._isInitialized = true;
+    }
+    /**
+     * Check if Key Vault service is properly initialized
+     */
+    get isInitialized() {
+        return this._isInitialized;
     }
     /**
      * Store client secret for a customer's app registration

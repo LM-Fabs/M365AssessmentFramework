@@ -99,11 +99,17 @@ class GraphApiService {
             console.error('❌ GraphApiService:', errorMsg);
             throw new Error(errorMsg);
         }
+        // Validate client secret format (ensure it's the value, not the ID)
+        const clientSecret = process.env.AZURE_CLIENT_SECRET;
+        if (clientSecret.length < 30 || clientSecret.startsWith('~') === false) {
+            console.warn('⚠️ GraphApiService: Client secret appears to be in wrong format. Expected a long secret value starting with ~, got:', clientSecret.substring(0, 10) + '...');
+        }
         // Use service principal credentials for authentication
-        const credential = new identity_1.ClientSecretCredential(process.env.AZURE_TENANT_ID, process.env.AZURE_CLIENT_ID, process.env.AZURE_CLIENT_SECRET);
+        const credential = new identity_1.ClientSecretCredential(process.env.AZURE_TENANT_ID, process.env.AZURE_CLIENT_ID, clientSecret);
         console.log('✅ GraphApiService: Using service principal authentication');
         console.log('🔧 GraphApiService: Tenant ID:', process.env.AZURE_TENANT_ID);
         console.log('🔧 GraphApiService: Client ID:', process.env.AZURE_CLIENT_ID?.substring(0, 8) + '...');
+        console.log('🔧 GraphApiService: Client Secret format check:', clientSecret.substring(0, 3) + '...' + clientSecret.substring(clientSecret.length - 3));
         // Initialize Microsoft Graph client with proper authentication
         this.graphClient = microsoft_graph_client_1.Client.initWithMiddleware({
             authProvider: {
