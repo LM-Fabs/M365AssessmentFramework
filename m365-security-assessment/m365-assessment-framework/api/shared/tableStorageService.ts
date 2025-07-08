@@ -282,10 +282,23 @@ export class TableStorageService {
         await this.initialize();
 
         try {
+            console.log('🔄 TableStorageService: Updating customer:', customerId);
+            console.log('📝 TableStorageService: Update data:', JSON.stringify(updates, null, 2));
+
             // First get the existing customer
             const existingEntity = await this.customersTable.getEntity('customer', customerId);
+            console.log('📊 TableStorageService: Existing entity:', JSON.stringify(existingEntity, null, 2));
             
-            // Create updated entity
+            // Handle app registration update with special logging
+            let newAppRegistration;
+            if (updates.appRegistration) {
+                console.log('🔧 TableStorageService: Updating app registration with:', JSON.stringify(updates.appRegistration, null, 2));
+                newAppRegistration = JSON.stringify(updates.appRegistration);
+            } else {
+                newAppRegistration = existingEntity.appRegistration;
+            }
+
+            // Create updated entity - use Replace mode to ensure all changes are persisted
             const updatedEntity = {
                 partitionKey: 'customer',
                 rowKey: customerId,
@@ -300,15 +313,28 @@ export class TableStorageService {
                     ? (updates.lastAssessmentDate instanceof Date ? updates.lastAssessmentDate.toISOString() : updates.lastAssessmentDate)
                     : existingEntity.lastAssessmentDate,
                 totalAssessments: updates.totalAssessments ?? existingEntity.totalAssessments ?? 0,
-                appRegistration: updates.appRegistration 
-                    ? JSON.stringify(updates.appRegistration)
-                    : existingEntity.appRegistration
+                appRegistration: newAppRegistration
             };
 
-            // Update the entity (merge mode)
-            await this.customersTable.updateEntity(updatedEntity, 'Merge');
+            console.log('💾 TableStorageService: Final entity to save:', JSON.stringify(updatedEntity, null, 2));
 
-            // Return the updated customer
+            // Update the entity (Replace mode to ensure all changes are persisted)
+            await this.customersTable.updateEntity(updatedEntity, 'Replace');
+            console.log('✅ TableStorageService: Entity updated successfully');
+
+            // Verify the update by fetching the entity again
+            const verificationEntity = await this.customersTable.getEntity('customer', customerId);
+            console.log('🔍 TableStorageService: Verification - stored app registration:', verificationEntity.appRegistration);
+
+            // Return the updated customer with proper app registration parsing
+            let parsedAppRegistration;
+            try {
+                parsedAppRegistration = updatedEntity.appRegistration ? JSON.parse(updatedEntity.appRegistration as string) : undefined;
+            } catch (parseError) {
+                console.error('❌ TableStorageService: Failed to parse app registration:', parseError);
+                parsedAppRegistration = undefined;
+            }
+
             return {
                 id: customerId,
                 tenantId: updatedEntity.tenantId as string,  // Include tenant ID
@@ -320,9 +346,10 @@ export class TableStorageService {
                 lastAssessmentDate: updatedEntity.lastAssessmentDate as string,
                 status: updatedEntity.status as string,
                 totalAssessments: (updatedEntity.totalAssessments as number) || 0,
-                appRegistration: JSON.parse(updatedEntity.appRegistration as string)
+                appRegistration: parsedAppRegistration
             };
         } catch (error) {
+            console.error('❌ TableStorageService: Failed to update customer:', error);
             if ((error as any)?.statusCode === 404) {
                 throw new Error('Customer not found');
             }
