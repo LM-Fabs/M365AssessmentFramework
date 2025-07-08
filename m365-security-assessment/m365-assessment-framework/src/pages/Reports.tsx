@@ -130,9 +130,9 @@ const Reports: React.FC = () => {
       );
 
       if (customerAssessments.length === 0) {
-        setError(null); // Clear any previous errors
+        setError('No assessment data available for this customer.');
         setCustomerAssessment(null);
-        generateFallbackData(); // Generate fallback data instead of showing error
+        setReportData([]);
         return;
       }
 
@@ -146,7 +146,7 @@ const Reports: React.FC = () => {
       if (!latestAssessment.metrics || typeof latestAssessment.metrics !== 'object') {
         setError('Assessment data is invalid or incomplete.');
         setCustomerAssessment(null);
-        generateFallbackData();
+        setReportData([]);
         return;
       }
 
@@ -165,17 +165,13 @@ const Reports: React.FC = () => {
     const reports: ReportData[] = [];
 
     // License Management Report
-    // Check multiple sources for license data, including plural fallback
     const licenseInfo =
       assessment.metrics?.realData?.licenseInfo ||
       assessment.metrics?.license ||
-      assessment.metrics?.licenses; // fallback for plural
+      assessment.metrics?.licenses;
 
-    // Defensive: skip if licenseInfo is empty, null, or not an object/array
     if (licenseInfo && (Array.isArray(licenseInfo) ? licenseInfo.length > 0 : typeof licenseInfo === 'object')) {
-      // Support both array and object (in case of legacy or backend mismatch)
       const info = Array.isArray(licenseInfo) ? licenseInfo[0] : licenseInfo;
-      // Defensive: skip if info is not an object or missing required fields
       if (info && typeof info === 'object' && (info.totalLicenses !== undefined || info.assignedLicenses !== undefined)) {
         const totalLicenses = Number(info.totalLicenses) || 0;
         const assignedLicenses = Number(info.assignedLicenses) || 0;
@@ -278,7 +274,6 @@ const Reports: React.FC = () => {
 
     // Identity & Access Report
     const identityMetrics = assessment.metrics?.realData?.identityMetrics || assessment.metrics?.identityMetrics || {};
-    // Defensive: only add if at least one key metric is present
     if (
       identityMetrics &&
       (identityMetrics.totalUsers !== undefined || identityMetrics.mfaEnabledUsers !== undefined || identityMetrics.adminUsers !== undefined)
@@ -332,288 +327,10 @@ const Reports: React.FC = () => {
       });
     }
 
-    // Ensure all categories are represented with fallback data if necessary
-    const allCategories = ['license', 'secureScore', 'identity', 'dataProtection', 'compliance'];
-
-    allCategories.forEach(categoryId => {
-      if (!reports.find(r => r.category === categoryId)) {
-        // Add fallback data for missing categories
-        switch (categoryId) {
-          case 'license':
-            reports.push({
-              category: 'license',
-              metrics: {
-                totalLicenses: 0,
-                assignedLicenses: 0,
-                unutilizedLicenses: 0,
-                utilizationRate: 0,
-                costData: null,
-                licenseTypes: []
-              },
-              charts: [
-                {
-                  type: 'donut',
-                  title: 'License Utilization',
-                  data: [
-                    { label: 'No data available', value: 1, color: '#e9ecef' }
-                  ]
-                }
-              ],
-              insights: [
-                'No license data available for this customer',
-                'Run an assessment to collect license information',
-                'License analysis helps optimize costs and usage'
-              ],
-              recommendations: [
-                'Create an assessment to gather license data',
-                'Review license allocation policies',
-                'Monitor license usage regularly'
-              ]
-            });
-            break;
-          case 'secureScore':
-            reports.push({
-              category: 'secureScore',
-              metrics: {
-                currentScore: 0,
-                maxScore: 100,
-                percentage: 0,
-                controlsImplemented: 0,
-                totalControls: 0,
-                improvementActions: []
-              },
-              charts: [
-                {
-                  type: 'gauge',
-                  title: 'Security Score',
-                  data: {
-                    current: 0,
-                    max: 100,
-                    percentage: 0
-                  }
-                }
-              ],
-              insights: [
-                'No security score data available',
-                'Run an assessment to evaluate security posture',
-                'Security scoring helps identify improvement areas'
-              ],
-              recommendations: [
-                'Create an assessment to gather security data',
-                'Enable multi-factor authentication',
-                'Configure conditional access policies',
-                'Review security settings regularly'
-              ]
-            });
-            break;
-          case 'identity':
-            reports.push({
-              category: 'identity',
-              metrics: {
-                totalUsers: 0,
-                mfaEnabledUsers: 0,
-                mfaCoverage: 0,
-                adminUsers: 0,
-                guestUsers: 0,
-                conditionalAccessPolicies: 0
-              },
-              charts: [
-                {
-                  type: 'donut',
-                  title: 'MFA Coverage',
-                  data: [
-                    { label: 'No data available', value: 1, color: '#e9ecef' }
-                  ]
-                }
-              ],
-              insights: [
-                'No identity data available',
-                'Run an assessment to analyze user security',
-                'Identity management is crucial for security'
-              ],
-              recommendations: [
-                'Create an assessment to gather identity data',
-                'Enable MFA for all users',
-                'Implement conditional access policies',
-                'Review admin user permissions'
-              ]
-            });
-            break;
-          case 'dataProtection':
-            reports.push({
-              category: 'dataProtection',
-              metrics: {},
-              charts: [],
-              insights: [
-                'No data protection data available',
-                'Run an assessment to evaluate DLP policies',
-                'Data protection is essential for compliance'
-              ],
-              recommendations: [
-                'Create an assessment to gather data protection info',
-                'Implement data loss prevention policies',
-                'Configure data encryption',
-                'Review data governance policies'
-              ]
-            });
-            break;
-          case 'compliance':
-            reports.push({
-              category: 'compliance',
-              metrics: {},
-              charts: [],
-              insights: [
-                'No compliance data available',
-                'Run an assessment to check compliance status',
-                'Compliance monitoring helps avoid risks'
-              ],
-              recommendations: [
-                'Create an assessment to gather compliance data',
-                'Review regulatory requirements',
-                'Implement compliance policies',
-                'Schedule regular compliance audits'
-              ]
-            });
-            break;
-        }
-      }
-    });
-
     setReportData(reports);
   };
 
-  const generateFallbackData = () => {
-    const fallbackReports: ReportData[] = [
-      {
-        category: 'license',
-        metrics: {
-          totalLicenses: 0,
-          assignedLicenses: 0,
-          unutilizedLicenses: 0,
-          utilizationRate: 0,
-          costData: null,
-          licenseTypes: []
-        },
-        charts: [
-          {
-            type: 'donut',
-            title: 'License Utilization',
-            data: [
-              { label: 'No data available', value: 1, color: '#e9ecef' }
-            ]
-          }
-        ],
-        insights: [
-          'No license data available for this customer',
-          'Run an assessment to collect license information',
-          'License analysis helps optimize costs and usage'
-        ],
-        recommendations: [
-          'Create an assessment to gather license data',
-          'Review license allocation policies',
-          'Monitor license usage regularly'
-        ]
-      },
-      {
-        category: 'secureScore',
-        metrics: {
-          currentScore: 0,
-          maxScore: 100,
-          percentage: 0,
-          controlsImplemented: 0,
-          totalControls: 0,
-          improvementActions: []
-        },
-        charts: [
-          {
-            type: 'gauge',
-            title: 'Security Score',
-            data: {
-              current: 0,
-              max: 100,
-              percentage: 0
-            }
-          }
-        ],
-        insights: [
-          'No security score data available',
-          'Run an assessment to evaluate security posture',
-          'Security scoring helps identify improvement areas'
-        ],
-        recommendations: [
-          'Create an assessment to gather security data',
-          'Enable multi-factor authentication',
-          'Configure conditional access policies',
-          'Review security settings regularly'
-        ]
-      },
-      {
-        category: 'identity',
-        metrics: {
-          totalUsers: 0,
-          mfaEnabledUsers: 0,
-          mfaCoverage: 0,
-          adminUsers: 0,
-          guestUsers: 0,
-          conditionalAccessPolicies: 0
-        },
-        charts: [
-          {
-            type: 'donut',
-            title: 'MFA Coverage',
-            data: [
-              { label: 'No data available', value: 1, color: '#e9ecef' }
-            ]
-          }
-        ],
-        insights: [
-          'No identity data available',
-          'Run an assessment to analyze user security',
-          'Identity management is crucial for security'
-        ],
-        recommendations: [
-          'Create an assessment to gather identity data',
-          'Enable MFA for all users',
-          'Implement conditional access policies',
-          'Review admin user permissions'
-        ]
-      },
-      {
-        category: 'dataProtection',
-        metrics: {},
-        charts: [],
-        insights: [
-          'No data protection data available',
-          'Run an assessment to evaluate DLP policies',
-          'Data protection is essential for compliance'
-        ],
-        recommendations: [
-          'Create an assessment to gather data protection info',
-          'Implement data loss prevention policies',
-          'Configure data encryption',
-          'Review data governance policies'
-        ]
-      },
-      {
-        category: 'compliance',
-        metrics: {},
-        charts: [],
-        insights: [
-          'No compliance data available',
-          'Run an assessment to check compliance status',
-          'Compliance monitoring helps avoid risks'
-        ],
-        recommendations: [
-          'Create an assessment to gather compliance data',
-          'Review regulatory requirements',
-          'Implement compliance policies',
-          'Schedule regular compliance audits'
-        ]
-      }
-    ];
-
-    setReportData(fallbackReports);
-  };
+  // REMOVED: generateFallbackData (no more mockup/fallback data)
 
   const getCurrentTabData = () => {
     return reportData.find(report => report.category === activeTab);
