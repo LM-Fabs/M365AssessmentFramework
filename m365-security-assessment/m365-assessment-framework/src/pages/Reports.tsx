@@ -27,6 +27,38 @@ const Reports: React.FC = () => {
   const [reportData, setReportData] = useState<ReportData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [creatingAssessment, setCreatingAssessment] = useState(false);
+  const [createAssessmentResult, setCreateAssessmentResult] = useState<string | null>(null);
+  // Utility: Test assessment creation for debugging API/store
+  const handleTestCreateAssessment = async () => {
+    setCreatingAssessment(true);
+    setCreateAssessmentResult(null);
+    setError(null);
+    try {
+      if (!selectedCustomer) {
+        setCreateAssessmentResult('No customer selected.');
+        setCreatingAssessment(false);
+        return;
+      }
+      const assessment = await AssessmentService.getInstance().createAssessmentForCustomer({
+        customerId: selectedCustomer.id,
+        tenantId: selectedCustomer.tenantId,
+        assessmentName: `Test Assessment ${new Date().toISOString()}`,
+        includedCategories: ['license', 'secureScore'],
+        notificationEmail: '', // No email property on Customer, use empty string
+        autoSchedule: false,
+        scheduleFrequency: 'monthly',
+      });
+      setCreateAssessmentResult(`Assessment created: ${assessment.id || JSON.stringify(assessment)}`);
+      // Optionally reload assessments
+      await loadCustomerAssessment();
+    } catch (err: any) {
+      setCreateAssessmentResult('Error creating assessment: ' + (err?.message || err?.toString()));
+      setError('Error creating assessment: ' + (err?.message || err?.toString()));
+    } finally {
+      setCreatingAssessment(false);
+    }
+  };
 
   const securityCategories: SecurityCategory[] = [
     {
@@ -687,6 +719,60 @@ const Reports: React.FC = () => {
           </select>
         </div>
       </div>
+
+
+      {/* Test Assessment Creation Button (for debugging API/store) */}
+      {selectedCustomer && (
+        <div style={{ margin: '1em 0' }}>
+          <button onClick={handleTestCreateAssessment} disabled={creatingAssessment} style={{ padding: '0.5em 1em', fontWeight: 'bold' }}>
+            {creatingAssessment ? 'Creating Test Assessment...' : 'Create Test Assessment (Debug)'}
+          </button>
+          {createAssessmentResult && (
+            <div style={{ marginTop: '0.5em', color: createAssessmentResult.startsWith('Error') ? 'red' : 'green' }}>
+              {createAssessmentResult}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* App Registration/Consent Data Issue Warning */}
+      {selectedCustomer && customerAssessment && customerAssessment.metrics && customerAssessment.metrics.dataIssue && (
+        <div className="data-issue-warning" style={{
+          background: '#fff3cd',
+          color: '#856404',
+          border: '1px solid #ffeeba',
+          borderRadius: '6px',
+          padding: '1em',
+          margin: '1em 0',
+          fontWeight: 'bold',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75em'
+        }}>
+          <span style={{ fontSize: '1.5em' }}>⚠️</span>
+          <div>
+            <div style={{ marginBottom: '0.5em' }}>
+              <strong>Assessment Data Issue:</strong> {customerAssessment.metrics.dataIssue}
+            </div>
+            <div>
+              <span>
+                This usually means the Microsoft 365 app registration for this customer is not set up or admin consent is missing.<br />
+                <b>Action required:</b> An admin must complete the app registration and grant admin consent for this customer to enable real data collection.<br />
+                <br />
+                <b>How to fix:</b>
+                <ol style={{ margin: '0.5em 0 0 1.5em' }}>
+                  <li>Go to the <b>Azure Portal</b> &rarr; <b>App registrations</b> and ensure the app is registered for this tenant.</li>
+                  <li>Grant <b>admin consent</b> for the required Microsoft Graph API permissions.</li>
+                  <li>Return to this dashboard and re-run the assessment.</li>
+                </ol>
+                If you need help, see the <a href="https://learn.microsoft.com/en-us/azure/active-directory/develop/quickstart-register-app" target="_blank" rel="noopener noreferrer">Microsoft Docs: Register an application</a>.<br />
+                <br />
+                <i>After completing these steps, create a new assessment to see real data.</i>
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Loading State */}
       {loading && (
