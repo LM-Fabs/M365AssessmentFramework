@@ -120,36 +120,41 @@ const Reports: React.FC = () => {
     const reports: ReportData[] = [];
 
     // License Management Report
-    // Check multiple sources for license data
-    const licenseInfo = assessment.metrics?.realData?.licenseInfo || assessment.metrics?.license;
-    
+    // Check multiple sources for license data, including plural fallback
+    const licenseInfo =
+      assessment.metrics?.realData?.licenseInfo ||
+      assessment.metrics?.license ||
+      assessment.metrics?.licenses; // fallback for plural
+
     if (licenseInfo) {
-      const utilizationRate = licenseInfo.utilizationRate || 
-        (licenseInfo.totalLicenses > 0 ? (licenseInfo.assignedLicenses / licenseInfo.totalLicenses) * 100 : 0);
+      // Support both array and object (in case of legacy or backend mismatch)
+      const info = Array.isArray(licenseInfo) ? licenseInfo[0] : licenseInfo;
+      const utilizationRate = info.utilizationRate ||
+        (info.totalLicenses > 0 ? (info.assignedLicenses / info.totalLicenses) * 100 : 0);
 
       reports.push({
         category: 'license',
         metrics: {
-          totalLicenses: licenseInfo.totalLicenses || 0,
-          assignedLicenses: licenseInfo.assignedLicenses || 0,
-          unutilizedLicenses: (licenseInfo.totalLicenses || 0) - (licenseInfo.assignedLicenses || 0),
+          totalLicenses: info.totalLicenses || 0,
+          assignedLicenses: info.assignedLicenses || 0,
+          unutilizedLicenses: (info.totalLicenses || 0) - (info.assignedLicenses || 0),
           utilizationRate: Math.round(utilizationRate),
-          costData: licenseInfo.costData || null,
-          licenseTypes: licenseInfo.licenseTypes || licenseInfo.licenseDetails || []
+          costData: info.costData || null,
+          licenseTypes: info.licenseTypes || info.licenseDetails || []
         },
         charts: [
           {
             type: 'donut',
             title: 'License Utilization',
             data: [
-              { label: 'Assigned', value: licenseInfo.assignedLicenses || 0, color: '#28a745' },
-              { label: 'Available', value: (licenseInfo.totalLicenses || 0) - (licenseInfo.assignedLicenses || 0), color: '#dc3545' }
+              { label: 'Assigned', value: info.assignedLicenses || 0, color: '#28a745' },
+              { label: 'Available', value: (info.totalLicenses || 0) - (info.assignedLicenses || 0), color: '#dc3545' }
             ]
           },
           {
             type: 'bar',
             title: 'License Types Distribution',
-            data: (licenseInfo.licenseTypes || licenseInfo.licenseDetails || []).map((type: any, index: number) => ({
+            data: (info.licenseTypes || info.licenseDetails || []).map((type: any, index: number) => ({
               label: type.name || type.skuDisplayName || `License ${index + 1}`,
               value: type.assignedCount || type.assignedLicenses || 0,
               color: `hsl(${index * 60}, 70%, 60%)`
@@ -158,7 +163,7 @@ const Reports: React.FC = () => {
         ],
         insights: [
           `License utilization is at ${Math.round(utilizationRate)}%`,
-          `${(licenseInfo.totalLicenses || 0) - (licenseInfo.assignedLicenses || 0)} licenses are currently unused`,
+          `${(info.totalLicenses || 0) - (info.assignedLicenses || 0)} licenses are currently unused`,
           utilizationRate < 60 ? 'Consider optimizing license allocation to reduce costs' : 'License utilization is within acceptable range'
         ],
         recommendations: [
