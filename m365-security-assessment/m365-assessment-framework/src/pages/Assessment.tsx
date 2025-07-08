@@ -153,13 +153,30 @@ const Assessment: React.FC = () => {
                           {customer.status}
                         </span>
                       </div>
-                      <p className="customer-domain">{customer.tenantDomain}</p>
-                      <p className="customer-id">ID: {customer.tenantId}</p>
-                      <div className="customer-stats">
-                        <span>📊 {customer.totalAssessments} assessments</span>
-                        {customer.lastAssessmentDate && (
-                          <span>📅 Last: {customer.lastAssessmentDate.toLocaleDateString()}</span>
-                        )}
+                      <div className="customer-details">
+                        <p className="customer-domain"><strong>Domain:</strong> {customer.tenantDomain}</p>
+                        <p className="customer-id"><strong>Tenant ID:</strong> {customer.tenantId}</p>
+                        <p className="app-registration">
+                          <strong>App Registration:</strong> {
+                            customer.clientId?.startsWith('pending-') ? 
+                              `${customer.clientId} (placeholder)` :
+                            customer.clientId?.startsWith('client-') ?
+                              `${customer.clientId} (manual setup)` :
+                            customer.clientId === 'MANUAL_SETUP_REQUIRED' ?
+                              'Manual setup required' :
+                            customer.clientId && customer.clientId.length > 10 ?
+                              `${customer.clientId.substring(0, 8)}...` :
+                              'Not configured'
+                          }
+                        </p>
+                        <div className="customer-stats">
+                          <span>📊 <strong>Previous Assessments:</strong> {customer.totalAssessments}</span>
+                          {customer.lastAssessmentDate ? (
+                            <span>📅 <strong>Last Assessment:</strong> {customer.lastAssessmentDate.toLocaleDateString()}</span>
+                          ) : (
+                            <span>📅 <strong>Last Assessment:</strong> No assessments</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -249,33 +266,63 @@ const Assessment: React.FC = () => {
           </div>
 
           {/* App Registration Status Check */}
-          {selectedCustomer.clientId && selectedCustomer.clientId.startsWith('pending-') && (
+          {selectedCustomer.clientId && (
+            selectedCustomer.clientId.startsWith('pending-') || 
+            selectedCustomer.clientId.startsWith('client-') ||
+            selectedCustomer.clientId === 'MANUAL_SETUP_REQUIRED' ||
+            selectedCustomer.clientId === 'REPLACE_WITH_REAL_SECRET'
+          ) && (
             <div className="app-registration-warning">
               <div className="warning-content">
                 <span className="warning-icon">⚠️</span>
                 <div className="warning-text">
-                  <h4>App Registration Setup Required</h4>
-                  <p>This customer has a placeholder app registration. A real Azure AD app registration is needed for assessments to work properly.</p>
+                  <h4>Manual App Registration Setup Required</h4>
+                  <p>This customer requires manual Azure AD app registration setup. The current app registration needs to be replaced with real values.</p>
                   <div className="warning-actions">
-                    <p><strong>To fix this:</strong></p>
+                    <p><strong>Current Status:</strong></p>
+                    <ul>
+                      <li><strong>Application ID:</strong> {selectedCustomer.applicationId}</li>
+                      <li><strong>Client ID:</strong> {selectedCustomer.clientId}</li>
+                      <li><strong>Setup Status:</strong> Pending manual configuration</li>
+                    </ul>
+                    <p><strong>Next Steps:</strong></p>
                     <ol>
-                      <li>Delete this customer and recreate using the "Add New Customer" option above</li>
-                      <li>Or manually create an Azure AD app registration for this tenant</li>
-                      <li>Grant admin consent for the required Microsoft Graph permissions</li>
+                      <li>📋 Follow the <strong>MANUAL-APP-REGISTRATION-GUIDE.md</strong> instructions</li>
+                      <li>🔧 Create Azure AD app registration in Azure Portal</li>
+                      <li>🔑 Configure required Microsoft Graph API permissions</li>
+                      <li>✅ Grant admin consent during app registration creation</li>
+                      <li>📝 Update this customer record with real app registration details</li>
                     </ol>
+                    <div className="validation-tools">
+                      <p><strong>Validation Tools:</strong></p>
+                      <ul>
+                        <li>Use <code>validate-manual-app-registration.sh</code> to test setup</li>
+                        <li>Use the AppRegistrationForm component to update details</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {selectedCustomer.clientId && !selectedCustomer.clientId.startsWith('pending-') && selectedCustomer.clientId.length > 10 && (
+          {selectedCustomer.clientId && 
+           !selectedCustomer.clientId.startsWith('pending-') && 
+           !selectedCustomer.clientId.startsWith('client-') &&
+           selectedCustomer.clientId !== 'MANUAL_SETUP_REQUIRED' &&
+           selectedCustomer.clientId !== 'REPLACE_WITH_REAL_SECRET' &&
+           selectedCustomer.clientId.length > 10 && (
             <div className="app-registration-success">
               <div className="success-content">
                 <span className="success-icon">✅</span>
                 <div className="success-text">
                   <h4>App Registration Active</h4>
-                  <p>This customer has a valid Azure AD app registration. If assessments fail, admin consent may be required.</p>
+                  <p>This customer has a valid Azure AD app registration with admin consent granted. Assessments should work properly.</p>
+                  <div className="app-details">
+                    <p><strong>Application ID:</strong> {selectedCustomer.applicationId}</p>
+                    <p><strong>Client ID:</strong> {selectedCustomer.clientId}</p>
+                    <p><strong>Status:</strong> Ready for assessments</p>
+                  </div>
                 </div>
               </div>
             </div>

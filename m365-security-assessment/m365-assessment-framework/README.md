@@ -6,11 +6,13 @@ The Microsoft 365 Security Assessment Framework is a web application designed fo
 
 ## Features
 
+- **Manual App Registration Workflow**: Secure, reliable customer onboarding with manual Azure AD app setup
 - **Assessment Submission**: Users can submit security assessments through a user-friendly form.
 - **Metrics Comparison**: Compare security metrics across different tenants to identify strengths and weaknesses.
 - **Security Score Visualization**: Visual representation of the overall security score for each tenant.
 - **Recommendations**: Generate actionable recommendations based on assessment results.
 - **Historical Data**: View the history of assessments to track improvements over time.
+- **Production-Ready Security**: Enterprise-grade security with proper admin consent flows
 
 ## Project Structure
 
@@ -137,3 +139,18 @@ Contributions are welcome! Please open an issue or submit a pull request for any
 ## License
 
 This project is licensed under the MIT License. See the LICENSE file for details.
+
+## Getting Started
+
+### Quick Setup for New Customers
+
+1. **Create Customer Record**: Use the Assessment page to add a new customer
+2. **Manual App Registration**: Follow the [Manual App Registration Guide](./MANUAL-APP-REGISTRATION-GUIDE.md)
+3. **Customer Consent**: Provide admin consent URL to customer's Global Administrator
+4. **Run Assessment**: Execute comprehensive security assessment
+
+### Validation Tools
+
+- `validate-manual-app-registration.sh` - Test app registration setup
+- `test-manual-workflow.sh` - End-to-end workflow validation
+- `diagnose-customers.sh` - Analyze existing customer configurations

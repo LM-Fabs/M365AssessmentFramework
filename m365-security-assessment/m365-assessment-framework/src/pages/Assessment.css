@@ -99,8 +99,8 @@
 
 .customer-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
 }
 
 .customer-card {
@@ -111,6 +111,7 @@
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
+  min-height: 180px;
 }
 
 .customer-card:hover {
@@ -123,7 +124,9 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f3f4f6;
 }
 
 .customer-header h4 {
@@ -131,6 +134,41 @@
   color: #1f2937;
   font-size: 1.1rem;
   font-weight: 600;
+}
+
+.customer-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.customer-details p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #4b5563;
+  line-height: 1.4;
+}
+
+.customer-details p strong {
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.customer-domain {
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+.customer-id {
+  color: #6b7280;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 0.8rem;
+}
+
+.app-registration {
+  color: #059669;
+  font-size: 0.85rem;
 }
 
 .status {
@@ -156,17 +194,18 @@
   color: #92400e;
 }
 
-.customer-domain {
-  color: #3b82f6;
-  font-weight: 500;
-  margin: 4px 0;
+.customer-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid #f3f4f6;
+  margin-top: auto;
 }
 
-.customer-id {
+.customer-stats span {
+  font-size: 0.85rem;
   color: #6b7280;
-  font-size: 0.9rem;
-  margin: 4px 0;
-  font-family: 'Monaco', 'Menlo', monospace;
 }
 
 .customer-stats {
@@ -406,6 +445,27 @@
 .success-text p {
   margin: 0;
   color: #047857;
+}
+
+/* App Registration Details Styles */
+.app-details {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f0f9ff;
+  border-radius: 6px;
+  border-left: 3px solid #0ea5e9;
+}
+
+.app-details p {
+  margin: 4px 0;
+  font-size: 0.9rem;
+  color: #0c4a6e;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+}
+
+.app-details p strong {
+  color: #075985;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
 }
 
 /* Responsive design */

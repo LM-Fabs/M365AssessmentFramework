@@ -24,11 +24,14 @@ Manual workflow is preferred because:
 3. Fill in the tenant details:
    - **Tenant Name**: Display name for the organization
    - **Tenant Domain**: Customer's Microsoft 365 domain (e.g., `customer.onmicrosoft.com`)
-   - **Tenant ID**: (Optional) Customer's Azure AD tenant ID
+   - **Tenant ID**: Customer's Azure AD tenant ID
    - **Contact Email**: Primary contact email
-4. Click "Create Customer"
+4. Click "Create Customer Record"
 
-The system will create a customer record with placeholder app registration values and provide setup instructions.
+The system will create a customer record with placeholder app registration values that need to be replaced with real Azure AD app registration details. The customer overview will show:
+- **App Registration**: Placeholder values (e.g., `client-1234567890-abc123def`)
+- **Status**: Manual setup required
+- **Assessment Status**: Cannot run until real app registration is configured
 
 ### Step 2: Create Azure AD App Registration
 
@@ -101,6 +104,8 @@ After creating the app registration:
    - `[YOUR_REDIRECT_URI]`: URL-encoded redirect URI (e.g., `https%3A//portal.azure.com/`)
 
 3. Send this URL to the customer's Global Administrator
+
+**Note**: Admin consent should be granted during the app registration creation process for immediate availability.
 
 ### Step 7: Customer Admin Consent
 
