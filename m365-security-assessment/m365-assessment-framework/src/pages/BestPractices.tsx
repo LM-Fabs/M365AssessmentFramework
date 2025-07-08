@@ -1,359 +1,353 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { Card } from '../components/ui/Card';
+import { useCustomer } from '../contexts/CustomerContext';
+import { Customer, CustomerService } from '../services/customerService';
+import { AssessmentService } from '../services/assessmentService';
 import './BestPractices.css';
 
 interface BestPractice {
   id: string;
   category: string;
-  title: string;
+  metric: string;
+  benchmark: number;
+  unit: string;
   description: string;
-  priority: 'high' | 'medium' | 'low';
-  implementation: string;
-  impact: string;
-  resources: Array<{
-    title: string;
-    url: string;
-    type: 'documentation' | 'tool' | 'guide';
-  }>;
+  importance: 'high' | 'medium' | 'low';
+  recommendations: string[];
+}
+
+interface ComparisonResult {
+  practice: BestPractice;
+  customerValue: number;
+  gap: number;
+  status: 'exceeds' | 'meets' | 'below' | 'critical';
+  improvement: string;
 }
 
 const BestPractices: React.FC = () => {
-  const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [searchTerm, setSearchTerm] = useState('');
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
-  }, [isAuthenticated, navigate]);
+  const { selectedCustomer, setSelectedCustomer } = useCustomer();
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [comparisonResults, setComparisonResults] = useState<ComparisonResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const bestPractices: BestPractice[] = [
     {
-      id: 'mfa-enforcement',
-      category: 'Identity & Access',
-      title: 'Enforce Multi-Factor Authentication (MFA)',
-      description: 'Require MFA for all users to significantly reduce the risk of account compromise.',
-      priority: 'high',
-      implementation: 'Configure Conditional Access policies to require MFA for all users and applications.',
-      impact: 'Reduces account compromise risk by up to 99.9%',
-      resources: [
-        {
-          title: 'Microsoft MFA Documentation',
-          url: 'https://docs.microsoft.com/en-us/azure/active-directory/authentication/concept-mfa-howitworks',
-          type: 'documentation'
-        },
-        {
-          title: 'Conditional Access Best Practices',
-          url: 'https://docs.microsoft.com/en-us/azure/active-directory/conditional-access/best-practices',
-          type: 'guide'
-        }
-      ]
-    },
-    {
-      id: 'privileged-access',
-      category: 'Identity & Access',
-      title: 'Implement Privileged Identity Management (PIM)',
-      description: 'Use just-in-time access for administrative roles to minimize security exposure.',
-      priority: 'high',
-      implementation: 'Enable Azure AD PIM and configure eligible assignments for all administrative roles.',
-      impact: 'Reduces privileged access exposure and provides audit trail',
-      resources: [
-        {
-          title: 'Azure AD PIM Documentation',
-          url: 'https://docs.microsoft.com/en-us/azure/active-directory/privileged-identity-management/',
-          type: 'documentation'
-        }
-      ]
-    },
-    {
-      id: 'email-security',
-      category: 'Email & Collaboration',
-      title: 'Configure Advanced Threat Protection',
-      description: 'Enable Microsoft Defender for Office 365 to protect against advanced email threats.',
-      priority: 'high',
-      implementation: 'Configure Safe Attachments, Safe Links, and anti-phishing policies.',
-      impact: 'Protects against zero-day attacks and advanced phishing attempts',
-      resources: [
-        {
-          title: 'Defender for Office 365',
-          url: 'https://docs.microsoft.com/en-us/microsoft-365/security/office-365-security/',
-          type: 'documentation'
-        }
-      ]
-    },
-    {
-      id: 'data-classification',
-      category: 'Data Protection',
-      title: 'Implement Information Protection Labels',
-      description: 'Classify and protect sensitive data using Microsoft Purview Information Protection.',
-      priority: 'medium',
-      implementation: 'Create sensitivity labels and configure auto-labeling policies.',
-      impact: 'Ensures sensitive data is properly classified and protected',
-      resources: [
-        {
-          title: 'Microsoft Purview Information Protection',
-          url: 'https://docs.microsoft.com/en-us/microsoft-365/compliance/information-protection',
-          type: 'documentation'
-        }
-      ]
-    },
-    {
-      id: 'device-compliance',
-      category: 'Device Management',
-      title: 'Enforce Device Compliance Policies',
-      description: 'Ensure all devices meet security requirements before accessing corporate resources.',
-      priority: 'medium',
-      implementation: 'Configure Intune compliance policies and Conditional Access for device requirements.',
-      impact: 'Prevents compromised devices from accessing corporate data',
-      resources: [
-        {
-          title: 'Intune Device Compliance',
-          url: 'https://docs.microsoft.com/en-us/mem/intune/protect/device-compliance-get-started',
-          type: 'documentation'
-        }
-      ]
-    },
-    {
-      id: 'backup-strategy',
-      category: 'Data Protection',
-      title: 'Implement Comprehensive Backup Strategy',
-      description: 'Protect against data loss with regular backups of critical Microsoft 365 data.',
-      priority: 'medium',
-      implementation: 'Use third-party backup solutions or Microsoft 365 retention policies.',
-      impact: 'Protects against accidental deletion, corruption, and ransomware',
-      resources: [
-        {
-          title: 'Microsoft 365 Backup Solutions',
-          url: 'https://docs.microsoft.com/en-us/microsoft-365/enterprise/backup-and-restore-overview',
-          type: 'guide'
-        }
-      ]
-    },
-    {
-      id: 'security-monitoring',
-      category: 'Security Operations',
-      title: 'Enable Security Monitoring and Alerting',
-      description: 'Use Microsoft Sentinel and Microsoft 365 Defender for comprehensive security monitoring.',
-      priority: 'high',
-      implementation: 'Configure SIEM solutions and set up automated response playbooks.',
-      impact: 'Enables rapid detection and response to security incidents',
-      resources: [
-        {
-          title: 'Microsoft Sentinel',
-          url: 'https://docs.microsoft.com/en-us/azure/sentinel/',
-          type: 'documentation'
-        },
-        {
-          title: 'Microsoft 365 Defender',
-          url: 'https://docs.microsoft.com/en-us/microsoft-365/security/defender/',
-          type: 'documentation'
-        }
-      ]
-    },
-    {
-      id: 'license-optimization',
+      id: 'license-utilization',
       category: 'License Management',
-      title: 'Optimize License Utilization',
-      description: 'Regularly review and optimize Microsoft 365 license assignments to reduce costs.',
-      priority: 'low',
-      implementation: 'Use license analytics and automated assignment policies.',
-      impact: 'Reduces licensing costs and ensures proper feature access',
-      resources: [
-        {
-          title: 'Microsoft 365 Admin Center',
-          url: 'https://admin.microsoft.com',
-          type: 'tool'
-        }
+      metric: 'License Utilization Rate',
+      benchmark: 85,
+      unit: '%',
+      description: 'Percentage of purchased licenses actively assigned to users',
+      importance: 'high',
+      recommendations: [
+        'Regularly review and reallocate unused licenses',
+        'Implement automated license assignment policies',
+        'Monitor license usage trends to optimize procurement'
+      ]
+    },
+    {
+      id: 'secure-score',
+      category: 'Security Posture',
+      metric: 'Microsoft Secure Score',
+      benchmark: 80,
+      unit: '%',
+      description: 'Overall security posture score from Microsoft',
+      importance: 'high',
+      recommendations: [
+        'Enable multi-factor authentication for all users',
+        'Configure conditional access policies',
+        'Implement data loss prevention policies',
+        'Regular security configuration reviews'
+      ]
+    },
+    {
+      id: 'mfa-coverage',
+      category: 'Identity Security',
+      metric: 'MFA Coverage',
+      benchmark: 100,
+      unit: '%',
+      description: 'Percentage of users with multi-factor authentication enabled',
+      importance: 'high',
+      recommendations: [
+        'Mandate MFA for all users',
+        'Use conditional access to enforce MFA',
+        'Provide user training on MFA setup',
+        'Regularly audit MFA compliance'
+      ]
+    },
+    {
+      id: 'admin-mfa',
+      category: 'Administrative Security',
+      metric: 'Admin MFA Coverage',
+      benchmark: 100,
+      unit: '%',
+      description: 'Percentage of administrative users with MFA enabled',
+      importance: 'high',
+      recommendations: [
+        'Require MFA for all administrative accounts',
+        'Use privileged access management',
+        'Implement just-in-time admin access',
+        'Regular admin account reviews'
       ]
     }
   ];
 
-  const categories = ['all', ...Array.from(new Set(bestPractices.map(bp => bp.category)))];
+  useEffect(() => {
+    loadCustomers();
+  }, []);
 
-  const filteredPractices = bestPractices.filter(practice => {
-    const matchesCategory = selectedCategory === 'all' || practice.category === selectedCategory;
-    const matchesSearch = searchTerm === '' || 
-      practice.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      practice.description.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  useEffect(() => {
+    if (selectedCustomer) {
+      performBestPracticeComparison();
+    }
+  }, [selectedCustomer]);
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'var(--error-color)';
-      case 'medium': return 'var(--warning-color)';
-      case 'low': return 'var(--success-color)';
-      default: return 'var(--text-secondary)';
+  const loadCustomers = async () => {
+    try {
+      const customersData = await CustomerService.getInstance().getCustomers();
+      setCustomers(customersData);
+    } catch (error) {
+      console.error('Error loading customers:', error);
+      setError('Failed to load customers');
     }
   };
 
-  const getPriorityIcon = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2L2 22h20L12 2zm0 3.99L18.53 20H5.47L12 5.99zM11 16h2v2h-2v-2zm0-6h2v4h-2v-4z"/>
-          </svg>
-        );
-      case 'medium':
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M12 6v6l4 2"/>
-          </svg>
-        );
-      case 'low':
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M9 12l2 2 4-4"/>
-          </svg>
-        );
-      default:
-        return null;
+  const performBestPracticeComparison = async () => {
+    if (!selectedCustomer) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Get the most recent assessment for this customer
+      const assessments = await AssessmentService.getInstance().getAssessments();
+      const customerAssessments = assessments.filter(a => a.tenantId === selectedCustomer.tenantId);
+      
+      if (customerAssessments.length === 0) {
+        setError('No assessments found for this customer. Create an assessment first.');
+        setComparisonResults([]);
+        return;
+      }
+
+      // Get the most recent assessment
+      const latestAssessment = customerAssessments.sort((a, b) => 
+        new Date(b.assessmentDate || b.lastModified || 0).getTime() - 
+        new Date(a.assessmentDate || a.lastModified || 0).getTime()
+      )[0];
+
+      // Compare against best practices
+      const results: ComparisonResult[] = [];
+
+      bestPractices.forEach(practice => {
+        let customerValue = 0;
+        let status: ComparisonResult['status'] = 'critical';
+        let improvement = '';
+
+        // Extract customer value based on practice type
+        if (practice.id === 'license-utilization' && latestAssessment.metrics?.realData?.licenseInfo) {
+          const licenseInfo = latestAssessment.metrics.realData.licenseInfo;
+          customerValue = licenseInfo.utilizationRate || 
+            (licenseInfo.totalLicenses > 0 ? (licenseInfo.assignedLicenses / licenseInfo.totalLicenses) * 100 : 0);
+        } else if (practice.id === 'secure-score' && latestAssessment.metrics?.realData?.secureScore) {
+          const secureScore = latestAssessment.metrics.realData.secureScore;
+          customerValue = Math.round(((secureScore.currentScore || 0) / (secureScore.maxScore || 100)) * 100);
+        } else if (practice.id === 'mfa-coverage' && latestAssessment.metrics?.realData?.secureScore) {
+          // For MFA coverage, we'll derive it from secure score data if available
+          // This is a simplified approach - in a real implementation, you'd get this from Graph API
+          const secureScore = latestAssessment.metrics.realData.secureScore;
+          customerValue = Math.min(secureScore.currentScore / secureScore.maxScore * 100, 100) || 0;
+        } else if (practice.id === 'admin-mfa' && latestAssessment.metrics?.realData?.secureScore) {
+          // For admin MFA, we'll use a similar approach
+          // In a real implementation, this would be calculated specifically for admin users
+          const secureScore = latestAssessment.metrics.realData.secureScore;
+          customerValue = Math.min(secureScore.currentScore / secureScore.maxScore * 100, 100) || 0;
+        }
+
+        const gap = practice.benchmark - customerValue;
+
+        // Determine status
+        if (customerValue >= practice.benchmark) {
+          status = 'exceeds';
+          improvement = 'Excellent! You exceed the benchmark.';
+        } else if (customerValue >= practice.benchmark * 0.9) {
+          status = 'meets';
+          improvement = 'Good! You meet most requirements.';
+        } else if (customerValue >= practice.benchmark * 0.7) {
+          status = 'below';
+          improvement = 'Needs improvement to meet benchmark.';
+        } else {
+          status = 'critical';
+          improvement = 'Critical gap requiring immediate attention.';
+        }
+
+        results.push({
+          practice,
+          customerValue,
+          gap,
+          status,
+          improvement
+        });
+      });
+
+      setComparisonResults(results);
+
+    } catch (error) {
+      console.error('Error performing best practice comparison:', error);
+      setError('Failed to perform best practice comparison');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusColor = (status: ComparisonResult['status']) => {
+    switch (status) {
+      case 'exceeds': return '#28a745';
+      case 'meets': return '#17a2b8';
+      case 'below': return '#ffc107';
+      case 'critical': return '#dc3545';
+      default: return '#6c757d';
+    }
+  };
+
+  const getStatusIcon = (status: ComparisonResult['status']) => {
+    switch (status) {
+      case 'exceeds': return '✅';
+      case 'meets': return '✓';
+      case 'below': return '⚠️';
+      case 'critical': return '❌';
+      default: return '❓';
     }
   };
 
   return (
-    <div className="best-practices-page">
-      <div className="best-practices-header">
-        <h1 className="best-practices-title">Microsoft 365 Security Best Practices</h1>
-        <p className="best-practices-subtitle">
-          Comprehensive security recommendations to strengthen your Microsoft 365 environment.
-        </p>
-      </div>
+    <div className="best-practices-container">
+      <header className="best-practices-header">
+        <h1>Best Practices Comparison</h1>
+        <p>Compare your organization's security posture against industry benchmarks</p>
+      </header>
 
-      <div className="best-practices-controls">
-        <div className="search-container">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="search-icon">
-            <circle cx="11" cy="11" r="8"></circle>
-            <path d="m21 21-4.35-4.35"></path>
-          </svg>
-          <input
-            type="text"
-            placeholder="Search best practices..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-        </div>
-
-        <div className="category-filters">
-          {categories.map(category => (
-            <button
-              key={category}
-              className={`category-filter ${selectedCategory === category ? 'active' : ''}`}
-              onClick={() => setSelectedCategory(category)}
-            >
-              {category === 'all' ? 'All Categories' : category}
-            </button>
+      <div className="customer-selector">
+        <label htmlFor="customer-select">Select Customer:</label>
+        <select
+          id="customer-select"
+          value={selectedCustomer?.id || ''}
+          onChange={(e) => {
+            const customer = customers.find(c => c.id === e.target.value);
+            setSelectedCustomer(customer || null);
+          }}
+        >
+          <option value="">Choose a customer...</option>
+          {customers.map(customer => (
+            <option key={customer.id} value={customer.id}>
+              {customer.tenantName} ({customer.tenantDomain})
+            </option>
           ))}
-        </div>
+        </select>
       </div>
 
-      <div className="best-practices-summary">
-        <div className="summary-stats">
-          <div className="stat-item">
-            <span className="stat-number">{filteredPractices.length}</span>
-            <span className="stat-label">Best Practices</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-number">{filteredPractices.filter(p => p.priority === 'high').length}</span>
-            <span className="stat-label">High Priority</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-number">{categories.length - 1}</span>
-            <span className="stat-label">Categories</span>
-          </div>
+      {error && (
+        <div className="error-message">
+          <p>{error}</p>
         </div>
-      </div>
+      )}
 
-      <div className="best-practices-grid">
-        {filteredPractices.map(practice => (
-          <Card
-            key={practice.id}
-            title={practice.title}
-            className="best-practice-card"
-          >
-            <div className="practice-content">
-              <div className="practice-meta">
-                <span className="practice-category">{practice.category}</span>
-                <div 
-                  className="practice-priority"
-                  style={{ color: getPriorityColor(practice.priority) }}
-                >
-                  {getPriorityIcon(practice.priority)}
-                  <span>{practice.priority.toUpperCase()} PRIORITY</span>
-                </div>
-              </div>
+      {loading && (
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Analyzing best practices...</p>
+        </div>
+      )}
 
-              <p className="practice-description">{practice.description}</p>
+      {!loading && selectedCustomer && comparisonResults.length > 0 && (
+        <div className="comparison-results">
+          <div className="results-header">
+            <h2>Assessment Results for {selectedCustomer.tenantName}</h2>
+            <p>Last assessment: {new Date().toLocaleDateString()}</p>
+          </div>
 
-              <div className="practice-details">
-                <div className="detail-section">
-                  <h4>Implementation</h4>
-                  <p>{practice.implementation}</p>
-                </div>
-
-                <div className="detail-section">
-                  <h4>Business Impact</h4>
-                  <p>{practice.impact}</p>
+          <div className="results-grid">
+            {comparisonResults.map((result, index) => (
+              <div key={index} className="result-card">
+                <div className="result-header">
+                  <div className="result-status">
+                    <span className="status-icon">{getStatusIcon(result.status)}</span>
+                    <span 
+                      className="status-text"
+                      style={{ color: getStatusColor(result.status) }}
+                    >
+                      {result.status.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="result-category">{result.practice.category}</div>
                 </div>
 
-                {practice.resources.length > 0 && (
-                  <div className="detail-section">
-                    <h4>Resources</h4>
-                    <div className="resources-list">
-                      {practice.resources.map((resource, index) => (
-                        <a
-                          key={index}
-                          href={resource.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="resource-link"
-                        >
-                          <span className={`resource-type ${resource.type}`}>
-                            {resource.type === 'documentation' && '📚'}
-                            {resource.type === 'tool' && '🔧'}
-                            {resource.type === 'guide' && '📖'}
-                          </span>
-                          {resource.title}
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                            <polyline points="15,3 21,3 21,9"></polyline>
-                            <line x1="10" y1="14" x2="21" y2="3"></line>
-                          </svg>
-                        </a>
-                      ))}
+                <div className="result-content">
+                  <h3>{result.practice.metric}</h3>
+                  <p className="practice-description">{result.practice.description}</p>
+
+                  <div className="metric-comparison">
+                    <div className="metric-row">
+                      <span className="metric-label">Your Score:</span>
+                      <span className="metric-value current">
+                        {result.customerValue.toFixed(1)}{result.practice.unit}
+                      </span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Benchmark:</span>
+                      <span className="metric-value benchmark">
+                        {result.practice.benchmark}{result.practice.unit}
+                      </span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Gap:</span>
+                      <span 
+                        className={`metric-value gap ${result.gap <= 0 ? 'positive' : 'negative'}`}
+                      >
+                        {result.gap > 0 ? '+' : ''}{result.gap.toFixed(1)}{result.practice.unit}
+                      </span>
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
 
-      {filteredPractices.length === 0 && (
-        <Card
-          title="No Best Practices Found"
-          description="Try adjusting your search terms or category filter to find relevant best practices."
-        >
-          <button 
-            className="lm-button secondary"
-            onClick={() => {
-              setSearchTerm('');
-              setSelectedCategory('all');
-            }}
-          >
-            Clear Filters
-          </button>
-        </Card>
+                  <div className="progress-bar">
+                    <div 
+                      className="progress-fill"
+                      style={{ 
+                        width: `${Math.min(result.customerValue, 100)}%`,
+                        backgroundColor: getStatusColor(result.status)
+                      }}
+                    ></div>
+                    <div 
+                      className="benchmark-line"
+                      style={{ left: `${Math.min(result.practice.benchmark, 100)}%` }}
+                    ></div>
+                  </div>
+
+                  <div className="improvement-text">
+                    <p>{result.improvement}</p>
+                  </div>
+
+                  {result.practice.recommendations && result.practice.recommendations.length > 0 && (
+                    <div className="recommendations">
+                      <h4>Recommendations:</h4>
+                      <ul>
+                        {result.practice.recommendations.map((rec, i) => (
+                          <li key={i}>{rec}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!loading && selectedCustomer && comparisonResults.length === 0 && !error && (
+        <div className="no-data">
+          <p>No assessment data available for comparison.</p>
+          <p>Please create an assessment for this customer first.</p>
+        </div>
       )}
     </div>
   );

@@ -2,9 +2,9 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { ApiWarmupService } from './services/apiWarmupService';
+import { CustomerProvider } from './contexts/CustomerContext';
 import Navigation from './components/layout/Navigation';
 import Dashboard from './pages/Dashboard';
-import Assessments from './pages/Assessments';
 import BestPractices from './pages/BestPractices';
 import Reports from './pages/Reports';
 import Login from './pages/Login';
@@ -52,23 +52,24 @@ function AppContent() {
 
   // For authenticated routes, render with navigation
   return (
-    <div className="app-layout">
-      <Navigation userName={user?.email} onLogout={logout} />
-      <main className="main-content">
-        <Routes>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/assessments" element={<Assessments />} />
-          <Route path="/best-practices" element={<BestPractices />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/history" element={<History />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/assessment-results/:assessmentId" element={<AssessmentResults />} />
-          <Route path="/auth/callback" element={<AuthCallback />} />
-          <Route path="*" element={<Navigate to="/dashboard" />} />
-        </Routes>
-      </main>
-    </div>
+    <CustomerProvider>
+      <div className="app-layout">
+        <Navigation userName={user?.email} onLogout={logout} />
+        <main className="main-content">
+          <Routes>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/best-practices" element={<BestPractices />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/history" element={<History />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/assessment-results/:assessmentId" element={<AssessmentResults />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="*" element={<Navigate to="/dashboard" />} />
+          </Routes>
+        </main>
+      </div>
+    </CustomerProvider>
   );
 }
 
