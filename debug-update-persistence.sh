@@ -18,16 +18,17 @@ async function debugTableStorage() {
         const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING || 'UseDevelopmentStorage=true';
         console.log('🔗 Using connection:', connectionString.includes('UseDevelopmentStorage') ? 'Local Emulator' : 'Azure Storage');
         
+        // Check customers table
         const customersTable = TableClient.fromConnectionString(connectionString, 'customers');
-        
         console.log('\n📊 Raw customer entities from Table Storage:');
         console.log('===========================================');
         
-        const entities = customersTable.listEntities();
-        for await (const entity of entities) {
-            console.log('\n🔍 Entity:', entity.rowKey);
+        const customerEntities = customersTable.listEntities();
+        for await (const entity of customerEntities) {
+            console.log('\n🔍 Customer Entity:', entity.rowKey);
             console.log('   - Tenant Name:', entity.tenantName);
             console.log('   - Tenant Domain:', entity.tenantDomain);
+            console.log('   - Tenant ID:', entity.tenantId);
             console.log('   - Status:', entity.status);
             console.log('   - App Registration (raw):', entity.appRegistration);
             
@@ -46,6 +47,35 @@ async function debugTableStorage() {
             console.log('   - Created:', entity.createdDate);
             console.log('   - Last Assessment:', entity.lastAssessmentDate);
         }
+
+        // Check assessments table
+        const assessmentsTable = TableClient.fromConnectionString(connectionString, 'assessments');
+        console.log('\n📈 Raw assessment entities from Table Storage:');
+        console.log('===============================================');
+        
+        const assessmentEntities = assessmentsTable.listEntities();
+        let assessmentCount = 0;
+        for await (const entity of assessmentEntities) {
+            assessmentCount++;
+            console.log('\n🔍 Assessment Entity:', entity.rowKey);
+            console.log('   - Customer ID:', entity.customerId);
+            console.log('   - Tenant ID:', entity.tenantId);
+            console.log('   - Date:', entity.date);
+            console.log('   - Status:', entity.status);
+            console.log('   - Score:', entity.score);
+            console.log('   - Metrics (size):', entity.metrics ? entity.metrics.length : 'null');
+            console.log('   - Recommendations (size):', entity.recommendations ? entity.recommendations.length : 'null');
+            
+            // Check for chunked data
+            if (entity.metrics_isChunked) {
+                console.log('   - Metrics is chunked:', entity.metrics_chunkCount, 'chunks');
+            }
+            if (entity.recommendations_isChunked) {
+                console.log('   - Recommendations is chunked:', entity.recommendations_chunkCount, 'chunks');
+            }
+        }
+        
+        console.log(`\n📊 Total assessments found: ${assessmentCount}`);
         
     } catch (error) {
         console.error('❌ Error accessing table storage:', error.message);

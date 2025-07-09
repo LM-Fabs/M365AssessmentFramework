@@ -121,11 +121,11 @@ const Reports: React.FC = () => {
 
     try {
       // Get the most recent assessment for this customer
-      const assessments = await AssessmentService.getInstance().getAssessments();
-      // Filter for valid assessments: correct tenantId, has assessmentDate, has metrics
-      const customerAssessments = assessments.filter(a =>
+      const assessments: any[] = await AssessmentService.getInstance().getAssessments();
+      // Filter for valid assessments: correct tenantId, has date, has metrics
+      const customerAssessments = assessments.filter((a: any) =>
         a.tenantId === selectedCustomer.tenantId &&
-        (a.assessmentDate || a.lastModified) &&
+        (a.date || a.assessmentDate || a.lastModified) &&
         a.metrics && typeof a.metrics === 'object'
       );
 
@@ -137,9 +137,9 @@ const Reports: React.FC = () => {
       }
 
       // Get the most recent valid assessment
-      const latestAssessment = customerAssessments.sort((a, b) =>
-        new Date(b.assessmentDate || b.lastModified || 0).getTime() -
-        new Date(a.assessmentDate || a.lastModified || 0).getTime()
+      const latestAssessment = customerAssessments.sort((a: any, b: any) =>
+        new Date(b.date || b.assessmentDate || b.lastModified || 0).getTime() -
+        new Date(a.date || a.assessmentDate || a.lastModified || 0).getTime()
       )[0];
 
       // Extra validation: check for required fields in metrics
@@ -148,6 +148,11 @@ const Reports: React.FC = () => {
         setCustomerAssessment(null);
         setReportData([]);
         return;
+      }
+
+      // Set assessment date for consistency
+      if (!latestAssessment.assessmentDate) {
+        latestAssessment.assessmentDate = latestAssessment.date || latestAssessment.lastModified;
       }
 
       setCustomerAssessment(latestAssessment);

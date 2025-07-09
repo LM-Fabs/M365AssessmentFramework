@@ -891,7 +891,34 @@ async function assessmentsHandler(request, context) {
     try {
         // Initialize data service
         await initializeDataService(context);
-        // Get query parameters for filtering
+        if (request.method === 'POST') {
+            // Create new assessment
+            const assessmentData = await request.json();
+            context.log('Creating new assessment:', JSON.stringify(assessmentData, null, 2));
+            // Validate required fields
+            if (!assessmentData.customerId || !assessmentData.tenantId) {
+                return {
+                    status: 400,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Missing required fields: customerId and tenantId are required"
+                    }
+                };
+            }
+            const assessment = await dataService.createAssessment(assessmentData);
+            context.log(`Assessment created successfully: ${assessment.id}`);
+            return {
+                status: 201,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: true,
+                    data: assessment,
+                    message: "Assessment created successfully"
+                }
+            };
+        }
+        // GET request - Get query parameters for filtering
         const customerId = request.query.get('customerId');
         const status = request.query.get('status');
         const limit = Math.min(parseInt(request.query.get('limit') || '50'), 100);
