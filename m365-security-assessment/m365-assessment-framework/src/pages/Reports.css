@@ -298,6 +298,214 @@
   padding: 1rem 0;
 }
 
+/* View Toggle Controls */
+.view-toggle-container {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e1e8ed;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.view-toggle-label {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.9rem;
+}
+
+.view-toggle-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.view-toggle-btn {
+  padding: 0.5rem 1rem;
+  border: 2px solid #e1e8ed;
+  background: white;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #495057;
+}
+
+.view-toggle-btn:hover {
+  border-color: #3498db;
+  background: #f8f9fa;
+}
+
+.view-toggle-btn.active {
+  border-color: #3498db;
+  background: #3498db;
+  color: white;
+}
+
+/* License Table Styles */
+.license-table-container {
+  width: 100%;
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.license-table-container h4 {
+  margin: 0 0 1.5rem 0;
+  color: #2c3e50;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.license-table-wrapper {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #e1e8ed;
+}
+
+.license-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.license-table thead {
+  background: #f8f9fa;
+}
+
+.license-table th {
+  padding: 1rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #e1e8ed;
+  white-space: nowrap;
+}
+
+.license-table th:first-child {
+  width: 40%;
+  min-width: 200px;
+}
+
+.license-table th:not(:first-child) {
+  text-align: center;
+  width: 15%;
+}
+
+.license-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+.license-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.license-table tbody tr:nth-child(even) {
+  background: #fdfdfd;
+}
+
+.license-table tbody tr:nth-child(even):hover {
+  background: #f8f9fa;
+}
+
+.license-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e9ecef;
+  vertical-align: middle;
+}
+
+.license-name-cell {
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+.license-name-text {
+  display: block;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.used-cell,
+.free-cell,
+.total-cell {
+  text-align: center;
+  font-weight: 500;
+  color: #495057;
+}
+
+.used-cell {
+  color: #28a745;
+}
+
+.free-cell {
+  color: #6c757d;
+}
+
+.utilization-cell {
+  text-align: center;
+  padding: 0.5rem 0.75rem;
+}
+
+.utilization-bar-container {
+  position: relative;
+  background: #e9ecef;
+  height: 24px;
+  border-radius: 12px;
+  overflow: hidden;
+  min-width: 80px;
+}
+
+.utilization-bar-fill {
+  height: 100%;
+  border-radius: 12px;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.utilization-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #2c3e50;
+  text-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
+  z-index: 1;
+}
+
+/* Responsive Table */
+@media (max-width: 768px) {
+  .license-table-wrapper {
+    font-size: 0.8rem;
+  }
+  
+  .license-table th,
+  .license-table td {
+    padding: 0.5rem 0.4rem;
+  }
+  
+  .license-name-text {
+    font-size: 0.85rem;
+  }
+  
+  .utilization-bar-container {
+    min-width: 60px;
+    height: 20px;
+  }
+  
+  .utilization-text {
+    font-size: 0.7rem;
+  }
+  
+  .view-toggle-container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+}
+
 .charts-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));

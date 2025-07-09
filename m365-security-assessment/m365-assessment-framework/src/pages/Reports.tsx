@@ -29,6 +29,7 @@ const Reports: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [creatingAssessment, setCreatingAssessment] = useState(false);
   const [createAssessmentResult, setCreateAssessmentResult] = useState<string | null>(null);
+  const [licenseViewMode, setLicenseViewMode] = useState<'chart' | 'table'>('chart');
   // Utility: Test assessment creation for debugging API/store
   const handleTestCreateAssessment = async () => {
     setCreatingAssessment(true);
@@ -531,6 +532,65 @@ const Reports: React.FC = () => {
     }
   };
 
+  const renderLicenseTable = (licenseTypes: any[]) => {
+    if (!licenseTypes || licenseTypes.length === 0) {
+      return (
+        <div className="no-license-data">
+          <p>No license data available</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="license-table-container">
+        <h4>License Details</h4>
+        <div className="license-table-wrapper">
+          <table className="license-table">
+            <thead>
+              <tr>
+                <th>License Type</th>
+                <th>Used</th>
+                <th>Free</th>
+                <th>Total</th>
+                <th>Utilization</th>
+              </tr>
+            </thead>
+            <tbody>
+              {licenseTypes.map((license, index) => {
+                const free = license.total - license.assigned;
+                const utilization = license.total > 0 ? Math.round((license.assigned / license.total) * 100) : 0;
+                return (
+                  <tr key={index}>
+                    <td className="license-name-cell">
+                      <span className="license-name-text">
+                        {license.name.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()}
+                      </span>
+                    </td>
+                    <td className="used-cell">{license.assigned.toLocaleString()}</td>
+                    <td className="free-cell">{free.toLocaleString()}</td>
+                    <td className="total-cell">{license.total.toLocaleString()}</td>
+                    <td className="utilization-cell">
+                      <div className="utilization-bar-container">
+                        <div 
+                          className="utilization-bar-fill" 
+                          style={{ 
+                            width: `${utilization}%`,
+                            backgroundColor: utilization >= 80 ? '#dc3545' : utilization >= 60 ? '#fd7e14' : '#28a745'
+                          }}
+                        />
+                        <span className="utilization-text">{utilization}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
   const currentTabData = getCurrentTabData();
 
   return (
@@ -666,6 +726,27 @@ const Reports: React.FC = () => {
             <div className="tab-header">
               <h3>{securityCategories.find(c => c.id === activeTab)?.name}</h3>
               <p>{securityCategories.find(c => c.id === activeTab)?.description}</p>
+              
+              {/* License View Toggle */}
+              {activeTab === 'license' && currentTabData && (
+                <div className="view-toggle-container">
+                  <label className="view-toggle-label">View Mode:</label>
+                  <div className="view-toggle-buttons">
+                    <button
+                      className={`view-toggle-btn ${licenseViewMode === 'chart' ? 'active' : ''}`}
+                      onClick={() => setLicenseViewMode('chart')}
+                    >
+                      📊 Charts
+                    </button>
+                    <button
+                      className={`view-toggle-btn ${licenseViewMode === 'table' ? 'active' : ''}`}
+                      onClick={() => setLicenseViewMode('table')}
+                    >
+                      📋 Table
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {currentTabData ? (
@@ -700,11 +781,17 @@ const Reports: React.FC = () => {
                 {/* Charts */}
                 {currentTabData.charts.length > 0 && (
                   <div className="charts-grid">
-                    {currentTabData.charts.map((chart, index) => (
-                      <div key={index} className="chart-card">
-                        {renderChart(chart)}
-                      </div>
-                    ))}
+                    {activeTab === 'license' && licenseViewMode === 'table' ? (
+                      // Show license table instead of charts
+                      renderLicenseTable(currentTabData.metrics.licenseTypes || [])
+                    ) : (
+                      // Show normal charts
+                      currentTabData.charts.map((chart, index) => (
+                        <div key={index} className="chart-card">
+                          {renderChart(chart)}
+                        </div>
+                      ))
+                    )}
                   </div>
                 )}
 
