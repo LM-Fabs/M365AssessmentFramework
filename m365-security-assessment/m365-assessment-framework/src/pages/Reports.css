@@ -298,50 +298,6 @@
   padding: 1rem 0;
 }
 
-/* View Toggle Controls */
-.view-toggle-container {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e1e8ed;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.view-toggle-label {
-  font-weight: 600;
-  color: #2c3e50;
-  font-size: 0.9rem;
-}
-
-.view-toggle-buttons {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.view-toggle-btn {
-  padding: 0.5rem 1rem;
-  border: 2px solid #e1e8ed;
-  background: white;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  color: #495057;
-}
-
-.view-toggle-btn:hover {
-  border-color: #3498db;
-  background: #f8f9fa;
-}
-
-.view-toggle-btn.active {
-  border-color: #3498db;
-  background: #3498db;
-  color: white;
-}
-
 /* License Table Styles */
 .license-table-container {
   width: 100%;
@@ -497,12 +453,6 @@
   
   .utilization-text {
     font-size: 0.7rem;
-  }
-  
-  .view-toggle-container {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
   }
 }
 

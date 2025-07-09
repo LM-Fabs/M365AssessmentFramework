@@ -29,7 +29,54 @@ const Reports: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [creatingAssessment, setCreatingAssessment] = useState(false);
   const [createAssessmentResult, setCreateAssessmentResult] = useState<string | null>(null);
-  const [licenseViewMode, setLicenseViewMode] = useState<'chart' | 'table'>('chart');
+  
+  // Function to format license names for better readability
+  const formatLicenseName = (rawName: string): string => {
+    if (!rawName) return 'Unknown License';
+    
+    // Common license name mappings for better readability
+    const nameMap: { [key: string]: string } = {
+      'MICROSOFT_365_E3': 'Microsoft 365 E3',
+      'MICROSOFT_365_E5': 'Microsoft 365 E5',
+      'MICROSOFT_365_F3': 'Microsoft 365 F3',
+      'MICROSOFT_365_F1': 'Microsoft 365 F1',
+      'OFFICE_365_E3': 'Office 365 E3',
+      'OFFICE_365_E5': 'Office 365 E5',
+      'OFFICE_365_F3': 'Office 365 F3',
+      'ENTERPRISEPACK': 'Office 365 E3',
+      'ENTERPRISEPREMIUM': 'Office 365 E5',
+      'DESKLESSPACK': 'Office 365 F3',
+      'SPE_E3': 'Microsoft 365 E3',
+      'SPE_E5': 'Microsoft 365 E5',
+      'SPE_F1': 'Microsoft 365 F1',
+      'POWER_BI_PRO': 'Power BI Pro',
+      'POWER_BI_PREMIUM': 'Power BI Premium',
+      'TEAMS_EXPLORATORY': 'Microsoft Teams Exploratory',
+      'AAD_PREMIUM': 'Azure Active Directory Premium',
+      'AAD_PREMIUM_P2': 'Azure Active Directory Premium P2',
+      'EXCHANGE_S_ENTERPRISE': 'Exchange Online Plan 2',
+      'EXCHANGE_S_STANDARD': 'Exchange Online Plan 1',
+      'PROJECTPROFESSIONAL': 'Project Online Professional',
+      'VISIOONLINE_PLAN1': 'Visio Online Plan 1',
+      'VISIOCLIENT': 'Visio Pro for Office 365'
+    };
+    
+    // Check if we have a direct mapping
+    if (nameMap[rawName.toUpperCase()]) {
+      return nameMap[rawName.toUpperCase()];
+    }
+    
+    // Otherwise, clean up the name
+    return rawName
+      .replace(/_/g, ' ')
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+  
   // Utility: Test assessment creation for debugging API/store
   const handleTestCreateAssessment = async () => {
     setCreatingAssessment(true);
@@ -311,34 +358,12 @@ const Reports: React.FC = () => {
             licenseTypes: processedLicenseTypes,
             summary: info.summary || `${assignedLicenses} of ${totalLicenses} licenses assigned (${Math.round(utilizationRate)}% utilization)`
           },
-          charts: [
-            {
-              type: 'donut',
-              title: 'License Utilization',
-              data: [
-                { label: 'Assigned', value: assignedLicenses, color: '#28a745' },
-                { label: 'Available', value: totalLicenses - assignedLicenses, color: '#dc3545' }
-              ]
-            },
-            {
-              type: 'bar',
-              title: 'License Types Distribution (Top 10)',
-              data: processedLicenseTypes.map((type: any, index: number) => {
-                const chartData = {
-                  label: type.name.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim(),
-                  value: type.assigned,
-                  color: `hsl(${index * 36}, 70%, 60%)`
-                };
-                console.log(`Chart data for ${type.name}:`, chartData);
-                return chartData;
-              })
-            }
-          ],
+          charts: [], // No charts needed - we use table view
           insights: [
             `License utilization is at ${Math.round(utilizationRate)}%`,
             `${totalLicenses - assignedLicenses} licenses are currently unused`,
             utilizationRate < 60 ? 'Consider optimizing license allocation to reduce costs' : 'License utilization is within acceptable range',
-            `Top license type: ${processedLicenseTypes[0]?.name || 'None'} with ${processedLicenseTypes[0]?.assigned || 0} assignments`
+            `Top license type: ${processedLicenseTypes[0] ? formatLicenseName(processedLicenseTypes[0].name) : 'None'} with ${processedLicenseTypes[0]?.assigned || 0} assignments`
           ],
           recommendations: [
             utilizationRate < 60 ? 'Review and reallocate unused licenses' : 'Monitor for capacity planning',
@@ -563,7 +588,7 @@ const Reports: React.FC = () => {
                   <tr key={index}>
                     <td className="license-name-cell">
                       <span className="license-name-text">
-                        {license.name.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()}
+                        {formatLicenseName(license.name)}
                       </span>
                     </td>
                     <td className="used-cell">{license.assigned.toLocaleString()}</td>
@@ -726,27 +751,6 @@ const Reports: React.FC = () => {
             <div className="tab-header">
               <h3>{securityCategories.find(c => c.id === activeTab)?.name}</h3>
               <p>{securityCategories.find(c => c.id === activeTab)?.description}</p>
-              
-              {/* License View Toggle */}
-              {activeTab === 'license' && currentTabData && (
-                <div className="view-toggle-container">
-                  <label className="view-toggle-label">View Mode:</label>
-                  <div className="view-toggle-buttons">
-                    <button
-                      className={`view-toggle-btn ${licenseViewMode === 'chart' ? 'active' : ''}`}
-                      onClick={() => setLicenseViewMode('chart')}
-                    >
-                      📊 Charts
-                    </button>
-                    <button
-                      className={`view-toggle-btn ${licenseViewMode === 'table' ? 'active' : ''}`}
-                      onClick={() => setLicenseViewMode('table')}
-                    >
-                      📋 Table
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
 
             {currentTabData ? (
@@ -778,21 +782,23 @@ const Reports: React.FC = () => {
                   </div>
                 )}
 
-                {/* Charts */}
-                {currentTabData.charts.length > 0 && (
+                {/* Charts or License Table */}
+                {activeTab === 'license' ? (
+                  // Always show license table for license tab
                   <div className="charts-grid">
-                    {activeTab === 'license' && licenseViewMode === 'table' ? (
-                      // Show license table instead of charts
-                      renderLicenseTable(currentTabData.metrics.licenseTypes || [])
-                    ) : (
-                      // Show normal charts
-                      currentTabData.charts.map((chart, index) => (
+                    {renderLicenseTable(currentTabData.metrics.licenseTypes || [])}
+                  </div>
+                ) : (
+                  // Show charts for other tabs
+                  currentTabData.charts.length > 0 && (
+                    <div className="charts-grid">
+                      {currentTabData.charts.map((chart, index) => (
                         <div key={index} className="chart-card">
                           {renderChart(chart)}
                         </div>
-                      ))
-                    )}
-                  </div>
+                      ))}
+                    </div>
+                  )
                 )}
 
                 {/* Insights and Recommendations */}
