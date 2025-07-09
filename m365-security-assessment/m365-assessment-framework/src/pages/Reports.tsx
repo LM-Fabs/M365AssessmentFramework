@@ -264,6 +264,41 @@ const Reports: React.FC = () => {
           ? Number(info.utilizationRate)
           : (totalLicenses > 0 ? (assignedLicenses / totalLicenses) * 100 : 0);
 
+        // Process license details from the API response structure
+        const licenseDetails = info.licenseDetails || [];
+        console.log('Processing license details:', licenseDetails);
+
+        // Group license details by SKU and sum up the values
+        const licenseTypeMap = new Map<string, { name: string; assigned: number; total: number }>();
+        
+        licenseDetails.forEach((license: any) => {
+          const skuName = license.skuPartNumber || license.skuDisplayName || license.servicePlanName || 'Unknown License';
+          const assignedUnits = Number(license.assignedUnits) || 0;
+          const totalUnits = Number(license.totalUnits) || 0;
+          
+          console.log(`Processing license: ${skuName}, assigned: ${assignedUnits}, total: ${totalUnits}`);
+          
+          if (licenseTypeMap.has(skuName)) {
+            const existing = licenseTypeMap.get(skuName)!;
+            existing.assigned += assignedUnits;
+            existing.total += totalUnits;
+          } else {
+            licenseTypeMap.set(skuName, {
+              name: skuName,
+              assigned: assignedUnits,
+              total: totalUnits
+            });
+          }
+        });
+
+        // Convert to array and filter out licenses with 0 assigned
+        const processedLicenseTypes = Array.from(licenseTypeMap.values())
+          .filter(license => license.assigned > 0)
+          .sort((a, b) => b.assigned - a.assigned)
+          .slice(0, 10); // Show top 10 license types
+
+        console.log('Processed license types:', processedLicenseTypes);
+
         reports.push({
           category: 'license',
           metrics: {
@@ -272,7 +307,8 @@ const Reports: React.FC = () => {
             unutilizedLicenses: totalLicenses - assignedLicenses,
             utilizationRate: Math.round(utilizationRate),
             costData: info.costData || null,
-            licenseTypes: info.licenseTypes || info.licenseDetails || []
+            licenseTypes: processedLicenseTypes,
+            summary: info.summary || `${assignedLicenses} of ${totalLicenses} licenses assigned (${Math.round(utilizationRate)}% utilization)`
           },
           charts: [
             {
@@ -285,18 +321,23 @@ const Reports: React.FC = () => {
             },
             {
               type: 'bar',
-              title: 'License Types Distribution',
-              data: (info.licenseTypes || info.licenseDetails || []).map((type: any, index: number) => ({
-                label: type.name || type.skuDisplayName || `License ${index + 1}`,
-                value: type.assignedCount || type.assignedLicenses || 0,
-                color: `hsl(${index * 60}, 70%, 60%)`
-              }))
+              title: 'License Types Distribution (Top 10)',
+              data: processedLicenseTypes.map((type: any, index: number) => {
+                const chartData = {
+                  label: type.name.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim(),
+                  value: type.assigned,
+                  color: `hsl(${index * 36}, 70%, 60%)`
+                };
+                console.log(`Chart data for ${type.name}:`, chartData);
+                return chartData;
+              })
             }
           ],
           insights: [
             `License utilization is at ${Math.round(utilizationRate)}%`,
             `${totalLicenses - assignedLicenses} licenses are currently unused`,
-            utilizationRate < 60 ? 'Consider optimizing license allocation to reduce costs' : 'License utilization is within acceptable range'
+            utilizationRate < 60 ? 'Consider optimizing license allocation to reduce costs' : 'License utilization is within acceptable range',
+            `Top license type: ${processedLicenseTypes[0]?.name || 'None'} with ${processedLicenseTypes[0]?.assigned || 0} assignments`
           ],
           recommendations: [
             utilizationRate < 60 ? 'Review and reallocate unused licenses' : 'Monitor for capacity planning',
@@ -635,7 +676,19 @@ const Reports: React.FC = () => {
                     {Object.entries(currentTabData.metrics).map(([key, value]) => (
                       <div key={key} className="metric-card">
                         <div className="metric-label">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</div>
-                        <div className="metric-value">{typeof value === 'number' ? value.toLocaleString() : String(value)}</div>
+                        <div className="metric-value">
+                          {key === 'licenseTypes' ? (
+                            <div>
+                              {Array.isArray(value) ? value.map((license: any, index: number) => (
+                                <div key={index} style={{ fontSize: '0.9em', marginBottom: '4px' }}>
+                                  {license.name}: {license.assigned} assigned
+                                </div>
+                              )) : 'No license data available'}
+                            </div>
+                          ) : (
+                            typeof value === 'number' ? value.toLocaleString() : String(value)
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
