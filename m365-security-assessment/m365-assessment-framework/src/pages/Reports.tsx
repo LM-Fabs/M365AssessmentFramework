@@ -62,6 +62,12 @@ const Reports: React.FC = () => {
 
   const securityCategories: SecurityCategory[] = [
     {
+      id: 'error',
+      name: 'Assessment Issues',
+      icon: '⚠️',
+      description: 'Data collection issues and troubleshooting steps'
+    },
+    {
       id: 'license',
       name: 'License Management',
       icon: '📊',
@@ -120,31 +126,78 @@ const Reports: React.FC = () => {
     setError(null);
 
     try {
-      // Get the most recent assessment for this customer
+      // Get all assessments
       const assessments: any[] = await AssessmentService.getInstance().getAssessments();
-      // Filter for valid assessments: correct tenantId, has date, has metrics
+      
+      // Filter for assessments belonging to this customer
       const customerAssessments = assessments.filter((a: any) =>
         a.tenantId === selectedCustomer.tenantId &&
-        (a.date || a.assessmentDate || a.lastModified) &&
-        a.metrics && typeof a.metrics === 'object'
+        (a.date || a.assessmentDate || a.lastModified)
       );
 
       if (customerAssessments.length === 0) {
-        setError('No assessment data available for this customer.');
+        setError('No assessments found for this customer.');
         setCustomerAssessment(null);
         setReportData([]);
         return;
       }
 
-      // Get the most recent valid assessment
-      const latestAssessment = customerAssessments.sort((a: any, b: any) =>
-        new Date(b.date || b.assessmentDate || b.lastModified || 0).getTime() -
-        new Date(a.date || a.assessmentDate || a.lastModified || 0).getTime()
-      )[0];
+      console.log(`Found ${customerAssessments.length} assessments for customer`);
 
-      // Extra validation: check for required fields in metrics
-      if (!latestAssessment.metrics || typeof latestAssessment.metrics !== 'object') {
-        setError('Assessment data is invalid or incomplete.');
+      // Categorize assessments by status and data quality
+      const validAssessments = customerAssessments.filter((a: any) => 
+        a.status === 'completed' && 
+        a.metrics && 
+        typeof a.metrics === 'object' &&
+        !a.metrics.error &&
+        (a.metrics.realData || a.metrics.score) // Accept assessments with real data or basic score
+      );
+
+      const errorAssessments = customerAssessments.filter((a: any) => 
+        a.status === 'completed_with_size_limit' || 
+        (a.metrics && a.metrics.error) ||
+        (a.metrics && a.metrics.dataIssue && !a.metrics.realData)
+      );
+
+      const apiFailureAssessments = customerAssessments.filter((a: any) => 
+        a.metrics && a.metrics.dataIssue && a.metrics.dataIssue.reason
+      );
+
+      console.log(`Assessment breakdown: ${validAssessments.length} valid, ${errorAssessments.length} with errors, ${apiFailureAssessments.length} with API failures`);
+
+      let latestAssessment: any = null;
+
+      if (validAssessments.length > 0) {
+        // Use the most recent valid assessment
+        latestAssessment = validAssessments.sort((a: any, b: any) =>
+          new Date(b.date || b.assessmentDate || b.lastModified || 0).getTime() -
+          new Date(a.date || a.assessmentDate || a.lastModified || 0).getTime()
+        )[0];
+      } else if (errorAssessments.length > 0) {
+        // Show the most recent assessment even if it has issues, with appropriate error message
+        const recentErrorAssessment = errorAssessments.sort((a: any, b: any) =>
+          new Date(b.date || b.assessmentDate || b.lastModified || 0).getTime() -
+          new Date(a.date || a.assessmentDate || a.lastModified || 0).getTime()
+        )[0];
+
+        let errorMessage = 'Assessment data has issues: ';
+        if (recentErrorAssessment.status === 'completed_with_size_limit') {
+          errorMessage += 'Data was too large to store completely. ';
+        }
+        if (recentErrorAssessment.metrics?.dataIssue) {
+          errorMessage += recentErrorAssessment.metrics.dataIssue.reason || 'Graph API access failed. ';
+        }
+        if (recentErrorAssessment.metrics?.error) {
+          errorMessage += 'Storage error occurred. ';
+        }
+        errorMessage += `Found ${customerAssessments.length} total assessments for this customer.`;
+        
+        setError(errorMessage);
+        setCustomerAssessment(recentErrorAssessment);
+        setReportData([]);
+        return;
+      } else {
+        setError(`Found ${customerAssessments.length} assessments but none have valid data. This may indicate API authentication issues.`);
         setCustomerAssessment(null);
         setReportData([]);
         return;
@@ -168,6 +221,33 @@ const Reports: React.FC = () => {
 
   const generateReportData = (assessment: any) => {
     const reports: ReportData[] = [];
+
+    // Check if assessment has data issues
+    if (assessment.metrics?.error || assessment.metrics?.dataIssue) {
+      const errorReport: ReportData = {
+        category: 'error',
+        metrics: {
+          hasError: true,
+          errorMessage: assessment.metrics.error || assessment.metrics.dataIssue?.reason || 'Unknown error',
+          troubleshooting: assessment.metrics.dataIssue?.troubleshooting || [],
+          assessmentDate: assessment.date || assessment.assessmentDate
+        },
+        charts: [],
+        insights: [
+          assessment.metrics.dataIssue?.reason || 'Assessment encountered an error during data collection',
+          'This may be due to authentication issues or missing permissions',
+          'Please check the troubleshooting steps below'
+        ],
+        recommendations: assessment.metrics.dataIssue?.troubleshooting || [
+          'Verify app registration credentials',
+          'Ensure admin consent is granted',
+          'Check required permissions are configured'
+        ]
+      };
+      reports.push(errorReport);
+      setReportData(reports);
+      return;
+    }
 
     // License Management Report
     const licenseInfo =

@@ -650,6 +650,10 @@ export class TableStorageService {
         for await (const entity of iterator) {
             if (count >= maxItems) break;
 
+            // Reconstruct chunked data for large properties
+            const metricsJson = this.reconstructChunkedData(entity, 'metrics');
+            const recommendationsJson = this.reconstructChunkedData(entity, 'recommendations');
+
             assessments.push({
                 id: entity.rowKey as string,
                 customerId: entity.customerId as string,
@@ -657,8 +661,8 @@ export class TableStorageService {
                 date: new Date(entity.date as string),
                 status: entity.status as string,
                 score: entity.score as number,
-                metrics: entity.metrics ? JSON.parse(entity.metrics as string) : {},
-                recommendations: entity.recommendations ? JSON.parse(entity.recommendations as string) : []
+                metrics: metricsJson ? JSON.parse(metricsJson) : {},
+                recommendations: recommendationsJson ? JSON.parse(recommendationsJson) : []
             });
 
             count++;

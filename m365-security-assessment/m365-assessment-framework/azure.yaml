@@ -10,3 +10,8 @@ services:
     language: ts
     host: staticwebapp
     dist: build
+  
+  m365-assessment-api:
+    project: ./api
+    language: ts
+    host: function
