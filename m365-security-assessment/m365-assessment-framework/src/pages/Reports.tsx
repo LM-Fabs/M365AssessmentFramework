@@ -678,12 +678,15 @@ const Reports: React.FC = () => {
                         <div className="metric-label">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</div>
                         <div className="metric-value">
                           {key === 'licenseTypes' ? (
-                            <div>
+                            <div className="license-types-list">
                               {Array.isArray(value) ? value.map((license: any, index: number) => (
-                                <div key={index} style={{ fontSize: '0.9em', marginBottom: '4px' }}>
-                                  {license.name}: {license.assigned} assigned
+                                <div key={index} className="license-type-item">
+                                  <span className="license-name">{license.name}</span>
+                                  <span className="license-count">{license.assigned}</span>
                                 </div>
-                              )) : 'No license data available'}
+                              )) : (
+                                <div className="no-license-data">No license data available</div>
+                              )}
                             </div>
                           ) : (
                             typeof value === 'number' ? value.toLocaleString() : String(value)
