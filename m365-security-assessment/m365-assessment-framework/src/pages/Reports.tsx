@@ -204,7 +204,7 @@ const Reports: React.FC = () => {
       console.log('=== ASSESSMENT VALIDATION DEBUGGING ===');
       
       const validAssessments = customerAssessments.filter((a: any) => {
-        const isCompleted = a.status === 'completed';
+        const isCompleted = a.status === 'completed' || a.status === 'completed_with_size_limit'; // Allow both completed statuses
         const hasMetrics = a.metrics && typeof a.metrics === 'object';
         const noError = !a.metrics?.error;
         const hasDataOrScore = a.metrics?.realData || a.metrics?.score;
