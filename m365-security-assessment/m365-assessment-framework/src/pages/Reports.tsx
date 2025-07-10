@@ -206,7 +206,10 @@ const Reports: React.FC = () => {
       const validAssessments = customerAssessments.filter((a: any) => {
         const isCompleted = a.status === 'completed' || a.status === 'completed_with_size_limit'; // Allow both completed statuses
         const hasMetrics = a.metrics && typeof a.metrics === 'object';
-        const noError = !a.metrics?.error;
+        
+        // For 'completed_with_size_limit', be more permissive about errors - they may still have good data
+        const noError = a.status === 'completed_with_size_limit' ? true : !a.metrics?.error;
+        
         const hasDataOrScore = a.metrics?.realData || a.metrics?.score;
         
         console.log(`Assessment ${a.id}:`, {
@@ -219,6 +222,7 @@ const Reports: React.FC = () => {
           hasScore: !!a.metrics?.score,
           hasSecureScore: !!a.metrics?.realData?.secureScore,
           secureScoreAvailable: a.metrics?.realData?.secureScore && !a.metrics?.realData?.secureScore?.unavailable,
+          metricsError: a.metrics?.error,
           isValid: isCompleted && hasMetrics && noError && hasDataOrScore
         });
         
