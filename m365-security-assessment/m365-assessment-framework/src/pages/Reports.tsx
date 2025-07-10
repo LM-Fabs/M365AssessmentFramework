@@ -178,9 +178,15 @@ const Reports: React.FC = () => {
       const assessments: any[] = await AssessmentService.getInstance().getAssessments();
       
       // Filter for assessments belonging to this customer
+      // PRODUCTION FILTER: Exclude test/debug assessments from production reports
       const customerAssessments = assessments.filter((a: any) =>
         a.tenantId === selectedCustomer.tenantId &&
-        (a.date || a.assessmentDate || a.lastModified)
+        (a.date || a.assessmentDate || a.lastModified) &&
+        // Exclude test/debug assessments - these are for development only
+        !a.assessmentName?.includes('Test Assessment') &&
+        !a.assessmentName?.includes('Debug') &&
+        !a.assessmentName?.toLowerCase().includes('test') &&
+        !a.assessmentName?.toLowerCase().includes('debug')
       );
 
       if (customerAssessments.length === 0) {
@@ -216,11 +222,14 @@ const Reports: React.FC = () => {
       let latestAssessment: any = null;
 
       if (validAssessments.length > 0) {
-        // Use the most recent valid assessment
-        latestAssessment = validAssessments.sort((a: any, b: any) =>
-          new Date(b.date || b.assessmentDate || b.lastModified || 0).getTime() -
-          new Date(a.date || a.assessmentDate || a.lastModified || 0).getTime()
-        )[0];
+        // Use the most recent valid assessment - sort by date descending
+        latestAssessment = validAssessments.sort((a: any, b: any) => {
+          const dateA = new Date(a.date || a.assessmentDate || a.lastModified || 0).getTime();
+          const dateB = new Date(b.date || b.assessmentDate || b.lastModified || 0).getTime();
+          return dateB - dateA; // Most recent first
+        })[0];
+        
+        console.log('✅ Selected most recent valid assessment:', latestAssessment.id, 'from', latestAssessment.date || latestAssessment.assessmentDate);
       } else if (errorAssessments.length > 0) {
         // Show the most recent assessment even if it has issues, with appropriate error message
         const recentErrorAssessment = errorAssessments.sort((a: any, b: any) =>
@@ -395,29 +404,27 @@ const Reports: React.FC = () => {
       console.log('=== SECURE SCORE FOUND - PROCESSING ===');
       const currentScore = Number(secureScore.currentScore) || 0;
       const maxScore = Number(secureScore.maxScore) || 100;
-      const percentage = maxScore > 0 ? Math.round((currentScore / maxScore) * 100) : 0;
+      const percentage = secureScore.percentage || (maxScore > 0 ? Math.round((currentScore / maxScore) * 100) : 0);
       
       console.log('Processed scores:', { currentScore, maxScore, percentage });
       
-      // Process improvement actions for detailed table
-      const improvementActions = (secureScore.improvementActions || []).map((action: any, index: number) => ({
-        title: action.title || `Security Action ${index + 1}`,
-        description: action.description || 'No description available',
-        scoreIncrease: Number(action.scoreIncrease) || 0,
-        implementationCost: action.implementationCost || 'Unknown',
-        userImpact: action.userImpact || 'Unknown',
-        tier: action.tier || 'Unknown',
-        actionType: action.actionType || 'Unknown',
-        complianceInformation: action.complianceInformation || [],
-        implementationStatus: action.implementationStatus || 'Not Started'
+      // Process control scores from the API response (not improvementActions)
+      const controlScores = (secureScore.controlScores || []).map((control: any, index: number) => ({
+        controlName: control.controlName || `Security Control ${index + 1}`,
+        category: control.category || 'General',
+        currentScore: Number(control.currentScore) || 0,
+        maxScore: Number(control.maxScore) || 0,
+        implementationStatus: control.implementationStatus || 'Not Implemented',
+        scoreGap: Number(control.maxScore || 0) - Number(control.currentScore || 0)
       }));
       
-      console.log('Processed improvement actions count:', improvementActions.length);
+      console.log('Processed control scores count:', controlScores.length);
       
-      // Process security controls for detailed view
-      const controlsImplemented = Number(secureScore.controlsImplemented) || 0;
-      const totalControls = Number(secureScore.totalControls) || 0;
-      const controlsRemaining = totalControls - controlsImplemented;
+      // Calculate summary metrics
+      const totalImplemented = controlScores.filter((c: any) => c.implementationStatus === 'Implemented' || c.currentScore > 0).length;
+      const totalControls = controlScores.length;
+      const controlsRemaining = totalControls - totalImplemented;
+      const potentialScoreIncrease = controlScores.reduce((sum: number, control: any) => sum + control.scoreGap, 0);
       
       console.log('=== ADDING SECURE SCORE REPORT ===');
       reports.push({
@@ -426,31 +433,32 @@ const Reports: React.FC = () => {
           currentScore,
           maxScore,
           percentage,
-          controlsImplemented,
+          controlsImplemented: totalImplemented,
           totalControls,
           controlsRemaining,
-          improvementActions: improvementActions.slice(0, 10), // Show top 10 actions
-          potentialScoreIncrease: improvementActions.reduce((sum: number, action: any) => sum + action.scoreIncrease, 0),
-          averageScoreIncrease: improvementActions.length > 0 ? Math.round(improvementActions.reduce((sum: number, action: any) => sum + action.scoreIncrease, 0) / improvementActions.length) : 0
+          controlScores: controlScores.slice(0, 20), // Show top 20 controls
+          potentialScoreIncrease,
+          averageControlScore: totalControls > 0 ? Math.round(controlScores.reduce((sum: number, control: any) => sum + control.currentScore, 0) / totalControls) : 0,
+          implementationRate: totalControls > 0 ? Math.round((totalImplemented / totalControls) * 100) : 0
         },
         charts: [], // No charts needed - we use table view
         insights: [
           `Current secure score: ${currentScore} out of ${maxScore} points (${percentage}%)`,
-          `${controlsImplemented} out of ${totalControls} security controls are implemented`,
+          `${totalImplemented} out of ${totalControls} security controls are implemented`,
           `${controlsRemaining} security controls remaining to implement`,
-          `Potential score increase: ${improvementActions.reduce((sum: number, action: any) => sum + action.scoreIncrease, 0)} points available`,
+          `Potential score increase: ${potentialScoreIncrease.toFixed(1)} points available`,
           percentage < 40 ? 'Security posture needs immediate attention' : 
           percentage < 70 ? 'Security posture needs significant improvement' : 
           percentage < 85 ? 'Good security posture with room for improvement' : 
           'Excellent security posture - maintain current practices'
         ],
         recommendations: [
-          'Focus on high-impact improvement actions first',
-          'Prioritize actions with low user impact',
-          'Implement MFA and conditional access policies',
-          'Enable security defaults and advanced threat protection',
-          'Regularly review and update security settings',
-          'Train users on security best practices'
+          'Focus on high-impact security controls first',
+          'Prioritize controls with low implementation complexity',
+          'Implement Multi-Factor Authentication for all users',
+          'Enable Conditional Access policies',
+          'Configure security defaults and advanced threat protection',
+          'Regularly review and update security settings'
         ]
       });
     } else {
@@ -655,7 +663,7 @@ const Reports: React.FC = () => {
   };
 
   const renderSecureScoreTable = (metrics: any) => {
-    if (!metrics) {
+    if (!metrics || metrics.currentScore === undefined) {
       return (
         <div className="no-secure-score-data">
           <h4>🛡️ Secure Score Data Not Available</h4>
@@ -714,46 +722,47 @@ const Reports: React.FC = () => {
           </div>
         </div>
 
-        {/* Improvement Actions Table */}
-        <div className="improvement-actions-table">
-          <h4>Top Security Improvement Actions</h4>
-          {metrics.improvementActions && metrics.improvementActions.length > 0 ? (
+        {/* Security Controls Table */}
+        <div className="security-controls-table">
+          <h4>Security Controls Breakdown</h4>
+          {metrics.controlScores && metrics.controlScores.length > 0 ? (
             <div className="table-wrapper">
               <table className="secure-score-table">
                 <thead>
                   <tr>
-                    <th>Action</th>
-                    <th>Score Impact</th>
-                    <th>User Impact</th>
-                    <th>Implementation Cost</th>
+                    <th>Control Name</th>
+                    <th>Category</th>
+                    <th>Current Score</th>
+                    <th>Max Score</th>
+                    <th>Gap</th>
                     <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {metrics.improvementActions.map((action: any, index: number) => (
-                    <tr key={index}>
-                      <td className="action-cell">
-                        <div className="action-title">{action.title}</div>
-                        <div className="action-description">{action.description}</div>
+                  {metrics.controlScores.map((control: any, index: number) => (
+                    <tr key={index} className={control.implementationStatus === 'Not Implemented' ? 'not-implemented' : 'implemented'}>
+                      <td className="control-name-cell">
+                        <div className="control-name">{control.controlName}</div>
                       </td>
-                      <td className="score-impact-cell">
-                        <div className="score-impact-badge">
-                          +{action.scoreIncrease}
+                      <td className="category-cell">
+                        <span className={`category-badge ${control.category.toLowerCase()}`}>
+                          {control.category}
+                        </span>
+                      </td>
+                      <td className="current-score-cell">
+                        <span className="score-value">{control.currentScore}</span>
+                      </td>
+                      <td className="max-score-cell">
+                        <span className="score-value">{control.maxScore}</span>
+                      </td>
+                      <td className="score-gap-cell">
+                        <div className="score-gap">
+                          {control.scoreGap > 0 ? `+${control.scoreGap}` : '0'}
                         </div>
                       </td>
-                      <td className="user-impact-cell">
-                        <span className={`impact-badge ${action.userImpact.toLowerCase()}`}>
-                          {action.userImpact}
-                        </span>
-                      </td>
-                      <td className="implementation-cost-cell">
-                        <span className={`cost-badge ${action.implementationCost.toLowerCase()}`}>
-                          {action.implementationCost}
-                        </span>
-                      </td>
                       <td className="status-cell">
-                        <span className={`status-badge ${action.implementationStatus.toLowerCase().replace(' ', '-')}`}>
-                          {action.implementationStatus}
+                        <span className={`status-badge ${control.implementationStatus.toLowerCase().replace(' ', '-')}`}>
+                          {control.implementationStatus}
                         </span>
                       </td>
                     </tr>
@@ -762,9 +771,9 @@ const Reports: React.FC = () => {
               </table>
             </div>
           ) : (
-            <div className="no-improvement-actions">
-              <p>No improvement actions available in the assessment data.</p>
-              <p>This may indicate that the secure score data was not collected or is incomplete.</p>
+            <div className="no-controls-data">
+              <p>No security controls data available in the assessment.</p>
+              <p>This may indicate that the secure score data collection was incomplete.</p>
             </div>
           )}
         </div>
@@ -903,11 +912,14 @@ const Reports: React.FC = () => {
       </div>
 
 
-      {/* Test Assessment Creation Button (for debugging API/store) */}
-      {selectedCustomer && (
-        <div style={{ margin: '1em 0' }}>
+      {/* Production mode: Debug buttons are hidden */}
+      {process.env.NODE_ENV === 'development' && selectedCustomer && (
+        <div style={{ margin: '1em 0', display: 'flex', gap: '1em', alignItems: 'center' }}>
           <button onClick={handleTestCreateAssessment} disabled={creatingAssessment} style={{ padding: '0.5em 1em', fontWeight: 'bold' }}>
             {creatingAssessment ? 'Creating Test Assessment...' : 'Create Test Assessment (Debug)'}
+          </button>
+          <button onClick={loadCustomerAssessment} disabled={loading} style={{ padding: '0.5em 1em', fontWeight: 'bold', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>
+            {loading ? 'Refreshing...' : 'Refresh Assessments'}
           </button>
           {createAssessmentResult && (
             <div style={{ marginTop: '0.5em', color: createAssessmentResult.startsWith('Error') ? 'red' : 'green' }}>
