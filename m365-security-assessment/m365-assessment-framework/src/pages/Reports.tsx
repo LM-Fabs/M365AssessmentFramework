@@ -210,7 +210,8 @@ const Reports: React.FC = () => {
         // For 'completed_with_size_limit', be more permissive about errors - they may still have good data
         const noError = a.status === 'completed_with_size_limit' ? true : !a.metrics?.error;
         
-        const hasDataOrScore = a.metrics?.realData || a.metrics?.score;
+        // Be more flexible about data - check if there's any useful data structure
+        const hasDataOrScore = a.metrics?.realData || a.metrics?.score || a.metrics?.dataCollected;
         
         console.log(`Assessment ${a.id}:`, {
           status: a.status,
@@ -220,9 +221,11 @@ const Reports: React.FC = () => {
           hasDataOrScore,
           hasRealData: !!a.metrics?.realData,
           hasScore: !!a.metrics?.score,
+          hasDataCollected: !!a.metrics?.dataCollected,
           hasSecureScore: !!a.metrics?.realData?.secureScore,
           secureScoreAvailable: a.metrics?.realData?.secureScore && !a.metrics?.realData?.secureScore?.unavailable,
           metricsError: a.metrics?.error,
+          metricsKeys: a.metrics ? Object.keys(a.metrics) : [],
           isValid: isCompleted && hasMetrics && noError && hasDataOrScore
         });
         
@@ -244,27 +247,34 @@ const Reports: React.FC = () => {
       let latestAssessment: any = null;
 
       if (validAssessments.length > 0) {
-        // Prioritize assessments with actual secure score data, then by date
-        latestAssessment = validAssessments.sort((a: any, b: any) => {
-          const dateA = new Date(a.date || a.assessmentDate || a.lastModified || 0).getTime();
-          const dateB = new Date(b.date || b.assessmentDate || b.lastModified || 0).getTime();
-          
-          // Check if assessments have actual secure score data (not just unavailable)
-          const aHasSecureScore = a.metrics?.realData?.secureScore && !a.metrics?.realData?.secureScore?.unavailable;
-          const bHasSecureScore = b.metrics?.realData?.secureScore && !b.metrics?.realData?.secureScore?.unavailable;
-          
-          console.log(`Assessment ${a.id}: hasSecureScore=${aHasSecureScore}, date=${dateA}`);
-          console.log(`Assessment ${b.id}: hasSecureScore=${bHasSecureScore}, date=${dateB}`);
-          
-          // If only one has secure score data, prioritize that one
-          if (aHasSecureScore && !bHasSecureScore) return -1;
-          if (bHasSecureScore && !aHasSecureScore) return 1;
-          
-          // Otherwise, sort by date (most recent first)
-          return dateB - dateA;
-        })[0];
+        // First, try to find ANY assessment with secure score data (even from all assessments, not just valid ones)
+        console.log('🔍 Searching for assessments with actual secure score data...');
+        const assessmentsWithSecureScore = customerAssessments.filter((a: any) => {
+          const hasSecureScore = a.metrics?.realData?.secureScore && !a.metrics?.realData?.secureScore?.unavailable;
+          if (hasSecureScore) {
+            console.log(`🎯 Found assessment with secure score: ${a.id} (status: ${a.status})`);
+          }
+          return hasSecureScore;
+        });
         
-        console.log('✅ Selected most recent valid assessment:', latestAssessment.id, 'from', latestAssessment.date || latestAssessment.assessmentDate);
+        if (assessmentsWithSecureScore.length > 0) {
+          // Use the most recent assessment with secure score data
+          latestAssessment = assessmentsWithSecureScore.sort((a: any, b: any) => {
+            const dateA = new Date(a.date || a.assessmentDate || a.lastModified || 0).getTime();
+            const dateB = new Date(b.date || b.assessmentDate || b.lastModified || 0).getTime();
+            return dateB - dateA;
+          })[0];
+          console.log('🎉 Selected assessment with secure score data:', latestAssessment.id, 'from', latestAssessment.date || latestAssessment.assessmentDate);
+        } else {
+          // Fallback to prioritizing by date among valid assessments
+          latestAssessment = validAssessments.sort((a: any, b: any) => {
+            const dateA = new Date(a.date || a.assessmentDate || a.lastModified || 0).getTime();
+            const dateB = new Date(b.date || b.assessmentDate || b.lastModified || 0).getTime();
+            return dateB - dateA;
+          })[0];
+          console.log('✅ Selected most recent valid assessment (no secure score found):', latestAssessment.id, 'from', latestAssessment.date || latestAssessment.assessmentDate);
+        }
+        
         console.log('Selected assessment has secure score:', !!latestAssessment.metrics?.realData?.secureScore && !latestAssessment.metrics?.realData?.secureScore?.unavailable);
       } else if (errorAssessments.length > 0) {
         // Show the most recent assessment even if it has issues, with appropriate error message
