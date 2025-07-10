@@ -380,46 +380,56 @@ const Reports: React.FC = () => {
       const currentScore = Number(secureScore.currentScore) || 0;
       const maxScore = Number(secureScore.maxScore) || 100;
       const percentage = maxScore > 0 ? Math.round((currentScore / maxScore) * 100) : 0;
+      
+      // Process improvement actions for detailed table
+      const improvementActions = (secureScore.improvementActions || []).map((action: any, index: number) => ({
+        title: action.title || `Security Action ${index + 1}`,
+        description: action.description || 'No description available',
+        scoreIncrease: Number(action.scoreIncrease) || 0,
+        implementationCost: action.implementationCost || 'Unknown',
+        userImpact: action.userImpact || 'Unknown',
+        tier: action.tier || 'Unknown',
+        actionType: action.actionType || 'Unknown',
+        complianceInformation: action.complianceInformation || [],
+        implementationStatus: action.implementationStatus || 'Not Started'
+      }));
+      
+      // Process security controls for detailed view
+      const controlsImplemented = Number(secureScore.controlsImplemented) || 0;
+      const totalControls = Number(secureScore.totalControls) || 0;
+      const controlsRemaining = totalControls - controlsImplemented;
+      
       reports.push({
         category: 'secureScore',
         metrics: {
           currentScore,
           maxScore,
           percentage,
-          controlsImplemented: Number(secureScore.controlsImplemented) || 0,
-          totalControls: Number(secureScore.totalControls) || 0,
-          improvementActions: secureScore.improvementActions || []
+          controlsImplemented,
+          totalControls,
+          controlsRemaining,
+          improvementActions: improvementActions.slice(0, 10), // Show top 10 actions
+          potentialScoreIncrease: improvementActions.reduce((sum: number, action: any) => sum + action.scoreIncrease, 0),
+          averageScoreIncrease: improvementActions.length > 0 ? Math.round(improvementActions.reduce((sum: number, action: any) => sum + action.scoreIncrease, 0) / improvementActions.length) : 0
         },
-        charts: [
-          {
-            type: 'gauge',
-            title: 'Security Score',
-            data: {
-              current: currentScore,
-              max: maxScore,
-              percentage
-            }
-          },
-          {
-            type: 'bar',
-            title: 'Top Improvement Opportunities',
-            data: (secureScore.improvementActions || []).slice(0, 5).map((action: any, index: number) => ({
-              label: action.title || `Action ${index + 1}`,
-              value: action.scoreIncrease || 0,
-              color: `hsl(${index * 45}, 70%, 60%)`
-            }))
-          }
-        ],
+        charts: [], // No charts needed - we use table view
         insights: [
-          `Current secure score: ${currentScore}/${maxScore}`,
-          `${Number(secureScore.controlsImplemented) || 0} out of ${Number(secureScore.totalControls) || 0} security controls are implemented`,
-          currentScore < 60 ? 'Security posture needs significant improvement' : 'Security posture is good but can be enhanced'
+          `Current secure score: ${currentScore} out of ${maxScore} points (${percentage}%)`,
+          `${controlsImplemented} out of ${totalControls} security controls are implemented`,
+          `${controlsRemaining} security controls remaining to implement`,
+          `Potential score increase: ${improvementActions.reduce((sum: number, action: any) => sum + action.scoreIncrease, 0)} points available`,
+          percentage < 40 ? 'Security posture needs immediate attention' : 
+          percentage < 70 ? 'Security posture needs significant improvement' : 
+          percentage < 85 ? 'Good security posture with room for improvement' : 
+          'Excellent security posture - maintain current practices'
         ],
         recommendations: [
-          'Implement high-impact security controls first',
-          'Enable multi-factor authentication for all users',
-          'Configure conditional access policies',
-          'Regularly review and update security settings'
+          'Focus on high-impact improvement actions first',
+          'Prioritize actions with low user impact',
+          'Implement MFA and conditional access policies',
+          'Enable security defaults and advanced threat protection',
+          'Regularly review and update security settings',
+          'Train users on security best practices'
         ]
       });
     }
@@ -432,49 +442,50 @@ const Reports: React.FC = () => {
     ) {
       const totalUsers = Number(identityMetrics.totalUsers) || 0;
       const mfaEnabledUsers = Number(identityMetrics.mfaEnabledUsers) || 0;
+      const mfaDisabledUsers = totalUsers - mfaEnabledUsers;
       const mfaCoverage = identityMetrics.mfaCoverage !== undefined ? Number(identityMetrics.mfaCoverage) : (totalUsers > 0 ? Math.round((mfaEnabledUsers / totalUsers) * 100) : 0);
       const adminUsers = Number(identityMetrics.adminUsers) || 0;
       const guestUsers = Number(identityMetrics.guestUsers) || 0;
+      const regularUsers = totalUsers - adminUsers - guestUsers;
       const conditionalAccessPolicies = Number(identityMetrics.conditionalAccessPolicies) || 0;
+      
+      // Create user breakdown data for table
+      const userBreakdown = [
+        { type: 'Regular Users', count: regularUsers, percentage: totalUsers > 0 ? Math.round((regularUsers / totalUsers) * 100) : 0, risk: 'Low' },
+        { type: 'Admin Users', count: adminUsers, percentage: totalUsers > 0 ? Math.round((adminUsers / totalUsers) * 100) : 0, risk: 'High' },
+        { type: 'Guest Users', count: guestUsers, percentage: totalUsers > 0 ? Math.round((guestUsers / totalUsers) * 100) : 0, risk: 'Medium' }
+      ];
+      
       reports.push({
         category: 'identity',
         metrics: {
           totalUsers,
           mfaEnabledUsers,
+          mfaDisabledUsers,
           mfaCoverage,
           adminUsers,
           guestUsers,
-          conditionalAccessPolicies
+          regularUsers,
+          conditionalAccessPolicies,
+          userBreakdown,
+          mfaGap: mfaDisabledUsers,
+          securityRisk: mfaCoverage < 50 ? 'High' : mfaCoverage < 80 ? 'Medium' : 'Low'
         },
-        charts: [
-          {
-            type: 'donut',
-            title: 'MFA Coverage',
-            data: [
-              { label: 'MFA Enabled', value: mfaEnabledUsers, color: '#28a745' },
-              { label: 'MFA Disabled', value: totalUsers - mfaEnabledUsers, color: '#dc3545' }
-            ]
-          },
-          {
-            type: 'bar',
-            title: 'User Types',
-            data: [
-              { label: 'Regular Users', value: totalUsers - adminUsers - guestUsers, color: '#007bff' },
-              { label: 'Admin Users', value: adminUsers, color: '#fd7e14' },
-              { label: 'Guest Users', value: guestUsers, color: '#6f42c1' }
-            ]
-          }
-        ],
+        charts: [], // No charts needed - we use table view
         insights: [
-          `${mfaCoverage}% of users have MFA enabled`,
-          `${adminUsers} admin users require special attention`,
-          `${conditionalAccessPolicies} conditional access policies are configured`
+          `${mfaCoverage}% of users have MFA enabled (${mfaEnabledUsers} out of ${totalUsers} users)`,
+          `${mfaDisabledUsers} users are at risk due to missing MFA protection`,
+          `${adminUsers} admin users require special attention and should have MFA enabled`,
+          `${conditionalAccessPolicies} conditional access policies are configured`,
+          `${guestUsers} guest users need regular access review`
         ],
         recommendations: [
           'Enable MFA for all users, especially administrators',
-          'Implement conditional access policies',
-          'Regularly review admin user permissions',
-          'Monitor and audit guest user access'
+          'Implement conditional access policies for high-risk scenarios',
+          'Regularly review admin user permissions and access',
+          'Monitor and audit guest user access quarterly',
+          'Consider implementing privileged identity management (PIM)',
+          'Enforce strong password policies'
         ]
       });
     }
@@ -611,6 +622,197 @@ const Reports: React.FC = () => {
               })}
             </tbody>
           </table>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSecureScoreTable = (metrics: any) => {
+    if (!metrics || !metrics.improvementActions || metrics.improvementActions.length === 0) {
+      return (
+        <div className="no-secure-score-data">
+          <p>No secure score improvement actions available</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="secure-score-container">
+        {/* Score Overview */}
+        <div className="score-overview">
+          <h4>Security Score Overview</h4>
+          <div className="score-metrics">
+            <div className="score-metric">
+              <span className="metric-label">Current Score</span>
+              <span className="metric-value">{metrics.currentScore || 0}</span>
+            </div>
+            <div className="score-metric">
+              <span className="metric-label">Maximum Score</span>
+              <span className="metric-value">{metrics.maxScore || 100}</span>
+            </div>
+            <div className="score-metric">
+              <span className="metric-label">Percentage</span>
+              <span className="metric-value">{metrics.percentage || 0}%</span>
+            </div>
+            <div className="score-metric">
+              <span className="metric-label">Controls Implemented</span>
+              <span className="metric-value">{metrics.controlsImplemented || 0}</span>
+            </div>
+            <div className="score-metric">
+              <span className="metric-label">Total Controls</span>
+              <span className="metric-value">{metrics.totalControls || 0}</span>
+            </div>
+            <div className="score-metric">
+              <span className="metric-label">Potential Increase</span>
+              <span className="metric-value">+{metrics.potentialScoreIncrease || 0}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Improvement Actions Table */}
+        <div className="improvement-actions-table">
+          <h4>Top Security Improvement Actions</h4>
+          <div className="table-wrapper">
+            <table className="secure-score-table">
+              <thead>
+                <tr>
+                  <th>Action</th>
+                  <th>Score Impact</th>
+                  <th>User Impact</th>
+                  <th>Implementation Cost</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metrics.improvementActions.map((action: any, index: number) => (
+                  <tr key={index}>
+                    <td className="action-cell">
+                      <div className="action-title">{action.title}</div>
+                      <div className="action-description">{action.description}</div>
+                    </td>
+                    <td className="score-impact-cell">
+                      <div className="score-impact-badge">
+                        +{action.scoreIncrease}
+                      </div>
+                    </td>
+                    <td className="user-impact-cell">
+                      <span className={`impact-badge ${action.userImpact.toLowerCase()}`}>
+                        {action.userImpact}
+                      </span>
+                    </td>
+                    <td className="implementation-cost-cell">
+                      <span className={`cost-badge ${action.implementationCost.toLowerCase()}`}>
+                        {action.implementationCost}
+                      </span>
+                    </td>
+                    <td className="status-cell">
+                      <span className={`status-badge ${action.implementationStatus.toLowerCase().replace(' ', '-')}`}>
+                        {action.implementationStatus}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderIdentityTable = (metrics: any) => {
+    if (!metrics || metrics.totalUsers === undefined) {
+      return (
+        <div className="no-identity-data">
+          <p>No identity data available</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="identity-container">
+        {/* MFA Overview */}
+        <div className="mfa-overview">
+          <h4>Multi-Factor Authentication Status</h4>
+          <div className="mfa-metrics">
+            <div className="mfa-metric enabled">
+              <span className="metric-label">MFA Enabled</span>
+              <span className="metric-value">{metrics.mfaEnabledUsers || 0}</span>
+              <span className="metric-percentage">{metrics.mfaCoverage || 0}%</span>
+            </div>
+            <div className="mfa-metric disabled">
+              <span className="metric-label">MFA Disabled</span>
+              <span className="metric-value">{metrics.mfaDisabledUsers || 0}</span>
+              <span className="metric-percentage">{100 - (metrics.mfaCoverage || 0)}%</span>
+            </div>
+            <div className="mfa-metric total">
+              <span className="metric-label">Total Users</span>
+              <span className="metric-value">{metrics.totalUsers || 0}</span>
+              <span className="metric-percentage">100%</span>
+            </div>
+            <div className="mfa-metric policies">
+              <span className="metric-label">CA Policies</span>
+              <span className="metric-value">{metrics.conditionalAccessPolicies || 0}</span>
+              <span className="metric-percentage">Active</span>
+            </div>
+          </div>
+          <div className="security-risk-indicator">
+            <span className="risk-label">Security Risk Level:</span>
+            <span className={`risk-badge ${metrics.securityRisk?.toLowerCase() || 'unknown'}`}>
+              {metrics.securityRisk || 'Unknown'}
+            </span>
+          </div>
+        </div>
+
+        {/* User Types Breakdown */}
+        <div className="user-types-table">
+          <h4>User Types Breakdown</h4>
+          <div className="table-wrapper">
+            <table className="identity-table">
+              <thead>
+                <tr>
+                  <th>User Type</th>
+                  <th>Count</th>
+                  <th>Percentage</th>
+                  <th>Risk Level</th>
+                  <th>MFA Required</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(metrics.userBreakdown || []).map((userType: any, index: number) => (
+                  <tr key={index}>
+                    <td className="user-type-cell">
+                      <span className="user-type-name">{userType.type}</span>
+                    </td>
+                    <td className="count-cell">{userType.count.toLocaleString()}</td>
+                    <td className="percentage-cell">
+                      <div className="percentage-bar-container">
+                        <div 
+                          className="percentage-bar-fill" 
+                          style={{ 
+                            width: `${userType.percentage}%`,
+                            backgroundColor: userType.type === 'Admin Users' ? '#fd7e14' : 
+                                           userType.type === 'Guest Users' ? '#6f42c1' : '#007bff'
+                          }}
+                        />
+                        <span className="percentage-text">{userType.percentage}%</span>
+                      </div>
+                    </td>
+                    <td className="risk-cell">
+                      <span className={`risk-badge ${userType.risk.toLowerCase()}`}>
+                        {userType.risk}
+                      </span>
+                    </td>
+                    <td className="mfa-required-cell">
+                      <span className={`mfa-badge ${userType.type === 'Admin Users' ? 'mandatory' : 'recommended'}`}>
+                        {userType.type === 'Admin Users' ? 'Mandatory' : 'Recommended'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     );
@@ -782,11 +984,21 @@ const Reports: React.FC = () => {
                   </div>
                 )}
 
-                {/* Charts or License Table */}
+                {/* Charts or Custom Tables */}
                 {activeTab === 'license' ? (
                   // Always show license table for license tab
                   <div className="charts-grid">
                     {renderLicenseTable(currentTabData.metrics.licenseTypes || [])}
+                  </div>
+                ) : activeTab === 'secureScore' ? (
+                  // Always show secure score table for secure score tab
+                  <div className="charts-grid">
+                    {renderSecureScoreTable(currentTabData.metrics)}
+                  </div>
+                ) : activeTab === 'identity' ? (
+                  // Always show identity table for identity tab
+                  <div className="charts-grid">
+                    {renderIdentityTable(currentTabData.metrics)}
                   </div>
                 ) : (
                   // Show charts for other tabs
