@@ -24,6 +24,8 @@ const Reports: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [activeTab, setActiveTab] = useState<string>('license');
   const [customerAssessment, setCustomerAssessment] = useState<any>(null);
+  const [availableAssessments, setAvailableAssessments] = useState<any[]>([]);
+  const [selectedAssessmentId, setSelectedAssessmentId] = useState<string | null>(null);
   const [reportData, setReportData] = useState<ReportData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -167,6 +169,128 @@ const Reports: React.FC = () => {
     }
   };
 
+  // Function to handle assessment selection
+  const handleAssessmentSelection = (assessmentId: string) => {
+    setSelectedAssessmentId(assessmentId);
+    // Find the selected assessment and set it as current
+    const selectedAssessment = availableAssessments.find(a => a.id === assessmentId);
+    if (selectedAssessment) {
+      setCustomerAssessment(selectedAssessment);
+      // Regenerate reports for the selected assessment
+      generateReportsForAssessment(selectedAssessment);
+    }
+  };
+
+  // Function to generate reports for a specific assessment
+  const generateReportsForAssessment = (assessment: any) => {
+    console.log('=== GENERATING REPORT DATA ===');
+    console.log('Full assessment object:', assessment);
+    console.log('Assessment metrics:', assessment.metrics);
+    console.log('Assessment realData:', assessment.metrics?.realData);
+
+    const reports: ReportData[] = [];
+
+    // Process data based on what's available in the assessment
+    if (assessment.metrics?.realData?.licenseInfo || assessment.metrics?.licenseInfo) {
+      // ... existing license processing logic ...
+      const licenseData = assessment.metrics?.realData?.licenseInfo || assessment.metrics?.licenseInfo;
+      // Generate license reports...
+      
+      const licenseDetails = licenseData.licenseDetails || [];
+      console.log('Processing license details:', licenseDetails);
+
+      const processedLicenseTypes = licenseDetails
+        .filter((license: any) => license.totalUnits > 0 || license.assignedUnits > 0)
+        .map((license: any) => {
+          console.log(`Processing license: ${license.skuPartNumber}, assigned: ${license.assignedUnits}, total: ${license.totalUnits}`);
+          return {
+            name: formatLicenseName(license.skuPartNumber),
+            assigned: license.assignedUnits || license.consumedUnits || 0,
+            total: license.totalUnits || 0,
+            available: (license.totalUnits || 0) - (license.assignedUnits || license.consumedUnits || 0),
+            utilizationRate: license.totalUnits > 0 ? 
+              Math.round(((license.assignedUnits || license.consumedUnits || 0) / license.totalUnits) * 100) : 0
+          };
+        })
+        .sort((a: any, b: any) => b.assigned - a.assigned);
+
+      console.log('Processed license types:', processedLicenseTypes);
+
+      const totalLicenses = processedLicenseTypes.reduce((sum: any, license: any) => sum + license.total, 0);
+      const assignedLicenses = processedLicenseTypes.reduce((sum: any, license: any) => sum + license.assigned, 0);
+      const unutilizedLicenses = totalLicenses - assignedLicenses;
+      const utilizationRate = totalLicenses > 0 ? Math.round((assignedLicenses / totalLicenses) * 100) : 0;
+
+      reports.push({
+        category: 'license',
+        metrics: {
+          totalLicenses,
+          assignedLicenses,
+          unutilizedLicenses,
+          utilizationRate,
+          costData: {
+            totalMonthlyCost: processedLicenseTypes.length * 12.50,
+            unutilizedCost: unutilizedLicenses * 12.50,
+            potentialSavings: unutilizedLicenses * 12.50 * 0.8
+          },
+          licenseTypes: processedLicenseTypes,
+          summary: {
+            mostUsedLicense: processedLicenseTypes[0]?.name || 'N/A',
+            leastUsedLicense: processedLicenseTypes[processedLicenseTypes.length - 1]?.name || 'N/A',
+            recommendedActions: [
+              utilizationRate < 70 ? 'Consider reducing unused licenses' : 'License usage is optimal',
+              'Review license assignments quarterly',
+              'Consider license pooling for better efficiency'
+            ]
+          }
+        },
+        charts: [],
+        insights: [],
+        recommendations: []
+      });
+    }
+
+    // Process secure score data
+    console.log('=== SECURE SCORE PROCESSING ===');
+    const secureScoreData = assessment.metrics?.realData?.secureScore;
+    console.log('Secure score raw data:', secureScoreData);
+    
+    if (secureScoreData && !secureScoreData.unavailable && secureScoreData.currentScore !== undefined) {
+      console.log('=== PROCESSING SECURE SCORE DATA ===');
+      reports.push({
+        category: 'secureScore',
+        metrics: {
+          currentScore: secureScoreData.currentScore,
+          maxScore: secureScoreData.maxScore,
+          percentage: secureScoreData.percentage,
+          controlScores: secureScoreData.controlScores || [],
+          lastUpdated: secureScoreData.lastUpdated,
+          summary: {
+            status: secureScoreData.percentage >= 80 ? 'Excellent' : 
+                   secureScoreData.percentage >= 60 ? 'Good' : 'Needs Improvement',
+            totalControls: secureScoreData.controlScores?.length || 0,
+            implementedControls: secureScoreData.controlScores?.filter((c: any) => 
+              c.implementationStatus === 'Implemented' || c.implementationStatus === 'Enabled').length || 0,
+            recommendedActions: [
+              'Review and implement high-impact security controls',
+              'Enable multi-factor authentication where missing',
+              'Configure conditional access policies'
+            ]
+          }
+        },
+        charts: [],
+        insights: [],
+        recommendations: []
+      });
+    }
+
+    console.log('=== FINAL REPORTS ARRAY ===');
+    console.log('Reports generated:', reports.length);
+    console.log('Report categories:', reports.map(r => r.category));
+
+    setReportData(reports);
+  };
+
   const loadCustomerAssessment = async () => {
     if (!selectedCustomer) return;
 
@@ -199,6 +323,9 @@ const Reports: React.FC = () => {
       console.log(`Found ${customerAssessments.length} assessments for customer after filtering`);
       console.log('Assessment IDs:', customerAssessments.map(a => a.id));
       console.log('Assessment names:', customerAssessments.map(a => a.assessmentName || 'unnamed'));
+
+      // Store all available assessments for the selector
+      setAvailableAssessments(customerAssessments);
 
       // Categorize assessments by status and data quality
       console.log('=== ASSESSMENT VALIDATION DEBUGGING ===');
@@ -257,22 +384,38 @@ const Reports: React.FC = () => {
           return hasSecureScore;
         });
         
+        let autoSelectedAssessment;
         if (assessmentsWithSecureScore.length > 0) {
           // Use the most recent assessment with secure score data
-          latestAssessment = assessmentsWithSecureScore.sort((a: any, b: any) => {
+          autoSelectedAssessment = assessmentsWithSecureScore.sort((a: any, b: any) => {
             const dateA = new Date(a.date || a.assessmentDate || a.lastModified || 0).getTime();
             const dateB = new Date(b.date || b.assessmentDate || b.lastModified || 0).getTime();
             return dateB - dateA;
           })[0];
-          console.log('🎉 Selected assessment with secure score data:', latestAssessment.id, 'from', latestAssessment.date || latestAssessment.assessmentDate);
+          console.log('🎉 Auto-selected assessment with secure score data:', autoSelectedAssessment.id, 'from', autoSelectedAssessment.date || autoSelectedAssessment.assessmentDate);
         } else {
           // Fallback to prioritizing by date among valid assessments
-          latestAssessment = validAssessments.sort((a: any, b: any) => {
+          autoSelectedAssessment = validAssessments.sort((a: any, b: any) => {
             const dateA = new Date(a.date || a.assessmentDate || a.lastModified || 0).getTime();
             const dateB = new Date(b.date || b.assessmentDate || b.lastModified || 0).getTime();
             return dateB - dateA;
           })[0];
-          console.log('✅ Selected most recent valid assessment (no secure score found):', latestAssessment.id, 'from', latestAssessment.date || latestAssessment.assessmentDate);
+          console.log('✅ Auto-selected most recent valid assessment (no secure score found):', autoSelectedAssessment.id, 'from', autoSelectedAssessment.date || autoSelectedAssessment.assessmentDate);
+        }
+
+        // Use manually selected assessment if available, otherwise use auto-selected
+        if (selectedAssessmentId) {
+          const manuallySelected = customerAssessments.find(a => a.id === selectedAssessmentId);
+          if (manuallySelected) {
+            latestAssessment = manuallySelected;
+            console.log('👤 Using manually selected assessment:', latestAssessment.id);
+          } else {
+            latestAssessment = autoSelectedAssessment;
+            setSelectedAssessmentId(autoSelectedAssessment.id);
+          }
+        } else {
+          latestAssessment = autoSelectedAssessment;
+          setSelectedAssessmentId(autoSelectedAssessment.id);
         }
         
         console.log('Selected assessment has secure score:', !!latestAssessment.metrics?.realData?.secureScore && !latestAssessment.metrics?.realData?.secureScore?.unavailable);
@@ -312,7 +455,7 @@ const Reports: React.FC = () => {
       }
 
       setCustomerAssessment(latestAssessment);
-      generateReportData(latestAssessment);
+      generateReportsForAssessment(latestAssessment);
 
     } catch (error) {
       console.error('Error loading customer assessment:', error);
@@ -1070,17 +1213,40 @@ const Reports: React.FC = () => {
         <div className="reports-interface">
           <div className="reports-header">
             <h2>Security Reports for {selectedCustomer.tenantName}</h2>
-            {customerAssessment && (
-              <div className="assessment-info">
-                <p className="assessment-date">
-                  Assessment Date: {new Date(customerAssessment.assessmentDate || customerAssessment.lastModified).toLocaleDateString()}
-                </p>
-                <p className="assessment-id">
-                  Assessment ID: {customerAssessment.id}
-                </p>
-                <div className="assessment-hint">
-                  <span>💡 If you don't see secure score data, try creating a new assessment using the "Create Test Assessment (Debug)" button above.</span>
-                </div>
+            {availableAssessments.length > 0 && (
+              <div className="assessment-selector">
+                <label htmlFor="assessment-select" className="assessment-selector-label">
+                  📊 Select Assessment:
+                </label>
+                <select 
+                  id="assessment-select"
+                  className="assessment-selector-dropdown"
+                  value={selectedAssessmentId || ''}
+                  onChange={(e) => handleAssessmentSelection(e.target.value)}
+                >
+                  {availableAssessments.map((assessment) => (
+                    <option key={assessment.id} value={assessment.id}>
+                      {new Date(assessment.date || assessment.assessmentDate || assessment.lastModified).toLocaleDateString()} 
+                      {' - '}
+                      {assessment.status === 'completed' ? '✅' : assessment.status === 'completed_with_size_limit' ? '⚠️' : '❌'}
+                      {' '}
+                      {assessment.id.split('-').pop()}
+                      {assessment.metrics?.realData?.secureScore && !assessment.metrics?.realData?.secureScore?.unavailable ? ' 🛡️' : ''}
+                    </option>
+                  ))}
+                </select>
+                {customerAssessment && (
+                  <div className="assessment-info-compact">
+                    <span className="assessment-status">
+                      Status: {customerAssessment.status === 'completed' ? '✅ Completed' : 
+                              customerAssessment.status === 'completed_with_size_limit' ? '⚠️ Completed with limits' : 
+                              '❌ ' + customerAssessment.status}
+                    </span>
+                    {customerAssessment.metrics?.realData?.secureScore && !customerAssessment.metrics?.realData?.secureScore?.unavailable && (
+                      <span className="secure-score-indicator">🛡️ Secure Score Available</span>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

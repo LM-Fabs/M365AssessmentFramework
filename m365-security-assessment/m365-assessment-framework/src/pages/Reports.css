@@ -1600,3 +1600,65 @@
 .technical-note strong {
   color: #0369a1;
 }
+
+/* Assessment Selector Styles */
+.assessment-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  margin-top: 1rem;
+}
+
+.assessment-selector-label {
+  font-weight: 600;
+  color: #495057;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.assessment-selector-dropdown {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  background-color: white;
+  font-size: 0.9rem;
+  color: #495057;
+  cursor: pointer;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.assessment-selector-dropdown:focus {
+  outline: none;
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.assessment-info-compact {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.assessment-status {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.secure-score-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #28a745;
+  font-weight: 500;
+}
+
+/* Hide the old assessment info */
+.assessment-info {
+  display: none;
+}
