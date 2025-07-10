@@ -268,6 +268,11 @@ const Reports: React.FC = () => {
   };
 
   const generateReportData = (assessment: any) => {
+    console.log('=== GENERATING REPORT DATA ===');
+    console.log('Full assessment object:', assessment);
+    console.log('Assessment metrics:', assessment.metrics);
+    console.log('Assessment realData:', assessment.metrics?.realData);
+    
     const reports: ReportData[] = [];
 
     // Check if assessment has data issues
@@ -376,11 +381,20 @@ const Reports: React.FC = () => {
 
     // Secure Score Report
     const secureScore = assessment.metrics?.realData?.secureScore || assessment.metrics?.secureScore;
+    console.log('=== SECURE SCORE PROCESSING ===');
+    console.log('Secure score raw data:', secureScore);
+    console.log('Secure score type:', typeof secureScore);
+    console.log('Has currentScore:', secureScore?.currentScore !== undefined);
+    console.log('Has maxScore:', secureScore?.maxScore !== undefined);
+    console.log('Has improvementActions:', secureScore?.improvementActions);
     
     if (secureScore && typeof secureScore === 'object' && (secureScore.currentScore !== undefined || secureScore.maxScore !== undefined)) {
+      console.log('=== SECURE SCORE FOUND - PROCESSING ===');
       const currentScore = Number(secureScore.currentScore) || 0;
       const maxScore = Number(secureScore.maxScore) || 100;
       const percentage = maxScore > 0 ? Math.round((currentScore / maxScore) * 100) : 0;
+      
+      console.log('Processed scores:', { currentScore, maxScore, percentage });
       
       // Process improvement actions for detailed table
       const improvementActions = (secureScore.improvementActions || []).map((action: any, index: number) => ({
@@ -395,11 +409,14 @@ const Reports: React.FC = () => {
         implementationStatus: action.implementationStatus || 'Not Started'
       }));
       
+      console.log('Processed improvement actions count:', improvementActions.length);
+      
       // Process security controls for detailed view
       const controlsImplemented = Number(secureScore.controlsImplemented) || 0;
       const totalControls = Number(secureScore.totalControls) || 0;
       const controlsRemaining = totalControls - controlsImplemented;
       
+      console.log('=== ADDING SECURE SCORE REPORT ===');
       reports.push({
         category: 'secureScore',
         metrics: {
@@ -433,6 +450,9 @@ const Reports: React.FC = () => {
           'Train users on security best practices'
         ]
       });
+    } else {
+      console.log('=== NO SECURE SCORE DATA FOUND ===');
+      console.log('Secure score object:', secureScore);
     }
 
     // Identity & Access Report
@@ -491,6 +511,9 @@ const Reports: React.FC = () => {
       });
     }
 
+    console.log('=== FINAL REPORTS ARRAY ===');
+    console.log('Reports generated:', reports.length);
+    console.log('Report categories:', reports.map(r => r.category));
     setReportData(reports);
   };
 
