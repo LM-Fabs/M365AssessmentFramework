@@ -334,46 +334,109 @@ class GraphApiService {
                     }
                 }
             });
-            // Fetch secure scores (latest first)
+            // Fetch secure scores (latest first) - typically only a few results
+            console.log('🛡️ GraphApiService: Fetching secure scores...');
             const secureScoresResponse = await customerGraphClient
                 .api('/security/secureScores')
-                .top(1)
+                .top(5) // Get the latest 5 secure scores
                 .orderby('createdDateTime desc')
                 .get();
             if (!secureScoresResponse.value || secureScoresResponse.value.length === 0) {
                 throw new Error('No secure score data available for this tenant');
             }
             const latestScore = secureScoresResponse.value[0];
-            // Fetch secure score control profiles for detailed breakdown
-            const controlProfilesResponse = await customerGraphClient
-                .api('/security/secureScoreControlProfiles')
-                .get();
-            const controlScores = controlProfilesResponse.value?.map((control) => ({
-                controlName: control.title || control.controlName || 'Unknown Control',
-                category: control.controlCategory || 'General',
+            console.log(`📊 GraphApiService: Found ${secureScoresResponse.value.length} secure score records. Using latest from ${latestScore.createdDateTime}`);
+            console.log(`📊 GraphApiService: Latest score: ${latestScore.currentScore}/${latestScore.maxScore} (${Math.round(((latestScore.currentScore || 0) / (latestScore.maxScore || 1)) * 100)}%)`);
+            // Fetch secure score control profiles for detailed breakdown with pagination support
+            console.log('🔄 GraphApiService: Fetching secure score control profiles with pagination...');
+            let allControlProfiles = [];
+            let nextLink;
+            let pageCount = 0;
+            const maxPages = 5; // Reduced from 10 to limit data size
+            const maxControlsPerPage = 50; // Reduced from 100 to limit memory usage
+            do {
+                pageCount++;
+                console.log(`📄 GraphApiService: Fetching control profiles page ${pageCount}...`);
+                let currentPageResponse;
+                if (nextLink) {
+                    // Use the nextLink for subsequent pages
+                    currentPageResponse = await customerGraphClient
+                        .api(nextLink)
+                        .get();
+                }
+                else {
+                    // First page - use the base endpoint with pagination parameters
+                    currentPageResponse = await customerGraphClient
+                        .api('/security/secureScoreControlProfiles')
+                        .top(maxControlsPerPage) // Reduced page size
+                        .get();
+                }
+                if (currentPageResponse.value && Array.isArray(currentPageResponse.value)) {
+                    allControlProfiles.push(...currentPageResponse.value);
+                    console.log(`✅ GraphApiService: Page ${pageCount} retrieved ${currentPageResponse.value.length} control profiles. Total: ${allControlProfiles.length}`);
+                    // Stop if we have enough data for storage efficiency
+                    if (allControlProfiles.length >= 250) {
+                        console.log(`⚠️ GraphApiService: Reached 250 controls limit for storage efficiency. Stopping pagination.`);
+                        break;
+                    }
+                }
+                // Check for next page
+                nextLink = currentPageResponse['@odata.nextLink'];
+                // Safety check to prevent infinite loops
+                if (pageCount >= maxPages) {
+                    console.warn(`⚠️ GraphApiService: Reached maximum page limit (${maxPages}). Stopping pagination. Retrieved ${allControlProfiles.length} control profiles.`);
+                    break;
+                }
+            } while (nextLink);
+            console.log(`🎉 GraphApiService: Pagination complete. Retrieved ${allControlProfiles.length} total control profiles in ${pageCount} page(s).`);
+            // Optimize control scores data for storage - keep only essential information
+            const controlScores = allControlProfiles.map((control) => ({
+                controlName: (control.title || control.controlName || 'Unknown Control').substring(0, 100), // Limit length
+                category: (control.controlCategory || 'General').substring(0, 50), // Limit length
                 currentScore: control.score || 0,
                 maxScore: control.maxScore || 0,
-                implementationStatus: control.implementationStatus || 'Not Implemented'
-            })) || [];
+                implementationStatus: (control.implementationStatus || 'Not Implemented').substring(0, 30) // Limit length
+            })).slice(0, 100) || []; // Limit to top 100 controls to reduce size
+            console.log(`📊 GraphApiService: Optimized control scores to ${controlScores.length} controls for storage efficiency`);
             const result = {
                 currentScore: latestScore.currentScore || 0,
                 maxScore: latestScore.maxScore || 0,
                 percentage: Math.round(((latestScore.currentScore || 0) / (latestScore.maxScore || 1)) * 100),
                 controlScores,
-                lastUpdated: new Date(latestScore.createdDateTime)
+                lastUpdated: new Date(latestScore.createdDateTime),
+                totalControlsFound: allControlProfiles.length, // Keep track of total number
+                controlsStoredCount: controlScores.length // Track how many we actually stored
             };
             console.log('✅ GraphApiService: Secure score retrieved successfully');
+            console.log(`📊 GraphApiService: Final result - Score: ${result.currentScore}/${result.maxScore} (${result.percentage}%), Controls: ${result.controlScores.length}/${result.totalControlsFound}`);
+            console.log(`💾 GraphApiService: Data size optimization - Stored ${result.controlsStoredCount} of ${result.totalControlsFound} total controls`);
+            // Estimate data size for logging
+            const estimatedSize = JSON.stringify(result).length;
+            console.log(`📏 GraphApiService: Estimated result size: ${(estimatedSize / 1024).toFixed(2)} KB`);
             return result;
         }
         catch (error) {
             console.error('❌ GraphApiService: Failed to fetch secure score:', error);
-            if (error.code === 'Forbidden') {
+            console.error('❌ GraphApiService: Error details:', {
+                message: error.message,
+                code: error.code,
+                statusCode: error.statusCode,
+                response: error.response,
+                stack: error.stack
+            });
+            if (error.code === 'Forbidden' || error.statusCode === 403) {
                 throw new Error('Insufficient permissions to read secure score. Ensure SecurityEvents.Read.All permission is granted and consented.');
             }
-            if (error.code === 'Unauthorized') {
+            if (error.code === 'Unauthorized' || error.statusCode === 401) {
                 throw new Error('Authentication failed. Please verify the app registration has been consented to by the customer tenant admin.');
             }
-            throw new Error(`Failed to fetch secure score: ${error.message || error}`);
+            if (error.code === 'NotFound' || error.statusCode === 404) {
+                throw new Error('Secure score endpoint not found. This tenant may not have secure score data available.');
+            }
+            if (error.code === 'BadRequest' || error.statusCode === 400) {
+                throw new Error('Bad request to secure score API. This may indicate an API version or endpoint issue.');
+            }
+            throw new Error(`Failed to fetch secure score: ${error.message || error} (Status: ${error.statusCode || 'Unknown'})`);
         }
     }
     /**

@@ -378,11 +378,19 @@ class TableStorageService {
             status: assessment.status,
             score: assessment.score
         };
-        // Handle large data with chunking to avoid 64KB limit
+        // Handle large data with compression and chunking to avoid 64KB limit
         const metricsJson = JSON.stringify(assessment.metrics || {});
         const recommendationsJson = JSON.stringify(assessment.recommendations || []);
         console.log(`📊 Assessment data sizes - Metrics: ${metricsJson.length} chars, Recommendations: ${recommendationsJson.length} chars`);
-        this.prepareLargeDataForStorage(entity, 'metrics', metricsJson);
+        // Optimize metrics data if it's too large
+        let optimizedMetrics = assessment.metrics;
+        if (metricsJson.length > 50000) { // If metrics is getting too large
+            console.log('⚠️ Metrics data is large, applying optimization...');
+            optimizedMetrics = this.optimizeMetricsForStorage(assessment.metrics);
+            console.log(`📉 Optimized metrics size: ${JSON.stringify(optimizedMetrics).length} chars`);
+        }
+        const finalMetricsJson = JSON.stringify(optimizedMetrics || {});
+        this.prepareLargeDataForStorage(entity, 'metrics', finalMetricsJson);
         this.prepareLargeDataForStorage(entity, 'recommendations', recommendationsJson);
         try {
             await this.assessmentsTable.createEntity(entity);
@@ -533,6 +541,9 @@ class TableStorageService {
         for await (const entity of iterator) {
             if (count >= maxItems)
                 break;
+            // Reconstruct chunked data for large properties
+            const metricsJson = this.reconstructChunkedData(entity, 'metrics');
+            const recommendationsJson = this.reconstructChunkedData(entity, 'recommendations');
             assessments.push({
                 id: entity.rowKey,
                 customerId: entity.customerId,
@@ -540,8 +551,8 @@ class TableStorageService {
                 date: new Date(entity.date),
                 status: entity.status,
                 score: entity.score,
-                metrics: entity.metrics ? JSON.parse(entity.metrics) : {},
-                recommendations: entity.recommendations ? JSON.parse(entity.recommendations) : []
+                metrics: metricsJson ? JSON.parse(metricsJson) : {},
+                recommendations: recommendationsJson ? JSON.parse(recommendationsJson) : []
             });
             count++;
         }
@@ -618,6 +629,46 @@ class TableStorageService {
             return reconstructed;
         }
         return entity[propertyName] || '';
+    }
+    /**
+     * Optimize metrics data for storage by reducing size while preserving essential information
+     */
+    optimizeMetricsForStorage(metrics) {
+        if (!metrics)
+            return metrics;
+        const optimized = { ...metrics };
+        // Optimize secure score data if present
+        if (optimized.realData?.secureScore) {
+            const secureScore = optimized.realData.secureScore;
+            // If we have control scores, limit and compress them
+            if (secureScore.controlScores && Array.isArray(secureScore.controlScores)) {
+                console.log(`🔧 Optimizing ${secureScore.controlScores.length} control scores for storage`);
+                // Sort by importance (highest score first) and take top 50
+                const topControls = secureScore.controlScores
+                    .sort((a, b) => (b.maxScore || 0) - (a.maxScore || 0))
+                    .slice(0, 50)
+                    .map((control) => ({
+                    // Compress field names and limit string lengths
+                    n: (control.controlName || '').substring(0, 60), // name
+                    c: (control.category || '').substring(0, 30), // category
+                    cs: control.currentScore || 0, // current score
+                    ms: control.maxScore || 0, // max score
+                    s: (control.implementationStatus || '').substring(0, 20) // status
+                }));
+                optimized.realData.secureScore = {
+                    currentScore: secureScore.currentScore,
+                    maxScore: secureScore.maxScore,
+                    percentage: secureScore.percentage,
+                    lastUpdated: secureScore.lastUpdated,
+                    controlScores: topControls,
+                    totalControlsFound: secureScore.totalControlsFound || secureScore.controlScores.length,
+                    controlsStoredCount: topControls.length,
+                    compressed: true // Flag to indicate this data was compressed
+                };
+                console.log(`✅ Compressed control scores from ${secureScore.controlScores.length} to ${topControls.length}`);
+            }
+        }
+        return optimized;
     }
     /**
      * Helper method to store large data with chunking support
