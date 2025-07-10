@@ -412,15 +412,28 @@ export class GraphApiService {
 
         } catch (error: any) {
             console.error('❌ GraphApiService: Failed to fetch secure score:', error);
+            console.error('❌ GraphApiService: Error details:', {
+                message: error.message,
+                code: error.code,
+                statusCode: error.statusCode,
+                response: error.response,
+                stack: error.stack
+            });
             
-            if (error.code === 'Forbidden') {
+            if (error.code === 'Forbidden' || error.statusCode === 403) {
                 throw new Error('Insufficient permissions to read secure score. Ensure SecurityEvents.Read.All permission is granted and consented.');
             }
-            if (error.code === 'Unauthorized') {
+            if (error.code === 'Unauthorized' || error.statusCode === 401) {
                 throw new Error('Authentication failed. Please verify the app registration has been consented to by the customer tenant admin.');
             }
+            if (error.code === 'NotFound' || error.statusCode === 404) {
+                throw new Error('Secure score endpoint not found. This tenant may not have secure score data available.');
+            }
+            if (error.code === 'BadRequest' || error.statusCode === 400) {
+                throw new Error('Bad request to secure score API. This may indicate an API version or endpoint issue.');
+            }
             
-            throw new Error(`Failed to fetch secure score: ${error.message || error}`);
+            throw new Error(`Failed to fetch secure score: ${error.message || error} (Status: ${error.statusCode || 'Unknown'})`);
         }
     }
 

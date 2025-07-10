@@ -387,8 +387,11 @@ const Reports: React.FC = () => {
     console.log('Has currentScore:', secureScore?.currentScore !== undefined);
     console.log('Has maxScore:', secureScore?.maxScore !== undefined);
     console.log('Has improvementActions:', secureScore?.improvementActions);
+    console.log('Is unavailable:', secureScore?.unavailable);
+    console.log('Assessment date:', assessment.date || assessment.assessmentDate);
+    console.log('Assessment ID:', assessment.id);
     
-    if (secureScore && typeof secureScore === 'object' && (secureScore.currentScore !== undefined || secureScore.maxScore !== undefined)) {
+    if (secureScore && typeof secureScore === 'object' && !secureScore.unavailable && (secureScore.currentScore !== undefined || secureScore.maxScore !== undefined)) {
       console.log('=== SECURE SCORE FOUND - PROCESSING ===');
       const currentScore = Number(secureScore.currentScore) || 0;
       const maxScore = Number(secureScore.maxScore) || 100;
@@ -655,7 +658,25 @@ const Reports: React.FC = () => {
     if (!metrics) {
       return (
         <div className="no-secure-score-data">
-          <p>No secure score data available</p>
+          <h4>🛡️ Secure Score Data Not Available</h4>
+          <p>The secure score data could not be retrieved for this assessment.</p>
+          <div className="permission-guidance">
+            <h5>🔍 Common reasons:</h5>
+            <ul>
+              <li>This assessment was created before the <strong>SecurityEvents.Read.All</strong> permission was granted</li>
+              <li>Admin consent was not available when this assessment was created</li>
+              <li>The assessment is from an older version that didn't support secure score</li>
+            </ul>
+            <h5>🔧 Quick fix:</h5>
+            <ol>
+              <li>Click the <strong>"Create Test Assessment (Debug)"</strong> button above to create a new assessment</li>
+              <li>The new assessment should include secure score data if permissions are correctly configured</li>
+              <li>If the new assessment still doesn't work, then check the app registration permissions</li>
+            </ol>
+            <div className="technical-note">
+              <strong>Note:</strong> Since you mentioned the "Create Test Assessment (Debug)" function is working and showing actual secure score data, the permissions are correctly configured. You likely need to create a new assessment to see the secure score data.
+            </div>
+          </div>
         </div>
       );
     }
@@ -959,9 +980,17 @@ const Reports: React.FC = () => {
           <div className="reports-header">
             <h2>Security Reports for {selectedCustomer.tenantName}</h2>
             {customerAssessment && (
-              <p className="assessment-date">
-                Assessment Date: {new Date(customerAssessment.assessmentDate || customerAssessment.lastModified).toLocaleDateString()}
-              </p>
+              <div className="assessment-info">
+                <p className="assessment-date">
+                  Assessment Date: {new Date(customerAssessment.assessmentDate || customerAssessment.lastModified).toLocaleDateString()}
+                </p>
+                <p className="assessment-id">
+                  Assessment ID: {customerAssessment.id}
+                </p>
+                <div className="assessment-hint">
+                  <span>💡 If you don't see secure score data, try creating a new assessment using the "Create Test Assessment (Debug)" button above.</span>
+                </div>
+              </div>
             )}
           </div>
 

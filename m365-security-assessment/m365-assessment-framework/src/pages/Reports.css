@@ -1552,70 +1552,51 @@
   font-size: 0.75rem;
 }
 
-/* Responsive design */
-@media (max-width: 1200px) {
-  .table-header,
-  .table-row {
-    grid-template-columns: 100px 100px 100px 100px 120px 100px;
-    gap: 0.5rem;
-    padding: 0.75rem;
-  }
+/* Assessment Info Styling */
+.assessment-info {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #007bff;
 }
 
-@media (max-width: 768px) {
-  .reports-page {
-    padding: 1rem;
-  }
+.assessment-date {
+  font-size: 1rem;
+  color: #495057;
+  margin: 0 0 0.5rem 0;
+}
 
-  .summary-cards {
-    grid-template-columns: repeat(2, 1fr);
-  }
+.assessment-id {
+  font-size: 0.9rem;
+  color: #6c757d;
+  margin: 0 0 0.75rem 0;
+  font-family: monospace;
+}
 
-  .report-filters {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1rem;
-  }
+.assessment-hint {
+  background: #e3f2fd;
+  padding: 0.75rem;
+  border-radius: 6px;
+  border-left: 3px solid #2196f3;
+  margin: 0;
+}
 
-  .timeframe-selector {
-    justify-content: space-between;
-  }
+.assessment-hint span {
+  color: #1565c0;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
 
-  .table-header,
-  .table-row {
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-    text-align: left;
-  }
+/* Technical Note Styling */
+.technical-note {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
 
-  .table-header {
-    display: none;
-  }
-
-  .table-row {
-    display: flex;
-    flex-direction: column;
-    padding: 1rem;
-  }
-
-  .table-row > span {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.25rem 0;
-  }
-
-  .table-row > span::before {
-    content: attr(data-label);
-    font-weight: 600;
-    color: var(--text-secondary);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.025em;
-  }
-
-  .date-cell::before { content: 'Date: '; }
-  .score-cell::before { content: 'Overall Score: '; }
-  .utilization-cell::before { content: 'License Utilization: '; }
-  .actions-cell::before { content: 'Actions: '; }
+.technical-note strong {
+  color: #0369a1;
 }
