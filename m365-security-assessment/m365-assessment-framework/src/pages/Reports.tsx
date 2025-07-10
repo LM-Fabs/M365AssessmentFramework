@@ -178,15 +178,15 @@ const Reports: React.FC = () => {
       const assessments: any[] = await AssessmentService.getInstance().getAssessments();
       
       // Filter for assessments belonging to this customer
-      // PRODUCTION FILTER: Exclude test/debug assessments from production reports
+      // TEMPORARILY ALLOW TEST ASSESSMENTS for debugging - in production, filter them out
       const customerAssessments = assessments.filter((a: any) =>
         a.tenantId === selectedCustomer.tenantId &&
-        (a.date || a.assessmentDate || a.lastModified) &&
-        // Exclude test/debug assessments - these are for development only
-        !a.assessmentName?.includes('Test Assessment') &&
-        !a.assessmentName?.includes('Debug') &&
-        !a.assessmentName?.toLowerCase().includes('test') &&
-        !a.assessmentName?.toLowerCase().includes('debug')
+        (a.date || a.assessmentDate || a.lastModified)
+        // Temporarily commenting out test assessment filter to see the secure score data
+        // && !a.assessmentName?.includes('Test Assessment') 
+        // && !a.assessmentName?.includes('Debug')
+        // && !a.assessmentName?.toLowerCase().includes('test')
+        // && !a.assessmentName?.toLowerCase().includes('debug')
       );
 
       if (customerAssessments.length === 0) {
@@ -196,7 +196,9 @@ const Reports: React.FC = () => {
         return;
       }
 
-      console.log(`Found ${customerAssessments.length} assessments for customer`);
+      console.log(`Found ${customerAssessments.length} assessments for customer after filtering`);
+      console.log('Assessment IDs:', customerAssessments.map(a => a.id));
+      console.log('Assessment names:', customerAssessments.map(a => a.assessmentName || 'unnamed'));
 
       // Categorize assessments by status and data quality
       const validAssessments = customerAssessments.filter((a: any) => 
@@ -427,6 +429,22 @@ const Reports: React.FC = () => {
       const potentialScoreIncrease = controlScores.reduce((sum: number, control: any) => sum + control.scoreGap, 0);
       
       console.log('=== ADDING SECURE SCORE REPORT ===');
+      console.log('Report object to be added:', {
+        category: 'secureScore',
+        metricsKeys: Object.keys({
+          currentScore,
+          maxScore,
+          percentage,
+          controlsImplemented: totalImplemented,
+          totalControls,
+          controlsRemaining,
+          controlScores: controlScores.slice(0, 20),
+          potentialScoreIncrease,
+          averageControlScore: totalControls > 0 ? Math.round(controlScores.reduce((sum: number, control: any) => sum + control.currentScore, 0) / totalControls) : 0,
+          implementationRate: totalControls > 0 ? Math.round((totalImplemented / totalControls) * 100) : 0
+        })
+      });
+      
       reports.push({
         category: 'secureScore',
         metrics: {
@@ -531,7 +549,18 @@ const Reports: React.FC = () => {
   // REMOVED: generateFallbackData (no more mockup/fallback data)
 
   const getCurrentTabData = () => {
-    return reportData.find(report => report.category === activeTab);
+    const tabData = reportData.find(report => report.category === activeTab);
+    console.log('=== GET CURRENT TAB DATA ===');
+    console.log('Active tab:', activeTab);
+    console.log('Available report categories:', reportData.map(r => r.category));
+    console.log('Found tab data:', tabData ? 'YES' : 'NO');
+    if (tabData) {
+      console.log('Tab data metrics keys:', Object.keys(tabData.metrics));
+      if (activeTab === 'secureScore') {
+        console.log('Secure score tab data:', tabData.metrics);
+      }
+    }
+    return tabData;
   };
 
   const renderChart = (chart: any) => {
@@ -663,6 +692,12 @@ const Reports: React.FC = () => {
   };
 
   const renderSecureScoreTable = (metrics: any) => {
+    console.log('=== RENDER SECURE SCORE TABLE ===');
+    console.log('Metrics received:', metrics);
+    console.log('Metrics type:', typeof metrics);
+    console.log('Has currentScore:', metrics?.currentScore !== undefined);
+    console.log('currentScore value:', metrics?.currentScore);
+    
     if (!metrics || metrics.currentScore === undefined) {
       return (
         <div className="no-secure-score-data">
