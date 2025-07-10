@@ -394,7 +394,8 @@ export class GraphApiService {
             let allControlProfiles: any[] = [];
             let nextLink: string | undefined;
             let pageCount = 0;
-            const maxPages = 10; // Safety limit to prevent infinite loops
+            const maxPages = 5; // Reduced from 10 to limit data size
+            const maxControlsPerPage = 50; // Reduced from 100 to limit memory usage
             
             do {
                 pageCount++;
@@ -410,13 +411,19 @@ export class GraphApiService {
                     // First page - use the base endpoint with pagination parameters
                     currentPageResponse = await customerGraphClient
                         .api('/security/secureScoreControlProfiles')
-                        .top(100) // Request 100 items per page (max allowed)
+                        .top(maxControlsPerPage) // Reduced page size
                         .get();
                 }
 
                 if (currentPageResponse.value && Array.isArray(currentPageResponse.value)) {
                     allControlProfiles.push(...currentPageResponse.value);
                     console.log(`✅ GraphApiService: Page ${pageCount} retrieved ${currentPageResponse.value.length} control profiles. Total: ${allControlProfiles.length}`);
+                    
+                    // Stop if we have enough data for storage efficiency
+                    if (allControlProfiles.length >= 250) {
+                        console.log(`⚠️ GraphApiService: Reached 250 controls limit for storage efficiency. Stopping pagination.`);
+                        break;
+                    }
                 }
 
                 // Check for next page
@@ -431,24 +438,35 @@ export class GraphApiService {
 
             console.log(`🎉 GraphApiService: Pagination complete. Retrieved ${allControlProfiles.length} total control profiles in ${pageCount} page(s).`);
 
+            // Optimize control scores data for storage - keep only essential information
             const controlScores = allControlProfiles.map((control: any) => ({
-                controlName: control.title || control.controlName || 'Unknown Control',
-                category: control.controlCategory || 'General',
+                controlName: (control.title || control.controlName || 'Unknown Control').substring(0, 100), // Limit length
+                category: (control.controlCategory || 'General').substring(0, 50), // Limit length
                 currentScore: control.score || 0,
                 maxScore: control.maxScore || 0,
-                implementationStatus: control.implementationStatus || 'Not Implemented'
-            })) || [];
+                implementationStatus: (control.implementationStatus || 'Not Implemented').substring(0, 30) // Limit length
+            })).slice(0, 100) || []; // Limit to top 100 controls to reduce size
+
+            console.log(`📊 GraphApiService: Optimized control scores to ${controlScores.length} controls for storage efficiency`);
 
             const result = {
                 currentScore: latestScore.currentScore || 0,
                 maxScore: latestScore.maxScore || 0,
                 percentage: Math.round(((latestScore.currentScore || 0) / (latestScore.maxScore || 1)) * 100),
                 controlScores,
-                lastUpdated: new Date(latestScore.createdDateTime)
+                lastUpdated: new Date(latestScore.createdDateTime),
+                totalControlsFound: allControlProfiles.length, // Keep track of total number
+                controlsStoredCount: controlScores.length // Track how many we actually stored
             };
 
             console.log('✅ GraphApiService: Secure score retrieved successfully');
-            console.log(`📊 GraphApiService: Final result - Score: ${result.currentScore}/${result.maxScore} (${result.percentage}%), Controls: ${result.controlScores.length}`);
+            console.log(`📊 GraphApiService: Final result - Score: ${result.currentScore}/${result.maxScore} (${result.percentage}%), Controls: ${result.controlScores.length}/${result.totalControlsFound}`);
+            console.log(`💾 GraphApiService: Data size optimization - Stored ${result.controlsStoredCount} of ${result.totalControlsFound} total controls`);
+            
+            // Estimate data size for logging
+            const estimatedSize = JSON.stringify(result).length;
+            console.log(`📏 GraphApiService: Estimated result size: ${(estimatedSize / 1024).toFixed(2)} KB`);
+            
             return result;
 
         } catch (error: any) {

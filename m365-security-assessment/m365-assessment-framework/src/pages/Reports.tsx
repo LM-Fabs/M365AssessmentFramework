@@ -257,14 +257,33 @@ const Reports: React.FC = () => {
     
     if (secureScoreData && !secureScoreData.unavailable && secureScoreData.currentScore !== undefined) {
       console.log('=== PROCESSING SECURE SCORE DATA ===');
+      
+      // Handle both compressed and uncompressed control scores
+      let controlScores = secureScoreData.controlScores || [];
+      if (secureScoreData.compressed && controlScores.length > 0) {
+        // Decompress the control scores
+        console.log('📦 Decompressing control scores data...');
+        controlScores = controlScores.map((control: any) => ({
+          controlName: control.n || control.controlName || 'Unknown Control',
+          category: control.c || control.category || 'General',
+          currentScore: control.cs || control.currentScore || 0,
+          maxScore: control.ms || control.maxScore || 0,
+          implementationStatus: control.s || control.implementationStatus || 'Not Implemented'
+        }));
+        console.log(`✅ Decompressed ${controlScores.length} control scores`);
+      }
+      
       reports.push({
         category: 'secureScore',
         metrics: {
           currentScore: secureScoreData.currentScore,
           maxScore: secureScoreData.maxScore,
           percentage: secureScoreData.percentage,
-          controlScores: secureScoreData.controlScores || [],
+          controlScores: controlScores,
           lastUpdated: secureScoreData.lastUpdated,
+          totalControlsFound: secureScoreData.totalControlsFound,
+          controlsStoredCount: secureScoreData.controlsStoredCount,
+          compressed: secureScoreData.compressed,
           summary: {
             status: secureScoreData.percentage >= 80 ? 'Excellent' : 
                    secureScoreData.percentage >= 60 ? 'Good' : 'Needs Improvement',
@@ -644,7 +663,11 @@ const Reports: React.FC = () => {
           controlScores: controlScores.slice(0, 20), // Show top 20 controls
           potentialScoreIncrease,
           averageControlScore: totalControls > 0 ? Math.round(controlScores.reduce((sum: number, control: any) => sum + control.currentScore, 0) / totalControls) : 0,
-          implementationRate: totalControls > 0 ? Math.round((totalImplemented / totalControls) * 100) : 0
+          implementationRate: totalControls > 0 ? Math.round((totalImplemented / totalControls) * 100) : 0,
+          // Add compression information if available
+          totalControlsFound: secureScore.totalControlsFound,
+          controlsStoredCount: secureScore.controlsStoredCount,
+          compressed: secureScore.compressed
         },
         charts: [], // No charts needed - we use table view
         insights: [
@@ -947,6 +970,15 @@ const Reports: React.FC = () => {
         {/* Security Controls Table */}
         <div className="security-controls-table">
           <h4>Security Controls Breakdown</h4>
+          {metrics.compressed && (
+            <div className="compression-notice">
+              <span className="compression-icon">📦</span>
+              <span className="compression-text">
+                Showing {metrics.controlsStoredCount || metrics.totalControls} of {metrics.totalControlsFound || metrics.totalControls} security controls 
+                (optimized for storage efficiency)
+              </span>
+            </div>
+          )}
           {metrics.controlScores && metrics.controlScores.length > 0 ? (
             <div className="table-wrapper">
               <table className="secure-score-table">
