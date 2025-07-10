@@ -17,6 +17,7 @@ interface ReportData {
   charts: any[];
   insights: string[];
   recommendations: string[];
+  controlScores?: any[]; // Optional field for secure score control data
 }
 
 const Reports: React.FC = () => {
@@ -660,7 +661,6 @@ const Reports: React.FC = () => {
           controlsImplemented: totalImplemented,
           totalControls,
           controlsRemaining,
-          controlScores: controlScores.slice(0, 20), // Show top 20 controls
           potentialScoreIncrease,
           averageControlScore: totalControls > 0 ? Math.round(controlScores.reduce((sum: number, control: any) => sum + control.currentScore, 0) / totalControls) : 0,
           implementationRate: totalControls > 0 ? Math.round((totalImplemented / totalControls) * 100) : 0,
@@ -669,6 +669,8 @@ const Reports: React.FC = () => {
           controlsStoredCount: secureScore.controlsStoredCount,
           compressed: secureScore.compressed
         },
+        // Store controlScores separately for the table, not in general metrics
+        controlScores: controlScores.slice(0, 20), // Show top 20 controls
         charts: [], // No charts needed - we use table view
         insights: [
           `Current secure score: ${currentScore} out of ${maxScore} points (${percentage}%)`,
@@ -901,7 +903,7 @@ const Reports: React.FC = () => {
     );
   };
 
-  const renderSecureScoreTable = (metrics: any) => {
+  const renderSecureScoreTable = (metrics: any, controlScores?: any[]) => {
     console.log('=== RENDER SECURE SCORE TABLE ===');
     console.log('Metrics received:', metrics);
     console.log('Metrics type:', typeof metrics);
@@ -979,7 +981,7 @@ const Reports: React.FC = () => {
               </span>
             </div>
           )}
-          {metrics.controlScores && metrics.controlScores.length > 0 ? (
+          {controlScores && controlScores.length > 0 ? (
             <div className="table-wrapper">
               <table className="secure-score-table">
                 <thead>
@@ -993,7 +995,7 @@ const Reports: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {metrics.controlScores.map((control: any, index: number) => (
+                  {controlScores.map((control: any, index: number) => (
                     <tr key={index} className={control.implementationStatus === 'Not Implemented' ? 'not-implemented' : 'implemented'}>
                       <td className="control-name-cell">
                         <div className="control-name">{control.controlName}</div>
@@ -1329,7 +1331,10 @@ const Reports: React.FC = () => {
                               )}
                             </div>
                           ) : (
-                            typeof value === 'number' ? value.toLocaleString() : String(value)
+                            typeof value === 'number' ? value.toLocaleString() : 
+                            typeof value === 'object' && value !== null ? 
+                            (Array.isArray(value) ? `${value.length} items` : 'Complex data - see below') :
+                            String(value)
                           )}
                         </div>
                       </div>
@@ -1346,7 +1351,7 @@ const Reports: React.FC = () => {
                 ) : activeTab === 'secureScore' ? (
                   // Always show secure score table for secure score tab
                   <div className="charts-grid">
-                    {renderSecureScoreTable(currentTabData.metrics)}
+                    {renderSecureScoreTable(currentTabData.metrics, currentTabData.controlScores)}
                   </div>
                 ) : activeTab === 'identity' ? (
                   // Always show identity table for identity tab
