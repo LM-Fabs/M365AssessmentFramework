@@ -376,6 +376,7 @@ const Reports: React.FC = () => {
 
     // Secure Score Report
     const secureScore = assessment.metrics?.realData?.secureScore || assessment.metrics?.secureScore;
+    
     if (secureScore && typeof secureScore === 'object' && (secureScore.currentScore !== undefined || secureScore.maxScore !== undefined)) {
       const currentScore = Number(secureScore.currentScore) || 0;
       const maxScore = Number(secureScore.maxScore) || 100;
@@ -628,10 +629,10 @@ const Reports: React.FC = () => {
   };
 
   const renderSecureScoreTable = (metrics: any) => {
-    if (!metrics || !metrics.improvementActions || metrics.improvementActions.length === 0) {
+    if (!metrics) {
       return (
         <div className="no-secure-score-data">
-          <p>No secure score improvement actions available</p>
+          <p>No secure score data available</p>
         </div>
       );
     }
@@ -672,49 +673,56 @@ const Reports: React.FC = () => {
         {/* Improvement Actions Table */}
         <div className="improvement-actions-table">
           <h4>Top Security Improvement Actions</h4>
-          <div className="table-wrapper">
-            <table className="secure-score-table">
-              <thead>
-                <tr>
-                  <th>Action</th>
-                  <th>Score Impact</th>
-                  <th>User Impact</th>
-                  <th>Implementation Cost</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {metrics.improvementActions.map((action: any, index: number) => (
-                  <tr key={index}>
-                    <td className="action-cell">
-                      <div className="action-title">{action.title}</div>
-                      <div className="action-description">{action.description}</div>
-                    </td>
-                    <td className="score-impact-cell">
-                      <div className="score-impact-badge">
-                        +{action.scoreIncrease}
-                      </div>
-                    </td>
-                    <td className="user-impact-cell">
-                      <span className={`impact-badge ${action.userImpact.toLowerCase()}`}>
-                        {action.userImpact}
-                      </span>
-                    </td>
-                    <td className="implementation-cost-cell">
-                      <span className={`cost-badge ${action.implementationCost.toLowerCase()}`}>
-                        {action.implementationCost}
-                      </span>
-                    </td>
-                    <td className="status-cell">
-                      <span className={`status-badge ${action.implementationStatus.toLowerCase().replace(' ', '-')}`}>
-                        {action.implementationStatus}
-                      </span>
-                    </td>
+          {metrics.improvementActions && metrics.improvementActions.length > 0 ? (
+            <div className="table-wrapper">
+              <table className="secure-score-table">
+                <thead>
+                  <tr>
+                    <th>Action</th>
+                    <th>Score Impact</th>
+                    <th>User Impact</th>
+                    <th>Implementation Cost</th>
+                    <th>Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {metrics.improvementActions.map((action: any, index: number) => (
+                    <tr key={index}>
+                      <td className="action-cell">
+                        <div className="action-title">{action.title}</div>
+                        <div className="action-description">{action.description}</div>
+                      </td>
+                      <td className="score-impact-cell">
+                        <div className="score-impact-badge">
+                          +{action.scoreIncrease}
+                        </div>
+                      </td>
+                      <td className="user-impact-cell">
+                        <span className={`impact-badge ${action.userImpact.toLowerCase()}`}>
+                          {action.userImpact}
+                        </span>
+                      </td>
+                      <td className="implementation-cost-cell">
+                        <span className={`cost-badge ${action.implementationCost.toLowerCase()}`}>
+                          {action.implementationCost}
+                        </span>
+                      </td>
+                      <td className="status-cell">
+                        <span className={`status-badge ${action.implementationStatus.toLowerCase().replace(' ', '-')}`}>
+                          {action.implementationStatus}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="no-improvement-actions">
+              <p>No improvement actions available in the assessment data.</p>
+              <p>This may indicate that the secure score data was not collected or is incomplete.</p>
+            </div>
+          )}
         </div>
       </div>
     );

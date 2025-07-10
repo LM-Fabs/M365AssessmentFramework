@@ -521,6 +521,24 @@
   margin: 0;
 }
 
+.no-improvement-actions {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+  color: #6c757d;
+}
+
+.no-improvement-actions p {
+  margin: 0.5rem 0;
+}
+
+.no-improvement-actions p:first-child {
+  font-weight: 600;
+  color: #495057;
+}
+
 .improvement-actions-table {
   background: white;
   border-radius: 12px;
