@@ -373,10 +373,11 @@ export class GraphApiService {
                 }
             });
 
-            // Fetch secure scores (latest first)
+            // Fetch secure scores (latest first) - typically only a few results
+            console.log('🛡️ GraphApiService: Fetching secure scores...');
             const secureScoresResponse = await customerGraphClient
                 .api('/security/secureScores')
-                .top(1)
+                .top(5) // Get the latest 5 secure scores
                 .orderby('createdDateTime desc')
                 .get();
 
@@ -385,13 +386,52 @@ export class GraphApiService {
             }
 
             const latestScore = secureScoresResponse.value[0];
+            console.log(`📊 GraphApiService: Found ${secureScoresResponse.value.length} secure score records. Using latest from ${latestScore.createdDateTime}`);
+            console.log(`📊 GraphApiService: Latest score: ${latestScore.currentScore}/${latestScore.maxScore} (${Math.round(((latestScore.currentScore || 0) / (latestScore.maxScore || 1)) * 100)}%)`);
 
-            // Fetch secure score control profiles for detailed breakdown
-            const controlProfilesResponse = await customerGraphClient
-                .api('/security/secureScoreControlProfiles')
-                .get();
+            // Fetch secure score control profiles for detailed breakdown with pagination support
+            console.log('🔄 GraphApiService: Fetching secure score control profiles with pagination...');
+            let allControlProfiles: any[] = [];
+            let nextLink: string | undefined;
+            let pageCount = 0;
+            const maxPages = 10; // Safety limit to prevent infinite loops
+            
+            do {
+                pageCount++;
+                console.log(`📄 GraphApiService: Fetching control profiles page ${pageCount}...`);
+                
+                let currentPageResponse;
+                if (nextLink) {
+                    // Use the nextLink for subsequent pages
+                    currentPageResponse = await customerGraphClient
+                        .api(nextLink)
+                        .get();
+                } else {
+                    // First page - use the base endpoint with pagination parameters
+                    currentPageResponse = await customerGraphClient
+                        .api('/security/secureScoreControlProfiles')
+                        .top(100) // Request 100 items per page (max allowed)
+                        .get();
+                }
 
-            const controlScores = controlProfilesResponse.value?.map((control: any) => ({
+                if (currentPageResponse.value && Array.isArray(currentPageResponse.value)) {
+                    allControlProfiles.push(...currentPageResponse.value);
+                    console.log(`✅ GraphApiService: Page ${pageCount} retrieved ${currentPageResponse.value.length} control profiles. Total: ${allControlProfiles.length}`);
+                }
+
+                // Check for next page
+                nextLink = currentPageResponse['@odata.nextLink'];
+                
+                // Safety check to prevent infinite loops
+                if (pageCount >= maxPages) {
+                    console.warn(`⚠️ GraphApiService: Reached maximum page limit (${maxPages}). Stopping pagination. Retrieved ${allControlProfiles.length} control profiles.`);
+                    break;
+                }
+            } while (nextLink);
+
+            console.log(`🎉 GraphApiService: Pagination complete. Retrieved ${allControlProfiles.length} total control profiles in ${pageCount} page(s).`);
+
+            const controlScores = allControlProfiles.map((control: any) => ({
                 controlName: control.title || control.controlName || 'Unknown Control',
                 category: control.controlCategory || 'General',
                 currentScore: control.score || 0,
@@ -408,6 +448,7 @@ export class GraphApiService {
             };
 
             console.log('✅ GraphApiService: Secure score retrieved successfully');
+            console.log(`📊 GraphApiService: Final result - Score: ${result.currentScore}/${result.maxScore} (${result.percentage}%), Controls: ${result.controlScores.length}`);
             return result;
 
         } catch (error: any) {
