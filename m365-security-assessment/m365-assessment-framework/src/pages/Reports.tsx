@@ -1200,7 +1200,11 @@ const Reports: React.FC = () => {
           <span style={{ fontSize: '1.5em' }}>⚠️</span>
           <div>
             <div style={{ marginBottom: '0.5em' }}>
-              <strong>Assessment Data Issue:</strong> {customerAssessment.metrics.dataIssue}
+              <strong>Assessment Data Issue:</strong> {
+                typeof customerAssessment.metrics.dataIssue === 'string' 
+                  ? customerAssessment.metrics.dataIssue 
+                  : customerAssessment.metrics.dataIssue?.reason || 'Data collection issue detected'
+              }
             </div>
             <div>
               <span>
@@ -1259,10 +1263,10 @@ const Reports: React.FC = () => {
                   {availableAssessments.map((assessment) => (
                     <option key={assessment.id} value={assessment.id}>
                       {new Date(assessment.date || assessment.assessmentDate || assessment.lastModified).toLocaleDateString()} 
+                      {' at '}
+                      {new Date(assessment.date || assessment.assessmentDate || assessment.lastModified).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       {' - '}
                       {assessment.status === 'completed' ? '✅' : assessment.status === 'completed_with_size_limit' ? '⚠️' : '❌'}
-                      {' '}
-                      {assessment.id.split('-').pop()}
                       {assessment.metrics?.realData?.secureScore && !assessment.metrics?.realData?.secureScore?.unavailable ? ' 🛡️' : ''}
                     </option>
                   ))}
