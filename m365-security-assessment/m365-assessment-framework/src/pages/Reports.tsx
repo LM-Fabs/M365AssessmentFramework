@@ -624,6 +624,8 @@ const Reports: React.FC = () => {
         currentScore: Number(control.currentScore) || 0,
         maxScore: Number(control.maxScore) || 0,
         implementationStatus: control.implementationStatus || 'Not Implemented',
+        actionType: control.actionType || 'Other',
+        remediation: control.remediation || 'No remediation information available',
         scoreGap: Number(control.maxScore || 0) - Number(control.currentScore || 0)
       }));
       
@@ -683,12 +685,17 @@ const Reports: React.FC = () => {
           'Excellent security posture - maintain current practices'
         ],
         recommendations: [
+          // Generic recommendations
           'Focus on high-impact security controls first',
           'Prioritize controls with low implementation complexity',
           'Implement Multi-Factor Authentication for all users',
           'Enable Conditional Access policies',
           'Configure security defaults and advanced threat protection',
-          'Regularly review and update security settings'
+          'Regularly review and update security settings',
+          // Add specific recommended actions from the secure score data
+          ...(secureScore.recommendedActions || []).map((action: any) => 
+            `${action.title}: ${action.action}` 
+          )
         ]
       });
     } else {
@@ -992,6 +999,8 @@ const Reports: React.FC = () => {
                     <th>Max Score</th>
                     <th>Gap</th>
                     <th>Status</th>
+                    <th>Action Type</th>
+                    <th>Recommended Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1020,6 +1029,18 @@ const Reports: React.FC = () => {
                         <span className={`status-badge ${control.implementationStatus.toLowerCase().replace(' ', '-')}`}>
                           {control.implementationStatus}
                         </span>
+                      </td>
+                      <td className="action-type-cell">
+                        <span className="action-type-badge">
+                          {control.actionType || 'Other'}
+                        </span>
+                      </td>
+                      <td className="remediation-cell">
+                        <div className="remediation-text" title={control.remediation}>
+                          {control.remediation && control.remediation.length > 80 
+                            ? `${control.remediation.substring(0, 80)}...` 
+                            : (control.remediation || 'No action specified')}
+                        </div>
                       </td>
                     </tr>
                   ))}

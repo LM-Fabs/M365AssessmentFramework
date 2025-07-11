@@ -717,6 +717,39 @@
   color: #495057;
 }
 
+/* Action Type and Remediation columns */
+.action-type-cell {
+  padding: 0.75rem 0.5rem;
+  font-size: 0.9rem;
+  min-width: 100px;
+}
+
+.action-type-badge {
+  background: #e3f2fd;
+  color: #1565c0;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.remediation-cell {
+  padding: 0.75rem 0.5rem;
+  font-size: 0.9rem;
+  max-width: 250px;
+  word-wrap: break-word;
+}
+
+.remediation-text {
+  line-height: 1.4;
+  color: #495057;
+  cursor: help;
+}
+
+.remediation-text:hover {
+  color: #007bff;
+}
+
 /* Responsive for Secure Score */
 @media (max-width: 768px) {
   .score-metrics {

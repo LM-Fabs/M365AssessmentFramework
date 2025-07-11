@@ -356,8 +356,18 @@ export class GraphApiService {
             currentScore: number;
             maxScore: number;
             implementationStatus: string;
+            actionType: string;
+            remediation: string;
+        }>;
+        recommendedActions: Array<{
+            title: string;
+            action: string;
+            category: string;
+            priority: string;
         }>;
         lastUpdated: Date;
+        totalControlsFound: number;
+        controlsStoredCount: number;
     }> {
         try {
             console.log('🛡️ GraphApiService: Fetching secure score for tenant:', tenantId);
@@ -444,16 +454,31 @@ export class GraphApiService {
                 category: (control.controlCategory || 'General').substring(0, 50), // Limit length
                 currentScore: control.score || 0,
                 maxScore: control.maxScore || 0,
-                implementationStatus: (control.implementationStatus || 'Not Implemented').substring(0, 30) // Limit length
+                implementationStatus: (control.implementationStatus || 'Not Implemented').substring(0, 30), // Limit length
+                actionType: (control.actionType || 'Other').substring(0, 30), // Add action type
+                remediation: (control.remediation || 'No remediation information available').substring(0, 200) // Add remediation info
             })).slice(0, 100) || []; // Limit to top 100 controls to reduce size
 
+            // Extract recommended actions from control profiles for the recommendations section
+            const recommendedActions = allControlProfiles
+                .filter((control: any) => control.implementationStatus !== 'Implemented' && control.remediation)
+                .slice(0, 10) // Top 10 most important actions
+                .map((control: any) => ({
+                    title: (control.title || control.controlName || 'Unknown Control').substring(0, 80),
+                    action: (control.remediation || 'Review this security control').substring(0, 150),
+                    category: (control.controlCategory || 'General').substring(0, 30),
+                    priority: control.rank || 'Medium' // Use rank or default to medium
+                }));
+
             console.log(`📊 GraphApiService: Optimized control scores to ${controlScores.length} controls for storage efficiency`);
+            console.log(`📋 GraphApiService: Extracted ${recommendedActions.length} recommended actions from control profiles`);
 
             const result = {
                 currentScore: latestScore.currentScore || 0,
                 maxScore: latestScore.maxScore || 0,
                 percentage: Math.round(((latestScore.currentScore || 0) / (latestScore.maxScore || 1)) * 100),
                 controlScores,
+                recommendedActions, // Add recommended actions to the result
                 lastUpdated: new Date(latestScore.createdDateTime),
                 totalControlsFound: allControlProfiles.length, // Keep track of total number
                 controlsStoredCount: controlScores.length // Track how many we actually stored
