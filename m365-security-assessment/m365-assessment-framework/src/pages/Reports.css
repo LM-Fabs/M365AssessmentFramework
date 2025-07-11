@@ -340,13 +340,22 @@
 }
 
 .license-table th:first-child {
-  width: 40%;
-  min-width: 200px;
+  width: 25%;
+  min-width: 180px;
 }
 
 .license-table th:not(:first-child) {
   text-align: center;
+  width: 12%;
+}
+
+.license-table th:nth-child(6), /* Cost/User/Month column */
+.license-table th:nth-child(7)  /* Monthly Cost column */ {
   width: 15%;
+}
+
+.license-table th:nth-child(8)  /* Actions column */ {
+  width: 8%;
 }
 
 .license-table tbody tr {
@@ -1947,4 +1956,142 @@
 
 .secure-score-table tbody tr.implemented:hover {
   background: #e0f2fe;
+}
+
+/* Cost input and related styles */
+.cost-cell,
+.monthly-cost-cell,
+.actions-cell {
+  text-align: center;
+  padding: 0.5rem 0.75rem;
+}
+
+.cost-input-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-width: 80px;
+}
+
+.cost-input {
+  width: 60px;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  text-align: center;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.cost-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.cost-input.custom-cost {
+  background: #fff3cd;
+  border-color: #ffc107;
+  font-weight: 600;
+}
+
+.cost-input.custom-cost:focus {
+  border-color: #ff8c00;
+  box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.25);
+}
+
+.cost-currency {
+  font-size: 0.75rem;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.monthly-cost-amount {
+  font-weight: 600;
+  color: #28a745;
+  font-size: 0.9rem;
+}
+
+.reset-cost-btn {
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  min-width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reset-cost-btn:hover {
+  background: #5a6268;
+}
+
+.reset-cost-btn:active {
+  transform: translateY(1px);
+}
+
+/* Update table column widths for new columns */
+.license-table th:first-child {
+  width: 25%;
+  min-width: 180px;
+}
+
+.license-table th:not(:first-child) {
+  text-align: center;
+  width: 12%;
+}
+
+.license-table th:nth-child(6), /* Cost/User/Month column */
+.license-table th:nth-child(7)  /* Monthly Cost column */ {
+  width: 15%;
+}
+
+.license-table th:nth-child(8)  /* Actions column */ {
+  width: 8%;
+}
+
+/* Responsive adjustments for cost columns */
+@media (max-width: 768px) {
+  .cost-input-container {
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+  
+  .cost-input {
+    width: 50px;
+    font-size: 0.75rem;
+  }
+  
+  .monthly-cost-amount {
+    font-size: 0.8rem;
+  }
+  
+  .reset-cost-btn {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.7rem;
+    min-width: 24px;
+    height: 24px;
+  }
+  
+  .license-table th:first-child {
+    width: 20%;
+    min-width: 150px;
+  }
+  
+  .license-table th:not(:first-child) {
+    width: 10%;
+  }
+  
+  .license-table th:nth-child(6),
+  .license-table th:nth-child(7) {
+    width: 12%;
+  }
 }

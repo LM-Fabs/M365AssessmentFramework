@@ -123,109 +123,276 @@ const Reports: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [creatingAssessment, setCreatingAssessment] = useState(false);
   const [createAssessmentResult, setCreateAssessmentResult] = useState<string | null>(null);
+  const [customLicenseCosts, setCustomLicenseCosts] = useState<{ [licenseName: string]: number }>({});
+
+  // Function to get effective license cost (custom or estimated)
+  const getEffectiveLicenseCost = (licenseName: string): number => {
+    const formattedName = formatLicenseName(licenseName);
+    
+    // Check if user has set a custom cost for this license
+    if (customLicenseCosts[formattedName] !== undefined) {
+      return customLicenseCosts[formattedName];
+    }
+    
+    // Fall back to estimated cost
+    return getEstimatedLicenseCost(licenseName);
+  };
+
+  // Function to update custom license cost
+  const updateCustomLicenseCost = (licenseName: string, cost: number) => {
+    const formattedName = formatLicenseName(licenseName);
+    setCustomLicenseCosts(prev => ({
+      ...prev,
+      [formattedName]: cost
+    }));
+  };
+
+  // Function to reset custom license cost to estimated
+  const resetCustomLicenseCost = (licenseName: string) => {
+    const formattedName = formatLicenseName(licenseName);
+    setCustomLicenseCosts(prev => {
+      const newCosts = { ...prev };
+      delete newCosts[formattedName];
+      return newCosts;
+    });
+  };
   
   // Function to format license names for better readability
   const formatLicenseName = (rawName: string): string => {
     if (!rawName) return 'Unknown License';
     
-    // Common license name mappings for better readability
+    // First, normalize the input by removing extra spaces and converting to uppercase
+    const normalizedName = rawName.replace(/\s+/g, '').toUpperCase();
+    
+    // Comprehensive license name mappings for better readability
     const nameMap: { [key: string]: string } = {
-      // Microsoft 365 licenses
+      // Microsoft 365 Plans
       'MICROSOFT_365_E3': 'Microsoft 365 E3',
       'MICROSOFT_365_E5': 'Microsoft 365 E5',
       'MICROSOFT_365_F3': 'Microsoft 365 F3',
       'MICROSOFT_365_F1': 'Microsoft 365 F1',
+      'MICROSOFT365E3': 'Microsoft 365 E3',
+      'MICROSOFT365E5': 'Microsoft 365 E5',
+      'MICROSOFT365F3': 'Microsoft 365 F3',
+      'MICROSOFT365F1': 'Microsoft 365 F1',
       'SPE_E3': 'Microsoft 365 E3',
       'SPE_E5': 'Microsoft 365 E5',
       'SPE_F1': 'Microsoft 365 F1',
+      'SPEE3': 'Microsoft 365 E3',
+      'SPEE5': 'Microsoft 365 E5',
+      'SPEF1': 'Microsoft 365 F1',
       
-      // Office 365 licenses
+      // Office 365 Plans
       'OFFICE_365_E3': 'Office 365 E3',
       'OFFICE_365_E5': 'Office 365 E5',
       'OFFICE_365_F3': 'Office 365 F3',
+      'OFFICE365E3': 'Office 365 E3',
+      'OFFICE365E5': 'Office 365 E5',
+      'OFFICE365F3': 'Office 365 F3',
       'ENTERPRISEPACK': 'Office 365 E3',
       'ENTERPRISEPREMIUM': 'Office 365 E5',
       'DESKLESSPACK': 'Office 365 F3',
+      
+      // Business Plans
+      'MICROSOFT_365_BUSINESS_PREMIUM': 'Microsoft 365 Business Premium',
+      'MICROSOFT_365_BUSINESS_STANDARD': 'Microsoft 365 Business Standard',
+      'MICROSOFT_365_BUSINESS_BASIC': 'Microsoft 365 Business Basic',
+      'MICROSOFT365BUSINESSPREMIUM': 'Microsoft 365 Business Premium',
+      'MICROSOFT365BUSINESSSTANDARD': 'Microsoft 365 Business Standard',
+      'MICROSOFT365BUSINESSBASIC': 'Microsoft 365 Business Basic',
       
       // Power Platform
       'POWER_BI_PRO': 'Power BI Pro',
       'POWER_BI_PREMIUM': 'Power BI Premium',
       'POWER_BI_STANDARD': 'Power BI Standard',
+      'POWERBI_PRO': 'Power BI Pro',
+      'POWERBIPRO': 'Power BI Pro',
+      'POWERBIPREMIUM': 'Power BI Premium',
+      'POWERBISTANDARD': 'Power BI Standard',
       'POWERAPPS_VIRAL': 'Power Apps (Viral)',
       'POWERAPPSDEV': 'Power Apps for Developer',
       'POWERAPPSPDEVL': 'Power Apps Plan 1',
       'POWERAPPSPPLAN2': 'Power Apps Plan 2',
-      'POWERBIPSTANDALONE': 'Power BI Standalone',
-      'POWERBISTANDARD': 'Power BI Standard',
-      'PHONESYSTEMVIRTUALUSER': 'Phone System Virtual User',
+      'POWER_APPS_DEV': 'Power Apps Developer',
+      'POWER_APPS_D_E_V': 'Power Apps Developer',
+      'POWER_AUTOMATE_USER': 'Power Automate User',
+      'POWERAUTOMATEUSER': 'Power Automate User',
       
-      // Exchange and communication
+      // Exchange
       'EXCHANGE_S_ENTERPRISE': 'Exchange Online Plan 2',
       'EXCHANGE_S_STANDARD': 'Exchange Online Plan 1',
-      'TEAMS_EXPLORATORY': 'Microsoft Teams Exploratory',
-      'MCOMEETADV': 'Microsoft 365 Audio Conferencing',
+      'EXCHANGEONLINEPLAN1': 'Exchange Online Plan 1',
+      'EXCHANGEONLINEPLAN2': 'Exchange Online Plan 2',
+      'EXCHANGE_ONLINE_PLAN_1': 'Exchange Online Plan 1',
+      'EXCHANGE_ONLINE_PLAN_2': 'Exchange Online Plan 2',
       
-      // Azure Active Directory
+      // Teams & Communication
+      'TEAMS_EXPLORATORY': 'Microsoft Teams Exploratory',
+      'TEAMSEXPLORATORY': 'Microsoft Teams Exploratory',
+      'TEAMS_PHONE': 'Microsoft Teams Phone',
+      'TEAMSPHONE': 'Microsoft Teams Phone',
+      'TEAMS_ROOMS': 'Microsoft Teams Rooms',
+      'TEAMSROOMS': 'Microsoft Teams Rooms',
+      'PHONESYSTEMVIRTUALUSER': 'Phone System Virtual User',
+      'PHONE_SYSTEM_VIRTUAL_USER': 'Phone System Virtual User',
+      'PHONESYSTEM': 'Phone System',
+      'MCOMEETADV': 'Microsoft 365 Audio Conferencing',
+      'MCOEV': 'Microsoft Cloud App Security',
+      'M_C_O_E_V': 'Microsoft Cloud App Security',
+      
+      // Azure AD
       'AAD_PREMIUM': 'Azure Active Directory Premium P1',
       'AAD_PREMIUM_P2': 'Azure Active Directory Premium P2',
+      'AADPREMIUM': 'Azure Active Directory Premium P1',
+      'AADPREMIUMP2': 'Azure Active Directory Premium P2',
+      'AZURE_AD_PREMIUM': 'Azure Active Directory Premium P1',
+      'AZUREADPREMIUM': 'Azure Active Directory Premium P1',
       
-      // Project and Visio
+      // Project & Visio
       'PROJECTPROFESSIONAL': 'Project Online Professional',
+      'PROJECT_PROFESSIONAL': 'Project Online Professional',
+      'PROJECTP1': 'Project Plan 1',
       'PROJECTPI': 'Project Plan 1',
+      'P_R_O_J_E_C_T_P_1': 'Project Plan 1',
       'VISIOONLINE_PLAN1': 'Visio Online Plan 1',
       'VISIOCLIENT': 'Visio Pro for Office 365',
+      'VISIO_ONLINE_PLAN_1': 'Visio Online Plan 1',
+      'VISIO_PRO': 'Visio Pro for Office 365',
       
-      // Special licenses
+      // Security & Compliance
+      'MICROSOFT_DEFENDER': 'Microsoft Defender',
+      'MICROSOFTDEFENDER': 'Microsoft Defender',
+      'ENTERPRISE_MOBILITY_SECURITY': 'Enterprise Mobility + Security',
+      'EMS': 'Enterprise Mobility + Security',
+      'AZURE_INFORMATION_PROTECTION': 'Azure Information Protection',
+      'INTUNE_A': 'Microsoft Intune',
+      'INTUNE': 'Microsoft Intune',
+      'MICROSOFT_INTUNE_SUITE': 'Microsoft Intune Suite',
+      'MICROSOFTINTUNESUITE': 'Microsoft Intune Suite',
+      
+      // SharePoint & OneDrive
+      'SHAREPOINT_ONLINE_PLAN_1': 'SharePoint Online Plan 1',
+      'SHAREPOINT_ONLINE_PLAN_2': 'SharePoint Online Plan 2',
+      'SHAREPOINTONLINE': 'SharePoint Online',
+      'SPB': 'SharePoint Plan B',
+      'S_P_B': 'SharePoint Plan B',
+      'ONEDRIVE_FOR_BUSINESS': 'OneDrive for Business',
+      'ONEDRIVESTANDALONE': 'OneDrive for Business',
+      
+      // Dynamics
+      'DYNAMICS_365_BUSINESS_CENTRAL': 'Dynamics 365 Business Central',
+      'DYNAMICS365BUSINESSCENTRAL': 'Dynamics 365 Business Central',
+      
+      // Windows & Store
+      'WINDOWS_STORE': 'Windows Store for Business',
+      'WINDOWSSTORE': 'Windows Store for Business',
+      'WINDOWSDEFENDER': 'Windows Defender',
+      'W_I_N_D_O_W_S_S_T_O_R_E': 'Windows Store for Business',
+      
+      // Flow & Forms
       'FLOWFREE': 'Power Automate (Free)',
-      'CCIBOTSPREMIUM': 'Copilot Studio',
-      'Microsoft_Intune_Suite': 'Microsoft Intune Suite',
-      'Power_BI_Pro': 'Power BI Pro'
+      'FLOW_FREE': 'Power Automate (Free)',
+      'F_L_O_W_F_R_E_E': 'Power Automate (Free)',
+      'FLOW': 'Power Automate',
+      'FORMSPRO': 'Microsoft Forms Pro',
+      'FORMS_PRO': 'Microsoft Forms Pro',
+      'F_O_R_M_S_P_R_O': 'Microsoft Forms Pro',
+      'MICROSOFTFORMSPRO': 'Microsoft Forms Pro',
+      
+      // Additional spaced variants
+      'F L O W F R E E': 'Power Automate (Free)',
+      'S P B': 'SharePoint Plan B',
+      'M C O E V': 'Microsoft Cloud App Security',
+      'P R O J E C T P 1': 'Project Plan 1',
+      'P H O N E S Y S T E M V I R T U A L U S E R': 'Phone System Virtual User',
+      'W I N D O W S S T O R E': 'Windows Store for Business',
+      'R M S B A S I C': 'Rights Management Service Basic',
+      'C C I B O T S P R I V P R E V V I R A L': 'Copilot Studio (Trial)',
+      
+      // Copilot & AI
+      'CCIBOTSPREMIUM': 'Copilot Studio Premium',
+      'CCIBOTSPRIVPREVVIRAL': 'Copilot Studio (Trial)',
+      'C_C_I_B_O_T_S_P_R_I_V_P_R_E_V_V_I_R_A_L': 'Copilot Studio (Trial)',
+      'MICROSOFT_365_COPILOT': 'Microsoft 365 Copilot',
+      'MICROSOFT365COPILOT': 'Microsoft 365 Copilot',
+      
+      // Rights Management
+      'RMSBASIC': 'Rights Management Service Basic',
+      'RMS_BASIC': 'Rights Management Service Basic',
+      'R_M_S_B_A_S_I_C': 'Rights Management Service Basic',
+      
+      // Developer & Trial
+      'DEVELOPERPACK': 'Developer Pack',
+      'DEVELOPER': 'Developer',
+      'TRIAL': 'Trial',
+      'FREE': 'Free'
     };
-    
-    // Normalize the input for lookup
-    const normalizedName = rawName.toUpperCase().replace(/\s+/g, '_');
     
     // Check if we have a direct mapping
     if (nameMap[normalizedName]) {
       return nameMap[normalizedName];
     }
     
-    // For unmapped names, clean them up with better formatting
-    let formattedName = rawName;
-    
-    // Handle common patterns
-    if (formattedName.includes('POWERAPPS')) {
-      formattedName = formattedName.replace('POWERAPPS', 'Power Apps');
-    }
-    if (formattedName.includes('POWERBI')) {
-      formattedName = formattedName.replace('POWERBI', 'Power BI');
-    }
-    if (formattedName.includes('TEAMS')) {
-      formattedName = formattedName.replace('TEAMS', 'Teams');
-    }
-    if (formattedName.includes('SHAREPOINT')) {
-      formattedName = formattedName.replace('SHAREPOINT', 'SharePoint');
-    }
-    if (formattedName.includes('ONEDRIVE')) {
-      formattedName = formattedName.replace('ONEDRIVE', 'OneDrive');
+    // Special handling for spaced out letters (like "F L O W F R E E")
+    if (rawName.includes(' ')) {
+      // First try direct mapping of the spaced version
+      if (nameMap[rawName.toUpperCase()]) {
+        return nameMap[rawName.toUpperCase()];
+      }
+      
+      // Then try removing all spaces and checking again
+      const compactName = rawName.replace(/\s+/g, '').toUpperCase();
+      if (nameMap[compactName]) {
+        return nameMap[compactName];
+      }
     }
     
-    // Clean up the name by replacing underscores and formatting
-    return formattedName
+    // Clean up the name using intelligent processing
+    let cleanName = rawName;
+    
+    // Handle spaced letters more comprehensively (e.g., "F L O W F R E E" -> "FLOWFREE")
+    if (/^[A-Z](\s+[A-Z])+\s*$/.test(rawName.trim())) {
+      cleanName = rawName.replace(/\s+/g, '');
+      // Check again with the compacted name
+      if (nameMap[cleanName.toUpperCase()]) {
+        return nameMap[cleanName.toUpperCase()];
+      }
+    }
+    
+    // Handle mixed case with spaces that might be SKU names
+    if (/^[A-Z\s]+$/.test(rawName) && rawName.includes(' ')) {
+      const compactedName = rawName.replace(/\s+/g, '').toUpperCase();
+      if (nameMap[compactedName]) {
+        return nameMap[compactedName];
+      }
+    }
+    
+    // Replace underscores with spaces and handle camelCase
+    cleanName = cleanName
       .replace(/_/g, ' ')
-      .replace(/([A-Z])/g, ' $1')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')
       .replace(/\s+/g, ' ')
-      .trim()
+      .trim();
+    
+    // Capitalize each word properly
+    return cleanName
       .split(' ')
       .map(word => {
-        // Preserve known acronyms in uppercase
-        const upperCaseWords = ['BI', 'AI', 'API', 'CRM', 'ERP', 'IT', 'HR', 'SPB', 'DEV', 'STD'];
-        if (upperCaseWords.includes(word.toUpperCase())) {
-          return word.toUpperCase();
+        if (word.length <= 1) return word.toUpperCase();
+        if (['AND', 'FOR', 'OF', 'THE', 'A', 'AN'].includes(word.toUpperCase())) {
+          return word.toLowerCase();
         }
         return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
       })
-      .join(' ');
+      .join(' ')
+      .replace(/\b(E|F|P)\d+\b/g, match => match.toUpperCase()) // Keep E3, F1, P1 etc. uppercase
+      .replace(/\bMicrosoft\b/gi, 'Microsoft')
+      .replace(/\bOffice\b/gi, 'Office')
+      .replace(/\bPower\b/gi, 'Power')
+      .replace(/\bAzure\b/gi, 'Azure')
+      .replace(/\bOnedrive\b/gi, 'OneDrive')
+      .replace(/\bSharepoint\b/gi, 'SharePoint');
   };
   
   // Utility: Test assessment creation for debugging API/store
@@ -358,7 +525,9 @@ const Reports: React.FC = () => {
             total: license.totalUnits || 0,
             available: (license.totalUnits || 0) - (license.assignedUnits || license.consumedUnits || 0),
             utilizationRate: license.totalUnits > 0 ? 
-              Math.round(((license.assignedUnits || license.consumedUnits || 0) / license.totalUnits) * 100) : 0
+              Math.round(((license.assignedUnits || license.consumedUnits || 0) / license.totalUnits) * 100) : 0,
+            cost: getEffectiveLicenseCost(license.skuPartNumber),
+            skuPartNumber: license.skuPartNumber
           };
         })
         .sort((a: any, b: any) => b.assigned - a.assigned);
@@ -778,7 +947,7 @@ const Reports: React.FC = () => {
         console.log('Processing license details:', licenseDetails);
 
         // Group license details by SKU and sum up the values
-        const licenseTypeMap = new Map<string, { name: string; assigned: number; total: number }>();
+        const licenseTypeMap = new Map<string, { name: string; assigned: number; total: number; skuPartNumber: string; cost: number }>();
         
         licenseDetails.forEach((license: any) => {
           const skuName = license.skuPartNumber || license.skuDisplayName || license.servicePlanName || 'Unknown License';
@@ -795,7 +964,9 @@ const Reports: React.FC = () => {
             licenseTypeMap.set(skuName, {
               name: skuName,
               assigned: assignedUnits,
-              total: totalUnits
+              total: totalUnits,
+              skuPartNumber: skuName,
+              cost: getEffectiveLicenseCost(skuName)
             });
           }
         });
@@ -1113,17 +1284,25 @@ const Reports: React.FC = () => {
                 <th>Free</th>
                 <th>Total</th>
                 <th>Utilization</th>
+                <th>Cost/User/Month</th>
+                <th>Monthly Cost</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {licenseTypes.map((license, index) => {
                 const free = license.total - license.assigned;
                 const utilization = license.total > 0 ? Math.round((license.assigned / license.total) * 100) : 0;
+                const formattedLicenseName = formatLicenseName(license.name);
+                const effectiveCost = getEffectiveLicenseCost(license.name);
+                const monthlyCost = effectiveCost * license.assigned;
+                const isCustomCost = customLicenseCosts[formattedLicenseName] !== undefined;
+                
                 return (
                   <tr key={index}>
                     <td className="license-name-cell">
                       <span className="license-name-text">
-                        {formatLicenseName(license.name)}
+                        {formattedLicenseName}
                       </span>
                     </td>
                     <td className="used-cell">{license.assigned.toLocaleString()}</td>
@@ -1140,6 +1319,39 @@ const Reports: React.FC = () => {
                         />
                         <span className="utilization-text">{utilization}%</span>
                       </div>
+                    </td>
+                    <td className="cost-cell">
+                      <div className="cost-input-container">
+                        <input
+                          type="number"
+                          className={`cost-input ${isCustomCost ? 'custom-cost' : ''}`}
+                          value={effectiveCost}
+                          min="0"
+                          step="0.01"
+                          onChange={(e) => {
+                            const newCost = parseFloat(e.target.value) || 0;
+                            updateCustomLicenseCost(license.name, newCost);
+                          }}
+                          title={isCustomCost ? 'Custom cost (click reset to use estimated)' : 'Estimated cost (edit to customize)'}
+                        />
+                        <span className="cost-currency">USD</span>
+                      </div>
+                    </td>
+                    <td className="monthly-cost-cell">
+                      <span className="monthly-cost-amount">
+                        ${monthlyCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </td>
+                    <td className="actions-cell">
+                      {isCustomCost && (
+                        <button
+                          className="reset-cost-btn"
+                          onClick={() => resetCustomLicenseCost(license.name)}
+                          title="Reset to estimated cost"
+                        >
+                          ↺
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
