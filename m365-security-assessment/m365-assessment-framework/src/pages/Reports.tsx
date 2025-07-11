@@ -39,44 +39,101 @@ const Reports: React.FC = () => {
     
     // Common license name mappings for better readability
     const nameMap: { [key: string]: string } = {
+      // Microsoft 365 licenses
       'MICROSOFT_365_E3': 'Microsoft 365 E3',
       'MICROSOFT_365_E5': 'Microsoft 365 E5',
       'MICROSOFT_365_F3': 'Microsoft 365 F3',
       'MICROSOFT_365_F1': 'Microsoft 365 F1',
+      'SPE_E3': 'Microsoft 365 E3',
+      'SPE_E5': 'Microsoft 365 E5',
+      'SPE_F1': 'Microsoft 365 F1',
+      
+      // Office 365 licenses
       'OFFICE_365_E3': 'Office 365 E3',
       'OFFICE_365_E5': 'Office 365 E5',
       'OFFICE_365_F3': 'Office 365 F3',
       'ENTERPRISEPACK': 'Office 365 E3',
       'ENTERPRISEPREMIUM': 'Office 365 E5',
       'DESKLESSPACK': 'Office 365 F3',
-      'SPE_E3': 'Microsoft 365 E3',
-      'SPE_E5': 'Microsoft 365 E5',
-      'SPE_F1': 'Microsoft 365 F1',
+      
+      // Power Platform
       'POWER_BI_PRO': 'Power BI Pro',
       'POWER_BI_PREMIUM': 'Power BI Premium',
-      'TEAMS_EXPLORATORY': 'Microsoft Teams Exploratory',
-      'AAD_PREMIUM': 'Azure Active Directory Premium',
-      'AAD_PREMIUM_P2': 'Azure Active Directory Premium P2',
+      'POWER_BI_STANDARD': 'Power BI Standard',
+      'POWERAPPS_VIRAL': 'Power Apps (Viral)',
+      'POWERAPPSDEV': 'Power Apps for Developer',
+      'POWERAPPSPDEVL': 'Power Apps Plan 1',
+      'POWERAPPSPPLAN2': 'Power Apps Plan 2',
+      'POWERBIPSTANDALONE': 'Power BI Standalone',
+      'POWERBISTANDARD': 'Power BI Standard',
+      'PHONESYSTEMVIRTUALUSER': 'Phone System Virtual User',
+      
+      // Exchange and communication
       'EXCHANGE_S_ENTERPRISE': 'Exchange Online Plan 2',
       'EXCHANGE_S_STANDARD': 'Exchange Online Plan 1',
+      'TEAMS_EXPLORATORY': 'Microsoft Teams Exploratory',
+      'MCOMEETADV': 'Microsoft 365 Audio Conferencing',
+      
+      // Azure Active Directory
+      'AAD_PREMIUM': 'Azure Active Directory Premium P1',
+      'AAD_PREMIUM_P2': 'Azure Active Directory Premium P2',
+      
+      // Project and Visio
       'PROJECTPROFESSIONAL': 'Project Online Professional',
+      'PROJECTPI': 'Project Plan 1',
       'VISIOONLINE_PLAN1': 'Visio Online Plan 1',
-      'VISIOCLIENT': 'Visio Pro for Office 365'
+      'VISIOCLIENT': 'Visio Pro for Office 365',
+      
+      // Special licenses
+      'FLOWFREE': 'Power Automate (Free)',
+      'CCIBOTSPREMIUM': 'Copilot Studio',
+      'Microsoft_Intune_Suite': 'Microsoft Intune Suite',
+      'Power_BI_Pro': 'Power BI Pro'
     };
     
+    // Normalize the input for lookup
+    const normalizedName = rawName.toUpperCase().replace(/\s+/g, '_');
+    
     // Check if we have a direct mapping
-    if (nameMap[rawName.toUpperCase()]) {
-      return nameMap[rawName.toUpperCase()];
+    if (nameMap[normalizedName]) {
+      return nameMap[normalizedName];
     }
     
-    // Otherwise, clean up the name
-    return rawName
+    // For unmapped names, clean them up with better formatting
+    let formattedName = rawName;
+    
+    // Handle common patterns
+    if (formattedName.includes('POWERAPPS')) {
+      formattedName = formattedName.replace('POWERAPPS', 'Power Apps');
+    }
+    if (formattedName.includes('POWERBI')) {
+      formattedName = formattedName.replace('POWERBI', 'Power BI');
+    }
+    if (formattedName.includes('TEAMS')) {
+      formattedName = formattedName.replace('TEAMS', 'Teams');
+    }
+    if (formattedName.includes('SHAREPOINT')) {
+      formattedName = formattedName.replace('SHAREPOINT', 'SharePoint');
+    }
+    if (formattedName.includes('ONEDRIVE')) {
+      formattedName = formattedName.replace('ONEDRIVE', 'OneDrive');
+    }
+    
+    // Clean up the name by replacing underscores and formatting
+    return formattedName
       .replace(/_/g, ' ')
       .replace(/([A-Z])/g, ' $1')
       .replace(/\s+/g, ' ')
       .trim()
       .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .map(word => {
+        // Preserve known acronyms in uppercase
+        const upperCaseWords = ['BI', 'AI', 'API', 'CRM', 'ERP', 'IT', 'HR', 'SPB', 'DEV', 'STD'];
+        if (upperCaseWords.includes(word.toUpperCase())) {
+          return word.toUpperCase();
+        }
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      })
       .join(' ');
   };
   
@@ -230,9 +287,21 @@ const Reports: React.FC = () => {
           unutilizedLicenses,
           utilizationRate,
           costData: {
-            totalMonthlyCost: processedLicenseTypes.length * 12.50,
-            unutilizedCost: unutilizedLicenses * 12.50,
-            potentialSavings: unutilizedLicenses * 12.50 * 0.8
+            // Calculate estimated monthly cost based on license types and their typical pricing
+            totalMonthlyCost: processedLicenseTypes.reduce((sum: number, license: any) => {
+              const estimatedCostPerLicense = getEstimatedLicenseCost(license.name);
+              return sum + (license.assigned * estimatedCostPerLicense);
+            }, 0),
+            unutilizedCost: processedLicenseTypes.reduce((sum: number, license: any) => {
+              const estimatedCostPerLicense = getEstimatedLicenseCost(license.name);
+              const unutilized = license.total - license.assigned;
+              return sum + (unutilized * estimatedCostPerLicense);
+            }, 0),
+            potentialSavings: processedLicenseTypes.reduce((sum: number, license: any) => {
+              const estimatedCostPerLicense = getEstimatedLicenseCost(license.name);
+              const unutilized = license.total - license.assigned;
+              return sum + (unutilized * estimatedCostPerLicense * 0.8); // 80% of unutilized cost
+            }, 0)
           },
           licenseTypes: processedLicenseTypes,
           summary: {
@@ -1016,7 +1085,7 @@ const Reports: React.FC = () => {
               <li>The assessment is from an older version that didn't support secure score</li>
             </ul>
             <h5>🔧 Quick fix:</h5>
-            <ol>
+            <ol style={{ margin: '0.5em 0 0 1.5em' }}>
               <li>Click the <strong>"Create Test Assessment (Debug)"</strong> button above to create a new assessment</li>
               <li>The new assessment should include secure score data if permissions are correctly configured</li>
               <li>If the new assessment still doesn't work, then check the app registration permissions</li>
@@ -1444,7 +1513,12 @@ const Reports: React.FC = () => {
                           ) : (
                             typeof value === 'number' ? value.toLocaleString() : 
                             typeof value === 'object' && value !== null ? 
-                            (Array.isArray(value) ? `${value.length} items` : 'Complex data - see below') :
+                            (Array.isArray(value) ? `${value.length} items` : 
+                             // Better handling for specific object types
+                             key === 'costData' ? `$${((value as any).totalMonthlyCost || 0).toLocaleString()} monthly` :
+                             key === 'summary' ? ((value as any).status || 'Good') :
+                             JSON.stringify(value).length > 50 ? 'View details below' : JSON.stringify(value)
+                            ) :
                             String(value)
                           )}
                         </div>
