@@ -882,6 +882,7 @@
   font-weight: 600;
   font-size: 0.9rem;
   text-transform: uppercase;
+  display: inline-block;
 }
 
 .risk-badge.low {
@@ -1771,4 +1772,179 @@
 /* Hide the old assessment info */
 .assessment-info {
   display: none;
+}
+
+/* Security Controls Table */
+.security-controls-table {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  margin-top: 2rem;
+}
+
+.security-controls-table h4 {
+  margin: 0 0 1.5rem 0;
+  color: #2c3e50;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+/* Compression notice styling */
+.compression-notice {
+  background: #e3f2fd;
+  border: 1px solid #bbdefb;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.compression-icon {
+  font-size: 1.2rem;
+}
+
+.compression-text {
+  color: #1565c0;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* No controls data styling */
+.no-controls-data {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+  color: #6c757d;
+}
+
+.no-controls-data p {
+  margin: 0.5rem 0;
+}
+
+/* Secure Score Table Cell Styles */
+.control-name-cell {
+  padding: 0.75rem 0.5rem;
+  max-width: 300px;
+}
+
+.control-name {
+  font-weight: 600;
+  color: #2c3e50;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.category-cell {
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+}
+
+.category-badge {
+  background: #f8f9fa;
+  color: #495057;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: capitalize;
+  display: inline-block;
+}
+
+.category-badge.general {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.category-badge.identity {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.category-badge.data {
+  background: #e8f5e8;
+  color: #2e7d32;
+}
+
+.category-badge.device {
+  background: #fff3e0;
+  color: #ef6c00;
+}
+
+.current-score-cell,
+.max-score-cell {
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+  font-weight: 600;
+}
+
+.score-value {
+  color: #2c3e50;
+  font-size: 1rem;
+}
+
+.score-gap-cell {
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+}
+
+.score-gap {
+  background: #fff3cd;
+  color: #856404;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.status-cell {
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+}
+
+.status-badge.implemented {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-badge.not-implemented {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.status-badge.enabled {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-badge.disabled {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.status-badge.partial {
+  background: #fff3cd;
+  color: #856404;
+}
+
+/* Row styling based on implementation status */
+.secure-score-table tbody tr.not-implemented {
+  background: #fff5f5;
+}
+
+.secure-score-table tbody tr.not-implemented:hover {
+  background: #fed7d7;
+}
+
+.secure-score-table tbody tr.implemented {
+  background: #f0f9ff;
+}
+
+.secure-score-table tbody tr.implemented:hover {
+  background: #e0f2fe;
 }

@@ -246,8 +246,22 @@ const Reports: React.FC = () => {
           }
         },
         charts: [],
-        insights: [],
-        recommendations: []
+        insights: [
+          `Total licenses: ${totalLicenses.toLocaleString()}`,
+          `Assigned licenses: ${assignedLicenses.toLocaleString()} (${utilizationRate}%)`,
+          `Unutilized licenses: ${unutilizedLicenses.toLocaleString()}`,
+          `Most used license: ${processedLicenseTypes[0]?.name || 'N/A'}`,
+          utilizationRate < 60 ? 'License utilization is below optimal levels' :
+          utilizationRate < 80 ? 'License utilization is moderate' :
+          'License utilization is good'
+        ],
+        recommendations: [
+          utilizationRate < 70 ? 'Consider reducing unused licenses to save costs' : 'Monitor license usage regularly',
+          'Review license assignments quarterly',
+          'Consider license pooling for better efficiency',
+          'Upgrade high-usage users to premium licenses when appropriate',
+          unutilizedLicenses > 10 ? 'Significant cost savings possible by reducing unused licenses' : 'License usage is well optimized'
+        ]
       });
     }
 
@@ -261,6 +275,9 @@ const Reports: React.FC = () => {
       
       // Handle both compressed and uncompressed control scores
       let controlScores = secureScoreData.controlScores || [];
+      console.log('📋 Initial controlScores:', controlScores.length, 'items');
+      console.log('📦 Data compressed?', secureScoreData.compressed);
+      
       if (secureScoreData.compressed && controlScores.length > 0) {
         // Decompress the control scores
         console.log('📦 Decompressing control scores data...');
@@ -269,18 +286,47 @@ const Reports: React.FC = () => {
           category: control.c || control.category || 'General',
           currentScore: control.cs || control.currentScore || 0,
           maxScore: control.ms || control.maxScore || 0,
-          implementationStatus: control.s || control.implementationStatus || 'Not Implemented'
+          implementationStatus: control.s || control.implementationStatus || 'Not Implemented',
+          actionType: control.at || control.actionType || 'Other',
+          remediation: control.r || control.remediation || 'No remediation information available',
+          scoreGap: (control.ms || control.maxScore || 0) - (control.cs || control.currentScore || 0)
         }));
         console.log(`✅ Decompressed ${controlScores.length} control scores`);
+      } else if (controlScores.length > 0) {
+        // Process uncompressed control scores and ensure they have all required fields
+        console.log('📋 Processing uncompressed control scores...');
+        controlScores = controlScores.map((control: any) => ({
+          controlName: control.controlName || control.title || 'Unknown Control',
+          category: control.category || control.controlCategory || 'General',
+          currentScore: control.currentScore || control.score || 0,
+          maxScore: control.maxScore || control.maxScore || 0,
+          implementationStatus: control.implementationStatus || 'Not Implemented',
+          actionType: control.actionType || 'Other',
+          remediation: control.remediation || 'No remediation information available',
+          scoreGap: (control.maxScore || 0) - (control.currentScore || control.score || 0)
+        }));
+        console.log(`✅ Processed ${controlScores.length} uncompressed control scores`);
+      } else {
+        console.log('⚠️ No control scores found in secureScoreData');
       }
       
+      // Calculate summary metrics for the table display
+      const totalImplemented = controlScores.filter((c: any) => c.implementationStatus === 'Implemented' || c.currentScore > 0).length;
+      const totalControls = controlScores.length;
+      const controlsRemaining = totalControls - totalImplemented;
+      const potentialScoreIncrease = controlScores.reduce((sum: number, control: any) => sum + (control.scoreGap || 0), 0);
+      
+      console.log('=== FINAL SECURE SCORE REPORT CREATION ===');
+      console.log('📊 Control scores length before slicing:', controlScores.length);
+      console.log('📊 Control scores sample:', controlScores.slice(0, 3));
+      console.log('📊 Will store top 20 controls for display');
+
       reports.push({
         category: 'secureScore',
         metrics: {
           currentScore: secureScoreData.currentScore,
           maxScore: secureScoreData.maxScore,
           percentage: secureScoreData.percentage,
-          controlScores: controlScores,
           lastUpdated: secureScoreData.lastUpdated,
           totalControlsFound: secureScoreData.totalControlsFound,
           controlsStoredCount: secureScoreData.controlsStoredCount,
@@ -298,10 +344,42 @@ const Reports: React.FC = () => {
             ]
           }
         },
+        // Store controlScores separately for the table, consistent with new data processing
+        controlScores: controlScores.slice(0, 20),
         charts: [],
-        insights: [],
-        recommendations: []
+        insights: [
+          `Current secure score: ${secureScoreData.currentScore} out of ${secureScoreData.maxScore} points (${secureScoreData.percentage}%)`,
+          `${totalImplemented} out of ${totalControls} security controls are implemented`,
+          `${controlsRemaining} security controls remaining to implement`,
+          `Potential score increase: ${potentialScoreIncrease.toFixed(1)} points available`,
+          secureScoreData.percentage < 40 ? 'Security posture needs immediate attention' : 
+          secureScoreData.percentage < 70 ? 'Security posture needs significant improvement' : 
+          secureScoreData.percentage < 85 ? 'Good security posture with room for improvement' : 
+          'Excellent security posture - maintain current practices'
+        ],
+        recommendations: [
+          // Generic recommendations based on security best practices
+          'Focus on high-impact security controls first',
+          'Prioritize controls with low implementation complexity',
+          'Implement Multi-Factor Authentication for all users',
+          'Enable Conditional Access policies',
+          'Configure security defaults and advanced threat protection',
+          'Regularly review and update security settings',
+          // Add specific recommended actions from the secure score data if available
+          ...(secureScoreData.recommendedActions || []).map((action: any) => 
+            action.title ? `${action.title}: ${action.action || action.description || 'Review this security control'}` : action
+          ),
+          // Add remediation advice from controls with the highest score gaps
+          ...controlScores
+            .filter((control: any) => control.scoreGap > 0 && control.remediation && control.remediation !== 'No remediation information available')
+            .sort((a: any, b: any) => b.scoreGap - a.scoreGap)
+            .slice(0, 5) // Top 5 highest impact improvements
+            .map((control: any) => `${control.controlName}: ${control.remediation}`)
+        ]
       });
+      
+      console.log('✅ Secure score report added to reports array');
+      console.log('📊 Report controlScores length:', controlScores.slice(0, 20).length);
     }
 
     console.log('=== FINAL REPORTS ARRAY ===');
@@ -775,8 +853,11 @@ const Reports: React.FC = () => {
     console.log('Found tab data:', tabData ? 'YES' : 'NO');
     if (tabData) {
       console.log('Tab data metrics keys:', Object.keys(tabData.metrics));
+      console.log('Tab data has controlScores:', tabData.controlScores ? 'YES' : 'NO');
+      console.log('ControlScores length:', tabData.controlScores?.length);
       if (activeTab === 'secureScore') {
         console.log('Secure score tab data:', tabData.metrics);
+        console.log('Secure score controlScores:', tabData.controlScores);
       }
     }
     return tabData;
@@ -913,11 +994,16 @@ const Reports: React.FC = () => {
   const renderSecureScoreTable = (metrics: any, controlScores?: any[]) => {
     console.log('=== RENDER SECURE SCORE TABLE ===');
     console.log('Metrics received:', metrics);
+    console.log('ControlScores received:', controlScores);
+    console.log('ControlScores length:', controlScores?.length);
     console.log('Metrics type:', typeof metrics);
     console.log('Has currentScore:', metrics?.currentScore !== undefined);
     console.log('currentScore value:', metrics?.currentScore);
+    console.log('Has controlScores array:', Array.isArray(controlScores));
+    console.log('First control score example:', controlScores?.[0]);
     
     if (!metrics || metrics.currentScore === undefined) {
+      console.log('❌ No metrics or currentScore - showing fallback message');
       return (
         <div className="no-secure-score-data">
           <h4>🛡️ Secure Score Data Not Available</h4>
@@ -942,6 +1028,10 @@ const Reports: React.FC = () => {
         </div>
       );
     }
+
+    console.log('✅ Rendering secure score table with valid data');
+    console.log(`📊 Score: ${metrics.currentScore}/${metrics.maxScore} (${metrics.percentage}%)`);
+    console.log(`📋 Controls: ${controlScores?.length || 0} controls to display`);
 
     return (
       <div className="secure-score-container">
