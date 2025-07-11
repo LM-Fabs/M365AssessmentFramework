@@ -20,6 +20,97 @@ interface ReportData {
   controlScores?: any[]; // Optional field for secure score control data
 }
 
+// Function to estimate license cost based on license type (approximate pricing)
+const getEstimatedLicenseCost = (licenseName: string): number => {
+  const licenseNameLower = licenseName.toLowerCase();
+  
+  // Estimated monthly costs per user (in USD) based on typical Microsoft pricing
+  const pricingMap: { [key: string]: number } = {
+    // Microsoft 365 Plans
+    'microsoft 365 e5': 57,
+    'microsoft 365 e3': 36,
+    'microsoft 365 f3': 10,
+    'microsoft 365 f1': 4,
+    'microsoft 365 business premium': 22,
+    'microsoft 365 business standard': 15,
+    'microsoft 365 business basic': 6,
+    
+    // Office 365 Plans
+    'office 365 e5': 35,
+    'office 365 e3': 23,
+    'office 365 f3': 8,
+    'office 365 e1': 8,
+    
+    // Exchange Plans
+    'exchange online plan 2': 8,
+    'exchange online plan 1': 4,
+    'exchange online': 4,
+    
+    // Teams Plans
+    'microsoft teams': 0, // Often included in other plans
+    'teams exploratory': 0,
+    
+    // Power Platform
+    'power bi pro': 10,
+    'power bi premium': 20,
+    'power apps': 20,
+    'power automate': 15,
+    
+    // Azure AD Plans
+    'azure active directory premium': 6,
+    'azure active directory premium p2': 9,
+    'azure ad premium': 6,
+    
+    // Security Plans
+    'microsoft defender': 3,
+    'enterprise mobility + security': 8.25,
+    
+    // Project & Visio
+    'project online professional': 30,
+    'project online essentials': 7,
+    'visio online plan 1': 5,
+    'visio online plan 2': 15,
+    'visio pro for office 365': 15,
+    
+    // Developer Plans
+    'visual studio': 45,
+    'developer': 0,
+    
+    // SharePoint
+    'sharepoint online': 5,
+    
+    // OneDrive
+    'onedrive for business': 5
+  };
+  
+  // Check for exact matches first
+  if (pricingMap[licenseNameLower]) {
+    return pricingMap[licenseNameLower];
+  }
+  
+  // Check for partial matches
+  for (const [key, price] of Object.entries(pricingMap)) {
+    if (licenseNameLower.includes(key) || key.includes(licenseNameLower)) {
+      return price;
+    }
+  }
+  
+  // Try to categorize by common keywords
+  if (licenseNameLower.includes('e5')) return 50;
+  if (licenseNameLower.includes('e3')) return 30;
+  if (licenseNameLower.includes('f3')) return 8;
+  if (licenseNameLower.includes('f1')) return 4;
+  if (licenseNameLower.includes('premium')) return 20;
+  if (licenseNameLower.includes('pro')) return 15;
+  if (licenseNameLower.includes('standard')) return 12;
+  if (licenseNameLower.includes('basic')) return 6;
+  if (licenseNameLower.includes('essentials')) return 8;
+  if (licenseNameLower.includes('trial') || licenseNameLower.includes('developer')) return 0;
+  
+  // Default fallback for unknown licenses
+  return 10;
+};
+
 const Reports: React.FC = () => {
   const { selectedCustomer, setSelectedCustomer } = useCustomer();
   const [customers, setCustomers] = useState<Customer[]>([]);

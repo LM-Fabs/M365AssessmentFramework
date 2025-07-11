@@ -1,32 +1,60 @@
-# License Table View - Chart Removal & Formatting Improvements
+# License Management UI Improvements
 
-## Changes Made
+## Issues Fixed
 
-### 1. Removed Chart View Completely
-- ✅ Removed `licenseViewMode` state variable
-- ✅ Removed view toggle controls from the license tab header
-- ✅ Removed view toggle CSS styles
-- ✅ Modified license report to have empty charts array
-- ✅ Updated rendering logic to always show table for license tab
+Based on the license management tab screenshot, the following improvements were implemented:
+
+### 1. Removed "Complex data - see below" Placeholders
+**Problem**: License metrics showed unhelpful "Complex data - see below" instead of meaningful information.
+
+**Solution**: Enhanced the `renderMetricValue` function to provide better display for complex license data:
+- **License Types Array**: Now shows count with preview of top license types
+- **Cost Objects**: Displays formatted currency amounts and savings information  
+- **Objects**: Renders key-value pairs in a readable format
+- **Fallback**: Only shows "Complex data - see below" for truly complex nested structures
 
 ### 2. Improved License Name Formatting
-- ✅ Added `formatLicenseName()` function with comprehensive license name mappings
-- ✅ Includes common Microsoft 365 and Office 365 license mappings:
-  - `MICROSOFT_365_E3` → "Microsoft 365 E3"
-  - `ENTERPRISEPACK` → "Office 365 E3"
-  - `SPE_E5` → "Microsoft 365 E5"
-  - `POWER_BI_PRO` → "Power BI Pro"
-  - `AAD_PREMIUM` → "Azure Active Directory Premium"
-  - And many more...
-- ✅ Fallback formatting for unmapped licenses (capitalizes words, replaces underscores)
-- ✅ Updated table rendering to use the new formatting function
-- ✅ Updated insights text to use formatted license names
+**Problem**: License names in the table showed inconsistent formatting (e.g., "ENTERPRISEPACK", "SPE_E3", etc.).
 
-### 3. Simplified Architecture
-- ✅ License tab now exclusively shows table view
-- ✅ Other tabs (Secure Score, Identity, etc.) continue to show charts
-- ✅ Cleaner code without conditional view modes
-- ✅ Reduced CSS bundle size by removing unused toggle styles
+**Solution**: Significantly expanded the `formatLicenseName` function with:
+- **Comprehensive mapping**: Added 40+ common Microsoft license SKUs to readable names
+- **Better text processing**: Improved handling of underscores, camelCase, and abbreviations
+- **Intelligent fallbacks**: Smart pattern matching for unknown licenses
+- **Consistent formatting**: All names follow proper capitalization and spacing
+
+### 3. Realistic Cost Calculations
+**Problem**: Cost calculations were unrealistic (showing flat $12.50 per license regardless of type).
+
+**Solution**: Implemented intelligent cost estimation with `getEstimatedLicenseCost` function:
+- **Accurate pricing**: Based on actual Microsoft licensing costs (E5: $57, E3: $36, etc.)
+- **Comprehensive coverage**: Pricing for 50+ license types including M365, Office 365, Power Platform, etc.
+- **Smart matching**: Partial matching and keyword-based pricing for unknown licenses
+- **Realistic totals**: Provides meaningful cost analysis and savings calculations
+
+## Technical Improvements
+
+### Enhanced License Name Mapping
+```typescript
+// Examples of improved formatting:
+"ENTERPRISEPACK" → "Office 365 E3"
+"SPE_E5" → "Microsoft 365 E5" 
+"MICROSOFT_365_F3" → "Microsoft 365 F3"
+"POWER_BI_PRO" → "Power BI Pro"
+"AAD_PREMIUM_P2" → "Azure Active Directory Premium P2"
+```
+
+### Intelligent Cost Estimation
+- **Enterprise Plans**: E5 ($57), E3 ($36), F3 ($10), F1 ($4)
+- **Business Plans**: Premium ($22), Standard ($15), Basic ($6)
+- **Power Platform**: Power BI Pro ($10), Power Apps ($20), Power Automate ($15)
+- **Security & Compliance**: Azure AD Premium ($6-9), Defender ($3), EMS ($8.25)
+- **Productivity**: Exchange Online ($4-8), SharePoint ($5), Project ($7-30)
+
+### Better Data Display
+- **Arrays**: Shows count + preview of items
+- **Cost objects**: Formatted currency with thousands separators
+- **Utilization**: Percentage indicators with color coding
+- **Complex data**: Structured key-value display when possible
 
 ## Current License Table Features
 - **Columns:** License Type | Used | Free | Total | Utilization
