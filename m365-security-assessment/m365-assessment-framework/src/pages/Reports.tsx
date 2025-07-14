@@ -1341,22 +1341,22 @@ const Reports: React.FC = () => {
                           }}
                           title={isCustomCost ? 'Custom cost (click reset to use estimated)' : 'Estimated cost (edit to customize)'}
                         />
-                        <span className="cost-currency">USD</span>
+                        <span className="cost-currency">EUR</span>
                       </div>
                     </td>
                     <td className="used-cost-cell">
-                      <span className="cost-amount">
-                        ${usedCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <span className={`cost-amount ${usedCost < 0 ? 'negative-cost' : ''}`}>
+                        €{usedCost.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </td>
                     <td className="total-cost-cell">
-                      <span className="cost-amount">
-                        ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <span className={`cost-amount ${totalCost < 0 ? 'negative-cost' : ''}`}>
+                        €{totalCost.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </td>
                     <td className="waste-cost-cell">
-                      <span className={`cost-amount ${wasteCost > 0 ? 'waste-highlight' : ''}`}>
-                        ${wasteCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <span className={`cost-amount ${wasteCost < 0 ? 'negative-cost' : wasteCost > 0 ? 'waste-highlight' : ''}`}>
+                        €{wasteCost.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </td>
                     <td className="actions-cell">

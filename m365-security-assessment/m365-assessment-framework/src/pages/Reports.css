@@ -414,7 +414,8 @@
 
 .utilization-cell {
   text-align: center;
-  padding: 0.5rem 0.75rem;
+  vertical-align: middle;
+  padding: 0.75rem;
 }
 
 .utilization-bar-container {
@@ -424,6 +425,7 @@
   border-radius: 12px;
   overflow: hidden;
   min-width: 80px;
+  margin: 0 auto;
 }
 
 .utilization-bar-fill {
@@ -443,6 +445,100 @@
   color: #2c3e50;
   text-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
   z-index: 1;
+}
+
+/* License Table Cost Column Styles */
+.cost-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.cost-input-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.cost-input {
+  width: 60px;
+  padding: 0.25rem 0.375rem;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  text-align: right;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.cost-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.cost-input.custom-cost {
+  background: #fff3cd;
+  border-color: #ffc107;
+}
+
+.cost-currency {
+  font-size: 0.8rem;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.used-cost-cell,
+.total-cost-cell,
+.waste-cost-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.cost-amount {
+  font-weight: 600;
+  color: #495057;
+  display: inline-block;
+}
+
+.cost-amount.negative-cost {
+  color: #dc3545 !important;
+  font-weight: 700;
+}
+
+.cost-amount.waste-highlight {
+  color: #fd7e14;
+  font-weight: 700;
+}
+
+.actions-cell {
+  text-align: center;
+  vertical-align: middle;
+  padding: 0.75rem;
+}
+
+.reset-cost-btn {
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.reset-cost-btn:hover {
+  background: #495057;
+  transform: scale(1.1);
+}
+
+.reset-cost-btn:active {
+  transform: scale(0.95);
 }
 
 /* Responsive Table */
@@ -1667,15 +1763,10 @@
   background: var(--error-color);
 }
 
-.utilization-cell {
-  font-size: 0.875rem;
-  color: var(--text-primary);
-  text-align: center;
-}
-
 .actions-cell {
-  display: flex;
-  justify-content: center;
+  text-align: center;
+  vertical-align: middle;
+  padding: 0.75rem;
 }
 
 .lm-button.small {
