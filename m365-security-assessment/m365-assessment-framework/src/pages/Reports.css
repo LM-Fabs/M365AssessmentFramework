@@ -1860,6 +1860,48 @@
   font-weight: 500;
 }
 
+/* Data Limitation Warning Styles */
+.data-limit-warning {
+  background: #fff3cd;
+  border: 1px solid #ff9800;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  border-left: 4px solid #ff9800;
+}
+
+.warning-icon {
+  font-size: 1.2rem;
+  color: #f57c00;
+  margin-top: 0.1rem;
+}
+
+.warning-content {
+  flex: 1;
+}
+
+.warning-content strong {
+  color: #e65100;
+  font-size: 1rem;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.warning-content p {
+  margin: 0.3rem 0;
+  color: #bf360c;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.warning-content p:last-child {
+  margin-bottom: 0;
+}
+
 .assessment-date {
   font-size: 1rem;
   color: #495057;

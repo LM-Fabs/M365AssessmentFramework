@@ -598,6 +598,8 @@ const Reports: React.FC = () => {
     console.log('=== SECURE SCORE PROCESSING ===');
     const secureScoreData = assessment.metrics?.realData?.secureScore;
     console.log('Secure score raw data:', secureScoreData);
+    console.log('Assessment status:', assessment.status);
+    console.log('Has size limits:', assessment.status === 'completed_with_size_limit');
     
     if (secureScoreData && !secureScoreData.unavailable && secureScoreData.currentScore !== undefined) {
       console.log('=== PROCESSING SECURE SCORE DATA ===');
@@ -606,6 +608,14 @@ const Reports: React.FC = () => {
       let controlScores = secureScoreData.controlScores || [];
       console.log('📋 Initial controlScores:', controlScores.length, 'items');
       console.log('📦 Data compressed?', secureScoreData.compressed);
+      console.log('📊 Total controls found in assessment:', secureScoreData.totalControlsFound);
+      console.log('📊 Controls stored count:', secureScoreData.controlsStoredCount);
+      
+      // Special handling for assessments with size limits
+      const hasDataLimits = assessment.status === 'completed_with_size_limit';
+      if (hasDataLimits) {
+        console.log('⚠️ Assessment completed with size limits - adjusting processing');
+      }
       
       if (secureScoreData.compressed && controlScores.length > 0) {
         // Decompress the control scores
@@ -637,6 +647,10 @@ const Reports: React.FC = () => {
         console.log(`✅ Processed ${controlScores.length} uncompressed control scores`);
       } else {
         console.log('⚠️ No control scores found in secureScoreData');
+        // For assessments with size limits, we might still have the basic score even without detailed controls
+        if (hasDataLimits && secureScoreData.currentScore !== undefined) {
+          console.log('📊 Using basic secure score data without detailed controls due to size limits');
+        }
       }
       
       // Calculate summary metrics for the table display
@@ -645,8 +659,14 @@ const Reports: React.FC = () => {
       const controlsRemaining = totalControls - totalImplemented;
       const potentialScoreIncrease = controlScores.reduce((sum: number, control: any) => sum + (control.scoreGap || 0), 0);
       
+      // Use actual counts from API when available, especially for size-limited assessments
+      const actualTotalControls = secureScoreData.totalControlsFound || totalControls;
+      const storedControlsCount = secureScoreData.controlsStoredCount || totalControls;
+      
       console.log('=== FINAL SECURE SCORE REPORT CREATION ===');
       console.log('📊 Control scores length before slicing:', controlScores.length);
+      console.log('📊 Actual total controls from API:', actualTotalControls);
+      console.log('📊 Stored controls count:', storedControlsCount);
       console.log('📊 Control scores sample:', controlScores.slice(0, 3));
       console.log('📊 Will store top 20 controls for display');
 
@@ -660,12 +680,15 @@ const Reports: React.FC = () => {
           totalControlsFound: secureScoreData.totalControlsFound,
           controlsStoredCount: secureScoreData.controlsStoredCount,
           compressed: secureScoreData.compressed,
+          hasDataLimits: hasDataLimits,
+          dataLimitWarning: hasDataLimits ? `Assessment completed with size limits. Showing ${storedControlsCount} of ${actualTotalControls} total security controls.` : null,
           summary: {
             status: secureScoreData.percentage >= 80 ? 'Excellent' : 
                    secureScoreData.percentage >= 60 ? 'Good' : 'Needs Improvement',
-            totalControls: secureScoreData.controlScores?.length || 0,
-            implementedControls: secureScoreData.controlScores?.filter((c: any) => 
-              c.implementationStatus === 'Implemented' || c.implementationStatus === 'Enabled').length || 0,
+            totalControls: actualTotalControls,
+            storedControls: storedControlsCount,
+            implementedControls: totalImplemented,
+            dataCompleteness: actualTotalControls > 0 ? Math.round((storedControlsCount / actualTotalControls) * 100) : 100,
             recommendedActions: [
               'Review and implement high-impact security controls',
               'Enable multi-factor authentication where missing',
@@ -678,9 +701,15 @@ const Reports: React.FC = () => {
         charts: [],
         insights: [
           `Current secure score: ${secureScoreData.currentScore} out of ${secureScoreData.maxScore} points (${secureScoreData.percentage}%)`,
-          `${totalImplemented} out of ${totalControls} security controls are implemented`,
-          `${controlsRemaining} security controls remaining to implement`,
-          `Potential score increase: ${potentialScoreIncrease.toFixed(1)} points available`,
+          hasDataLimits ? 
+            `Assessment shows ${storedControlsCount} of ${actualTotalControls} security controls (data was limited due to size)` :
+            `${totalImplemented} out of ${totalControls} security controls are implemented`,
+          hasDataLimits ? 
+            `Data collection was limited due to size constraints - contact your administrator for complete analysis` :
+            `${controlsRemaining} security controls remaining to implement`,
+          controlScores.length > 0 ? 
+            `Potential score increase: ${potentialScoreIncrease.toFixed(1)} points available from shown controls` :
+            'Detailed control analysis not available due to data size limits',
           secureScoreData.percentage < 40 ? 'Security posture needs immediate attention' : 
           secureScoreData.percentage < 70 ? 'Security posture needs significant improvement' : 
           secureScoreData.percentage < 85 ? 'Good security posture with room for improvement' : 
@@ -694,6 +723,12 @@ const Reports: React.FC = () => {
           'Enable Conditional Access policies',
           'Configure security defaults and advanced threat protection',
           'Regularly review and update security settings',
+          // Add data limitation notice if applicable
+          ...(hasDataLimits ? [
+            'Note: This assessment was completed with size limits - some security controls may not be shown',
+            'Consider running smaller, targeted assessments for complete control analysis',
+            'Contact your administrator to increase data storage limits for comprehensive reports'
+          ] : []),
           // Add specific recommended actions from the secure score data if available
           ...(secureScoreData.recommendedActions || []).map((action: any) => 
             action.title ? `${action.title}: ${action.action || action.description || 'Review this security control'}` : action
@@ -1458,6 +1493,20 @@ const Reports: React.FC = () => {
         {/* Security Controls Table */}
         <div className="security-controls-table">
           <h4>Security Controls Breakdown</h4>
+          
+          {/* Data limitation warning for size-limited assessments */}
+          {metrics.hasDataLimits && (
+            <div className="data-limit-warning">
+              <span className="warning-icon">⚠️</span>
+              <div className="warning-content">
+                <strong>Assessment Completed with Data Limits</strong>
+                <p>{metrics.dataLimitWarning}</p>
+                <p>The secure score overview above shows complete data, but detailed control information may be truncated.</p>
+              </div>
+            </div>
+          )}
+          
+          {/* Compression notice */}
           {metrics.compressed && (
             <div className="compression-notice">
               <span className="compression-icon">📦</span>
