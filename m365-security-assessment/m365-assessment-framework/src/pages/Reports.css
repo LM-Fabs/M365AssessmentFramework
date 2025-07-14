@@ -340,22 +340,27 @@
 }
 
 .license-table th:first-child {
-  width: 25%;
-  min-width: 180px;
+  width: 20%;
+  min-width: 160px;
 }
 
 .license-table th:not(:first-child) {
   text-align: center;
+  width: 9%;
+}
+
+.license-table th:nth-child(6) { /* Cost/User/Month column */
+  width: 10%;
+}
+
+.license-table th:nth-child(7), /* Used Cost column */
+.license-table th:nth-child(8), /* Total Cost column */
+.license-table th:nth-child(9)  /* Waste column */ {
   width: 12%;
 }
 
-.license-table th:nth-child(6), /* Cost/User/Month column */
-.license-table th:nth-child(7)  /* Monthly Cost column */ {
-  width: 15%;
-}
-
-.license-table th:nth-child(8)  /* Actions column */ {
-  width: 8%;
+.license-table th:nth-child(10) { /* Actions column */
+  width: 6%;
 }
 
 .license-table tbody tr {
@@ -1357,6 +1362,89 @@
   line-height: 1.5;
 }
 
+/* No Report Data Section */
+.no-report-data-section {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.no-report-data-message .info-box {
+  text-align: center;
+  padding: 2rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #ffc107;
+}
+
+.no-report-data-message h3 {
+  color: #856404;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}
+
+.assessment-issue-details {
+  text-align: left;
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: #fff3cd;
+  border-radius: 6px;
+  border: 1px solid #ffeaa7;
+}
+
+.assessment-issue-details h4 {
+  color: #856404;
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.troubleshooting-steps {
+  margin-top: 1rem;
+}
+
+.troubleshooting-steps h5 {
+  color: #856404;
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+}
+
+.troubleshooting-steps ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.troubleshooting-steps li {
+  margin-bottom: 0.25rem;
+  color: #6c757d;
+}
+
+.next-steps {
+  text-align: left;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #d1ecf1;
+  border-radius: 6px;
+  border: 1px solid #bee5eb;
+}
+
+.next-steps h4 {
+  color: #0c5460;
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.next-steps ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.next-steps li {
+  margin-bottom: 0.25rem;
+  color: #495057;
+}
+
 @media (max-width: 768px) {
   .reports-page {
     padding: 1rem;
@@ -1721,377 +1809,79 @@
   color: #0369a1;
 }
 
-/* Assessment Selector Styles */
-.assessment-selector {
+/* Assessment Selector Section - Always visible when customer is selected */
+.assessment-selector-section {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1.5rem;
+}
+
+.assessment-selector-header {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding: 1rem;
+}
+
+.assessment-selector-header h2 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 1.8rem;
+}
+
+/* Assessment selector improvements */
+.assessment-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
   background: #f8f9fa;
+  padding: 1rem;
   border-radius: 8px;
   border: 1px solid #e9ecef;
-  margin-top: 1rem;
 }
 
 .assessment-selector-label {
   font-weight: 600;
   color: #495057;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   margin: 0;
 }
 
 .assessment-selector-dropdown {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #ced4da;
+  padding: 0.75rem;
+  border: 2px solid #dee2e6;
   border-radius: 6px;
-  background-color: white;
-  font-size: 0.9rem;
-  color: #495057;
+  background: white;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
   cursor: pointer;
-  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.assessment-selector-dropdown:hover {
+  border-color: #007bff;
 }
 
 .assessment-selector-dropdown:focus {
   outline: none;
-  border-color: #80bdff;
-  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
 }
 
 .assessment-info-compact {
   display: flex;
   gap: 1rem;
-  font-size: 0.85rem;
-  color: #6c757d;
+  align-items: center;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
 }
 
 .assessment-status {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
+  color: #6c757d;
+  font-weight: 500;
 }
 
 .secure-score-indicator {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
   color: #28a745;
   font-weight: 500;
-}
-
-/* Hide the old assessment info */
-.assessment-info {
-  display: none;
-}
-
-/* Security Controls Table */
-.security-controls-table {
-  background: white;
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  margin-top: 2rem;
-}
-
-.security-controls-table h4 {
-  margin: 0 0 1.5rem 0;
-  color: #2c3e50;
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-/* Compression notice styling */
-.compression-notice {
-  background: #e3f2fd;
-  border: 1px solid #bbdefb;
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.compression-icon {
-  font-size: 1.2rem;
-}
-
-.compression-text {
-  color: #1565c0;
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-/* No controls data styling */
-.no-controls-data {
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
-  padding: 1.5rem;
-  text-align: center;
-  color: #6c757d;
-}
-
-.no-controls-data p {
-  margin: 0.5rem 0;
-}
-
-/* Secure Score Table Cell Styles */
-.control-name-cell {
-  padding: 0.75rem 0.5rem;
-  max-width: 300px;
-}
-
-.control-name {
-  font-weight: 600;
-  color: #2c3e50;
-  line-height: 1.4;
-  word-wrap: break-word;
-}
-
-.category-cell {
-  padding: 0.75rem 0.5rem;
-  text-align: center;
-}
-
-.category-badge {
-  background: #f8f9fa;
-  color: #495057;
-  padding: 0.25rem 0.5rem;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  text-transform: capitalize;
-  display: inline-block;
-}
-
-.category-badge.general {
-  background: #e3f2fd;
-  color: #1565c0;
-}
-
-.category-badge.identity {
-  background: #f3e5f5;
-  color: #7b1fa2;
-}
-
-.category-badge.data {
-  background: #e8f5e8;
-  color: #2e7d32;
-}
-
-.category-badge.device {
-  background: #fff3e0;
-  color: #ef6c00;
-}
-
-.current-score-cell,
-.max-score-cell {
-  padding: 0.75rem 0.5rem;
-  text-align: center;
-  font-weight: 600;
-}
-
-.score-value {
-  color: #2c3e50;
-  font-size: 1rem;
-}
-
-.score-gap-cell {
-  padding: 0.75rem 0.5rem;
-  text-align: center;
-}
-
-.score-gap {
-  background: #fff3cd;
-  color: #856404;
-  padding: 0.25rem 0.5rem;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  display: inline-block;
-}
-
-.status-cell {
-  padding: 0.75rem 0.5rem;
-  text-align: center;
-}
-
-.status-badge.implemented {
-  background: #d4edda;
-  color: #155724;
-}
-
-.status-badge.not-implemented {
-  background: #f8d7da;
-  color: #721c24;
-}
-
-.status-badge.enabled {
-  background: #d4edda;
-  color: #155724;
-}
-
-.status-badge.disabled {
-  background: #f8d7da;
-  color: #721c24;
-}
-
-.status-badge.partial {
-  background: #fff3cd;
-  color: #856404;
-}
-
-/* Row styling based on implementation status */
-.secure-score-table tbody tr.not-implemented {
-  background: #fff5f5;
-}
-
-.secure-score-table tbody tr.not-implemented:hover {
-  background: #fed7d7;
-}
-
-.secure-score-table tbody tr.implemented {
-  background: #f0f9ff;
-}
-
-.secure-score-table tbody tr.implemented:hover {
-  background: #e0f2fe;
-}
-
-/* Cost input and related styles */
-.cost-cell,
-.monthly-cost-cell,
-.actions-cell {
-  text-align: center;
-  padding: 0.5rem 0.75rem;
-}
-
-.cost-input-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-  min-width: 80px;
-}
-
-.cost-input {
-  width: 60px;
-  padding: 0.25rem 0.5rem;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  text-align: center;
-  background: white;
-  transition: all 0.2s ease;
-}
-
-.cost-input:focus {
-  outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-}
-
-.cost-input.custom-cost {
-  background: #fff3cd;
-  border-color: #ffc107;
-  font-weight: 600;
-}
-
-.cost-input.custom-cost:focus {
-  border-color: #ff8c00;
-  box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.25);
-}
-
-.cost-currency {
-  font-size: 0.75rem;
-  color: #6c757d;
-  font-weight: 500;
-}
-
-.monthly-cost-amount {
-  font-weight: 600;
-  color: #28a745;
-  font-size: 0.9rem;
-}
-
-.reset-cost-btn {
-  background: #6c757d;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  min-width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.reset-cost-btn:hover {
-  background: #5a6268;
-}
-
-.reset-cost-btn:active {
-  transform: translateY(1px);
-}
-
-/* Update table column widths for new columns */
-.license-table th:first-child {
-  width: 25%;
-  min-width: 180px;
-}
-
-.license-table th:not(:first-child) {
-  text-align: center;
-  width: 12%;
-}
-
-.license-table th:nth-child(6), /* Cost/User/Month column */
-.license-table th:nth-child(7)  /* Monthly Cost column */ {
-  width: 15%;
-}
-
-.license-table th:nth-child(8)  /* Actions column */ {
-  width: 8%;
-}
-
-/* Responsive adjustments for cost columns */
-@media (max-width: 768px) {
-  .cost-input-container {
-    flex-direction: column;
-    gap: 0.1rem;
-  }
-  
-  .cost-input {
-    width: 50px;
-    font-size: 0.75rem;
-  }
-  
-  .monthly-cost-amount {
-    font-size: 0.8rem;
-  }
-  
-  .reset-cost-btn {
-    padding: 0.2rem 0.4rem;
-    font-size: 0.7rem;
-    min-width: 24px;
-    height: 24px;
-  }
-  
-  .license-table th:first-child {
-    width: 20%;
-    min-width: 150px;
-  }
-  
-  .license-table th:not(:first-child) {
-    width: 10%;
-  }
-  
-  .license-table th:nth-child(6),
-  .license-table th:nth-child(7) {
-    width: 12%;
-  }
 }

@@ -246,7 +246,7 @@ const Dashboard: React.FC = () => {
             <TopRecommendations assessment={currentAssessment} />
             <RecentAssessments 
               tenantId={currentAssessment.tenantId} 
-              limit={5}
+              limit={4}
               customerId={selectedCustomer?.id}
             />
           </div>

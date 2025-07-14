@@ -20,7 +20,7 @@ interface AssessmentHistory {
   };
 }
 
-const RecentAssessments: React.FC<RecentAssessmentsProps> = ({ tenantId, limit = 5, customerId }) => {
+const RecentAssessments: React.FC<RecentAssessmentsProps> = ({ tenantId, limit = 4, customerId }) => {
   const [assessments, setAssessments] = useState<AssessmentHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,9 +54,14 @@ const RecentAssessments: React.FC<RecentAssessmentsProps> = ({ tenantId, limit =
           setAssessments([]);
           return;
         }
+        
+        // Sort by date (newest first) and limit to the specified number
+        const sortedAndLimited = recentAssessments
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .slice(0, limit);
           
-        setAssessments(recentAssessments);
-        console.log('✅ RecentAssessments: Successfully loaded', recentAssessments.length, 'assessments');
+        setAssessments(sortedAndLimited);
+        console.log('✅ RecentAssessments: Successfully loaded', sortedAndLimited.length, 'assessments (sorted newest first)');
       } catch (err: any) {
         console.error('❌ RecentAssessments: Error loading recent assessments:', err);
         setError('Failed to load recent assessments');

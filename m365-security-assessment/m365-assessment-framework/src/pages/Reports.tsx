@@ -865,7 +865,10 @@ const Reports: React.FC = () => {
         }
         errorMessage += `Found ${customerAssessments.length} total assessments for this customer.`;
         
-        setError(errorMessage);
+        // Don't set error state if we have multiple assessments - let user choose different one
+        if (customerAssessments.length === 1) {
+          setError(errorMessage);
+        }
         setCustomerAssessment(recentErrorAssessment);
         setReportData([]);
         return;
@@ -1285,7 +1288,9 @@ const Reports: React.FC = () => {
                 <th>Total</th>
                 <th>Utilization</th>
                 <th>Cost/User/Month</th>
-                <th>Monthly Cost</th>
+                <th>Used Cost/Month</th>
+                <th>Total Cost/Month</th>
+                <th>Waste/Month</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -1295,7 +1300,9 @@ const Reports: React.FC = () => {
                 const utilization = license.total > 0 ? Math.round((license.assigned / license.total) * 100) : 0;
                 const formattedLicenseName = formatLicenseName(license.name);
                 const effectiveCost = getEffectiveLicenseCost(license.name);
-                const monthlyCost = effectiveCost * license.assigned;
+                const usedCost = effectiveCost * license.assigned;
+                const totalCost = effectiveCost * license.total;
+                const wasteCost = effectiveCost * free;
                 const isCustomCost = customLicenseCosts[formattedLicenseName] !== undefined;
                 
                 return (
@@ -1337,9 +1344,19 @@ const Reports: React.FC = () => {
                         <span className="cost-currency">USD</span>
                       </div>
                     </td>
-                    <td className="monthly-cost-cell">
-                      <span className="monthly-cost-amount">
-                        ${monthlyCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <td className="used-cost-cell">
+                      <span className="cost-amount">
+                        ${usedCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </td>
+                    <td className="total-cost-cell">
+                      <span className="cost-amount">
+                        ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </td>
+                    <td className="waste-cost-cell">
+                      <span className={`cost-amount ${wasteCost > 0 ? 'waste-highlight' : ''}`}>
+                        ${wasteCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </td>
                     <td className="actions-cell">
@@ -1729,47 +1746,53 @@ const Reports: React.FC = () => {
         </div>
       )}
 
-      {/* Reports Interface */}
+      {/* Assessment Selector - Always show when customer is selected and assessments are available */}
+      {selectedCustomer && !loading && availableAssessments.length > 0 && (
+        <div className="assessment-selector-section">
+          <div className="assessment-selector-header">
+            <h2>Security Reports for {selectedCustomer.tenantName}</h2>
+            <div className="assessment-selector">
+              <label htmlFor="assessment-select" className="assessment-selector-label">
+                📊 Select Assessment:
+              </label>
+              <select 
+                id="assessment-select"
+                className="assessment-selector-dropdown"
+                value={selectedAssessmentId || ''}
+                onChange={(e) => handleAssessmentSelection(e.target.value)}
+              >
+                {availableAssessments.map((assessment) => (
+                  <option key={assessment.id} value={assessment.id}>
+                    {new Date(assessment.date || assessment.assessmentDate || assessment.lastModified).toLocaleDateString()} 
+                    {' at '}
+                    {new Date(assessment.date || assessment.assessmentDate || assessment.lastModified).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {' - '}
+                    {assessment.status === 'completed' ? '✅' : assessment.status === 'completed_with_size_limit' ? '⚠️' : '❌'}
+                    {assessment.metrics?.realData?.secureScore && !assessment.metrics?.realData?.secureScore?.unavailable ? ' 🛡️' : ''}
+                  </option>
+                ))}
+              </select>
+              {customerAssessment && (
+                <div className="assessment-info-compact">
+                  <span className="assessment-status">
+                    Status: {customerAssessment.status === 'completed' ? '✅ Completed' : 
+                            customerAssessment.status === 'completed_with_size_limit' ? '⚠️ Completed with limits' : 
+                            '❌ ' + customerAssessment.status}
+                  </span>
+                  {customerAssessment.metrics?.realData?.secureScore && !customerAssessment.metrics?.realData?.secureScore?.unavailable && (
+                    <span className="secure-score-indicator">🛡️ Secure Score Available</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reports Interface - Show when we have valid report data */}
       {selectedCustomer && !loading && !error && reportData.length > 0 && (
         <div className="reports-interface">
-          <div className="reports-header">
-            <h2>Security Reports for {selectedCustomer.tenantName}</h2>
-            {availableAssessments.length > 0 && (
-              <div className="assessment-selector">
-                <label htmlFor="assessment-select" className="assessment-selector-label">
-                  📊 Select Assessment:
-                </label>
-                <select 
-                  id="assessment-select"
-                  className="assessment-selector-dropdown"
-                  value={selectedAssessmentId || ''}
-                  onChange={(e) => handleAssessmentSelection(e.target.value)}
-                >
-                  {availableAssessments.map((assessment) => (
-                    <option key={assessment.id} value={assessment.id}>
-                      {new Date(assessment.date || assessment.assessmentDate || assessment.lastModified).toLocaleDateString()} 
-                      {' at '}
-                      {new Date(assessment.date || assessment.assessmentDate || assessment.lastModified).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      {' - '}
-                      {assessment.status === 'completed' ? '✅' : assessment.status === 'completed_with_size_limit' ? '⚠️' : '❌'}
-                      {assessment.metrics?.realData?.secureScore && !assessment.metrics?.realData?.secureScore?.unavailable ? ' 🛡️' : ''}
-                    </option>
-                  ))}
-                </select>
-                {customerAssessment && (
-                  <div className="assessment-info-compact">
-                    <span className="assessment-status">
-                      Status: {customerAssessment.status === 'completed' ? '✅ Completed' : 
-                              customerAssessment.status === 'completed_with_size_limit' ? '⚠️ Completed with limits' : 
-                              '❌ ' + customerAssessment.status}
-                    </span>
-                    {customerAssessment.metrics?.realData?.secureScore && !customerAssessment.metrics?.realData?.secureScore?.unavailable && (
-                      <span className="secure-score-indicator">🛡️ Secure Score Available</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+          <div className="reports-content">
           </div>
 
           {/* Category Tabs */}
@@ -1893,8 +1916,44 @@ const Reports: React.FC = () => {
         </div>
       )}
 
-      {/* No Data State */}
-      {selectedCustomer && !loading && !error && reportData.length === 0 && (
+      {/* No Report Data Available but Assessments Exist - Show message and keep selector visible */}
+      {selectedCustomer && !loading && !error && reportData.length === 0 && availableAssessments.length > 0 && (
+        <div className="no-report-data-section">
+          <div className="no-report-data-message">
+            <div className="info-box">
+              <h3>📊 No Report Data Available</h3>
+              <p>The selected assessment doesn't have valid report data.</p>
+              {customerAssessment && customerAssessment.metrics?.dataIssue && (
+                <div className="assessment-issue-details">
+                  <h4>🔍 Issue Details:</h4>
+                  <p>{customerAssessment.metrics.dataIssue.reason || 'Data collection failed'}</p>
+                  {customerAssessment.metrics.dataIssue.troubleshooting && customerAssessment.metrics.dataIssue.troubleshooting.length > 0 && (
+                    <div className="troubleshooting-steps">
+                      <h5>💡 Troubleshooting Steps:</h5>
+                      <ul>
+                        {customerAssessment.metrics.dataIssue.troubleshooting.map((step: string, index: number) => (
+                          <li key={index}>{step}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="next-steps">
+                <h4>🎯 Next Steps:</h4>
+                <ul>
+                  <li>Try selecting a different assessment from the dropdown above</li>
+                  <li>Create a new assessment if all existing ones have issues</li>
+                  <li>Check that app registration permissions are properly configured</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* No Assessment Data at All */}
+      {selectedCustomer && !loading && !error && reportData.length === 0 && availableAssessments.length === 0 && (
         <div className="no-data-section">
           <div className="no-data-message">
             <h3>No Report Data Available</h3>
