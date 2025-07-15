@@ -482,9 +482,9 @@ export class TableStorageService {
         
         console.log(`📊 Assessment data sizes - Metrics: ${metricsJson.length} chars, Recommendations: ${recommendationsJson.length} chars`);
         
-        // Apply optimization more aggressively based on size
+        // Apply optimization more selectively based on data size and content
         let optimizedMetrics = assessment.metrics;
-        if (metricsJson.length > 30000) { // Reduced threshold from 50000
+        if (metricsJson.length > 40000) { // Increased threshold to preserve more license data
             console.log('⚠️ Metrics data is large, applying optimization...');
             optimizedMetrics = this.optimizeMetricsForStorage(assessment.metrics);
             const optimizedSize = JSON.stringify(optimizedMetrics).length;
@@ -581,7 +581,7 @@ export class TableStorageService {
         
         // Apply optimization if data is large
         let optimizedMetrics = assessmentData.metrics;
-        if (metricsJson.length > 30000) {
+        if (metricsJson.length > 40000) { // Increased threshold to preserve more license data
             console.log('⚠️ Metrics data is large, applying optimization for update...');
             optimizedMetrics = this.optimizeMetricsForStorage(assessmentData.metrics);
         }
@@ -924,13 +924,26 @@ export class TableStorageService {
                 truncated: true
             };
         }
-        // Preserve license summary if available
+        // Preserve license summary if available - enhanced for license reporting
         if (originalMetrics.realData?.licenseInfo) {
             minimal.licenseInfo = {
                 totalLicenses: originalMetrics.realData.licenseInfo.totalLicenses,
                 assignedLicenses: originalMetrics.realData.licenseInfo.assignedLicenses,
                 utilizationRate: originalMetrics.realData.licenseInfo.utilizationRate,
                 summary: originalMetrics.realData.licenseInfo.summary,
+                // Preserve basic license breakdown even in minimal mode
+                detailedBreakdown: originalMetrics.realData.licenseInfo.detailedBreakdown ? 
+                    Object.keys(originalMetrics.realData.licenseInfo.detailedBreakdown).reduce((acc: any, key: string) => {
+                        const license = originalMetrics.realData.licenseInfo.detailedBreakdown[key];
+                        acc[key] = {
+                            total: license.total,
+                            assigned: license.assigned,
+                            available: license.available
+                        };
+                        return acc;
+                    }, {}) : undefined,
+                // Preserve license types for reporting
+                licenseTypes: originalMetrics.realData.licenseInfo.licenseTypes || [],
                 truncated: true
             };
         }
@@ -981,17 +994,33 @@ export class TableStorageService {
             }
         }
         
-        // Optimize license info if present
+        // Optimize license info if present - preserve more details for license reporting
         if (optimized.realData?.licenseInfo) {
             const licenseInfo = optimized.realData.licenseInfo;
             
-            // Keep only essential license information
+            // Keep essential license information and preserve license breakdown for reporting
             optimized.realData.licenseInfo = {
                 totalLicenses: licenseInfo.totalLicenses,
                 assignedLicenses: licenseInfo.assignedLicenses,
                 utilizationRate: licenseInfo.utilizationRate,
                 summary: licenseInfo.summary,
-                // Remove detailed license breakdown if present
+                // Preserve license breakdown but limit detailed descriptions
+                detailedBreakdown: licenseInfo.detailedBreakdown ? 
+                    Object.keys(licenseInfo.detailedBreakdown).reduce((acc: any, key: string) => {
+                        const license = licenseInfo.detailedBreakdown[key];
+                        acc[key] = {
+                            total: license.total,
+                            assigned: license.assigned,
+                            available: license.available,
+                            // Keep short description, remove long details
+                            details: license.details ? license.details.substring(0, 100) : ''
+                        };
+                        return acc;
+                    }, {}) : undefined,
+                // Preserve license types array if present
+                licenseTypes: licenseInfo.licenseTypes || [],
+                // Preserve subscription info if present
+                subscriptions: licenseInfo.subscriptions || [],
                 optimized: true
             };
         }
@@ -1001,15 +1030,20 @@ export class TableStorageService {
             delete optimized.realData.dataFetchResults;
         }
         
-        // Compress recommendations if present
+        // Compress recommendations if present - preserve essential information
         if (optimized.recommendations && Array.isArray(optimized.recommendations)) {
-            optimized.recommendations = optimized.recommendations.slice(0, 10).map((rec: any) => ({
-                // Keep only essential recommendation fields
-                title: (rec.title || '').substring(0, 50),
-                description: (rec.description || '').substring(0, 100),
-                priority: rec.priority,
-                category: rec.category
-            }));
+            optimized.recommendations = optimized.recommendations
+                .filter((rec: any) => rec && (rec.title || rec.description)) // Filter out empty recommendations
+                .slice(0, 10)
+                .map((rec: any) => ({
+                    // Keep essential recommendation fields with fallbacks
+                    title: rec.title || rec.name || 'Security Recommendation',
+                    description: rec.description || rec.detail || rec.summary || 'Recommendation details not available',
+                    priority: rec.priority || 'Medium',
+                    category: rec.category || 'Security',
+                    impact: rec.impact ? rec.impact.substring(0, 100) : undefined,
+                    effort: rec.effort || undefined
+                }));
         }
         
         return optimized;
