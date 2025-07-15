@@ -5,13 +5,42 @@ metadata:
   template: m365-security-assessment@0.0.1-beta
 
 services:
-  m365-assessment-frontend:
+  m365-assessment-api:
     project: .
     language: ts
     host: staticwebapp
     dist: build
-  
-  m365-assessment-api:
-    project: ./api
-    language: ts
-    host: function
+
+hooks:
+  preprovision:
+    shell: pwsh
+    run: |
+      Write-Host "🔧 Preparing PostgreSQL deployment..."
+      
+      # Generate a secure password for PostgreSQL
+      $password = -join ((65..90) + (97..122) + (48..57) + (33,35,36,37,38,42,43,45,47,58,61,63,64,95,124,126) | Get-Random -Count 16 | ForEach-Object {[char]$_})
+      azd env set POSTGRES_ADMIN_PASSWORD $password
+      
+      Write-Host "✅ PostgreSQL password configured"
+    continueOnError: false
+
+  postprovision:
+    shell: pwsh
+    run: |
+      Write-Host "🔄 Configuring PostgreSQL database..."
+      
+      # Get the PostgreSQL connection details
+      $pgHost = azd env get-value POSTGRES_HOST
+      $pgUser = azd env get-value POSTGRES_USER
+      $pgDB = azd env get-value POSTGRES_DATABASE
+      $pgPassword = azd env get-value POSTGRES_ADMIN_PASSWORD
+      
+      Write-Host "📊 PostgreSQL server: $pgHost"
+      Write-Host "👤 Database user: $pgUser"
+      Write-Host "🗄️ Database name: $pgDB"
+      Write-Host "✅ PostgreSQL deployment completed successfully!"
+    continueOnError: false
+
+infra:
+  provider: bicep
+  path: infra

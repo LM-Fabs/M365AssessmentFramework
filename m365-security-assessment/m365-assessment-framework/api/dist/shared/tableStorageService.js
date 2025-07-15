@@ -92,7 +92,7 @@ class TableStorageService {
                 break;
             customers.push({
                 id: entity.rowKey,
-                tenantId: entity.tenantId || '', // Include tenant ID
+                tenantId: entity.tenantId || '',
                 tenantName: entity.tenantName,
                 tenantDomain: entity.tenantDomain,
                 contactEmail: entity.contactEmail || '',
@@ -115,7 +115,7 @@ class TableStorageService {
             for await (const entity of iterator) {
                 return {
                     id: entity.rowKey,
-                    tenantId: entity.tenantId || '', // Include tenant ID
+                    tenantId: entity.tenantId || '',
                     tenantName: entity.tenantName,
                     tenantDomain: entity.tenantDomain,
                     contactEmail: entity.contactEmail || '',
@@ -138,7 +138,7 @@ class TableStorageService {
         const customerId = `customer-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const customer = {
             id: customerId,
-            tenantId: customerRequest.tenantId || '', // Include tenant ID
+            tenantId: customerRequest.tenantId || '',
             tenantName: customerRequest.tenantName,
             tenantDomain: customerRequest.tenantDomain,
             contactEmail: customerRequest.contactEmail || '',
@@ -151,7 +151,7 @@ class TableStorageService {
         const entity = {
             partitionKey: 'customer',
             rowKey: customerId,
-            tenantId: customerRequest.tenantId || '', // Store the actual tenant ID
+            tenantId: customerRequest.tenantId || '',
             tenantName: customer.tenantName,
             tenantDomain: customer.tenantDomain,
             contactEmail: customer.contactEmail,
@@ -180,7 +180,7 @@ class TableStorageService {
             const entity = await this.customersTable.getEntity('customer', customerId);
             return {
                 id: entity.rowKey,
-                tenantId: entity.tenantId || '', // Include the tenant ID
+                tenantId: entity.tenantId || '',
                 tenantName: entity.tenantName,
                 tenantDomain: entity.tenantDomain,
                 contactEmail: entity.contactEmail || '',
@@ -232,13 +232,13 @@ class TableStorageService {
             const updatedEntity = {
                 partitionKey: 'customer',
                 rowKey: customerId,
-                tenantId: updates.tenantId ?? existingEntity.tenantId ?? '', // Include tenant ID
+                tenantId: updates.tenantId ?? existingEntity.tenantId ?? '',
                 tenantName: updates.tenantName ?? existingEntity.tenantName,
                 tenantDomain: updates.tenantDomain ?? existingEntity.tenantDomain,
                 contactEmail: updates.contactEmail ?? existingEntity.contactEmail ?? '',
                 notes: updates.notes ?? existingEntity.notes ?? '',
                 status: updates.status ?? existingEntity.status,
-                createdDate: existingEntity.createdDate, // Keep original creation date
+                createdDate: existingEntity.createdDate,
                 lastAssessmentDate: updates.lastAssessmentDate
                     ? (updates.lastAssessmentDate instanceof Date ? updates.lastAssessmentDate.toISOString() : updates.lastAssessmentDate)
                     : existingEntity.lastAssessmentDate,
@@ -263,7 +263,7 @@ class TableStorageService {
             }
             return {
                 id: customerId,
-                tenantId: updatedEntity.tenantId, // Include tenant ID
+                tenantId: updatedEntity.tenantId,
                 tenantName: updatedEntity.tenantName,
                 tenantDomain: updatedEntity.tenantDomain,
                 contactEmail: updatedEntity.contactEmail,
@@ -295,7 +295,7 @@ class TableStorageService {
             if (appRegistration && appRegistration.clientId === clientId) {
                 return {
                     id: entity.rowKey,
-                    tenantId: entity.tenantId || '', // Include tenant ID
+                    tenantId: entity.tenantId || '',
                     tenantName: entity.tenantName,
                     tenantDomain: entity.tenantDomain,
                     contactEmail: entity.contactEmail || '',
@@ -323,24 +323,34 @@ class TableStorageService {
         for await (const entity of iterator) {
             if (count >= maxItems)
                 break;
-            // Reconstruct chunked data
+            // Reconstruct chunked data with improved error handling
             const metricsJson = this.reconstructChunkedData(entity, 'metrics');
             const recommendationsJson = this.reconstructChunkedData(entity, 'recommendations');
             let metrics;
             let recommendations;
             try {
-                metrics = metricsJson ? JSON.parse(metricsJson) : undefined;
+                if (metricsJson && metricsJson.trim()) {
+                    metrics = JSON.parse(metricsJson);
+                }
+                else {
+                    metrics = {};
+                }
             }
             catch (e) {
-                console.warn('Failed to parse metrics JSON:', e);
-                metrics = undefined;
+                console.warn('Failed to parse metrics JSON:', e, 'Raw data:', metricsJson?.substring(0, 100));
+                metrics = { error: 'Failed to parse stored metrics data' };
             }
             try {
-                recommendations = recommendationsJson ? JSON.parse(recommendationsJson) : undefined;
+                if (recommendationsJson && recommendationsJson.trim()) {
+                    recommendations = JSON.parse(recommendationsJson);
+                }
+                else {
+                    recommendations = [];
+                }
             }
             catch (e) {
-                console.warn('Failed to parse recommendations JSON:', e);
-                recommendations = undefined;
+                console.warn('Failed to parse recommendations JSON:', e, 'Raw data:', recommendationsJson?.substring(0, 100));
+                recommendations = [];
             }
             assessments.push({
                 id: entity.rowKey,
@@ -382,16 +392,28 @@ class TableStorageService {
         const metricsJson = JSON.stringify(assessment.metrics || {});
         const recommendationsJson = JSON.stringify(assessment.recommendations || []);
         console.log(`📊 Assessment data sizes - Metrics: ${metricsJson.length} chars, Recommendations: ${recommendationsJson.length} chars`);
-        // Optimize metrics data if it's too large
+        // Apply optimization more selectively based on data size and content
         let optimizedMetrics = assessment.metrics;
-        if (metricsJson.length > 50000) { // If metrics is getting too large
+        if (metricsJson.length > 40000) { // Increased threshold to preserve more license data
             console.log('⚠️ Metrics data is large, applying optimization...');
             optimizedMetrics = this.optimizeMetricsForStorage(assessment.metrics);
-            console.log(`📉 Optimized metrics size: ${JSON.stringify(optimizedMetrics).length} chars`);
+            const optimizedSize = JSON.stringify(optimizedMetrics).length;
+            console.log(`📉 Optimized metrics size: ${optimizedSize} chars (reduced from ${metricsJson.length})`);
         }
         const finalMetricsJson = JSON.stringify(optimizedMetrics || {});
-        this.prepareLargeDataForStorage(entity, 'metrics', finalMetricsJson);
-        this.prepareLargeDataForStorage(entity, 'recommendations', recommendationsJson);
+        // Apply additional compression if still too large
+        let finalMetrics = finalMetricsJson;
+        let finalRecommendations = recommendationsJson;
+        if (finalMetricsJson.length > 100000) { // If still very large
+            console.log('🗜️ Applying additional compression to metrics...');
+            finalMetrics = this.compressJsonData(finalMetricsJson);
+        }
+        if (recommendationsJson.length > 50000) { // If recommendations are large
+            console.log('🗜️ Applying compression to recommendations...');
+            finalRecommendations = this.compressJsonData(recommendationsJson);
+        }
+        this.prepareLargeDataForStorage(entity, 'metrics', finalMetrics);
+        this.prepareLargeDataForStorage(entity, 'recommendations', finalRecommendations);
         try {
             await this.assessmentsTable.createEntity(entity);
             console.log('✅ Assessment created successfully with chunked data support');
@@ -399,9 +421,25 @@ class TableStorageService {
         }
         catch (error) {
             console.error('❌ Failed to create assessment:', error);
-            // If still failing due to size, create a minimal assessment
-            if (error.message?.includes('PropertyValueTooLarge') || error.message?.includes('64KB')) {
+            console.error('❌ Error details:', {
+                message: error.message,
+                statusCode: error.statusCode,
+                code: error.code,
+                name: error.name
+            });
+            // Check various error conditions that indicate size issues
+            const isSizeError = error.message?.includes('PropertyValueTooLarge') ||
+                error.message?.includes('64KB') ||
+                error.message?.includes('too large') ||
+                error.message?.includes('RequestEntityTooLarge') ||
+                error.statusCode === 413 ||
+                error.code === 'PropertyValueTooLarge' ||
+                error.code === 'RequestEntityTooLarge';
+            if (isSizeError) {
                 console.log('⚠️ Creating minimal assessment due to size constraints');
+                console.log(`📊 Original data sizes: Metrics=${finalMetrics.length}, Recommendations=${finalRecommendations.length}`);
+                // Create minimal metrics object preserving essential information
+                const minimalMetrics = this.createMinimalMetrics(assessment.metrics);
                 const minimalEntity = {
                     partitionKey: 'assessment',
                     rowKey: assessmentId,
@@ -410,11 +448,14 @@ class TableStorageService {
                     date: assessment.date.toISOString(),
                     status: 'completed_with_size_limit',
                     score: assessment.score,
-                    metrics: '{"error":"Data too large for storage"}',
+                    metrics: JSON.stringify(minimalMetrics),
                     recommendations: '[]',
-                    dataSizeError: true
+                    dataSizeError: true,
+                    originalDataSize: finalMetrics.length + finalRecommendations.length,
+                    errorDetails: `${error.code || 'SizeLimit'}: ${error.message?.substring(0, 200) || 'Data too large'}`
                 };
                 await this.assessmentsTable.createEntity(minimalEntity);
+                console.log('✅ Minimal assessment created due to size limit');
                 return assessment;
             }
             throw error;
@@ -434,16 +475,37 @@ class TableStorageService {
         // Handle large data with chunking to avoid 64KB limit
         const metricsJson = JSON.stringify(assessmentData.metrics || {});
         const recommendationsJson = JSON.stringify(assessmentData.recommendations || []);
-        this.prepareLargeDataForStorage(entity, 'metrics', metricsJson);
-        this.prepareLargeDataForStorage(entity, 'recommendations', recommendationsJson);
+        // Apply optimization if data is large
+        let optimizedMetrics = assessmentData.metrics;
+        if (metricsJson.length > 40000) { // Increased threshold to preserve more license data
+            console.log('⚠️ Metrics data is large, applying optimization for update...');
+            optimizedMetrics = this.optimizeMetricsForStorage(assessmentData.metrics);
+        }
+        const finalMetricsJson = JSON.stringify(optimizedMetrics || {});
+        let finalMetrics = finalMetricsJson;
+        let finalRecommendations = recommendationsJson;
+        if (finalMetricsJson.length > 100000) {
+            finalMetrics = this.compressJsonData(finalMetricsJson);
+        }
+        if (recommendationsJson.length > 50000) {
+            finalRecommendations = this.compressJsonData(recommendationsJson);
+        }
+        this.prepareLargeDataForStorage(entity, 'metrics', finalMetrics);
+        this.prepareLargeDataForStorage(entity, 'recommendations', finalRecommendations);
         try {
             await this.assessmentsTable.updateEntity(entity, 'Replace');
         }
         catch (error) {
             console.error('❌ Failed to update assessment:', error);
-            // If still failing due to size, update with minimal data
-            if (error.message?.includes('PropertyValueTooLarge') || error.message?.includes('64KB')) {
+            // Check for size-related errors
+            const isSizeError = error.message?.includes('PropertyValueTooLarge') ||
+                error.message?.includes('64KB') ||
+                error.message?.includes('too large') ||
+                error.statusCode === 413 ||
+                error.code === 'PropertyValueTooLarge';
+            if (isSizeError) {
                 console.log('⚠️ Updating with minimal assessment due to size constraints');
+                const minimalMetrics = this.createMinimalMetrics(assessmentData.metrics);
                 const minimalEntity = {
                     partitionKey: 'assessment',
                     rowKey: assessmentId,
@@ -452,9 +514,10 @@ class TableStorageService {
                     date: new Date().toISOString(),
                     status: 'completed_with_size_limit',
                     score: assessmentData.score || 0,
-                    metrics: '{"error":"Data too large for storage"}',
+                    metrics: JSON.stringify(minimalMetrics),
                     recommendations: '[]',
-                    dataSizeError: true
+                    dataSizeError: true,
+                    originalDataSize: finalMetrics.length + finalRecommendations.length
                 };
                 await this.assessmentsTable.updateEntity(minimalEntity, 'Replace');
             }
@@ -541,9 +604,35 @@ class TableStorageService {
         for await (const entity of iterator) {
             if (count >= maxItems)
                 break;
-            // Reconstruct chunked data for large properties
+            // Reconstruct chunked data for large properties with improved error handling
             const metricsJson = this.reconstructChunkedData(entity, 'metrics');
             const recommendationsJson = this.reconstructChunkedData(entity, 'recommendations');
+            let metrics;
+            let recommendations;
+            try {
+                if (metricsJson && metricsJson.trim()) {
+                    metrics = JSON.parse(metricsJson);
+                }
+                else {
+                    metrics = {};
+                }
+            }
+            catch (e) {
+                console.warn('Failed to parse metrics JSON in getAssessments:', e);
+                metrics = { error: 'Failed to parse stored metrics data' };
+            }
+            try {
+                if (recommendationsJson && recommendationsJson.trim()) {
+                    recommendations = JSON.parse(recommendationsJson);
+                }
+                else {
+                    recommendations = [];
+                }
+            }
+            catch (e) {
+                console.warn('Failed to parse recommendations JSON in getAssessments:', e);
+                recommendations = [];
+            }
             assessments.push({
                 id: entity.rowKey,
                 customerId: entity.customerId,
@@ -551,8 +640,8 @@ class TableStorageService {
                 date: new Date(entity.date),
                 status: entity.status,
                 score: entity.score,
-                metrics: metricsJson ? JSON.parse(metricsJson) : {},
-                recommendations: recommendationsJson ? JSON.parse(recommendationsJson) : []
+                metrics: metrics,
+                recommendations: recommendations
             });
             count++;
         }
@@ -604,9 +693,12 @@ class TableStorageService {
     }
     /**
      * Helper method to chunk large string data into smaller pieces for Azure Table Storage
-     * Azure Table Storage has a 64KB limit per property
+     * Azure Table Storage has a 64KB limit per property, but we need to account for metadata overhead
      */
-    chunkLargeData(data, maxSize = 60000) {
+    chunkLargeData(data, maxSize = 50000) {
+        if (!data) {
+            return { chunks: [''], isChunked: false };
+        }
         if (data.length <= maxSize) {
             return { chunks: [data], isChunked: false };
         }
@@ -614,21 +706,99 @@ class TableStorageService {
         for (let i = 0; i < data.length; i += maxSize) {
             chunks.push(data.substring(i, i + maxSize));
         }
+        console.log(`📋 Chunked data of ${data.length} chars into ${chunks.length} chunks (max ${maxSize} chars per chunk)`);
+        // Check if we have too many chunks (Azure Table Storage has limits on entity size)
+        if (chunks.length > 200) {
+            console.warn(`⚠️ Warning: ${chunks.length} chunks may exceed Azure Table Storage limits`);
+        }
         return { chunks, isChunked: true };
     }
     /**
-     * Helper method to reconstruct chunked data
+     * Helper method to reconstruct chunked data with improved error handling
      */
     reconstructChunkedData(entity, propertyName) {
-        if (entity[`${propertyName}_isChunked`]) {
-            const chunkCount = entity[`${propertyName}_chunkCount`] || 0;
-            let reconstructed = '';
-            for (let i = 0; i < chunkCount; i++) {
-                reconstructed += entity[`${propertyName}_chunk${i}`] || '';
+        try {
+            if (entity[`${propertyName}_isChunked`]) {
+                const chunkCount = entity[`${propertyName}_chunkCount`] || 0;
+                let reconstructed = '';
+                for (let i = 0; i < chunkCount; i++) {
+                    const chunkData = entity[`${propertyName}_chunk${i}`];
+                    if (chunkData !== undefined && chunkData !== null) {
+                        reconstructed += chunkData;
+                    }
+                }
+                console.log(`📋 Reconstructed ${propertyName} from ${chunkCount} chunks, total length: ${reconstructed.length}`);
+                return reconstructed;
             }
-            return reconstructed;
+            return entity[propertyName] || '';
         }
-        return entity[propertyName] || '';
+        catch (error) {
+            console.error(`❌ Error reconstructing chunked data for ${propertyName}:`, error);
+            return entity[propertyName] || '';
+        }
+    }
+    /**
+     * Create minimal metrics object preserving essential information
+     */
+    createMinimalMetrics(originalMetrics) {
+        if (!originalMetrics) {
+            return { error: "Data too large for storage", hasFullData: false };
+        }
+        const minimal = {
+            error: "Data too large for storage",
+            hasFullData: false,
+            originalDataDetected: true
+        };
+        // Preserve essential score information
+        if (originalMetrics.score) {
+            minimal.score = {
+                overall: originalMetrics.score.overall,
+                license: originalMetrics.score.license,
+                secureScore: originalMetrics.score.secureScore
+            };
+        }
+        // Preserve basic metadata
+        if (originalMetrics.assessmentType) {
+            minimal.assessmentType = originalMetrics.assessmentType;
+        }
+        if (originalMetrics.realData?.tenantInfo) {
+            minimal.tenantInfo = originalMetrics.realData.tenantInfo;
+        }
+        // Preserve summary information for secure score if available
+        if (originalMetrics.realData?.secureScore) {
+            minimal.secureScore = {
+                currentScore: originalMetrics.realData.secureScore.currentScore,
+                maxScore: originalMetrics.realData.secureScore.maxScore,
+                percentage: originalMetrics.realData.secureScore.percentage,
+                summary: originalMetrics.realData.secureScore.summary,
+                controlCount: originalMetrics.realData.secureScore.controlScores?.length || 0,
+                truncated: true
+            };
+        }
+        // Preserve license summary if available - enhanced for license reporting
+        if (originalMetrics.realData?.licenseInfo) {
+            minimal.licenseInfo = {
+                totalLicenses: originalMetrics.realData.licenseInfo.totalLicenses,
+                assignedLicenses: originalMetrics.realData.licenseInfo.assignedLicenses,
+                utilizationRate: originalMetrics.realData.licenseInfo.utilizationRate,
+                summary: originalMetrics.realData.licenseInfo.summary,
+                // Preserve basic license breakdown even in minimal mode
+                detailedBreakdown: originalMetrics.realData.licenseInfo.detailedBreakdown ?
+                    Object.keys(originalMetrics.realData.licenseInfo.detailedBreakdown).reduce((acc, key) => {
+                        const license = originalMetrics.realData.licenseInfo.detailedBreakdown[key];
+                        acc[key] = {
+                            total: license.total,
+                            assigned: license.assigned,
+                            available: license.available
+                        };
+                        return acc;
+                    }, {}) : undefined,
+                // Preserve license types for reporting
+                licenseTypes: originalMetrics.realData.licenseInfo.licenseTypes || [],
+                truncated: true
+            };
+        }
+        return minimal;
     }
     /**
      * Optimize metrics data for storage by reducing size while preserving essential information
@@ -640,20 +810,20 @@ class TableStorageService {
         // Optimize secure score data if present
         if (optimized.realData?.secureScore) {
             const secureScore = optimized.realData.secureScore;
-            // If we have control scores, limit and compress them
+            // If we have control scores, limit and compress them more aggressively
             if (secureScore.controlScores && Array.isArray(secureScore.controlScores)) {
                 console.log(`🔧 Optimizing ${secureScore.controlScores.length} control scores for storage`);
-                // Sort by importance (highest score first) and take top 50
+                // Sort by importance (highest score first) and take top 30 (reduced from 50)
                 const topControls = secureScore.controlScores
                     .sort((a, b) => (b.maxScore || 0) - (a.maxScore || 0))
-                    .slice(0, 50)
+                    .slice(0, 30)
                     .map((control) => ({
-                    // Compress field names and limit string lengths
-                    n: (control.controlName || '').substring(0, 60), // name
-                    c: (control.category || '').substring(0, 30), // category
-                    cs: control.currentScore || 0, // current score
-                    ms: control.maxScore || 0, // max score
-                    s: (control.implementationStatus || '').substring(0, 20) // status
+                    // Compress field names and limit string lengths more aggressively
+                    n: (control.controlName || '').substring(0, 40),
+                    c: (control.category || '').substring(0, 20),
+                    cs: control.currentScore || 0,
+                    ms: control.maxScore || 0,
+                    s: (control.implementationStatus || '').substring(0, 15) // status (reduced from 20)
                 }));
                 optimized.realData.secureScore = {
                     currentScore: secureScore.currentScore,
@@ -668,27 +838,119 @@ class TableStorageService {
                 console.log(`✅ Compressed control scores from ${secureScore.controlScores.length} to ${topControls.length}`);
             }
         }
+        // Optimize license info if present - preserve more details for license reporting
+        if (optimized.realData?.licenseInfo) {
+            const licenseInfo = optimized.realData.licenseInfo;
+            // Keep essential license information and preserve license breakdown for reporting
+            optimized.realData.licenseInfo = {
+                totalLicenses: licenseInfo.totalLicenses,
+                assignedLicenses: licenseInfo.assignedLicenses,
+                utilizationRate: licenseInfo.utilizationRate,
+                summary: licenseInfo.summary,
+                // Preserve license breakdown but limit detailed descriptions
+                detailedBreakdown: licenseInfo.detailedBreakdown ?
+                    Object.keys(licenseInfo.detailedBreakdown).reduce((acc, key) => {
+                        const license = licenseInfo.detailedBreakdown[key];
+                        acc[key] = {
+                            total: license.total,
+                            assigned: license.assigned,
+                            available: license.available,
+                            // Keep short description, remove long details
+                            details: license.details ? license.details.substring(0, 100) : ''
+                        };
+                        return acc;
+                    }, {}) : undefined,
+                // Preserve license types array if present
+                licenseTypes: licenseInfo.licenseTypes || [],
+                // Preserve subscription info if present
+                subscriptions: licenseInfo.subscriptions || [],
+                optimized: true
+            };
+        }
+        // Remove verbose logging and debugging information
+        if (optimized.realData?.dataFetchResults) {
+            delete optimized.realData.dataFetchResults;
+        }
+        // Compress recommendations if present - preserve essential information
+        if (optimized.recommendations && Array.isArray(optimized.recommendations)) {
+            optimized.recommendations = optimized.recommendations
+                .filter((rec) => rec && (rec.title || rec.description)) // Filter out empty recommendations
+                .slice(0, 10)
+                .map((rec) => ({
+                // Keep essential recommendation fields with fallbacks
+                title: rec.title || rec.name || 'Security Recommendation',
+                description: rec.description || rec.detail || rec.summary || 'Recommendation details not available',
+                priority: rec.priority || 'Medium',
+                category: rec.category || 'Security',
+                impact: rec.impact ? rec.impact.substring(0, 100) : undefined,
+                effort: rec.effort || undefined
+            }));
+        }
         return optimized;
     }
     /**
-     * Helper method to store large data with chunking support
+     * Helper method to store large data with chunking support and fallback compression
      */
     prepareLargeDataForStorage(entity, propertyName, data) {
+        if (!data) {
+            entity[propertyName] = '';
+            entity[`${propertyName}_isChunked`] = false;
+            return;
+        }
         const { chunks, isChunked } = this.chunkLargeData(data);
         if (isChunked) {
-            // Store chunked data
-            entity[`${propertyName}_isChunked`] = true;
-            entity[`${propertyName}_chunkCount`] = chunks.length;
-            chunks.forEach((chunk, index) => {
-                entity[`${propertyName}_chunk${index}`] = chunk;
-            });
-            // Remove the original property to avoid confusion
-            delete entity[propertyName];
+            // Check if we have too many chunks for Azure Table Storage
+            if (chunks.length > 200) {
+                console.warn(`⚠️ ${propertyName} has ${chunks.length} chunks, which may exceed Azure Table Storage limits`);
+                console.log(`📦 Attempting to compress ${propertyName} data further before chunking`);
+                // Try to compress the data further by removing unnecessary whitespace and formatting
+                const compressedData = this.compressJsonData(data);
+                const compressedResult = this.chunkLargeData(compressedData);
+                if (compressedResult.chunks.length <= 200) {
+                    console.log(`✅ Compression successful: reduced chunks from ${chunks.length} to ${compressedResult.chunks.length}`);
+                    this.storeChunkedData(entity, propertyName, compressedResult.chunks);
+                }
+                else {
+                    console.warn(`⚠️ Even after compression, ${propertyName} still has ${compressedResult.chunks.length} chunks`);
+                    this.storeChunkedData(entity, propertyName, compressedResult.chunks);
+                }
+            }
+            else {
+                console.log(`📦 Storing ${propertyName} as ${chunks.length} chunks`);
+                this.storeChunkedData(entity, propertyName, chunks);
+            }
         }
         else {
             // Store as single property
             entity[propertyName] = data;
             entity[`${propertyName}_isChunked`] = false;
+            console.log(`✅ ${propertyName} stored as single property (${data.length} chars)`);
+        }
+    }
+    /**
+     * Helper method to store chunked data in the entity
+     */
+    storeChunkedData(entity, propertyName, chunks) {
+        entity[`${propertyName}_isChunked`] = true;
+        entity[`${propertyName}_chunkCount`] = chunks.length;
+        chunks.forEach((chunk, index) => {
+            entity[`${propertyName}_chunk${index}`] = chunk;
+        });
+        // Remove the original property to avoid confusion
+        delete entity[propertyName];
+        console.log(`✅ ${propertyName} chunked successfully into ${chunks.length} parts`);
+    }
+    /**
+     * Compress JSON data by removing unnecessary whitespace and formatting
+     */
+    compressJsonData(jsonString) {
+        try {
+            const parsed = JSON.parse(jsonString);
+            return JSON.stringify(parsed); // This removes all unnecessary whitespace
+        }
+        catch (error) {
+            console.warn('Failed to parse JSON for compression, returning original string');
+            return jsonString;
         }
     }
 }

@@ -15,26 +15,15 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GraphApiService = void 0;
-exports.getGraphApiService = getGraphApiService;
+exports.getGraphApiService = exports.GraphApiService = void 0;
 const microsoft_graph_client_1 = require("@microsoft/microsoft-graph-client");
 const identity_1 = require("@azure/identity");
 const https = __importStar(require("https"));
@@ -180,9 +169,9 @@ class GraphApiService {
             const appName = `M365-Security-Assessment-${customerData.tenantName.replace(/\s+/g, '-')}`;
             // Define proper redirect URIs for the application
             const redirectUris = [
-                "https://portal.azure.com/", // Azure Portal (standard for admin consent)
-                "https://login.microsoftonline.com/common/oauth2/nativeclient", // Native client fallback
-                "https://localhost:3000/auth/callback", // Local development
+                "https://portal.azure.com/",
+                "https://login.microsoftonline.com/common/oauth2/nativeclient",
+                "https://localhost:3000/auth/callback",
                 "urn:ietf:wg:oauth:2.0:oob" // Out-of-band flow
             ];
             // Use environment variable if provided, otherwise use Azure Portal
@@ -190,7 +179,7 @@ class GraphApiService {
             const applicationRequest = {
                 displayName: appName,
                 description: `M365 Security Assessment Application for ${customerData.tenantName} (${customerData.tenantDomain})`,
-                signInAudience: "AzureADMultipleOrgs", // Multi-tenant application
+                signInAudience: "AzureADMultipleOrgs",
                 web: {
                     redirectUris: redirectUris,
                     implicitGrantSettings: {
@@ -200,7 +189,7 @@ class GraphApiService {
                 },
                 requiredResourceAccess: [
                     {
-                        resourceAppId: "00000003-0000-0000-c000-000000000000", // Microsoft Graph
+                        resourceAppId: "00000003-0000-0000-c000-000000000000",
                         resourceAccess: permissions.map(permission => ({
                             id: this.getPermissionId(permission),
                             type: "Role" // Application permissions (not delegated)
@@ -391,20 +380,34 @@ class GraphApiService {
             console.log(`🎉 GraphApiService: Pagination complete. Retrieved ${allControlProfiles.length} total control profiles in ${pageCount} page(s).`);
             // Optimize control scores data for storage - keep only essential information
             const controlScores = allControlProfiles.map((control) => ({
-                controlName: (control.title || control.controlName || 'Unknown Control').substring(0, 100), // Limit length
-                category: (control.controlCategory || 'General').substring(0, 50), // Limit length
+                controlName: (control.title || control.controlName || 'Unknown Control').substring(0, 100),
+                category: (control.controlCategory || 'General').substring(0, 50),
                 currentScore: control.score || 0,
                 maxScore: control.maxScore || 0,
-                implementationStatus: (control.implementationStatus || 'Not Implemented').substring(0, 30) // Limit length
+                implementationStatus: (control.implementationStatus || 'Not Implemented').substring(0, 30),
+                actionType: (control.actionType || 'Other').substring(0, 30),
+                remediation: (control.remediation || 'No remediation information available').substring(0, 200) // Add remediation info
             })).slice(0, 100) || []; // Limit to top 100 controls to reduce size
+            // Extract recommended actions from control profiles for the recommendations section
+            const recommendedActions = allControlProfiles
+                .filter((control) => control.implementationStatus !== 'Implemented' && control.remediation)
+                .slice(0, 10) // Top 10 most important actions
+                .map((control) => ({
+                title: (control.title || control.controlName || 'Unknown Control').substring(0, 80),
+                action: (control.remediation || 'Review this security control').substring(0, 150),
+                category: (control.controlCategory || 'General').substring(0, 30),
+                priority: control.rank || 'Medium' // Use rank or default to medium
+            }));
             console.log(`📊 GraphApiService: Optimized control scores to ${controlScores.length} controls for storage efficiency`);
+            console.log(`📋 GraphApiService: Extracted ${recommendedActions.length} recommended actions from control profiles`);
             const result = {
                 currentScore: latestScore.currentScore || 0,
                 maxScore: latestScore.maxScore || 0,
                 percentage: Math.round(((latestScore.currentScore || 0) / (latestScore.maxScore || 1)) * 100),
                 controlScores,
+                recommendedActions,
                 lastUpdated: new Date(latestScore.createdDateTime),
-                totalControlsFound: allControlProfiles.length, // Keep track of total number
+                totalControlsFound: allControlProfiles.length,
                 controlsStoredCount: controlScores.length // Track how many we actually stored
             };
             console.log('✅ GraphApiService: Secure score retrieved successfully');
@@ -554,7 +557,7 @@ class GraphApiService {
             const updateRequest = {
                 requiredResourceAccess: [
                     {
-                        resourceAppId: "00000003-0000-0000-c000-000000000000", // Microsoft Graph
+                        resourceAppId: "00000003-0000-0000-c000-000000000000",
                         resourceAccess
                     }
                 ]
@@ -924,4 +927,5 @@ function getGraphApiService() {
     }
     return graphApiServiceInstance;
 }
+exports.getGraphApiService = getGraphApiService;
 //# sourceMappingURL=graphApiService.js.map

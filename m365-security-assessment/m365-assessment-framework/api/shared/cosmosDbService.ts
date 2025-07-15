@@ -135,14 +135,16 @@ export class CosmosDbService {
                 tenantId: '', // Will be populated during first assessment
                 tenantName: customerData.tenantName,
                 tenantDomain: customerData.tenantDomain,
-                applicationId: appRegistration.applicationId,
-                clientId: appRegistration.clientId,
-                servicePrincipalId: appRegistration.servicePrincipalId,
                 createdDate: new Date(),
                 totalAssessments: 0,
                 status: 'active',
-                permissions: appRegistration.permissions,
                 contactEmail: customerData.contactEmail,
+                appRegistration: {
+                    applicationId: appRegistration.applicationId,
+                    clientId: appRegistration.clientId,
+                    servicePrincipalId: appRegistration.servicePrincipalId,
+                    permissions: appRegistration.permissions
+                },
                 notes: customerData.notes
             };
 
@@ -335,8 +337,8 @@ export class CosmosDbService {
 
             // Soft delete by updating status
             await this.updateCustomer(customerId, tenantDomain, {
-                status: 'deleted',
-                deletedDate: new Date()
+                status: 'deleted'
+                // deletedDate: new Date()
             });
 
             // Also clean up secrets in Key Vault

@@ -1,12 +1,24 @@
 // filepath: /m365-assessment-framework/m365-assessment-framework/api/shared/types.ts
 
+export interface AssessmentHistory {
+    id: string;
+    assessmentId: string;
+    tenantId: string;
+    customerId: string;
+    date: Date;
+    overallScore: number;
+    categoryScores: Record<string, number>;
+}
+
 export interface Assessment {
     id: string;
+    customerId: string;
     tenantId: string;
-    date: string;
+    date: Date;
+    status: string;
     score: number;
-    metrics: Metrics;
-    recommendations: string[];
+    metrics: any;
+    recommendations: any[];
 }
 
 export interface Metrics {
@@ -30,17 +42,21 @@ export interface Customer {
     tenantId: string;
     tenantName: string;
     tenantDomain: string;
-    applicationId: string;
-    clientId: string;
-    servicePrincipalId: string;
+    contactEmail?: string;
+    notes?: string;
     createdDate: Date;
     lastAssessmentDate?: Date;
     totalAssessments: number;
     status: 'active' | 'inactive' | 'deleted';
-    permissions: string[];
-    contactEmail?: string;
-    notes?: string;
-    deletedDate?: Date;
+    appRegistration?: {
+        applicationId: string;
+        clientId: string;
+        servicePrincipalId: string;
+        permissions: string[];
+        clientSecret?: string;
+        consentUrl?: string;
+        redirectUri?: string;
+    };
 }
 
 export interface CreateCustomerRequest {

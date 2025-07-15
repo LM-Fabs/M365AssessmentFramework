@@ -9,7 +9,7 @@ const corsHeaders = process.env.NODE_ENV === 'development' ? {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Warmup, Cache-Control',
-    'Access-Control-Max-Age': '86400', // Cache preflight for 24 hours
+    'Access-Control-Max-Age': '86400',
     'Content-Type': 'application/json',
     'Cache-Control': 'public, max-age=60, s-maxage=60' // Cache responses for 1 minute
 } : {
@@ -19,9 +19,9 @@ const corsHeaders = process.env.NODE_ENV === 'development' ? {
 // Performance optimization: Cache frequently accessed data
 const cache = new Map();
 const CACHE_TTL = {
-    customers: 300000, // 5 minutes
-    assessments: 180000, // 3 minutes
-    metrics: 120000, // 2 minutes
+    customers: 300000,
+    assessments: 180000,
+    metrics: 120000,
     bestPractices: 600000 // 10 minutes
 };
 // Initialize data services with connection pooling
@@ -267,7 +267,7 @@ async function customersHandler(request, context) {
                 const appReg = customer.appRegistration || {};
                 return {
                     id: customer.id,
-                    tenantId: customer.tenantId || '', // Use the actual tenant ID, not servicePrincipalId
+                    tenantId: customer.tenantId || '',
                     tenantName: customer.tenantName,
                     tenantDomain: customer.tenantDomain,
                     applicationId: appReg.applicationId || '',
@@ -359,7 +359,7 @@ async function customersHandler(request, context) {
             const customerRequest = {
                 tenantName: customerData.tenantName,
                 tenantDomain: customerData.tenantDomain,
-                tenantId: targetTenantId, // Include the actual tenant ID
+                tenantId: targetTenantId,
                 contactEmail: customerData.contactEmail || '',
                 notes: customerData.notes || '',
                 skipAutoAppRegistration: customerData.skipAutoAppRegistration || false
@@ -428,12 +428,12 @@ async function customersHandler(request, context) {
             }
             // Enhanced permissions for comprehensive assessment (defined outside try block for error handling)
             const requiredPermissions = [
-                'Organization.Read.All', // Required for license data
-                'SecurityEvents.Read.All', // Required for secure score
-                'Reports.Read.All', // Required for usage reports
-                'Directory.Read.All', // Required for user/group data
-                'Policy.Read.All', // Required for conditional access policies
-                'IdentityRiskyUser.Read.All', // Required for identity protection
+                'Organization.Read.All',
+                'SecurityEvents.Read.All',
+                'Reports.Read.All',
+                'Directory.Read.All',
+                'Policy.Read.All',
+                'IdentityRiskyUser.Read.All',
                 'AuditLog.Read.All' // Required for audit logs
             ];
             // 2. Only trigger automatic app registration if not skipping
@@ -499,7 +499,7 @@ async function customersHandler(request, context) {
                         applicationId: 'ERROR_DURING_CREATION',
                         clientId: 'ERROR_DURING_CREATION',
                         servicePrincipalId: 'ERROR_DURING_CREATION',
-                        permissions: requiredPermissions, // Include the required permissions
+                        permissions: requiredPermissions,
                         clientSecret: 'ERROR_DURING_CREATION',
                         consentUrl: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
                         error: err.message,
@@ -1265,7 +1265,7 @@ async function createAssessmentHandler(request, context) {
                         scheduleFrequency: assessmentData.scheduleFrequency || 'monthly',
                         metrics: {
                             score: {
-                                overall: 50, // Default score when no data available
+                                overall: 50,
                                 license: 0,
                                 secureScore: 0
                             },
@@ -1530,7 +1530,7 @@ async function getMetricsHandler(request, context) {
                     secureScore: latestAssessment.metrics?.score?.secureScore || 0
                 },
                 compliance: {
-                    mfa: { enabled: true, coverage: 85 }, // Default compliance data
+                    mfa: { enabled: true, coverage: 85 },
                     conditionalAccess: { enabled: true, policies: 5 },
                     dlp: { enabled: false, policies: 0 }
                 },
@@ -1684,7 +1684,7 @@ async function createMultiTenantAppHandler(request, context) {
         const customerData = {
             tenantName: tenantName || targetTenantDomain || finalTenantId,
             tenantDomain: targetTenantDomain || 'unknown.onmicrosoft.com',
-            targetTenantId: finalTenantId, // Use the resolved tenant ID
+            targetTenantId: finalTenantId,
             contactEmail,
             requiredPermissions
         };
@@ -1730,13 +1730,13 @@ async function createMultiTenantAppHandler(request, context) {
             clientId: appRegistration.clientId,
             servicePrincipalId: appRegistration.servicePrincipalId,
             clientSecret: appRegistration.clientSecret,
-            tenantId: actualTenantId, // Use the resolved/actual tenant ID
-            originalTenantId: finalTenantId, // Keep track of what was originally provided
+            tenantId: actualTenantId,
+            originalTenantId: finalTenantId,
             consentUrl: appRegistration.consentUrl,
             authUrl: `https://login.microsoftonline.com/${authTenantId}/oauth2/v2.0/authorize`,
             redirectUri: appRegistration.redirectUri,
             permissions: appRegistration.permissions,
-            isReal: true, // Flag to indicate this is a real app registration
+            isReal: true,
             domainResolved: actualTenantId !== finalTenantId // Flag to indicate if domain was resolved
         };
         context.log('✅ Real multi-tenant app created successfully:', appRegistration.clientId);

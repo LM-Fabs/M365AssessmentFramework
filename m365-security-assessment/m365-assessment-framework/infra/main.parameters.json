@@ -8,17 +8,50 @@
     "location": {
       "value": "${AZURE_LOCATION}"
     },
-    "resourceGroupName": {
-      "value": "rg-${AZURE_ENV_NAME}"
+    "postgresqlAdminUsername": {
+      "value": "assessment_admin"
     },
-    "azureTenantId": {
-      "value": "${AZURE_TENANT_ID}"
+    "postgresqlAdminPassword": {
+      "value": "${POSTGRES_ADMIN_PASSWORD}"
     },
-    "azureClientId": {
-      "value": "${AZURE_CLIENT_ID}"
+    "databaseName": {
+      "value": "m365_assessment"
     },
-    "azureClientSecret": {
-      "value": "${AZURE_CLIENT_SECRET}"
+    "postgresqlVersion": {
+      "value": "16"
+    },
+    "postgresqlSkuName": {
+      "value": "Standard_B1ms"
+    },
+    "postgresqlStorageSize": {
+      "value": 32
+    },
+    "backupRetentionDays": {
+      "value": 7
+    },
+    "geoRedundantBackup": {
+      "value": "Disabled"
+    },
+    "highAvailabilityMode": {
+      "value": "Disabled"
+    },
+    "publicNetworkAccess": {
+      "value": "Enabled"
+    },
+    "staticWebAppName": {
+      "value": "swa-${AZURE_ENV_NAME}"
+    },
+    "staticWebAppSku": {
+      "value": "Standard"
+    },
+    "appInsightsName": {
+      "value": "appi-${AZURE_ENV_NAME}"
+    },
+    "logAnalyticsName": {
+      "value": "law-${AZURE_ENV_NAME}"
+    },
+    "keyVaultName": {
+      "value": "kv-${AZURE_ENV_NAME}"
     }
   }
 }

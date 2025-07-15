@@ -1,34 +1,90 @@
-@description('Name of the environment (e.g., dev, staging, prod)')
+targetScope = 'resourceGroup'
+
+metadata description = 'M365 Security Assessment Framework - PostgreSQL Flexible Server Infrastructure'
+
+@description('Environment name (e.g., dev, staging, prod)')
 param environmentName string
 
-@description('Primary location for all resources')
+@description('Azure region for resource deployment')
 param location string = resourceGroup().location
 
-// Temporarily disabled - will be needed for Graph API access
-// @description('Azure tenant ID for Graph API access')
-// param azureTenantId string = ''
+@description('PostgreSQL administrator username')
+param postgresqlAdminUsername string = 'assessment_admin'
 
-// @description('Azure client ID for Graph API access')
-// param azureClientId string = ''
+@description('PostgreSQL administrator password')
+@secure()
+param postgresqlAdminPassword string
 
-// @description('Azure client secret for Graph API access')
-// @secure()
-// param azureClientSecret string = ''
+@description('PostgreSQL database name')
+param databaseName string = 'm365_assessment'
 
-// Generate a unique suffix based on environment and subscription
+@description('PostgreSQL server version')
+param postgresqlVersion string = '16'
+
+@description('PostgreSQL SKU name (Basic tier for cost optimization)')
+param postgresqlSkuName string = 'Standard_B1ms'
+
+@description('PostgreSQL storage size in GB')
+param postgresqlStorageSize int = 32
+
+@description('Backup retention days')
+param backupRetentionDays int = 7
+
+@description('Enable geo-redundant backup')
+param geoRedundantBackup string = 'Disabled'
+
+@description('Enable high availability')
+param highAvailabilityMode string = 'Disabled'
+
+@description('Enable public network access')
+param publicNetworkAccess string = 'Enabled'
+
+@description('Static web app name')
+param staticWebAppName string = 'swa-${environmentName}'
+
+@description('Static web app SKU')
+param staticWebAppSku string = 'Standard'
+
+@description('Application Insights name')
+param appInsightsName string = 'appi-${environmentName}'
+
+@description('Log Analytics workspace name')
+param logAnalyticsName string = 'law-${environmentName}'
+
+@description('Key Vault name')
+param keyVaultName string = 'kv-${environmentName}'
+
+// Create resource token for unique naming
 var resourceToken = toLower(uniqueString(subscription().id, environmentName))
-var resourcePrefix = 'm365'
+
+// Resource names with resource token
+var postgresqlServerName = 'psql-${resourceToken}'
+var staticSiteName = '${staticWebAppName}-${resourceToken}'
+var appInsightsResourceName = '${appInsightsName}-${resourceToken}'
+var logAnalyticsResourceName = '${logAnalyticsName}-${resourceToken}'
+var keyVaultResourceName = '${keyVaultName}-${resourceToken}'
+
+// User-assigned managed identity for PostgreSQL authentication
+var userAssignedIdentityName = 'id-${resourceToken}'
 
 // Tags for all resources
 var tags = {
   'azd-env-name': environmentName
   project: 'M365SecurityAssessment'
   environment: environmentName
+  'deployment-tool': 'azd'
 }
 
-// Log Analytics Workspace for monitoring
-resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
-  name: '${resourcePrefix}-logs-${resourceToken}'
+// Create User-Assigned Managed Identity
+resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: userAssignedIdentityName
+  location: location
+  tags: tags
+}
+
+// Create Log Analytics Workspace
+resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+  name: logAnalyticsResourceName
   location: location
   tags: tags
   properties: {
@@ -36,441 +92,237 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09
       name: 'PerGB2018'
     }
     retentionInDays: 30
-    features: {
-      searchVersion: 1
+    workspaceCapping: {
+      dailyQuotaGb: 1
     }
   }
 }
 
-// Application Insights for application monitoring
-resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
-  name: '${resourcePrefix}-insights-${resourceToken}'
+// Create Application Insights
+resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
+  name: appInsightsResourceName
   location: location
   tags: tags
   kind: 'web'
   properties: {
     Application_Type: 'web'
-    WorkspaceResourceId: logAnalyticsWorkspace.id
+    WorkspaceResourceId: logAnalytics.id
+    RetentionInDays: 30
     IngestionMode: 'LogAnalytics'
-    publicNetworkAccessForIngestion: 'Enabled'
-    publicNetworkAccessForQuery: 'Enabled'
   }
 }
 
-// Storage Account for Azure Functions
-resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
-  name: '${resourcePrefix}${resourceToken}'
-  location: location
-  tags: tags
-  sku: {
-    name: 'Standard_LRS'
-  }
-  kind: 'StorageV2'
-  properties: {
-    supportsHttpsTrafficOnly: true
-    encryption: {
-      services: {
-        file: {
-          keyType: 'Account'
-          enabled: true
-        }
-        blob: {
-          keyType: 'Account'
-          enabled: true
-        }
-      }
-      keySource: 'Microsoft.Storage'
-    }
-    accessTier: 'Hot'
-    minimumTlsVersion: 'TLS1_2'
-    allowBlobPublicAccess: false
-    networkAcls: {
-      bypass: 'AzureServices'
-      defaultAction: 'Allow'
-    }
-  }
-}
-
-// Key Vault for storing secrets
+// Create Key Vault
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
-  name: '${resourcePrefix}-kv-${resourceToken}'
+  name: keyVaultResourceName
   location: location
   tags: tags
   properties: {
-    sku: {
-      family: 'A'
-      name: 'standard'
-    }
-    tenantId: subscription().tenantId
     enabledForDeployment: false
     enabledForDiskEncryption: false
     enabledForTemplateDeployment: true
     enableSoftDelete: true
     softDeleteRetentionInDays: 7
-    enableRbacAuthorization: true
-    publicNetworkAccess: 'Enabled'
+    enablePurgeProtection: true  // Changed to true as required
+    tenantId: subscription().tenantId
+    accessPolicies: []
+    sku: {
+      name: 'standard'
+      family: 'A'
+    }
     networkAcls: {
-      bypass: 'AzureServices'
       defaultAction: 'Allow'
+      bypass: 'AzureServices'
     }
-  }
-}
-
-// Cosmos DB for storing assessment data (temporarily disabled due to provider registration)
-/*
-resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
-  name: '${resourcePrefix}-cosmos-${resourceToken}'
-  location: location
-  tags: tags
-  kind: 'GlobalDocumentDB'
-  properties: {
-    databaseAccountOfferType: 'Standard'
-    enableFreeTier: true
-    consistencyPolicy: {
-      defaultConsistencyLevel: 'Session'
-    }
-    locations: [
-      {
-        locationName: location
-        failoverPriority: 0
-        isZoneRedundant: false
-      }
-    ]
-    capabilities: [
-      {
-        name: 'EnableServerless'
-      }
-    ]
     publicNetworkAccess: 'Enabled'
-    enableAnalyticalStorage: false
-    enableAutomaticFailover: false
-    enableMultipleWriteLocations: false
-    isVirtualNetworkFilterEnabled: false
-    virtualNetworkRules: []
-    ipRules: []
-    cors: []
-    backupPolicy: {
-      type: 'Periodic'
-      periodicModeProperties: {
-        backupIntervalInMinutes: 240
-        backupRetentionIntervalInHours: 8
-        backupStorageRedundancy: 'Local'
-      }
-    }
+    enableRbacAuthorization: true
   }
 }
 
-// Cosmos DB Database
-resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-11-15' = {
-  parent: cosmosDbAccount
-  name: 'm365assessment'
-  properties: {
-    resource: {
-      id: 'm365assessment'
-    }
-  }
-}
-
-// Customers Container
-resource customersContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
-  parent: cosmosDatabase
-  name: 'customers'
-  properties: {
-    resource: {
-      id: 'customers'
-      partitionKey: {
-        paths: ['/tenantDomain']
-        kind: 'Hash'
-      }
-      indexingPolicy: {
-        indexingMode: 'consistent'
-        automatic: true
-        includedPaths: [
-          {
-            path: '/*'
-          }
-        ]
-        excludedPaths: [
-          {
-            path: '/"_etag"/?'
-          }
-        ]
-      }
-    }
-  }
-}
-
-// Assessments Container  
-resource assessmentsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
-  parent: cosmosDatabase
-  name: 'assessments'
-  properties: {
-    resource: {
-      id: 'assessments'
-      partitionKey: {
-        paths: ['/customerId']
-        kind: 'Hash'
-      }
-      indexingPolicy: {
-        indexingMode: 'consistent'
-        automatic: true
-        includedPaths: [
-          {
-            path: '/*'
-          }
-        ]
-        excludedPaths: [
-          {
-            path: '/"_etag"/?'
-          }
-        ]
-      }
-    }
-  }
-}
-
-// Assessment History Container
-resource assessmentHistoryContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
-  parent: cosmosDatabase
-  name: 'assessmentHistory'
-  properties: {
-    resource: {
-      id: 'assessmentHistory'
-      partitionKey: {
-        paths: ['/tenantId']
-        kind: 'Hash'
-      }
-      indexingPolicy: {
-        indexingMode: 'consistent'
-        automatic: true
-        includedPaths: [
-          {
-            path: '/*'
-          }
-        ]
-        excludedPaths: [
-          {
-            path: '/"_etag"/?'
-          }
-        ]
-      }
-    }
-  }
-}
-*/
-
-// User Assigned Managed Identity for Function App
-resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: '${resourcePrefix}-identity-${resourceToken}'
+// Create PostgreSQL Flexible Server
+resource postgresqlServer 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' = {
+  name: postgresqlServerName
   location: location
   tags: tags
-}
-
-// App Service Plan for Function App
-resource appServicePlan 'Microsoft.Web/serverfarms@2024-04-01' = {
-  name: '${resourcePrefix}-plan-${resourceToken}'
-  location: location
-  tags: tags
-  sku: {
-    name: 'Y1'
-    tier: 'Dynamic'
-    size: 'Y1'
-    family: 'Y'
-    capacity: 0
-  }
-  properties: {
-    reserved: false
-  }
-}
-
-// Static Web App for frontend (matches existing resource name)
-resource staticWebApp 'Microsoft.Web/staticSites@2024-04-01' = {
-  name: 'm365-assessment-framework'  // Use the actual existing resource name
-  location: location
-  tags: union(tags, {
-    'azd-service-name': 'm365-assessment-frontend'
-  })
-  sku: {
-    name: 'Free'
-    tier: 'Free'
-  }
-  properties: {
-    buildProperties: {
-      appLocation: '/'
-      apiLocation: 'api'  // Point to the API folder
-      outputLocation: 'build'
-    }
-    enterpriseGradeCdnStatus: 'Disabled'
-  }
-}
-
-// Configure application settings for Static Web App API functions
-// Note: AZURE_CLIENT_ID and AZURE_CLIENT_SECRET must be set manually in Azure Portal
-// or via Azure CLI to avoid exposing secrets in IaC templates
-resource staticWebAppConfig 'Microsoft.Web/staticSites/config@2024-04-01' = {
-  name: 'appsettings'
-  parent: staticWebApp
-  properties: {
-    AZURE_STORAGE_CONNECTION_STRING: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
-    AZURE_TENANT_ID: tenant().tenantId
-    APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString
-    KEY_VAULT_URL: keyVault.properties.vaultUri
-    // AZURE_CLIENT_ID and AZURE_CLIENT_SECRET must be configured separately
-    // Do not include them in the Bicep template to prevent secret exposure
-  }
-}
-
-// Function App and related resources - COMMENTED OUT FOR STATIC WEB APP ARCHITECTURE
-// We use Static Web App integrated API instead of separate Function App
-/*
-resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
-  name: '${resourcePrefix}-api-${resourceToken}'
-  location: location
-  tags: union(tags, {
-    'azd-service-name': 'm365-assessment-api'
-  })
-  kind: 'functionapp'
+  
+  // Configure managed identity for authentication
   identity: {
-    type: 'SystemAssigned, UserAssigned'
+    type: 'UserAssigned'
     userAssignedIdentities: {
       '${userAssignedIdentity.id}': {}
     }
   }
+  
+  sku: {
+    name: postgresqlSkuName
+    tier: 'Burstable'
+  }
+  
   properties: {
-    serverFarmId: appServicePlan.id
-    httpsOnly: true
-    siteConfig: {
-      appSettings: [
-        {
-          name: 'AzureWebJobsStorage'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
-        }
-        {
-          name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
-        }
-        {
-          name: 'WEBSITE_CONTENTSHARE'
-          value: toLower('${resourcePrefix}-api-${resourceToken}')
-        }
-        {
-          name: 'FUNCTIONS_EXTENSION_VERSION'
-          value: '~4'
-        }
-        {
-          name: 'WEBSITE_NODE_DEFAULT_VERSION'
-          value: '~20'
-        }
-        {
-          name: 'FUNCTIONS_WORKER_RUNTIME'
-          value: 'node'
-        }
-        {
-          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
-          value: applicationInsights.properties.ConnectionString
-        }
-        {
-          name: 'KEY_VAULT_URL'
-          value: keyVault.properties.vaultUri
-        }
-        {
-          name: 'AZURE_CLIENT_ID'
-          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=azure-client-id)'
-        }
-        {
-          name: 'AZURE_TENANT_ID'
-          value: subscription().tenantId
-        }
-        {
-          name: 'AZURE_CLIENT_SECRET'
-          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=azure-client-secret)'
-        }
-        {
-          name: 'AZURE_STORAGE_CONNECTION_STRING'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
-        }
-        {
-          name: 'STORAGE_ACCOUNT_NAME'
-          value: storageAccount.name
-        }
-        {
-          name: 'COSMOS_DB_ENDPOINT'
-          value: ''
-        }
-        {
-          name: 'COSMOS_DB_DATABASE_NAME'
-          value: ''
-        }
-        {
-          name: 'FRONTEND_URL'
-          value: 'https://${staticWebApp.properties.defaultHostname}'
-        }
-      ]
-      cors: {
-        allowedOrigins: [
-          'https://${staticWebApp.properties.defaultHostname}'
-          'http://localhost:3000'
-        ]
-        supportCredentials: false
-      }
-      ftpsState: 'Disabled'
-      minTlsVersion: '1.2'
-      scmMinTlsVersion: '1.2'
-      use32BitWorkerProcess: false
-      netFrameworkVersion: 'v6.0'
+    createMode: 'Default'
+    version: postgresqlVersion
+    administratorLogin: postgresqlAdminUsername
+    administratorLoginPassword: postgresqlAdminPassword
+    
+    // Authentication configuration
+    authConfig: {
+      activeDirectoryAuth: 'Enabled'
+      passwordAuth: 'Enabled'
+      tenantId: subscription().tenantId
+    }
+    
+    // Storage configuration
+    storage: {
+      storageSizeGB: postgresqlStorageSize
+      autoGrow: 'Enabled'
+      tier: 'P4'
+    }
+    
+    // Backup configuration
+    backup: {
+      backupRetentionDays: backupRetentionDays
+      geoRedundantBackup: geoRedundantBackup
+    }
+    
+    // High availability configuration
+    highAvailability: {
+      mode: highAvailabilityMode
+    }
+    
+    // Network configuration
+    network: {
+      publicNetworkAccess: publicNetworkAccess
+    }
+    
+    // Maintenance window (optional)
+    maintenanceWindow: {
+      customWindow: 'Enabled'
+      dayOfWeek: 6 // Saturday
+      startHour: 3
+      startMinute: 0
     }
   }
 }
 
-// Role assignment for Function App to access Key Vault
-resource keyVaultSecretsUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(keyVault.id, functionApp.id, '4633458b-17de-408a-b874-0445c86b69e6')
+// Create PostgreSQL Database
+resource postgresqlDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2024-08-01' = {
+  name: databaseName
+  parent: postgresqlServer
+  properties: {
+    charset: 'UTF8'
+    collation: 'en_US.UTF8'
+  }
+}
+
+// Create PostgreSQL Firewall Rules for Azure Services
+resource postgresqlFirewallRule 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2024-08-01' = {
+  name: 'AllowAllAzureServices'
+  parent: postgresqlServer
+  properties: {
+    startIpAddress: '0.0.0.0'
+    endIpAddress: '0.0.0.0'
+  }
+}
+
+// Create Static Web App with managed identity
+resource staticWebApp 'Microsoft.Web/staticSites@2024-04-01' = {
+  name: staticSiteName
+  location: location
+  tags: union(tags, {
+    'azd-service-name': 'm365-assessment-api'
+  })
+  
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${userAssignedIdentity.id}': {}
+    }
+  }
+  
+  sku: {
+    name: staticWebAppSku
+    tier: staticWebAppSku
+  }
+  
+  properties: {
+    stagingEnvironmentPolicy: 'Enabled'
+    allowConfigFileUpdates: true
+    publicNetworkAccess: 'Enabled'
+    enterpriseGradeCdnStatus: 'Disabled'
+    
+    // Build properties for the static web app
+    buildProperties: {
+      appLocation: '/m365-assessment-framework'
+      apiLocation: '/m365-assessment-framework/api'
+      outputLocation: 'dist'
+      appBuildCommand: 'npm run build'
+      apiBuildCommand: 'npm run build'
+      skipGithubActionWorkflowGeneration: true
+    }
+  }
+}
+
+// Store PostgreSQL connection string in Key Vault
+resource postgresqlConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  name: 'postgresql-connection-string'
+  parent: keyVault
+  properties: {
+    value: 'postgresql://${postgresqlAdminUsername}@${postgresqlServer.properties.fullyQualifiedDomainName}:5432/${databaseName}?sslmode=require'
+    contentType: 'text/plain'
+  }
+}
+
+// Role assignment: Key Vault Secrets User for Static Web App
+resource keyVaultSecretsUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(keyVault.id, userAssignedIdentity.id, 'Key Vault Secrets User')
   scope: keyVault
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6') // Key Vault Secrets User
-    principalId: functionApp.identity.principalId
+    principalId: userAssignedIdentity.properties.principalId
     principalType: 'ServicePrincipal'
   }
 }
 
-// Diagnostic settings for Function App
-resource functionAppDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
-  name: 'default'
-  scope: functionApp
+// Configure Static Web App settings
+resource staticWebAppSettings 'Microsoft.Web/staticSites/config@2024-04-01' = {
+  name: 'appsettings'
+  parent: staticWebApp
   properties: {
-    workspaceId: logAnalyticsWorkspace.id
-    logs: [
-      {
-        category: 'FunctionAppLogs'
-        enabled: true
-        retentionPolicy: {
-          enabled: false
-          days: 0
-        }
-      }
-    ]
-    metrics: [
-      {
-        category: 'AllMetrics'
-        enabled: true
-        retentionPolicy: {
-          enabled: false
-          days: 0
-        }
-      }
-    ]
+    // PostgreSQL connection settings
+    POSTGRES_HOST: postgresqlServer.properties.fullyQualifiedDomainName
+    POSTGRES_PORT: '5432'
+    POSTGRES_DATABASE: databaseName
+    POSTGRES_USER: postgresqlAdminUsername
+    NODE_ENV: 'production'
+    
+    // Azure services configuration
+    AZURE_CLIENT_ID: userAssignedIdentity.properties.clientId
+    AZURE_TENANT_ID: subscription().tenantId
+    APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
+    
+    // Key Vault reference for connection string
+    POSTGRES_CONNECTION_STRING: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=postgresql-connection-string)'
   }
 }
-*/
 
-// Outputs for azure.yaml
-output AZURE_LOCATION string = location
+// Outputs for deployment verification
+output postgresqlServerName string = postgresqlServer.name
+output postgresqlServerHost string = postgresqlServer.properties.fullyQualifiedDomainName
+output postgresqlDatabaseName string = postgresqlDatabase.name
+output staticWebAppName string = staticWebApp.name
+output staticWebAppHostname string = staticWebApp.properties.defaultHostname
+output userAssignedIdentityName string = userAssignedIdentity.name
+output userAssignedIdentityClientId string = userAssignedIdentity.properties.clientId
+output keyVaultName string = keyVault.name
+output appInsightsName string = appInsights.name
+output logAnalyticsName string = logAnalytics.name
+output resourceGroupName string = resourceGroup().name
+output environmentName string = environmentName
+
+// Service-specific outputs for AZD
+output POSTGRES_HOST string = postgresqlServer.properties.fullyQualifiedDomainName
+output POSTGRES_PORT string = '5432'
+output POSTGRES_DATABASE string = databaseName
+output POSTGRES_USER string = postgresqlAdminUsername
+output AZURE_CLIENT_ID string = userAssignedIdentity.properties.clientId
 output AZURE_TENANT_ID string = subscription().tenantId
-output REACT_APP_API_URL string = 'https://${staticWebApp.properties.defaultHostname}/api'  // API is part of Static Web App
-output APPLICATIONINSIGHTS_CONNECTION_STRING string = applicationInsights.properties.ConnectionString
-output KEY_VAULT_URL string = keyVault.properties.vaultUri
-// output FUNCTION_APP_NAME string = functionApp.name  // Commented out - using Static Web App
-output STATIC_WEB_APP_NAME string = staticWebApp.name
-// Cosmos DB outputs (temporarily disabled)
-// output COSMOS_DB_ENDPOINT string = cosmosDbAccount.properties.documentEndpoint
-// output COSMOS_DB_DATABASE_NAME string = cosmosDatabase.name

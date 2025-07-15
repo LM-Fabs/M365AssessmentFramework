@@ -1,0 +1,146 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.36.1.42791",
+      "templateHash": "13920081971228128688"
+    }
+  },
+  "parameters": {
+    "environmentName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the environment (e.g., dev, staging, prod)"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Primary location for all resources"
+      }
+    },
+    "sqlAdminUsername": {
+      "type": "string",
+      "defaultValue": "sqladmin",
+      "metadata": {
+        "description": "Admin username for SQL Server"
+      }
+    },
+    "sqlAdminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Admin password for SQL Server"
+      }
+    },
+    "userAssignedIdentityId": {
+      "type": "string",
+      "metadata": {
+        "description": "User-assigned managed identity ID"
+      }
+    },
+    "userAssignedIdentityPrincipalId": {
+      "type": "string",
+      "metadata": {
+        "description": "User-assigned managed identity principal ID"
+      }
+    }
+  },
+  "variables": {
+    "resourceToken": "[toLower(uniqueString(subscription().id, parameters('environmentName')))]",
+    "resourcePrefix": "m365",
+    "tags": {
+      "azd-env-name": "[parameters('environmentName')]",
+      "project": "M365SecurityAssessment",
+      "environment": "[parameters('environmentName')]"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Sql/servers",
+      "apiVersion": "2023-05-01-preview",
+      "name": "[format('{0}-sql-{1}', variables('resourcePrefix'), variables('resourceToken'))]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', parameters('userAssignedIdentityId'))]": {}
+        }
+      },
+      "properties": {
+        "administratorLogin": "[parameters('sqlAdminUsername')]",
+        "administratorLoginPassword": "[parameters('sqlAdminPassword')]",
+        "version": "12.0",
+        "minimalTlsVersion": "1.2",
+        "publicNetworkAccess": "Enabled",
+        "administrators": {
+          "administratorType": "ActiveDirectory",
+          "principalType": "Application",
+          "login": "ManagedIdentity",
+          "sid": "[parameters('userAssignedIdentityPrincipalId')]",
+          "tenantId": "[subscription().tenantId]",
+          "azureADOnlyAuthentication": false
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/databases",
+      "apiVersion": "2023-05-01-preview",
+      "name": "[format('{0}/{1}', format('{0}-sql-{1}', variables('resourcePrefix'), variables('resourceToken')), format('{0}-assessment-db-{1}', variables('resourcePrefix'), variables('resourceToken')))]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "sku": {
+        "name": "GP_S_Gen5",
+        "tier": "GeneralPurpose",
+        "family": "Gen5",
+        "capacity": 1
+      },
+      "properties": {
+        "collation": "SQL_Latin1_General_CP1_CI_AS",
+        "maxSizeBytes": 34359738368,
+        "catalogCollation": "SQL_Latin1_General_CP1_CI_AS",
+        "zoneRedundant": false,
+        "readScale": "Disabled",
+        "requestedBackupStorageRedundancy": "Local",
+        "autoPauseDelay": 60,
+        "minCapacity": "[json('0.5')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', format('{0}-sql-{1}', variables('resourcePrefix'), variables('resourceToken')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Sql/servers/firewallRules",
+      "apiVersion": "2023-05-01-preview",
+      "name": "[format('{0}/{1}', format('{0}-sql-{1}', variables('resourcePrefix'), variables('resourceToken')), 'AllowAzureServices')]",
+      "properties": {
+        "startIpAddress": "0.0.0.0",
+        "endIpAddress": "0.0.0.0"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', format('{0}-sql-{1}', variables('resourcePrefix'), variables('resourceToken')))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "sqlServerName": {
+      "type": "string",
+      "value": "[format('{0}-sql-{1}', variables('resourcePrefix'), variables('resourceToken'))]"
+    },
+    "sqlDatabaseName": {
+      "type": "string",
+      "value": "[format('{0}-assessment-db-{1}', variables('resourcePrefix'), variables('resourceToken'))]"
+    },
+    "sqlConnectionString": {
+      "type": "string",
+      "value": "[format('Server=tcp:{0},1433;Database={1};Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;', reference(resourceId('Microsoft.Sql/servers', format('{0}-sql-{1}', variables('resourcePrefix'), variables('resourceToken'))), '2023-05-01-preview').fullyQualifiedDomainName, format('{0}-assessment-db-{1}', variables('resourcePrefix'), variables('resourceToken')))]"
+    },
+    "sqlServerFqdn": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Sql/servers', format('{0}-sql-{1}', variables('resourcePrefix'), variables('resourceToken'))), '2023-05-01-preview').fullyQualifiedDomainName]"
+    }
+  }
+}
