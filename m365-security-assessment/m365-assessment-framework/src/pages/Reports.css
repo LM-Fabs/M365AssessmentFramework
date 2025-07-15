@@ -425,12 +425,14 @@
   border-radius: 12px;
   overflow: hidden;
   min-width: 80px;
+  max-width: 100px;
   margin: 0 auto;
+  border: 1px solid #dee2e6;
 }
 
 .utilization-bar-fill {
   height: 100%;
-  border-radius: 12px;
+  border-radius: 11px;
   transition: width 0.3s ease;
   position: relative;
 }
@@ -444,7 +446,8 @@
   font-weight: 600;
   color: #2c3e50;
   text-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
-  z-index: 1;
+  z-index: 10;
+  pointer-events: none;
 }
 
 /* License Table Cost Column Styles */
@@ -558,11 +561,17 @@
   
   .utilization-bar-container {
     min-width: 60px;
+    max-width: 80px;
     height: 20px;
   }
   
   .utilization-text {
     font-size: 0.7rem;
+  }
+  
+  .cost-input {
+    width: 50px;
+    font-size: 0.8rem;
   }
 }
 
@@ -713,6 +722,65 @@
   padding: 1rem 0.75rem;
   border-bottom: 1px solid #e9ecef;
   vertical-align: top;
+}
+
+/* Secure Score Table Cell Specific Styles */
+.control-name-cell {
+  max-width: 300px;
+}
+
+.control-name {
+  font-weight: 600;
+  color: #2c3e50;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.category-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.category-badge {
+  background: #e3f2fd;
+  color: #1565c0;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.current-score-cell,
+.max-score-cell,
+.score-gap-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.score-value {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.95rem;
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+}
+
+.score-gap {
+  font-weight: 600;
+  color: #dc3545;
+  font-size: 0.9rem;
+}
+
+.score-gap:contains("0") {
+  color: #28a745;
+}
+
+.action-cell {
+  max-width: 300px;
 }
 
 .action-cell {

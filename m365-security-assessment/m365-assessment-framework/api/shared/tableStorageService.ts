@@ -406,7 +406,7 @@ export class TableStorageService {
         for await (const entity of iterator) {
             if (count >= maxItems) break;
             
-            // Reconstruct chunked data
+            // Reconstruct chunked data with improved error handling
             const metricsJson = this.reconstructChunkedData(entity, 'metrics');
             const recommendationsJson = this.reconstructChunkedData(entity, 'recommendations');
             
@@ -414,17 +414,25 @@ export class TableStorageService {
             let recommendations;
             
             try {
-                metrics = metricsJson ? JSON.parse(metricsJson) : undefined;
+                if (metricsJson && metricsJson.trim()) {
+                    metrics = JSON.parse(metricsJson);
+                } else {
+                    metrics = {};
+                }
             } catch (e) {
-                console.warn('Failed to parse metrics JSON:', e);
-                metrics = undefined;
+                console.warn('Failed to parse metrics JSON:', e, 'Raw data:', metricsJson?.substring(0, 100));
+                metrics = { error: 'Failed to parse stored metrics data' };
             }
             
             try {
-                recommendations = recommendationsJson ? JSON.parse(recommendationsJson) : undefined;
+                if (recommendationsJson && recommendationsJson.trim()) {
+                    recommendations = JSON.parse(recommendationsJson);
+                } else {
+                    recommendations = [];
+                }
             } catch (e) {
-                console.warn('Failed to parse recommendations JSON:', e);
-                recommendations = undefined;
+                console.warn('Failed to parse recommendations JSON:', e, 'Raw data:', recommendationsJson?.substring(0, 100));
+                recommendations = [];
             }
             
             assessments.push({
@@ -494,8 +502,15 @@ export class TableStorageService {
         } catch (error: any) {
             console.error('❌ Failed to create assessment:', error);
             // If still failing due to size, create a minimal assessment
-            if (error.message?.includes('PropertyValueTooLarge') || error.message?.includes('64KB')) {
+            if (error.message?.includes('PropertyValueTooLarge') || 
+                error.message?.includes('64KB') ||
+                error.statusCode === 413 ||
+                error.code === 'PropertyValueTooLarge') {
                 console.log('⚠️ Creating minimal assessment due to size constraints');
+                
+                // Create minimal metrics object preserving essential information
+                const minimalMetrics = this.createMinimalMetrics(assessment.metrics);
+                
                 const minimalEntity = {
                     partitionKey: 'assessment',
                     rowKey: assessmentId,
@@ -504,11 +519,14 @@ export class TableStorageService {
                     date: assessment.date.toISOString(),
                     status: 'completed_with_size_limit',
                     score: assessment.score,
-                    metrics: '{"error":"Data too large for storage"}',
+                    metrics: JSON.stringify(minimalMetrics),
                     recommendations: '[]',
-                    dataSizeError: true
+                    dataSizeError: true,
+                    originalDataSize: finalMetricsJson.length + recommendationsJson.length
                 };
+                
                 await this.assessmentsTable.createEntity(minimalEntity);
+                console.log('✅ Minimal assessment created due to size limit');
                 return assessment;
             }
             throw error;
@@ -660,9 +678,34 @@ export class TableStorageService {
         for await (const entity of iterator) {
             if (count >= maxItems) break;
 
-            // Reconstruct chunked data for large properties
+            // Reconstruct chunked data for large properties with improved error handling
             const metricsJson = this.reconstructChunkedData(entity, 'metrics');
             const recommendationsJson = this.reconstructChunkedData(entity, 'recommendations');
+
+            let metrics;
+            let recommendations;
+            
+            try {
+                if (metricsJson && metricsJson.trim()) {
+                    metrics = JSON.parse(metricsJson);
+                } else {
+                    metrics = {};
+                }
+            } catch (e) {
+                console.warn('Failed to parse metrics JSON in getAssessments:', e);
+                metrics = { error: 'Failed to parse stored metrics data' };
+            }
+            
+            try {
+                if (recommendationsJson && recommendationsJson.trim()) {
+                    recommendations = JSON.parse(recommendationsJson);
+                } else {
+                    recommendations = [];
+                }
+            } catch (e) {
+                console.warn('Failed to parse recommendations JSON in getAssessments:', e);
+                recommendations = [];
+            }
 
             assessments.push({
                 id: entity.rowKey as string,
@@ -671,8 +714,8 @@ export class TableStorageService {
                 date: new Date(entity.date as string),
                 status: entity.status as string,
                 score: entity.score as number,
-                metrics: metricsJson ? JSON.parse(metricsJson) : {},
-                recommendations: recommendationsJson ? JSON.parse(recommendationsJson) : []
+                metrics: metrics,
+                recommendations: recommendations
             });
 
             count++;
@@ -738,6 +781,10 @@ export class TableStorageService {
      * Azure Table Storage has a 64KB limit per property
      */
     private chunkLargeData(data: string, maxSize: number = 60000): { chunks: string[], isChunked: boolean } {
+        if (!data) {
+            return { chunks: [''], isChunked: false };
+        }
+        
         if (data.length <= maxSize) {
             return { chunks: [data], isChunked: false };
         }
@@ -747,22 +794,83 @@ export class TableStorageService {
             chunks.push(data.substring(i, i + maxSize));
         }
         
+        console.log(`📋 Chunked data of ${data.length} chars into ${chunks.length} chunks (max ${maxSize} chars per chunk)`);
         return { chunks, isChunked: true };
     }
 
     /**
-     * Helper method to reconstruct chunked data
+     * Helper method to reconstruct chunked data with improved error handling
      */
     private reconstructChunkedData(entity: any, propertyName: string): string {
-        if (entity[`${propertyName}_isChunked`]) {
-            const chunkCount = entity[`${propertyName}_chunkCount`] || 0;
-            let reconstructed = '';
-            for (let i = 0; i < chunkCount; i++) {
-                reconstructed += entity[`${propertyName}_chunk${i}`] || '';
+        try {
+            if (entity[`${propertyName}_isChunked`]) {
+                const chunkCount = entity[`${propertyName}_chunkCount`] || 0;
+                let reconstructed = '';
+                for (let i = 0; i < chunkCount; i++) {
+                    const chunkData = entity[`${propertyName}_chunk${i}`];
+                    if (chunkData !== undefined && chunkData !== null) {
+                        reconstructed += chunkData;
+                    }
+                }
+                console.log(`📋 Reconstructed ${propertyName} from ${chunkCount} chunks, total length: ${reconstructed.length}`);
+                return reconstructed;
             }
-            return reconstructed;
+            return entity[propertyName] || '';
+        } catch (error) {
+            console.error(`❌ Error reconstructing chunked data for ${propertyName}:`, error);
+            return entity[propertyName] || '';
         }
-        return entity[propertyName] || '';
+    }
+
+    /**
+     * Create minimal metrics object preserving essential information
+     */
+    private createMinimalMetrics(originalMetrics: any): any {
+        if (!originalMetrics) {
+            return { error: "Data too large for storage", hasFullData: false };
+        }
+        const minimal: any = {
+            error: "Data too large for storage",
+            hasFullData: false,
+            originalDataDetected: true
+        };
+        // Preserve essential score information
+        if (originalMetrics.score) {
+            minimal.score = {
+                overall: originalMetrics.score.overall,
+                license: originalMetrics.score.license,
+                secureScore: originalMetrics.score.secureScore
+            };
+        }
+        // Preserve basic metadata
+        if (originalMetrics.assessmentType) {
+            minimal.assessmentType = originalMetrics.assessmentType;
+        }
+        if (originalMetrics.realData?.tenantInfo) {
+            minimal.tenantInfo = originalMetrics.realData.tenantInfo;
+        }
+        // Preserve summary information for secure score if available
+        if (originalMetrics.realData?.secureScore) {
+            minimal.secureScore = {
+                currentScore: originalMetrics.realData.secureScore.currentScore,
+                maxScore: originalMetrics.realData.secureScore.maxScore,
+                percentage: originalMetrics.realData.secureScore.percentage,
+                summary: originalMetrics.realData.secureScore.summary,
+                controlCount: originalMetrics.realData.secureScore.controlScores?.length || 0,
+                truncated: true
+            };
+        }
+        // Preserve license summary if available
+        if (originalMetrics.realData?.licenseInfo) {
+            minimal.licenseInfo = {
+                totalLicenses: originalMetrics.realData.licenseInfo.totalLicenses,
+                assignedLicenses: originalMetrics.realData.licenseInfo.assignedLicenses,
+                utilizationRate: originalMetrics.realData.licenseInfo.utilizationRate,
+                summary: originalMetrics.realData.licenseInfo.summary,
+                truncated: true
+            };
+        }
+        return minimal;
     }
 
     /**
@@ -816,9 +924,16 @@ export class TableStorageService {
      * Helper method to store large data with chunking support
      */
     private prepareLargeDataForStorage(entity: any, propertyName: string, data: string): void {
+        if (!data) {
+            entity[propertyName] = '';
+            entity[`${propertyName}_isChunked`] = false;
+            return;
+        }
+        
         const { chunks, isChunked } = this.chunkLargeData(data);
         
         if (isChunked) {
+            console.log(`📦 Storing ${propertyName} as ${chunks.length} chunks`);
             // Store chunked data
             entity[`${propertyName}_isChunked`] = true;
             entity[`${propertyName}_chunkCount`] = chunks.length;
@@ -827,10 +942,12 @@ export class TableStorageService {
             });
             // Remove the original property to avoid confusion
             delete entity[propertyName];
+            console.log(`✅ ${propertyName} chunked successfully into ${chunks.length} parts`);
         } else {
             // Store as single property
             entity[propertyName] = data;
             entity[`${propertyName}_isChunked`] = false;
+            console.log(`✅ ${propertyName} stored as single property (${data.length} chars)`);
         }
     }
 }
