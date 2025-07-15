@@ -672,10 +672,35 @@
   font-weight: 600;
 }
 
+.controls-count-info {
+  background: #e3f2fd;
+  border: 1px solid #bbdefb;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.controls-count-info .info-icon {
+  font-size: 1.1rem;
+}
+
+.controls-count-info .info-text {
+  color: #1976d2;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
 .table-wrapper {
   overflow-x: auto;
+  overflow-y: auto;
+  max-height: 80vh;
   border-radius: 8px;
   border: 1px solid #e1e8ed;
+  background: white;
+  position: relative;
 }
 
 .secure-score-table {

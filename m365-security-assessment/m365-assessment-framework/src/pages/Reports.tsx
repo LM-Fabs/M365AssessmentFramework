@@ -668,7 +668,7 @@ const Reports: React.FC = () => {
       console.log('📊 Actual total controls from API:', actualTotalControls);
       console.log('📊 Stored controls count:', storedControlsCount);
       console.log('📊 Control scores sample:', controlScores.slice(0, 3));
-      console.log('📊 Will store top 20 controls for display');
+      console.log('📊 Will store ALL controls for display (no limit)');
 
       reports.push({
         category: 'secureScore',
@@ -696,8 +696,8 @@ const Reports: React.FC = () => {
             ]
           }
         },
-        // Store controlScores separately for the table, consistent with new data processing
-        controlScores: controlScores.slice(0, 20),
+        // Store ALL controlScores for the table (no limit)
+        controlScores: controlScores,
         charts: [],
         insights: [
           `Current secure score: ${secureScoreData.currentScore} out of ${secureScoreData.maxScore} points (${secureScoreData.percentage}%)`,
@@ -743,7 +743,7 @@ const Reports: React.FC = () => {
       });
       
       console.log('✅ Secure score report added to reports array');
-      console.log('📊 Report controlScores length:', controlScores.slice(0, 20).length);
+      console.log('📊 Report controlScores length:', controlScores.length);
     }
 
     console.log('=== FINAL REPORTS ARRAY ===');
@@ -1094,7 +1094,7 @@ const Reports: React.FC = () => {
           controlsImplemented: totalImplemented,
           totalControls,
           controlsRemaining,
-          controlScores: controlScores.slice(0, 20),
+          controlScores: controlScores,
           potentialScoreIncrease,
           averageControlScore: totalControls > 0 ? Math.round(controlScores.reduce((sum: number, control: any) => sum + control.currentScore, 0) / totalControls) : 0,
           implementationRate: totalControls > 0 ? Math.round((totalImplemented / totalControls) * 100) : 0
@@ -1118,8 +1118,8 @@ const Reports: React.FC = () => {
           controlsStoredCount: secureScore.controlsStoredCount,
           compressed: secureScore.compressed
         },
-        // Store controlScores separately for the table, not in general metrics
-        controlScores: controlScores.slice(0, 20), // Show top 20 controls
+        // Store ALL controlScores for the table (no limit)
+        controlScores: controlScores,
         charts: [], // No charts needed - we use table view
         insights: [
           `Current secure score: ${currentScore} out of ${maxScore} points (${percentage}%)`,
@@ -1516,6 +1516,17 @@ const Reports: React.FC = () => {
               </span>
             </div>
           )}
+          
+          {/* Show count of controls being displayed */}
+          {controlScores && controlScores.length > 0 && (
+            <div className="controls-count-info">
+              <span className="info-icon">📊</span>
+              <span className="info-text">
+                Showing {controlScores.length} security controls (optimized for storage efficiency)
+              </span>
+            </div>
+          )}
+          
           {controlScores && controlScores.length > 0 ? (
             <div className="table-wrapper">
               <table className="secure-score-table">
