@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.postgresService = exports.PostgreSQLService = void 0;
+exports.postgresqlService = exports.postgresService = exports.PostgreSQLService = void 0;
 const pg_1 = require("pg");
 const identity_1 = require("@azure/identity");
 /**
@@ -987,6 +987,81 @@ class PostgreSQLService {
         }
     }
     /**
+     * Test database connection for health checks
+     */
+    async testConnection() {
+        try {
+            const client = await this.pool.connect();
+            try {
+                const result = await client.query('SELECT version(), current_database()');
+                return {
+                    connected: true,
+                    host: process.env.POSTGRES_HOST || 'localhost',
+                    database: result.rows[0].current_database,
+                    version: result.rows[0].version
+                };
+            }
+            finally {
+                client.release();
+            }
+        }
+        catch (error) {
+            return {
+                connected: false,
+                host: process.env.POSTGRES_HOST || 'localhost',
+                database: process.env.POSTGRES_DATABASE || 'm365_assessment',
+                version: 'unknown'
+            };
+        }
+    }
+    /**
+     * Get database statistics for monitoring
+     */
+    async getDatabaseStats() {
+        try {
+            const client = await this.pool.connect();
+            try {
+                // Get table information
+                const tableQuery = `
+                    SELECT 
+                        schemaname,
+                        tablename,
+                        n_tup_ins as inserts,
+                        n_tup_upd as updates,
+                        n_tup_del as deletes,
+                        n_live_tup as live_tuples,
+                        n_dead_tup as dead_tuples
+                    FROM pg_stat_user_tables
+                    WHERE schemaname = 'public'
+                    ORDER BY tablename;
+                `;
+                const tableResult = await client.query(tableQuery);
+                // Get total record count
+                const countQuery = `
+                    SELECT 
+                        (SELECT COUNT(*) FROM customers) as customer_count,
+                        (SELECT COUNT(*) FROM assessments) as assessment_count,
+                        (SELECT COUNT(*) FROM assessment_history) as history_count;
+                `;
+                const countResult = await client.query(countQuery);
+                const counts = countResult.rows[0];
+                return {
+                    tables: tableResult.rows,
+                    totalRecords: parseInt(counts.customer_count) + parseInt(counts.assessment_count) + parseInt(counts.history_count)
+                };
+            }
+            finally {
+                client.release();
+            }
+        }
+        catch (error) {
+            return {
+                tables: [],
+                totalRecords: 0
+            };
+        }
+    }
+    /**
      * Clean shutdown
      */
     async destroy() {
@@ -998,8 +1073,28 @@ class PostgreSQLService {
             console.error('❌ PostgreSQL: Error closing connection pool:', error);
         }
     }
+    /**
+     * Browse table data for debugging/monitoring
+     */
+    async browseTable(tableName, limit = 10) {
+        const validTables = ['customers', 'assessments', 'assessment_history'];
+        if (!validTables.includes(tableName)) {
+            throw new Error(`Invalid table name. Valid tables: ${validTables.join(', ')}`);
+        }
+        const client = await this.pool.connect();
+        try {
+            const query = `SELECT * FROM ${tableName} ORDER BY created_at DESC LIMIT $1`;
+            const result = await client.query(query, [limit]);
+            return result.rows;
+        }
+        finally {
+            client.release();
+        }
+    }
 }
 exports.PostgreSQLService = PostgreSQLService;
 // Export singleton instance
 exports.postgresService = new PostgreSQLService();
+// Export the service as postgresqlService for backward compatibility
+exports.postgresqlService = exports.postgresService;
 //# sourceMappingURL=postgresqlService.js.map

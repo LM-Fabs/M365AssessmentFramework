@@ -58,7 +58,15 @@ const RecentAssessments: React.FC<RecentAssessmentsProps> = ({ tenantId, limit =
         // Sort by date (newest first) and limit to the specified number
         const sortedAndLimited = recentAssessments
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-          .slice(0, limit);
+          .slice(0, limit)
+          .map(assessment => ({
+            ...assessment,
+            overallScore: typeof assessment.overallScore === 'number' ? assessment.overallScore : 0,
+            categoryScores: {
+              license: typeof assessment.categoryScores?.license === 'number' ? assessment.categoryScores.license : 0,
+              secureScore: typeof assessment.categoryScores?.secureScore === 'number' ? assessment.categoryScores.secureScore : 0
+            }
+          }));
           
         setAssessments(sortedAndLimited);
         console.log('✅ RecentAssessments: Successfully loaded', sortedAndLimited.length, 'assessments (sorted newest first)');
@@ -80,14 +88,23 @@ const RecentAssessments: React.FC<RecentAssessmentsProps> = ({ tenantId, limit =
     return '#ef4444'; // Red
   };
 
-  const formatDate = (date: Date): string => {
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(date);
+  const formatDate = (date: Date | string): string => {
+    try {
+      const dateObj = typeof date === 'string' ? new Date(date) : date;
+      if (!dateObj || isNaN(dateObj.getTime())) {
+        return 'Invalid Date';
+      }
+      return new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(dateObj);
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Invalid Date';
+    }
   };
 
   const handleViewAssessment = (assessmentId: string) => {
@@ -217,10 +234,10 @@ const RecentAssessments: React.FC<RecentAssessmentsProps> = ({ tenantId, limit =
                 <div 
                   className="score-circle" 
                   style={{ 
-                    background: `conic-gradient(${getScoreColor(assessment.overallScore)} ${assessment.overallScore * 3.6}deg, #e5e7eb 0deg)`
+                    background: `conic-gradient(${getScoreColor(assessment.overallScore || 0)} ${(assessment.overallScore || 0) * 3.6}deg, #e5e7eb 0deg)`
                   }}
                 >
-                  <span className="score-value">{assessment.overallScore}%</span>
+                  <span className="score-value">{Math.round(assessment.overallScore || 0)}%</span>
                 </div>
               </div>
             </div>
@@ -228,11 +245,11 @@ const RecentAssessments: React.FC<RecentAssessmentsProps> = ({ tenantId, limit =
             <div className="category-scores-mini">
               <div className="category-mini">
                 <span className="category-label">License</span>
-                <span className="category-value">{Math.round(assessment.categoryScores.license)}%</span>
+                <span className="category-value">{Math.round(assessment.categoryScores?.license || 0)}%</span>
               </div>
               <div className="category-mini">
                 <span className="category-label">Score</span>
-                <span className="category-value">{Math.round(assessment.categoryScores.secureScore)}%</span>
+                <span className="category-value">{Math.round(assessment.categoryScores?.secureScore || 0)}%</span>
               </div>
             </div>
           </div>

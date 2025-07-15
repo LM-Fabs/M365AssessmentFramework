@@ -549,18 +549,18 @@ const Reports: React.FC = () => {
           costData: {
             // Calculate estimated monthly cost based on license types and their typical pricing
             totalMonthlyCost: processedLicenseTypes.reduce((sum: number, license: any) => {
-              const estimatedCostPerLicense = getEstimatedLicenseCost(license.name);
-              return sum + (license.assigned * estimatedCostPerLicense);
+              const effectiveCost = getEffectiveLicenseCost(license.name);
+              return sum + (license.assigned * effectiveCost);
             }, 0),
             unutilizedCost: processedLicenseTypes.reduce((sum: number, license: any) => {
-              const estimatedCostPerLicense = getEstimatedLicenseCost(license.name);
+              const effectiveCost = getEffectiveLicenseCost(license.name);
               const unutilized = license.total - license.assigned;
-              return sum + (unutilized * estimatedCostPerLicense);
+              return sum + (unutilized * effectiveCost);
             }, 0),
             potentialSavings: processedLicenseTypes.reduce((sum: number, license: any) => {
-              const estimatedCostPerLicense = getEstimatedLicenseCost(license.name);
+              const effectiveCost = getEffectiveLicenseCost(license.name);
               const unutilized = license.total - license.assigned;
-              return sum + (unutilized * estimatedCostPerLicense * 0.8); // 80% of unutilized cost
+              return sum + (unutilized * effectiveCost * 0.8); // 80% of unutilized cost
             }, 0)
           },
           licenseTypes: processedLicenseTypes,
@@ -1890,7 +1890,7 @@ const Reports: React.FC = () => {
                             typeof value === 'object' && value !== null ? 
                             (Array.isArray(value) ? `${value.length} items` : 
                              // Better handling for specific object types
-                             key === 'costData' ? `$${((value as any).totalMonthlyCost || 0).toLocaleString()} monthly` :
+                             key === 'costData' ? `€${((value as any).totalMonthlyCost || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} monthly` :
                              key === 'summary' ? ((value as any).status || 'Good') :
                              JSON.stringify(value).length > 50 ? 'View details below' : JSON.stringify(value)
                             ) :
