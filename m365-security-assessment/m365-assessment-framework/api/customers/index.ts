@@ -341,4 +341,5 @@ const customersFunction: AzureFunction = async function (context: Context, req: 
     }
 };
 
+// Force deployment trigger - individual functions approach
 export default customersFunction;
