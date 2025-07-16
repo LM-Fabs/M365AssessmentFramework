@@ -313,7 +313,7 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
             
             const result = await dataService.getCustomers({
                 status: 'active',
-                maxItemCount: 100
+                limit: 100
             });
             
             context.log('Retrieved customers from data service:', result.customers.length);
@@ -908,7 +908,7 @@ async function assessmentHistoryHandler(request: HttpRequest, context: Invocatio
             const assessmentHistory = await dataService.getAssessmentHistory({
                 tenantId,
                 customerId,
-                maxItemCount: limit
+                limit
             });
 
             context.log(`Assessment history retrieved. Count: ${assessmentHistory.length}`);
@@ -1048,10 +1048,10 @@ async function assessmentsHandler(request: HttpRequest, context: InvocationConte
 
         if (customerId) {
             // Get assessments for specific customer
-            const result = await dataService.getCustomerAssessments(customerId, {
-                status: status || undefined,
-                limit: limit
-            });
+        const result = await dataService.getCustomerAssessments(customerId, {
+            status: status || undefined,
+            limit
+        });
             assessments = result.assessments;
         } else {
             // Get all assessments with optional filtering
