@@ -1,11 +1,11 @@
-import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 
-export default async function httpTrigger(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+const httpTrigger: AzureFunction = async function (context: Context, req: HttpRequest): Promise<void> {
     context.log('HTTP trigger function processed a request.');
     
     // Handle CORS preflight
-    if (request.method === 'OPTIONS') {
-        return {
+    if (req.method === 'OPTIONS') {
+        context.res = {
             status: 200,
             headers: {
                 'Access-Control-Allow-Origin': '*',
@@ -13,10 +13,11 @@ export default async function httpTrigger(request: HttpRequest, context: Invocat
                 'Access-Control-Allow-Headers': 'Content-Type, Authorization'
             }
         };
+        return;
     }
     
     // Set CORS headers and return response
-    return {
+    context.res = {
         status: 200,
         headers: {
             'Content-Type': 'application/json',
@@ -24,13 +25,15 @@ export default async function httpTrigger(request: HttpRequest, context: Invocat
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization'
         },
-        jsonBody: {
+        body: {
             success: true,
             message: "Traditional function.json test endpoint is working!",
             timestamp: new Date().toISOString(),
-            method: request.method,
-            query: request.query,
+            method: req.method,
+            query: req.query,
             environment: process.env.NODE_ENV || 'production'
         }
     };
-}
+};
+
+export default httpTrigger;

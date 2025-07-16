@@ -1,4 +1,4 @@
-import { Context, HttpRequest } from "@azure/functions";
+import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { TableStorageService } from "../shared/tableStorageService";
 import { PostgreSQLService } from "../shared/postgresqlService";
 import { GraphApiService } from "../shared/graphApiService";
@@ -47,7 +47,7 @@ async function initializeDataService(context: Context): Promise<void> {
             tableStorageService = new TableStorageService();
             postgresqlService = new PostgreSQLService();
             graphApiService = new GraphApiService();
-            keyVaultService = await getKeyVaultService(context);
+            keyVaultService = await getKeyVaultService();
 
             // Try PostgreSQL first
             try {
@@ -68,7 +68,7 @@ async function initializeDataService(context: Context): Promise<void> {
             isDataServiceInitialized = true;
             context.log('✅ Data service initialization complete');
         } catch (error) {
-            context.error('❌ Data service initialization failed:', error);
+            context.log.error('❌ Data service initialization failed:', error);
             throw error;
         }
     })();

@@ -1,6 +1,6 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 
-async function testHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+const httpTrigger: AzureFunction = async function (context: Context, req: HttpRequest): Promise<void> {
     context.log('🧪 Test endpoint called');
     
     const corsHeaders = {
@@ -11,29 +11,25 @@ async function testHandler(request: HttpRequest, context: InvocationContext): Pr
     };
     
     // Handle OPTIONS request for CORS
-    if (request.method === 'OPTIONS') {
-        return {
+    if (req.method === 'OPTIONS') {
+        context.res = {
             status: 200,
             headers: corsHeaders
         };
+        return;
     }
     
-    return {
+    context.res = {
         status: 200,
         headers: corsHeaders,
-        jsonBody: {
+        body: {
             success: true,
             message: 'API is working! 🚀',
             timestamp: new Date().toISOString(),
-            method: request.method,
-            url: request.url
+            method: req.method,
+            url: req.url
         }
     };
-}
+};
 
-app.http('test', {
-    methods: ['GET', 'OPTIONS'],
-    authLevel: 'anonymous',
-    route: 'test',
-    handler: testHandler
-});
+export default httpTrigger;
