@@ -17,10 +17,12 @@
     "@azure/identity": "^4.0.1",
     "@azure/keyvault-secrets": "^4.8.0",
     "@microsoft/microsoft-graph-client": "^3.0.7",
-    "@microsoft/microsoft-graph-types": "^2.40.0"
+    "@microsoft/microsoft-graph-types": "^2.40.0",
+    "pg": "^8.11.3"
   },
   "devDependencies": {
     "@types/node": "^20.x",
+    "@types/pg": "^8.10.9",
     "typescript": "^5.0.0"
   }
 }

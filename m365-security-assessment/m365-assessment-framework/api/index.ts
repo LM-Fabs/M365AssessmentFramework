@@ -210,16 +210,19 @@ async function diagnosticsHandler(request: HttpRequest, context: InvocationConte
                 AZURE_CLIENT_ID: process.env.AZURE_CLIENT_ID ? 'SET' : 'NOT SET',
                 AZURE_TENANT_ID: process.env.AZURE_TENANT_ID ? 'SET' : 'NOT SET',
                 KEY_VAULT_URL: process.env.KEY_VAULT_URL ? 'SET' : 'NOT SET',
-                APPLICATIONINSIGHTS_CONNECTION_STRING: process.env.APPLICATIONINSIGHTS_CONNECTION_STRING ? 'SET' : 'NOT SET',
-                AzureWebJobsStorage: process.env.AzureWebJobsStorage ? 'SET' : 'NOT SET',
-                AZURE_STORAGE_CONNECTION_STRING: process.env.AZURE_STORAGE_CONNECTION_STRING ? 'SET' : 'NOT SET'
+                POSTGRES_HOST: process.env.POSTGRES_HOST ? 'SET' : 'NOT SET',
+                POSTGRES_DATABASE: process.env.POSTGRES_DATABASE ? 'SET' : 'NOT SET',
+                POSTGRES_USER: process.env.POSTGRES_USER ? 'SET' : 'NOT SET',
+                POSTGRES_PASSWORD: process.env.POSTGRES_PASSWORD ? 'SET' : 'NOT SET',
+                NODE_ENV: process.env.NODE_ENV || 'NOT SET',
+                APPLICATIONINSIGHTS_CONNECTION_STRING: process.env.APPLICATIONINSIGHTS_CONNECTION_STRING ? 'SET' : 'NOT SET'
             },
             dataService: {
                 initialized: isDataServiceInitialized,
-                type: 'Table Storage',
-                tableStorageAvailable: !!(process.env.AzureWebJobsStorage || process.env.AZURE_STORAGE_CONNECTION_STRING)
+                type: usingPostgreSQL ? 'PostgreSQL' : 'Not Initialized',
+                postgresqlConfigured: !!(process.env.POSTGRES_HOST && process.env.POSTGRES_DATABASE)
             },
-            version: '1.0.8'
+            version: '1.0.9'
         };
 
         return {
@@ -420,7 +423,7 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 };
             }
 
-            // Create customer using Table Storage service
+            // Create customer using PostgreSQL service
             const customerRequest = {
                 tenantName: customerData.tenantName,
                 tenantDomain: customerData.tenantDomain,
