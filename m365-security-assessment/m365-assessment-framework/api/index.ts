@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { TableStorageService } from "./shared/tableStorageService";
+import { PostgreSQLService } from "./shared/postgresqlService";
 import { GraphApiService } from "./shared/graphApiService";
 import { getKeyVaultService, KeyVaultService } from "./shared/keyVaultService";
 import { Customer } from "./shared/types";
@@ -28,11 +29,13 @@ const CACHE_TTL = {
 
 // Initialize data services with connection pooling
 let tableStorageService: TableStorageService;
+let postgresqlService: PostgreSQLService;
 let graphApiService: GraphApiService;
 let keyVaultService: KeyVaultService | null = null;
-let dataService: TableStorageService;
+let dataService: TableStorageService | PostgreSQLService;
 let isDataServiceInitialized = false;
 let initializationPromise: Promise<void> | null = null;
+let usingPostgreSQL = false;
 
 // Cache helper functions for performance optimization
 function getCachedData(key: string): any | null {
@@ -64,10 +67,35 @@ async function initializeDataService(context: InvocationContext): Promise<void> 
             const startTime = Date.now();
             context.log('🚀 Initializing data services...');
             
-            // Initialize Table Storage service with optimized settings
-            tableStorageService = new TableStorageService();
-            await tableStorageService.initialize();
-            dataService = tableStorageService;
+            // Check if PostgreSQL is configured
+            const hasPostgresConfig = process.env.POSTGRES_HOST && process.env.POSTGRES_DATABASE;
+            
+            if (hasPostgresConfig) {
+                try {
+                    // Initialize PostgreSQL service
+                    context.log('🐘 Attempting to initialize PostgreSQL service...');
+                    postgresqlService = new PostgreSQLService();
+                    await postgresqlService.initialize();
+                    dataService = postgresqlService;
+                    usingPostgreSQL = true;
+                    context.log('✅ PostgreSQL service initialized successfully - unlimited data storage enabled!');
+                } catch (error) {
+                    context.warn('⚠️ PostgreSQL initialization failed, falling back to Table Storage:', error);
+                    // Fall back to Table Storage
+                    tableStorageService = new TableStorageService();
+                    await tableStorageService.initialize();
+                    dataService = tableStorageService;
+                    usingPostgreSQL = false;
+                    context.log('✅ Table Storage service initialized as fallback');
+                }
+            } else {
+                // Use Table Storage when PostgreSQL is not configured
+                context.log('📊 Using Table Storage service (PostgreSQL not configured)');
+                tableStorageService = new TableStorageService();
+                await tableStorageService.initialize();
+                dataService = tableStorageService;
+                usingPostgreSQL = false;
+            }
             
             // Initialize Graph API service with better error handling
             try {
@@ -88,7 +116,7 @@ async function initializeDataService(context: InvocationContext): Promise<void> 
             }
             
             const duration = Date.now() - startTime;
-            context.log(`✅ Data services initialized successfully in ${duration}ms`);
+            context.log(`✅ Data services initialized successfully in ${duration}ms using ${usingPostgreSQL ? 'PostgreSQL' : 'Table Storage'}`);
             isDataServiceInitialized = true;
         } catch (error) {
             context.error('❌ Data services initialization failed:', error);

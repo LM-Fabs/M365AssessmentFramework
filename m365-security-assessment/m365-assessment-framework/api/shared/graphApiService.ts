@@ -404,8 +404,8 @@ export class GraphApiService {
             let allControlProfiles: any[] = [];
             let nextLink: string | undefined;
             let pageCount = 0;
-            const maxPages = 5; // Reduced from 10 to limit data size
-            const maxControlsPerPage = 50; // Reduced from 100 to limit memory usage
+            const maxPages = 20; // Increased to get more complete data with PostgreSQL
+            const maxControlsPerPage = 100; // Restored to maximum for better data collection
             
             do {
                 pageCount++;
@@ -429,9 +429,9 @@ export class GraphApiService {
                     allControlProfiles.push(...currentPageResponse.value);
                     console.log(`✅ GraphApiService: Page ${pageCount} retrieved ${currentPageResponse.value.length} control profiles. Total: ${allControlProfiles.length}`);
                     
-                    // Stop if we have enough data for storage efficiency
-                    if (allControlProfiles.length >= 250) {
-                        console.log(`⚠️ GraphApiService: Reached 250 controls limit for storage efficiency. Stopping pagination.`);
+                    // Check if we have enough data for meaningful analysis
+                    if (allControlProfiles.length >= 500) {
+                        console.log(`📊 GraphApiService: Retrieved ${allControlProfiles.length} controls - stopping for performance optimization.`);
                         break;
                     }
                 }
@@ -448,25 +448,25 @@ export class GraphApiService {
 
             console.log(`🎉 GraphApiService: Pagination complete. Retrieved ${allControlProfiles.length} total control profiles in ${pageCount} page(s).`);
 
-            // Optimize control scores data for storage - keep only essential information
+            // Optimize control scores data for storage - keep essential information with PostgreSQL's unlimited storage
             const controlScores = allControlProfiles.map((control: any) => ({
-                controlName: (control.title || control.controlName || 'Unknown Control').substring(0, 100), // Limit length
-                category: (control.controlCategory || 'General').substring(0, 50), // Limit length
+                controlName: (control.title || control.controlName || 'Unknown Control').substring(0, 150), // Increased length for better descriptions
+                category: (control.controlCategory || 'General').substring(0, 80), // Increased length for better categorization
                 currentScore: control.score || 0,
                 maxScore: control.maxScore || 0,
-                implementationStatus: (control.implementationStatus || 'Not Implemented').substring(0, 30), // Limit length
-                actionType: (control.actionType || 'Other').substring(0, 30), // Add action type
-                remediation: (control.remediation || 'No remediation information available').substring(0, 200) // Add remediation info
-            })).slice(0, 100) || []; // Limit to top 100 controls to reduce size
+                implementationStatus: (control.implementationStatus || 'Not Implemented').substring(0, 50), // Increased length for better status
+                actionType: (control.actionType || 'Other').substring(0, 50), // Add action type with increased length
+                remediation: (control.remediation || 'No remediation information available').substring(0, 400) // Increased length for better remediation info
+            })) || []; // Remove artificial limit to show all controls with PostgreSQL
 
             // Extract recommended actions from control profiles for the recommendations section
             const recommendedActions = allControlProfiles
                 .filter((control: any) => control.implementationStatus !== 'Implemented' && control.remediation)
-                .slice(0, 10) // Top 10 most important actions
+                .slice(0, 25) // Increased to show more recommendations with PostgreSQL
                 .map((control: any) => ({
-                    title: (control.title || control.controlName || 'Unknown Control').substring(0, 80),
-                    action: (control.remediation || 'Review this security control').substring(0, 150),
-                    category: (control.controlCategory || 'General').substring(0, 30),
+                    title: (control.title || control.controlName || 'Unknown Control').substring(0, 120),
+                    action: (control.remediation || 'Review this security control').substring(0, 250),
+                    category: (control.controlCategory || 'General').substring(0, 50),
                     priority: control.rank || 'Medium' // Use rank or default to medium
                 }));
 

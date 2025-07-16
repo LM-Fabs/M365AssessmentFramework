@@ -506,92 +506,196 @@ const Reports: React.FC = () => {
 
     const reports: ReportData[] = [];
 
-    // Process data based on what's available in the assessment
+    // Process license data
     if (assessment.metrics?.realData?.licenseInfo || assessment.metrics?.licenseInfo) {
-      // ... existing license processing logic ...
       const licenseData = assessment.metrics?.realData?.licenseInfo || assessment.metrics?.licenseInfo;
-      // Generate license reports...
+      console.log('Processing license data:', licenseData);
       
-      const licenseDetails = licenseData.licenseDetails || [];
-      console.log('Processing license details:', licenseDetails);
+      // Check if it's the old format (single object) or new format (array)
+      const info = Array.isArray(licenseData) ? licenseData[0] : licenseData;
+      
+      if (info && typeof info === 'object') {
+        // Handle both old format (summary data) and new format (detailed data)
+        if (info.totalLicenses !== undefined || info.assignedLicenses !== undefined) {
+          // Old format - direct summary values
+          const totalLicenses = Number(info.totalLicenses) || 0;
+          const assignedLicenses = Number(info.assignedLicenses) || 0;
+          const unutilizedLicenses = totalLicenses - assignedLicenses;
+          const utilizationRate = totalLicenses > 0 ? Math.round((assignedLicenses / totalLicenses) * 100) : 0;
 
-      const processedLicenseTypes = licenseDetails
-        .filter((license: any) => license.totalUnits > 0 || license.assignedUnits > 0)
-        .map((license: any) => {
-          console.log(`Processing license: ${license.skuPartNumber}, assigned: ${license.assignedUnits}, total: ${license.totalUnits}`);
-          return {
-            name: formatLicenseName(license.skuPartNumber),
-            assigned: license.assignedUnits || license.consumedUnits || 0,
-            total: license.totalUnits || 0,
-            available: (license.totalUnits || 0) - (license.assignedUnits || license.consumedUnits || 0),
-            utilizationRate: license.totalUnits > 0 ? 
-              Math.round(((license.assignedUnits || license.consumedUnits || 0) / license.totalUnits) * 100) : 0,
-            cost: getEffectiveLicenseCost(license.skuPartNumber),
-            skuPartNumber: license.skuPartNumber
-          };
-        })
-        .sort((a: any, b: any) => b.assigned - a.assigned);
+          // Process license details from the API response structure
+          const licenseDetails = info.licenseDetails || [];
+          console.log('Processing license details:', licenseDetails);
 
-      console.log('Processed license types:', processedLicenseTypes);
+          // Group license details by SKU and sum up the values
+          const licenseTypeMap = new Map<string, { name: string; assigned: number; total: number; skuPartNumber: string; cost: number }>();
+          
+          licenseDetails.forEach((license: any) => {
+            const skuName = license.skuPartNumber || license.skuDisplayName || license.servicePlanName || 'Unknown License';
+            const assignedUnits = Number(license.assignedUnits) || 0;
+            const totalUnits = Number(license.totalUnits) || 0;
+            
+            console.log(`Processing license: ${skuName}, assigned: ${assignedUnits}, total: ${totalUnits}`);
+            
+            if (licenseTypeMap.has(skuName)) {
+              const existing = licenseTypeMap.get(skuName)!;
+              existing.assigned += assignedUnits;
+              existing.total += totalUnits;
+            } else {
+              licenseTypeMap.set(skuName, {
+                name: skuName,
+                assigned: assignedUnits,
+                total: totalUnits,
+                skuPartNumber: skuName,
+                cost: getEffectiveLicenseCost(skuName)
+              });
+            }
+          });
 
-      const totalLicenses = processedLicenseTypes.reduce((sum: any, license: any) => sum + license.total, 0);
-      const assignedLicenses = processedLicenseTypes.reduce((sum: any, license: any) => sum + license.assigned, 0);
-      const unutilizedLicenses = totalLicenses - assignedLicenses;
-      const utilizationRate = totalLicenses > 0 ? Math.round((assignedLicenses / totalLicenses) * 100) : 0;
+          // Convert to array and filter out licenses with 0 assigned
+          const processedLicenseTypes = Array.from(licenseTypeMap.values())
+            .filter(license => license.assigned > 0)
+            .sort((a, b) => b.assigned - a.assigned);
 
-      reports.push({
-        category: 'license',
-        metrics: {
-          totalLicenses,
-          assignedLicenses,
-          unutilizedLicenses,
-          utilizationRate,
-          costData: {
-            // Calculate estimated monthly cost based on license types and their typical pricing
-            totalMonthlyCost: processedLicenseTypes.reduce((sum: number, license: any) => {
-              const effectiveCost = getEffectiveLicenseCost(license.name);
-              return sum + (license.assigned * effectiveCost);
-            }, 0),
-            unutilizedCost: processedLicenseTypes.reduce((sum: number, license: any) => {
-              const effectiveCost = getEffectiveLicenseCost(license.name);
-              const unutilized = license.total - license.assigned;
-              return sum + (unutilized * effectiveCost);
-            }, 0),
-            potentialSavings: processedLicenseTypes.reduce((sum: number, license: any) => {
-              const effectiveCost = getEffectiveLicenseCost(license.name);
-              const unutilized = license.total - license.assigned;
-              return sum + (unutilized * effectiveCost * 0.8); // 80% of unutilized cost
-            }, 0)
-          },
-          licenseTypes: processedLicenseTypes,
-          summary: {
-            mostUsedLicense: processedLicenseTypes[0]?.name || 'N/A',
-            leastUsedLicense: processedLicenseTypes[processedLicenseTypes.length - 1]?.name || 'N/A',
-            recommendedActions: [
-              utilizationRate < 70 ? 'Consider reducing unused licenses' : 'License usage is optimal',
+          console.log('Processed license types:', processedLicenseTypes);
+
+          reports.push({
+            category: 'license',
+            metrics: {
+              totalLicenses,
+              assignedLicenses,
+              unutilizedLicenses,
+              utilizationRate,
+              costData: {
+                // Calculate estimated monthly cost based on license types and their typical pricing
+                totalMonthlyCost: processedLicenseTypes.reduce((sum: number, license: any) => {
+                  const effectiveCost = getEffectiveLicenseCost(license.name);
+                  return sum + (license.assigned * effectiveCost);
+                }, 0),
+                unutilizedCost: processedLicenseTypes.reduce((sum: number, license: any) => {
+                  const effectiveCost = getEffectiveLicenseCost(license.name);
+                  const unutilized = license.total - license.assigned;
+                  return sum + (unutilized * effectiveCost);
+                }, 0),
+                potentialSavings: processedLicenseTypes.reduce((sum: number, license: any) => {
+                  const effectiveCost = getEffectiveLicenseCost(license.name);
+                  const unutilized = license.total - license.assigned;
+                  return sum + (unutilized * effectiveCost * 0.8); // 80% of unutilized cost
+                }, 0)
+              },
+              licenseTypes: processedLicenseTypes,
+              summary: {
+                mostUsedLicense: processedLicenseTypes[0]?.name || 'N/A',
+                leastUsedLicense: processedLicenseTypes[processedLicenseTypes.length - 1]?.name || 'N/A',
+                recommendedActions: [
+                  utilizationRate < 70 ? 'Consider reducing unused licenses' : 'License usage is optimal',
+                  'Review license assignments quarterly',
+                  'Consider license pooling for better efficiency'
+                ]
+              }
+            },
+            charts: [],
+            insights: [
+              `Total licenses: ${totalLicenses.toLocaleString()}`,
+              `Assigned licenses: ${assignedLicenses.toLocaleString()} (${utilizationRate}%)`,
+              `Unutilized licenses: ${unutilizedLicenses.toLocaleString()}`,
+              `Most used license: ${processedLicenseTypes[0] ? formatLicenseName(processedLicenseTypes[0].name) : 'N/A'}`,
+              utilizationRate < 60 ? 'License utilization is below optimal levels' :
+              utilizationRate < 80 ? 'License utilization is moderate' :
+              'License utilization is good'
+            ],
+            recommendations: [
+              utilizationRate < 70 ? 'Consider reducing unused licenses to save costs' : 'Monitor license usage regularly',
               'Review license assignments quarterly',
-              'Consider license pooling for better efficiency'
+              'Consider license pooling for better efficiency',
+              'Upgrade high-usage users to premium licenses when appropriate',
+              unutilizedLicenses > 10 ? 'Significant cost savings possible by reducing unused licenses' : 'License usage is well optimized'
             ]
-          }
-        },
-        charts: [],
-        insights: [
-          `Total licenses: ${totalLicenses.toLocaleString()}`,
-          `Assigned licenses: ${assignedLicenses.toLocaleString()} (${utilizationRate}%)`,
-          `Unutilized licenses: ${unutilizedLicenses.toLocaleString()}`,
-          `Most used license: ${processedLicenseTypes[0]?.name || 'N/A'}`,
-          utilizationRate < 60 ? 'License utilization is below optimal levels' :
-          utilizationRate < 80 ? 'License utilization is moderate' :
-          'License utilization is good'
-        ],
-        recommendations: [
-          utilizationRate < 70 ? 'Consider reducing unused licenses to save costs' : 'Monitor license usage regularly',
-          'Review license assignments quarterly',
-          'Consider license pooling for better efficiency',
-          'Upgrade high-usage users to premium licenses when appropriate',
-          unutilizedLicenses > 10 ? 'Significant cost savings possible by reducing unused licenses' : 'License usage is well optimized'
-        ]
-      });
+          });
+        } else {
+          // New format - process license details directly
+          const licenseDetails = info.licenseDetails || [];
+          console.log('Processing license details (new format):', licenseDetails);
+
+          const processedLicenseTypes = licenseDetails
+            .filter((license: any) => license.totalUnits > 0 || license.assignedUnits > 0)
+            .map((license: any) => {
+              console.log(`Processing license: ${license.skuPartNumber}, assigned: ${license.assignedUnits}, total: ${license.totalUnits}`);
+              return {
+                name: formatLicenseName(license.skuPartNumber),
+                assigned: license.assignedUnits || license.consumedUnits || 0,
+                total: license.totalUnits || 0,
+                available: (license.totalUnits || 0) - (license.assignedUnits || license.consumedUnits || 0),
+                utilizationRate: license.totalUnits > 0 ? 
+                  Math.round(((license.assignedUnits || license.consumedUnits || 0) / license.totalUnits) * 100) : 0,
+                cost: getEffectiveLicenseCost(license.skuPartNumber),
+                skuPartNumber: license.skuPartNumber
+              };
+            })
+            .sort((a: any, b: any) => b.assigned - a.assigned);
+
+          console.log('Processed license types:', processedLicenseTypes);
+
+          const totalLicenses = processedLicenseTypes.reduce((sum: any, license: any) => sum + license.total, 0);
+          const assignedLicenses = processedLicenseTypes.reduce((sum: any, license: any) => sum + license.assigned, 0);
+          const unutilizedLicenses = totalLicenses - assignedLicenses;
+          const utilizationRate = totalLicenses > 0 ? Math.round((assignedLicenses / totalLicenses) * 100) : 0;
+
+          reports.push({
+            category: 'license',
+            metrics: {
+              totalLicenses,
+              assignedLicenses,
+              unutilizedLicenses,
+              utilizationRate,
+              costData: {
+                // Calculate estimated monthly cost based on license types and their typical pricing
+                totalMonthlyCost: processedLicenseTypes.reduce((sum: number, license: any) => {
+                  const effectiveCost = getEffectiveLicenseCost(license.name);
+                  return sum + (license.assigned * effectiveCost);
+                }, 0),
+                unutilizedCost: processedLicenseTypes.reduce((sum: number, license: any) => {
+                  const effectiveCost = getEffectiveLicenseCost(license.name);
+                  const unutilized = license.total - license.assigned;
+                  return sum + (unutilized * effectiveCost);
+                }, 0),
+                potentialSavings: processedLicenseTypes.reduce((sum: number, license: any) => {
+                  const effectiveCost = getEffectiveLicenseCost(license.name);
+                  const unutilized = license.total - license.assigned;
+                  return sum + (unutilized * effectiveCost * 0.8); // 80% of unutilized cost
+                }, 0)
+              },
+              licenseTypes: processedLicenseTypes,
+              summary: {
+                mostUsedLicense: processedLicenseTypes[0]?.name || 'N/A',
+                leastUsedLicense: processedLicenseTypes[processedLicenseTypes.length - 1]?.name || 'N/A',
+                recommendedActions: [
+                  utilizationRate < 70 ? 'Consider reducing unused licenses' : 'License usage is optimal',
+                  'Review license assignments quarterly',
+                  'Consider license pooling for better efficiency'
+                ]
+              }
+            },
+            charts: [],
+            insights: [
+              `Total licenses: ${totalLicenses.toLocaleString()}`,
+              `Assigned licenses: ${assignedLicenses.toLocaleString()} (${utilizationRate}%)`,
+              `Unutilized licenses: ${unutilizedLicenses.toLocaleString()}`,
+              `Most used license: ${processedLicenseTypes[0]?.name || 'N/A'}`,
+              utilizationRate < 60 ? 'License utilization is below optimal levels' :
+              utilizationRate < 80 ? 'License utilization is moderate' :
+              'License utilization is good'
+            ],
+            recommendations: [
+              utilizationRate < 70 ? 'Consider reducing unused licenses to save costs' : 'Monitor license usage regularly',
+              'Review license assignments quarterly',
+              'Consider license pooling for better efficiency',
+              'Upgrade high-usage users to premium licenses when appropriate',
+              unutilizedLicenses > 10 ? 'Significant cost savings possible by reducing unused licenses' : 'License usage is well optimized'
+            ]
+          });
+        }
+      }
     }
 
     // Process secure score data
