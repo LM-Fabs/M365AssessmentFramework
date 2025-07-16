@@ -92,7 +92,7 @@ class TableStorageService {
                 break;
             customers.push({
                 id: entity.rowKey,
-                tenantId: entity.tenantId || '', // Include tenant ID
+                tenantId: entity.tenantId || '',
                 tenantName: entity.tenantName,
                 tenantDomain: entity.tenantDomain,
                 contactEmail: entity.contactEmail || '',
@@ -115,7 +115,7 @@ class TableStorageService {
             for await (const entity of iterator) {
                 return {
                     id: entity.rowKey,
-                    tenantId: entity.tenantId || '', // Include tenant ID
+                    tenantId: entity.tenantId || '',
                     tenantName: entity.tenantName,
                     tenantDomain: entity.tenantDomain,
                     contactEmail: entity.contactEmail || '',
@@ -138,7 +138,7 @@ class TableStorageService {
         const customerId = `customer-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const customer = {
             id: customerId,
-            tenantId: customerRequest.tenantId || '', // Include tenant ID
+            tenantId: customerRequest.tenantId || '',
             tenantName: customerRequest.tenantName,
             tenantDomain: customerRequest.tenantDomain,
             contactEmail: customerRequest.contactEmail || '',
@@ -151,7 +151,7 @@ class TableStorageService {
         const entity = {
             partitionKey: 'customer',
             rowKey: customerId,
-            tenantId: customerRequest.tenantId || '', // Store the actual tenant ID
+            tenantId: customerRequest.tenantId || '',
             tenantName: customer.tenantName,
             tenantDomain: customer.tenantDomain,
             contactEmail: customer.contactEmail,
@@ -180,7 +180,7 @@ class TableStorageService {
             const entity = await this.customersTable.getEntity('customer', customerId);
             return {
                 id: entity.rowKey,
-                tenantId: entity.tenantId || '', // Include the tenant ID
+                tenantId: entity.tenantId || '',
                 tenantName: entity.tenantName,
                 tenantDomain: entity.tenantDomain,
                 contactEmail: entity.contactEmail || '',
@@ -232,13 +232,13 @@ class TableStorageService {
             const updatedEntity = {
                 partitionKey: 'customer',
                 rowKey: customerId,
-                tenantId: updates.tenantId ?? existingEntity.tenantId ?? '', // Include tenant ID
+                tenantId: updates.tenantId ?? existingEntity.tenantId ?? '',
                 tenantName: updates.tenantName ?? existingEntity.tenantName,
                 tenantDomain: updates.tenantDomain ?? existingEntity.tenantDomain,
                 contactEmail: updates.contactEmail ?? existingEntity.contactEmail ?? '',
                 notes: updates.notes ?? existingEntity.notes ?? '',
                 status: updates.status ?? existingEntity.status,
-                createdDate: existingEntity.createdDate, // Keep original creation date
+                createdDate: existingEntity.createdDate,
                 lastAssessmentDate: updates.lastAssessmentDate
                     ? (updates.lastAssessmentDate instanceof Date ? updates.lastAssessmentDate.toISOString() : updates.lastAssessmentDate)
                     : existingEntity.lastAssessmentDate,
@@ -263,7 +263,7 @@ class TableStorageService {
             }
             return {
                 id: customerId,
-                tenantId: updatedEntity.tenantId, // Include tenant ID
+                tenantId: updatedEntity.tenantId,
                 tenantName: updatedEntity.tenantName,
                 tenantDomain: updatedEntity.tenantDomain,
                 contactEmail: updatedEntity.contactEmail,
@@ -295,7 +295,7 @@ class TableStorageService {
             if (appRegistration && appRegistration.clientId === clientId) {
                 return {
                     id: entity.rowKey,
-                    tenantId: entity.tenantId || '', // Include tenant ID
+                    tenantId: entity.tenantId || '',
                     tenantName: entity.tenantName,
                     tenantDomain: entity.tenantDomain,
                     contactEmail: entity.contactEmail || '',
@@ -819,10 +819,10 @@ class TableStorageService {
                     .slice(0, 30)
                     .map((control) => ({
                     // Compress field names and limit string lengths more aggressively
-                    n: (control.controlName || '').substring(0, 40), // name (reduced from 60)
-                    c: (control.category || '').substring(0, 20), // category (reduced from 30)
-                    cs: control.currentScore || 0, // current score
-                    ms: control.maxScore || 0, // max score
+                    n: (control.controlName || '').substring(0, 40),
+                    c: (control.category || '').substring(0, 20),
+                    cs: control.currentScore || 0,
+                    ms: control.maxScore || 0,
                     s: (control.implementationStatus || '').substring(0, 15) // status (reduced from 20)
                 }));
                 optimized.realData.secureScore = {
