@@ -222,7 +222,7 @@ async function diagnosticsHandler(request: HttpRequest, context: InvocationConte
                 type: usingPostgreSQL ? 'PostgreSQL' : 'Not Initialized',
                 postgresqlConfigured: !!(process.env.POSTGRES_HOST && process.env.POSTGRES_DATABASE)
             },
-            version: '1.0.11'
+            version: '1.0.12'
         };
 
         return {
@@ -281,7 +281,7 @@ async function testHandler(request: HttpRequest, context: InvocationContext): Pr
             success: true,
             message: "M365 Assessment API is working!",
             timestamp: new Date().toISOString(),
-            version: "1.0.11",
+            version: "1.0.12",
             status: "healthy"
         }
     };

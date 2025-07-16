@@ -2,6 +2,7 @@ import { Pool, PoolClient, PoolConfig } from 'pg';
 import { DefaultAzureCredential } from '@azure/identity';
 import { Assessment, Customer, AssessmentHistory } from './types';
 import { getKeyVaultService } from './keyVaultService';
+import { getFirewallManager } from './firewallManager';
 
 /**
  * PostgreSQL Database Service for M365 Assessment Framework
@@ -77,6 +78,26 @@ export class PostgreSQLService {
             }
         } catch (error) {
             console.error('❌ PostgreSQL: Schema initialization failed:', error);
+            
+            // Try to handle firewall-related errors automatically
+            if (error instanceof Error) {
+                try {
+                    const firewallManager = getFirewallManager();
+                    const shouldRetry = await firewallManager.handleConnectionError(error);
+                    
+                    if (shouldRetry) {
+                        console.log('🔄 PostgreSQL: Retrying initialization after firewall update...');
+                        // Wait a moment for firewall rules to take effect
+                        await new Promise(resolve => setTimeout(resolve, 5000));
+                        
+                        // Retry initialization
+                        return this.initialize();
+                    }
+                } catch (firewallError) {
+                    console.error('❌ PostgreSQL: Firewall management failed:', firewallError);
+                }
+            }
+            
             throw new Error(`Database initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
@@ -126,6 +147,18 @@ export class PostgreSQLService {
             const port = process.env.POSTGRES_PORT || '5432';
             const database = process.env.POSTGRES_DATABASE || 'm365_assessment';
             config.connectionString = `postgres://${user}:${password}@${host}:${port}/${database}?sslmode=require`;
+        }
+
+        // Set up comprehensive firewall rules in production
+        if (process.env.NODE_ENV === 'production') {
+            try {
+                console.log('🛡️ PostgreSQL: Setting up comprehensive firewall rules...');
+                const firewallManager = getFirewallManager();
+                await firewallManager.setupComprehensiveFirewallRules();
+                console.log('✅ PostgreSQL: Firewall rules configured successfully');
+            } catch (firewallError) {
+                console.warn('⚠️ PostgreSQL: Failed to set up firewall rules (connection may still work):', firewallError);
+            }
         }
 
         // Set authentication based on environment
