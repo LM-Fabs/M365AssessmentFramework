@@ -24,6 +24,8 @@
     "*.backup",
     "**/*.backup",
     "*backup*",
-    "**/*backup*"
+    "**/*backup*",
+    "test-*.js",
+    "**/*test*.js"
   ]
 }
