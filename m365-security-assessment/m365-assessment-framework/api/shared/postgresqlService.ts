@@ -1,6 +1,7 @@
 import { Pool, PoolClient, PoolConfig } from 'pg';
 import { DefaultAzureCredential } from '@azure/identity';
 import { Assessment, Customer, AssessmentHistory } from './types';
+import { getKeyVaultService } from './keyVaultService';
 
 /**
  * PostgreSQL Database Service for M365 Assessment Framework
@@ -21,54 +22,7 @@ export class PostgreSQLService {
 
     constructor() {
         this.credential = new DefaultAzureCredential();
-        this.initializePool();
-    }
-
-    /**
-     * Initialize connection pool with optimized settings
-     */
-    private initializePool(): void {
-        const config: PoolConfig = {
-            host: process.env.POSTGRES_HOST || 'localhost',
-            port: parseInt(process.env.POSTGRES_PORT || '5432'),
-            database: process.env.POSTGRES_DATABASE || 'm365_assessment',
-            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-            
-            // Connection pool settings for optimal performance
-            max: 20, // Maximum number of connections
-            min: 5,  // Minimum connections to maintain
-            idleTimeoutMillis: 30000, // Close idle connections after 30s
-            connectionTimeoutMillis: 10000, // Connection timeout
-            
-            // Performance optimizations
-            statement_timeout: 30000, // 30 second query timeout
-            query_timeout: 30000,
-            keepAlive: true,
-            keepAliveInitialDelayMillis: 10000,
-        };
-
-        // Use managed identity authentication in production
-        if (process.env.NODE_ENV === 'production') {
-            // PostgreSQL Flexible Server with managed identity
-            config.user = process.env.POSTGRES_USER || 'assessment_app';
-            // Password will be obtained via managed identity token
-            this.setupManagedIdentityAuth();
-        } else {
-            // Local development
-            config.user = process.env.POSTGRES_USER || 'postgres';
-            config.password = process.env.POSTGRES_PASSWORD || 'password';
-        }
-
-        this.pool = new Pool(config);
-
-        // Handle pool errors
-        this.pool.on('error', (err: Error) => {
-            console.error('💥 PostgreSQL Pool Error:', err);
-        });
-
-        this.pool.on('connect', () => {
-            console.log('✅ PostgreSQL: New connection established');
-        });
+        // Pool initialization is deferred to initialize() method to allow async Key Vault retrieval
     }
 
     /**
@@ -103,6 +57,11 @@ export class PostgreSQLService {
         if (this.initialized) return;
 
         try {
+            console.log('🔧 PostgreSQL: Initializing database connection...');
+            
+            // Initialize connection pool with proper authentication
+            await this.initializePoolAsync();
+            
             console.log('🔧 PostgreSQL: Initializing database schema...');
             
             const client = await this.pool.connect();
@@ -120,6 +79,70 @@ export class PostgreSQLService {
             console.error('❌ PostgreSQL: Schema initialization failed:', error);
             throw new Error(`Database initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
+    }
+
+    /**
+     * Initialize connection pool with Key Vault password retrieval
+     */
+    private async initializePoolAsync(): Promise<void> {
+        const config: PoolConfig = {
+            host: process.env.POSTGRES_HOST || 'localhost',
+            port: parseInt(process.env.POSTGRES_PORT || '5432'),
+            database: process.env.POSTGRES_DATABASE || 'm365_assessment',
+            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+            
+            // Connection pool settings for optimal performance
+            max: 20, // Maximum number of connections
+            min: 5,  // Minimum connections to maintain
+            idleTimeoutMillis: 30000, // Close idle connections after 30s
+            connectionTimeoutMillis: 10000, // Connection timeout
+            
+            // Performance optimizations
+            statement_timeout: 30000, // 30 second query timeout
+            query_timeout: 30000,
+            keepAlive: true,
+            keepAliveInitialDelayMillis: 10000,
+        };
+
+        // Get password from Key Vault first, fallback to environment variable
+        let password: string | undefined;
+        
+        try {
+            const keyVaultService = getKeyVaultService();
+            password = await keyVaultService.getPostgreSQLPassword();
+            console.log('🔐 PostgreSQL: Password retrieved from Key Vault');
+        } catch (error) {
+            console.warn('⚠️ PostgreSQL: Failed to retrieve password from Key Vault, using environment variable:', error);
+            password = process.env.POSTGRES_PASSWORD;
+        }
+
+        // Set authentication based on environment
+        if (process.env.NODE_ENV === 'production') {
+            // PostgreSQL Flexible Server with managed identity or password
+            config.user = process.env.POSTGRES_USER || 'assessment_app';
+            
+            if (password) {
+                config.password = password;
+            } else {
+                // Try managed identity authentication
+                await this.setupManagedIdentityAuth();
+            }
+        } else {
+            // Local development
+            config.user = process.env.POSTGRES_USER || 'postgres';
+            config.password = password || 'password';
+        }
+
+        this.pool = new Pool(config);
+
+        // Handle pool errors
+        this.pool.on('error', (err: Error) => {
+            console.error('💥 PostgreSQL Pool Error:', err);
+        });
+
+        this.pool.on('connect', () => {
+            console.log('✅ PostgreSQL: New connection established');
+        });
     }
 
     /**

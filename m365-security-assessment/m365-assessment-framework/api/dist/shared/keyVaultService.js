@@ -153,6 +153,44 @@ class KeyVaultService {
         }
     }
     /**
+     * Get PostgreSQL password from Key Vault
+     * Used for database connections
+     */
+    async getPostgreSQLPassword() {
+        try {
+            const secretResponse = await this.client.getSecret('postgres-password');
+            if (!secretResponse.value) {
+                throw new Error('PostgreSQL password not found in Key Vault');
+            }
+            return secretResponse.value;
+        }
+        catch (error) {
+            if (error.code === 'SecretNotFound') {
+                throw new Error('PostgreSQL password not found in Key Vault');
+            }
+            throw new Error(`Failed to retrieve PostgreSQL password: ${error.message}`);
+        }
+    }
+    /**
+     * Store PostgreSQL password in Key Vault
+     * Used for secure database password storage
+     */
+    async storePostgreSQLPassword(password) {
+        try {
+            await this.client.setSecret('postgres-password', password, {
+                contentType: 'application/x-database-password',
+                tags: {
+                    type: 'database-password',
+                    database: 'postgresql',
+                    createdBy: 'M365AssessmentFramework'
+                }
+            });
+        }
+        catch (error) {
+            throw new Error(`Failed to store PostgreSQL password: ${error.message}`);
+        }
+    }
+    /**
      * List all secrets for a customer
      * Used for management and auditing
      */
