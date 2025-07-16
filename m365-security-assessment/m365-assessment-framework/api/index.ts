@@ -357,7 +357,7 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     data: transformedCustomers,
                     count: transformedCustomers.length,
                     timestamp: new Date().toISOString(),
-                    continuationToken: result.continuationToken
+                    continuationToken: 'continuationToken' in result ? result.continuationToken : undefined
                 }
             };
         }
@@ -1383,6 +1383,7 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                     try {
                         await dataService.storeAssessmentHistory({
                             id: storedAssessment.id,
+                            assessmentId: storedAssessment.id,
                             tenantId: storedAssessment.tenantId,
                             customerId: storedAssessment.customerId,
                             date: new Date(),
@@ -1401,7 +1402,7 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                     if (assessmentData.customerId && customer) {
                         try {
                             await dataService.updateCustomer(assessmentData.customerId, {
-                                lastAssessmentDate: new Date().toISOString(),
+                                lastAssessmentDate: new Date(),
                                 totalAssessments: (customer.totalAssessments || 0) + 1
                             });
                             context.log('✅ Customer updated with assessment info');
@@ -1475,6 +1476,7 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                     try {
                         await dataService.storeAssessmentHistory({
                             id: storedAssessment.id,
+                            assessmentId: storedAssessment.id,
                             tenantId: storedAssessment.tenantId,
                             customerId: storedAssessment.customerId,
                             date: new Date(),
@@ -1615,6 +1617,7 @@ async function saveAssessmentHandler(request: HttpRequest, context: InvocationCo
         if (savedAssessment.tenantId) {
             await dataService.storeAssessmentHistory({
                 id: savedAssessment.id,
+                assessmentId: savedAssessment.id,
                 tenantId: savedAssessment.tenantId,
                 customerId: assessmentData.customerId || undefined,
                 date: new Date(),

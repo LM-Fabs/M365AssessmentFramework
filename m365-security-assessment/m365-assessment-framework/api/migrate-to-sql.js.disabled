@@ -7,12 +7,12 @@
 
 const path = require('path');
 const { TableStorageService } = require('./shared/tableStorageService');
-const { SqlDatabaseService } = require('./shared/sqlDatabaseService');
+const { PostgreSQLService } = require('./shared/postgresqlService');
 
 class MigrationService {
     constructor() {
         this.tableService = new TableStorageService();
-        this.sqlService = new SqlDatabaseService();
+        this.sqlService = new PostgreSQLService();
         this.stats = {
             customers: { total: 0, migrated: 0, errors: 0 },
             assessments: { total: 0, migrated: 0, errors: 0 },

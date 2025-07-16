@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const functions_1 = require("@azure/functions");
 const tableStorageService_1 = require("./shared/tableStorageService");
+const postgresqlService_1 = require("./shared/postgresqlService");
 const graphApiService_1 = require("./shared/graphApiService");
 const keyVaultService_1 = require("./shared/keyVaultService");
 // CORS headers optimized for better performance
@@ -26,11 +27,13 @@ const CACHE_TTL = {
 };
 // Initialize data services with connection pooling
 let tableStorageService;
+let postgresqlService;
 let graphApiService;
 let keyVaultService = null;
 let dataService;
 let isDataServiceInitialized = false;
 let initializationPromise = null;
+let usingPostgreSQL = false;
 // Cache helper functions for performance optimization
 function getCachedData(key) {
     const cached = cache.get(key);
@@ -56,10 +59,36 @@ async function initializeDataService(context) {
         try {
             const startTime = Date.now();
             context.log('🚀 Initializing data services...');
-            // Initialize Table Storage service with optimized settings
-            tableStorageService = new tableStorageService_1.TableStorageService();
-            await tableStorageService.initialize();
-            dataService = tableStorageService;
+            // Check if PostgreSQL is configured
+            const hasPostgresConfig = process.env.POSTGRES_HOST && process.env.POSTGRES_DATABASE;
+            if (hasPostgresConfig) {
+                try {
+                    // Initialize PostgreSQL service
+                    context.log('🐘 Attempting to initialize PostgreSQL service...');
+                    postgresqlService = new postgresqlService_1.PostgreSQLService();
+                    await postgresqlService.initialize();
+                    dataService = postgresqlService;
+                    usingPostgreSQL = true;
+                    context.log('✅ PostgreSQL service initialized successfully - unlimited data storage enabled!');
+                }
+                catch (error) {
+                    context.warn('⚠️ PostgreSQL initialization failed, falling back to Table Storage:', error);
+                    // Fall back to Table Storage
+                    tableStorageService = new tableStorageService_1.TableStorageService();
+                    await tableStorageService.initialize();
+                    dataService = tableStorageService;
+                    usingPostgreSQL = false;
+                    context.log('✅ Table Storage service initialized as fallback');
+                }
+            }
+            else {
+                // Use Table Storage when PostgreSQL is not configured
+                context.log('📊 Using Table Storage service (PostgreSQL not configured)');
+                tableStorageService = new tableStorageService_1.TableStorageService();
+                await tableStorageService.initialize();
+                dataService = tableStorageService;
+                usingPostgreSQL = false;
+            }
             // Initialize Graph API service with better error handling
             try {
                 graphApiService = new graphApiService_1.GraphApiService();
@@ -79,7 +108,7 @@ async function initializeDataService(context) {
                 keyVaultService = null;
             }
             const duration = Date.now() - startTime;
-            context.log(`✅ Data services initialized successfully in ${duration}ms`);
+            context.log(`✅ Data services initialized successfully in ${duration}ms using ${usingPostgreSQL ? 'PostgreSQL' : 'Table Storage'}`);
             isDataServiceInitialized = true;
         }
         catch (error) {
@@ -290,7 +319,7 @@ async function customersHandler(request, context) {
                     data: transformedCustomers,
                     count: transformedCustomers.length,
                     timestamp: new Date().toISOString(),
-                    continuationToken: result.continuationToken
+                    continuationToken: 'continuationToken' in result ? result.continuationToken : undefined
                 }
             };
         }
@@ -1209,6 +1238,7 @@ async function createAssessmentHandler(request, context) {
                     try {
                         await dataService.storeAssessmentHistory({
                             id: storedAssessment.id,
+                            assessmentId: storedAssessment.id,
                             tenantId: storedAssessment.tenantId,
                             customerId: storedAssessment.customerId,
                             date: new Date(),
@@ -1227,7 +1257,7 @@ async function createAssessmentHandler(request, context) {
                     if (assessmentData.customerId && customer) {
                         try {
                             await dataService.updateCustomer(assessmentData.customerId, {
-                                lastAssessmentDate: new Date().toISOString(),
+                                lastAssessmentDate: new Date(),
                                 totalAssessments: (customer.totalAssessments || 0) + 1
                             });
                             context.log('✅ Customer updated with assessment info');
@@ -1298,6 +1328,7 @@ async function createAssessmentHandler(request, context) {
                     try {
                         await dataService.storeAssessmentHistory({
                             id: storedAssessment.id,
+                            assessmentId: storedAssessment.id,
                             tenantId: storedAssessment.tenantId,
                             customerId: storedAssessment.customerId,
                             date: new Date(),
@@ -1428,6 +1459,7 @@ async function saveAssessmentHandler(request, context) {
         if (savedAssessment.tenantId) {
             await dataService.storeAssessmentHistory({
                 id: savedAssessment.id,
+                assessmentId: savedAssessment.id,
                 tenantId: savedAssessment.tenantId,
                 customerId: assessmentData.customerId || undefined,
                 date: new Date(),
