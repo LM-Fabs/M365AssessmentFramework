@@ -90,6 +90,9 @@ export class PostgreSQLService {
             port: parseInt(process.env.POSTGRES_PORT || '5432'),
             database: process.env.POSTGRES_DATABASE || 'm365_assessment',
             ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+            connectionString: process.env.NODE_ENV === 'production' ? 
+                `postgres://${process.env.POSTGRES_USER || 'assessment_admin'}:${process.env.POSTGRES_PASSWORD || ''}@${process.env.POSTGRES_HOST || 'localhost'}:${process.env.POSTGRES_PORT || '5432'}/${process.env.POSTGRES_DATABASE || 'm365_assessment'}?sslmode=require` : 
+                undefined,
             
             // Connection pool settings for optimal performance
             max: 20, // Maximum number of connections
@@ -116,10 +119,19 @@ export class PostgreSQLService {
             password = process.env.POSTGRES_PASSWORD;
         }
 
+        // Update connection string with actual password if in production
+        if (process.env.NODE_ENV === 'production' && password) {
+            const user = process.env.POSTGRES_USER || 'assessment_admin';
+            const host = process.env.POSTGRES_HOST || 'localhost';
+            const port = process.env.POSTGRES_PORT || '5432';
+            const database = process.env.POSTGRES_DATABASE || 'm365_assessment';
+            config.connectionString = `postgres://${user}:${password}@${host}:${port}/${database}?sslmode=require`;
+        }
+
         // Set authentication based on environment
         if (process.env.NODE_ENV === 'production') {
             // PostgreSQL Flexible Server with managed identity or password
-            config.user = process.env.POSTGRES_USER || 'assessment_app';
+            config.user = process.env.POSTGRES_USER || 'assessment_admin';
             
             if (password) {
                 config.password = password;
