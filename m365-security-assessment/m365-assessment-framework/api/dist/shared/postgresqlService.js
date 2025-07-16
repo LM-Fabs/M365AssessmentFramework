@@ -31,12 +31,12 @@ class PostgreSQLService {
             database: process.env.POSTGRES_DATABASE || 'm365_assessment',
             ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
             // Connection pool settings for optimal performance
-            max: 20,
-            min: 5,
-            idleTimeoutMillis: 30000,
-            connectionTimeoutMillis: 10000,
+            max: 20, // Maximum number of connections
+            min: 5, // Minimum connections to maintain
+            idleTimeoutMillis: 30000, // Close idle connections after 30s
+            connectionTimeoutMillis: 10000, // Connection timeout
             // Performance optimizations
-            statement_timeout: 30000,
+            statement_timeout: 30000, // 30 second query timeout
             query_timeout: 30000,
             keepAlive: true,
             keepAliveInitialDelayMillis: 10000,

@@ -19,13 +19,23 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 const https = __importStar(require("https"));
 /**
@@ -132,9 +142,9 @@ async function runTests() {
     console.log('===================================');
     console.log('');
     const testDomains = [
-        'contoso.onmicrosoft.com',
-        'microsoft.com',
-        'example.com',
+        'contoso.onmicrosoft.com', // OnMicrosoft domain (should return as-is)
+        'microsoft.com', // Well-known domain (should resolve to tenant ID)
+        'example.com', // Generic domain (may not resolve)
         'nonexistent-domain-test.com' // Non-existent domain (should handle gracefully)
     ];
     for (const domain of testDomains) {

@@ -1,10 +1,9 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
-import { TableStorageService } from "./shared/tableStorageService";
-import { PostgreSQLService } from "./shared/postgresqlService";
-import { GraphApiService } from "./shared/graphApiService";
-import { getKeyVaultService, KeyVaultService } from "./shared/keyVaultService";
-import { Customer } from "./shared/types";
-
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const tableStorageService_1 = require("./shared/tableStorageService");
+const postgresqlService_1 = require("./shared/postgresqlService");
+const graphApiService_1 = require("./shared/graphApiService");
+const keyVaultService_1 = require("./shared/keyVaultService");
 // CORS headers optimized for better performance
 const corsHeaders = process.env.NODE_ENV === 'development' ? {
     'Access-Control-Allow-Origin': '*',
@@ -14,35 +13,28 @@ const corsHeaders = process.env.NODE_ENV === 'development' ? {
     'Content-Type': 'application/json',
     'Cache-Control': 'public, max-age=60, s-maxage=60' // Cache responses for 1 minute
 } : {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Warmup, Cache-Control',
-    'Access-Control-Max-Age': '86400',
     'Content-Type': 'application/json',
     'Cache-Control': 'public, max-age=60, s-maxage=60' // Cache responses for 1 minute
 };
-
 // Performance optimization: Cache frequently accessed data
-const cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+const cache = new Map();
 const CACHE_TTL = {
     customers: 300000, // 5 minutes
     assessments: 180000, // 3 minutes
     metrics: 120000, // 2 minutes
     bestPractices: 600000 // 10 minutes
 };
-
 // Initialize data services with connection pooling
-let tableStorageService: TableStorageService;
-let postgresqlService: PostgreSQLService;
-let graphApiService: GraphApiService;
-let keyVaultService: KeyVaultService | null = null;
-let dataService: TableStorageService | PostgreSQLService;
+let tableStorageService;
+let postgresqlService;
+let graphApiService;
+let keyVaultService = null;
+let dataService;
 let isDataServiceInitialized = false;
-let initializationPromise: Promise<void> | null = null;
+let initializationPromise = null;
 let usingPostgreSQL = false;
-
 // Cache helper functions for performance optimization
-function getCachedData(key: string): any | null {
+function getCachedData(key) {
     const cached = cache.get(key);
     if (cached && Date.now() - cached.timestamp < cached.ttl) {
         return cached.data;
@@ -50,165 +42,145 @@ function getCachedData(key: string): any | null {
     cache.delete(key);
     return null;
 }
-
-function setCachedData(key: string, data: any, ttl: number): void {
+function setCachedData(key, data, ttl) {
     cache.set(key, { data, timestamp: Date.now(), ttl });
 }
-
 // Optimized data service initialization with singleton pattern
-async function initializeDataService(context: InvocationContext): Promise<void> {
+async function initializeDataService(context) {
     if (isDataServiceInitialized) {
         return;
     }
-    
     // Prevent multiple concurrent initializations
     if (initializationPromise) {
         return initializationPromise;
     }
-    
     initializationPromise = (async () => {
         try {
             const startTime = Date.now();
             context.log('🚀 Initializing data services...');
-            
             // Check if PostgreSQL is configured
             const hasPostgresConfig = process.env.POSTGRES_HOST && process.env.POSTGRES_DATABASE;
-            
             if (hasPostgresConfig) {
                 try {
                     // Initialize PostgreSQL service
                     context.log('🐘 Attempting to initialize PostgreSQL service...');
-                    postgresqlService = new PostgreSQLService();
+                    postgresqlService = new postgresqlService_1.PostgreSQLService();
                     await postgresqlService.initialize();
                     dataService = postgresqlService;
                     usingPostgreSQL = true;
                     context.log('✅ PostgreSQL service initialized successfully - unlimited data storage enabled!');
-                } catch (error) {
+                }
+                catch (error) {
                     context.warn('⚠️ PostgreSQL initialization failed, falling back to Table Storage:', error);
                     // Fall back to Table Storage
-                    tableStorageService = new TableStorageService();
+                    tableStorageService = new tableStorageService_1.TableStorageService();
                     await tableStorageService.initialize();
                     dataService = tableStorageService;
                     usingPostgreSQL = false;
                     context.log('✅ Table Storage service initialized as fallback');
                 }
-            } else {
+            }
+            else {
                 // Use Table Storage when PostgreSQL is not configured
                 context.log('📊 Using Table Storage service (PostgreSQL not configured)');
-                tableStorageService = new TableStorageService();
+                tableStorageService = new tableStorageService_1.TableStorageService();
                 await tableStorageService.initialize();
                 dataService = tableStorageService;
                 usingPostgreSQL = false;
             }
-            
             // Initialize Graph API service with better error handling
             try {
-                graphApiService = new GraphApiService();
+                graphApiService = new graphApiService_1.GraphApiService();
                 context.log('✅ GraphApiService initialized successfully');
-            } catch (error) {
+            }
+            catch (error) {
                 context.error('❌ GraphApiService initialization failed:', error);
                 throw new Error(`GraphApiService initialization failed: ${error instanceof Error ? error.message : error}`);
             }
-            
             // Initialize Key Vault service (optional - may not be available in all environments)
             try {
-                keyVaultService = getKeyVaultService();
+                keyVaultService = (0, keyVaultService_1.getKeyVaultService)();
                 context.log('✅ KeyVaultService initialized successfully');
-            } catch (error) {
+            }
+            catch (error) {
                 context.warn('⚠️ KeyVaultService not available (this is normal in development):', error);
                 keyVaultService = null;
             }
-            
             const duration = Date.now() - startTime;
             context.log(`✅ Data services initialized successfully in ${duration}ms using ${usingPostgreSQL ? 'PostgreSQL' : 'Table Storage'}`);
             isDataServiceInitialized = true;
-        } catch (error) {
+        }
+        catch (error) {
             context.error('❌ Data services initialization failed:', error);
             initializationPromise = null; // Reset on failure
             throw new Error(`Data services initialization failed: ${error instanceof Error ? error.message : error}`);
         }
     })();
-    
     return initializationPromise;
 }
-
 // Generate recommendations based on license and security data
-function generateRecommendations(licenseInfo: any, secureScore: any): string[] {
-    const recommendations: string[] = [];
-    
+function generateRecommendations(licenseInfo, secureScore) {
+    const recommendations = [];
     if (licenseInfo) {
-        const utilizationRate = licenseInfo.totalLicenses > 0 
-            ? (licenseInfo.assignedLicenses / licenseInfo.totalLicenses) * 100 
+        const utilizationRate = licenseInfo.totalLicenses > 0
+            ? (licenseInfo.assignedLicenses / licenseInfo.totalLicenses) * 100
             : 0;
-            
         if (utilizationRate < 40) {
             recommendations.push("Consider reviewing your license usage - only " + Math.round(utilizationRate) + "% of licenses are assigned. You may be able to optimize costs by reducing unused licenses.");
-        } else if (utilizationRate > 90) {
+        }
+        else if (utilizationRate > 90) {
             recommendations.push("License utilization is very high (" + Math.round(utilizationRate) + "%). Consider purchasing additional licenses to avoid service disruptions.");
-        } else if (utilizationRate < 70) {
+        }
+        else if (utilizationRate < 70) {
             recommendations.push("License utilization is moderate (" + Math.round(utilizationRate) + "%). Monitor usage trends and consider optimization opportunities.");
         }
-        
         // Check for specific license types
         if (licenseInfo.licenseDetails) {
-            const premiumLicenses = licenseInfo.licenseDetails.filter((license: any) => 
-                license.skuPartNumber?.includes('E5') || license.skuPartNumber?.includes('PREMIUM')
-            );
+            const premiumLicenses = licenseInfo.licenseDetails.filter((license) => license.skuPartNumber?.includes('E5') || license.skuPartNumber?.includes('PREMIUM'));
             if (premiumLicenses.length > 0) {
                 recommendations.push("Premium licenses detected. Ensure you're leveraging advanced security features like Conditional Access and Identity Protection.");
             }
-            
-            const basicLicenses = licenseInfo.licenseDetails.filter((license: any) => 
-                license.skuPartNumber?.includes('E1') || license.skuPartNumber?.includes('BASIC')
-            );
+            const basicLicenses = licenseInfo.licenseDetails.filter((license) => license.skuPartNumber?.includes('E1') || license.skuPartNumber?.includes('BASIC'));
             if (basicLicenses.length > 0) {
                 recommendations.push("Basic licenses in use. Consider upgrading to higher tiers for enhanced security and compliance features.");
             }
         }
     }
-    
     if (secureScore) {
         if (secureScore.percentage < 50) {
             recommendations.push("Secure Score is below 50% (" + secureScore.percentage + "%). Immediate action required to improve security posture.");
-        } else if (secureScore.percentage < 70) {
+        }
+        else if (secureScore.percentage < 70) {
             recommendations.push("Secure Score is moderate (" + secureScore.percentage + "%). Focus on implementing high-impact security controls.");
-        } else if (secureScore.percentage >= 80) {
+        }
+        else if (secureScore.percentage >= 80) {
             recommendations.push("Excellent Secure Score (" + secureScore.percentage + "%). Continue monitoring and maintain current security practices.");
         }
-        
         // Analyze control categories for specific recommendations
         if (secureScore.controlScores) {
-            const identityControls = secureScore.controlScores.filter((control: any) => 
-                control.category?.toLowerCase().includes('identity') || 
+            const identityControls = secureScore.controlScores.filter((control) => control.category?.toLowerCase().includes('identity') ||
                 control.controlName?.toLowerCase().includes('mfa') ||
-                control.controlName?.toLowerCase().includes('conditional')
-            );
-            
-            if (identityControls.some((control: any) => control.implementationStatus === 'Not Implemented')) {
+                control.controlName?.toLowerCase().includes('conditional'));
+            if (identityControls.some((control) => control.implementationStatus === 'Not Implemented')) {
                 recommendations.push("Identity security controls need attention. Implement Multi-Factor Authentication and Conditional Access policies.");
             }
         }
     }
-    
     // General recommendations if no data available
     if (!licenseInfo && !secureScore) {
         recommendations.push("Complete app registration setup to access real tenant data and get personalized recommendations.");
     }
-    
     return recommendations;
 }
-
 // Diagnostic endpoint to check environment configuration
-async function diagnosticsHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function diagnosticsHandler(request, context) {
     context.log('Processing diagnostics request');
-
     if (request.method === 'OPTIONS') {
         return {
             status: 200,
             headers: corsHeaders
         };
     }
-
     // Handle HEAD request for API warmup
     if (request.method === 'HEAD') {
         return {
@@ -216,7 +188,6 @@ async function diagnosticsHandler(request: HttpRequest, context: InvocationConte
             headers: corsHeaders
         };
     }
-
     try {
         const diagnostics = {
             timestamp: new Date().toISOString(),
@@ -235,7 +206,6 @@ async function diagnosticsHandler(request: HttpRequest, context: InvocationConte
             },
             version: '1.0.8'
         };
-
         return {
             status: 200,
             headers: corsHeaders,
@@ -244,9 +214,9 @@ async function diagnosticsHandler(request: HttpRequest, context: InvocationConte
                 data: diagnostics
             }
         };
-    } catch (error) {
+    }
+    catch (error) {
         context.error('Error in diagnostics handler:', error);
-        
         return {
             status: 500,
             headers: corsHeaders,
@@ -258,11 +228,9 @@ async function diagnosticsHandler(request: HttpRequest, context: InvocationConte
         };
     }
 }
-
 // Test endpoint - immediate fast response
-async function testHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function testHandler(request, context) {
     context.log('Test function processed a request');
-    
     // Handle HEAD request
     if (request.method === 'HEAD') {
         return {
@@ -270,10 +238,9 @@ async function testHandler(request: HttpRequest, context: InvocationContext): Pr
             headers: corsHeaders
         };
     }
-    
     // Handle GET request
     if (request.method === 'GET') {
-        return { 
+        return {
             status: 200,
             headers: corsHeaders,
             jsonBody: {
@@ -284,8 +251,7 @@ async function testHandler(request: HttpRequest, context: InvocationContext): Pr
             }
         };
     }
-    
-    return { 
+    return {
         status: 200,
         headers: corsHeaders,
         jsonBody: {
@@ -297,11 +263,9 @@ async function testHandler(request: HttpRequest, context: InvocationContext): Pr
         }
     };
 }
-
 // Optimized customers endpoint with immediate response
-async function customersHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function customersHandler(request, context) {
     context.log(`Processing ${request.method} request for customers`);
-
     // Handle preflight OPTIONS request immediately
     if (request.method === 'OPTIONS') {
         return {
@@ -309,7 +273,6 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
             headers: corsHeaders
         };
     }
-
     // Handle HEAD request for API warmup
     if (request.method === 'HEAD') {
         return {
@@ -317,27 +280,22 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
             headers: corsHeaders
         };
     }
-
     try {
         // Initialize data service
         await initializeDataService(context);
-
         if (request.method === 'GET') {
             context.log('Getting all customers from data service');
-            
             const result = await dataService.getCustomers({
                 status: 'active',
                 maxItemCount: 100
             });
-            
             context.log('Retrieved customers from data service:', result.customers.length);
-            
             // Transform customers to match frontend interface
-            const transformedCustomers = result.customers.map((customer: any) => {
+            const transformedCustomers = result.customers.map((customer) => {
                 const appReg = customer.appRegistration || {};
                 return {
                     id: customer.id,
-                    tenantId: customer.tenantId || '',  // Use the actual tenant ID, not servicePrincipalId
+                    tenantId: customer.tenantId || '', // Use the actual tenant ID, not servicePrincipalId
                     tenantName: customer.tenantName,
                     tenantDomain: customer.tenantDomain,
                     applicationId: appReg.applicationId || '',
@@ -346,13 +304,12 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     createdDate: customer.createdDate,
                     lastAssessmentDate: customer.lastAssessmentDate,
                     totalAssessments: customer.totalAssessments || 0,
-                    status: customer.status as 'active' | 'inactive' | 'pending',
+                    status: customer.status,
                     permissions: appReg.permissions || [],
                     contactEmail: customer.contactEmail,
                     notes: customer.notes
                 };
             });
-            
             return {
                 status: 200,
                 headers: corsHeaders,
@@ -365,13 +322,12 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 }
             };
         }
-
         if (request.method === 'POST') {
-            let customerData: any = {};
-            
+            let customerData = {};
             try {
                 customerData = await request.json();
-            } catch (error) {
+            }
+            catch (error) {
                 context.log('Invalid JSON in request body');
                 return {
                     status: 400,
@@ -382,9 +338,7 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     }
                 };
             }
-            
             context.log('Creating new customer with data:', customerData);
-
             // Validate required fields
             if (!customerData.tenantName || !customerData.tenantDomain) {
                 return {
@@ -396,7 +350,6 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     }
                 };
             }
-
             // Check if customer already exists
             if (customerData.tenantDomain) {
                 const existingCustomer = await dataService.getCustomerByDomain(customerData.tenantDomain);
@@ -412,17 +365,14 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     };
                 }
             }
-
             // Extract tenant ID from domain or use provided tenant ID
             let targetTenantId = customerData.tenantId;
-            
             if (!targetTenantId && customerData.tenantDomain) {
                 // Use the domain as-is as the tenant identifier
                 // This works for custom domains and *.onmicrosoft.com domains
                 context.log('⚠️ Tenant ID not provided - using domain as tenant identifier');
                 targetTenantId = customerData.tenantDomain.toLowerCase();
             }
-
             if (!targetTenantId) {
                 return {
                     status: 400,
@@ -433,28 +383,24 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     }
                 };
             }
-
             // Create customer using Table Storage service
             const customerRequest = {
                 tenantName: customerData.tenantName,
                 tenantDomain: customerData.tenantDomain,
-                tenantId: targetTenantId,  // Include the actual tenant ID
+                tenantId: targetTenantId, // Include the actual tenant ID
                 contactEmail: customerData.contactEmail || '',
                 notes: customerData.notes || '',
                 skipAutoAppRegistration: customerData.skipAutoAppRegistration || false
             };
-
             const skipAutoRegistration = customerData.skipAutoAppRegistration === true;
-            
             if (skipAutoRegistration) {
                 context.log('🏢 Creating customer with manual app registration workflow');
-            } else {
+            }
+            else {
                 context.log('🏢 Creating customer and triggering automatic Azure AD app registration');
             }
-
             // 1. Create customer with appropriate app registration setup
             let appRegistration;
-            
             if (skipAutoRegistration) {
                 // Manual setup - provide guidance for admin with real placeholder values
                 appRegistration = {
@@ -485,7 +431,8 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     setupStatus: 'pending',
                     createdDate: new Date().toISOString()
                 };
-            } else {
+            }
+            else {
                 // Automatic setup - create placeholder that will be replaced
                 appRegistration = {
                     applicationId: `pending-${Date.now()}`,
@@ -500,123 +447,109 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     ]
                 };
             }
-
             let newCustomer = await dataService.createCustomer(customerRequest, appRegistration);
-            
             if (skipAutoRegistration) {
                 context.log('✅ Customer created with manual app registration setup:', newCustomer.id);
-            } else {
+            }
+            else {
                 context.log('✅ Customer created with placeholder app registration:', newCustomer.id);
             }
-
             // Enhanced permissions for comprehensive assessment (defined outside try block for error handling)
             const requiredPermissions = [
-                'Organization.Read.All',        // Required for license data
-                'SecurityEvents.Read.All',      // Required for secure score
-                'Reports.Read.All',             // Required for usage reports
-                'Directory.Read.All',           // Required for user/group data
-                'Policy.Read.All',              // Required for conditional access policies
-                'IdentityRiskyUser.Read.All',   // Required for identity protection
-                'AuditLog.Read.All'             // Required for audit logs
+                'Organization.Read.All', // Required for license data
+                'SecurityEvents.Read.All', // Required for secure score
+                'Reports.Read.All', // Required for usage reports
+                'Directory.Read.All', // Required for user/group data
+                'Policy.Read.All', // Required for conditional access policies
+                'IdentityRiskyUser.Read.All', // Required for identity protection
+                'AuditLog.Read.All' // Required for audit logs
             ];
-
             // 2. Only trigger automatic app registration if not skipping
             if (!skipAutoRegistration) {
                 try {
                     context.log('🚀 Triggering real Azure AD app registration for new customer:', newCustomer.tenantDomain);
-                
-                // Validate required environment variables before attempting app registration
-                const azureClientId = process.env.AZURE_CLIENT_ID;
-                const azureClientSecret = process.env.AZURE_CLIENT_SECRET;
-                const azureTenantId = process.env.AZURE_TENANT_ID;
-
-                if (!azureClientId || !azureClientSecret || !azureTenantId) {
-                    throw new Error(`Missing Azure configuration: CLIENT_ID=${!!azureClientId}, CLIENT_SECRET=${!!azureClientSecret}, TENANT_ID=${!!azureTenantId}`);
-                }
-
-                const appRegResult = await graphApiService.createMultiTenantAppRegistration({
-                    tenantName: newCustomer.tenantName,
-                    tenantDomain: newCustomer.tenantDomain,
-                    targetTenantId: newCustomer.tenantId,
-                    contactEmail: newCustomer.contactEmail,
-                    requiredPermissions: requiredPermissions
-                });
-
-                // Store client secret securely in Key Vault if available
-                let storedSecret = appRegResult.clientSecret;
-                try {
-                    if (keyVaultService && keyVaultService.isInitialized) {
-                        await keyVaultService.storeClientSecret(
-                            newCustomer.id,
-                            newCustomer.tenantDomain,
-                            appRegResult.clientSecret
-                        );
-                        storedSecret = 'STORED_IN_KEY_VAULT';
-                        context.log('✅ Client secret stored securely in Key Vault');
+                    // Validate required environment variables before attempting app registration
+                    const azureClientId = process.env.AZURE_CLIENT_ID;
+                    const azureClientSecret = process.env.AZURE_CLIENT_SECRET;
+                    const azureTenantId = process.env.AZURE_TENANT_ID;
+                    if (!azureClientId || !azureClientSecret || !azureTenantId) {
+                        throw new Error(`Missing Azure configuration: CLIENT_ID=${!!azureClientId}, CLIENT_SECRET=${!!azureClientSecret}, TENANT_ID=${!!azureTenantId}`);
                     }
-                } catch (kvError) {
-                    context.log('⚠️ Failed to store secret in Key Vault, keeping in database:', kvError);
-                }
-
-                // Prepare app registration object for storage
-                const realAppReg = {
-                    applicationId: appRegResult.applicationId,
-                    clientId: appRegResult.clientId,
-                    servicePrincipalId: appRegResult.servicePrincipalId,
-                    clientSecret: storedSecret,
-                    tenantId: newCustomer.tenantId,
-                    consentUrl: appRegResult.consentUrl,
-                    authUrl: `https://login.microsoftonline.com/${newCustomer.tenantId}/oauth2/v2.0/authorize`,
-                    redirectUri: appRegResult.redirectUri,
-                    permissions: appRegResult.permissions,
-                    isReal: true,
-                    createdDate: new Date().toISOString(),
-                    secretExpiryDate: new Date(Date.now() + (2 * 365 * 24 * 60 * 60 * 1000)).toISOString() // 2 years
-                };
-
-                // Update customer with real app registration
-                newCustomer = await dataService.updateCustomer(newCustomer.id, {
-                    appRegistration: realAppReg
-                });
-                context.log('✅ Customer updated with real app registration:', newCustomer.id);
-                
-            } catch (err: any) {
-                context.log('❌ Failed to create real app registration for new customer:', err);
-                context.log('❌ Error details:', {
-                    message: err.message,
-                    code: err.code,
-                    stack: err.stack
-                });
-                
-                // Update customer with detailed error info for troubleshooting
-                const errorAppReg = {
-                    applicationId: 'ERROR_DURING_CREATION',
-                    clientId: 'ERROR_DURING_CREATION',
-                    servicePrincipalId: 'ERROR_DURING_CREATION',
-                    permissions: requiredPermissions, // Include the required permissions
-                    clientSecret: 'ERROR_DURING_CREATION',
-                    consentUrl: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
-                    error: err.message,
-                    errorCode: err.code,
-                    errorTimestamp: new Date().toISOString(),
-                    troubleshooting: [
-                        'Check Azure service principal configuration',
-                        'Verify AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID are set correctly',
-                        'Ensure service principal has Application.ReadWrite.All permission',
-                        'Verify admin consent has been granted for the service principal'
-                    ]
-                };
-                
-                try {
-                    newCustomer = await dataService.updateCustomer(newCustomer.id, {
-                        appRegistration: errorAppReg
+                    const appRegResult = await graphApiService.createMultiTenantAppRegistration({
+                        tenantName: newCustomer.tenantName,
+                        tenantDomain: newCustomer.tenantDomain,
+                        targetTenantId: newCustomer.tenantId,
+                        contactEmail: newCustomer.contactEmail,
+                        requiredPermissions: requiredPermissions
                     });
-                } catch (updateErr) {
-                    context.log('❌ Failed to update customer with error details:', updateErr);
+                    // Store client secret securely in Key Vault if available
+                    let storedSecret = appRegResult.clientSecret;
+                    try {
+                        if (keyVaultService && keyVaultService.isInitialized) {
+                            await keyVaultService.storeClientSecret(newCustomer.id, newCustomer.tenantDomain, appRegResult.clientSecret);
+                            storedSecret = 'STORED_IN_KEY_VAULT';
+                            context.log('✅ Client secret stored securely in Key Vault');
+                        }
+                    }
+                    catch (kvError) {
+                        context.log('⚠️ Failed to store secret in Key Vault, keeping in database:', kvError);
+                    }
+                    // Prepare app registration object for storage
+                    const realAppReg = {
+                        applicationId: appRegResult.applicationId,
+                        clientId: appRegResult.clientId,
+                        servicePrincipalId: appRegResult.servicePrincipalId,
+                        clientSecret: storedSecret,
+                        tenantId: newCustomer.tenantId,
+                        consentUrl: appRegResult.consentUrl,
+                        authUrl: `https://login.microsoftonline.com/${newCustomer.tenantId}/oauth2/v2.0/authorize`,
+                        redirectUri: appRegResult.redirectUri,
+                        permissions: appRegResult.permissions,
+                        isReal: true,
+                        createdDate: new Date().toISOString(),
+                        secretExpiryDate: new Date(Date.now() + (2 * 365 * 24 * 60 * 60 * 1000)).toISOString() // 2 years
+                    };
+                    // Update customer with real app registration
+                    newCustomer = await dataService.updateCustomer(newCustomer.id, {
+                        appRegistration: realAppReg
+                    });
+                    context.log('✅ Customer updated with real app registration:', newCustomer.id);
                 }
-            } // End of automatic app registration try-catch block
+                catch (err) {
+                    context.log('❌ Failed to create real app registration for new customer:', err);
+                    context.log('❌ Error details:', {
+                        message: err.message,
+                        code: err.code,
+                        stack: err.stack
+                    });
+                    // Update customer with detailed error info for troubleshooting
+                    const errorAppReg = {
+                        applicationId: 'ERROR_DURING_CREATION',
+                        clientId: 'ERROR_DURING_CREATION',
+                        servicePrincipalId: 'ERROR_DURING_CREATION',
+                        permissions: requiredPermissions, // Include the required permissions
+                        clientSecret: 'ERROR_DURING_CREATION',
+                        consentUrl: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
+                        error: err.message,
+                        errorCode: err.code,
+                        errorTimestamp: new Date().toISOString(),
+                        troubleshooting: [
+                            'Check Azure service principal configuration',
+                            'Verify AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID are set correctly',
+                            'Ensure service principal has Application.ReadWrite.All permission',
+                            'Verify admin consent has been granted for the service principal'
+                        ]
+                    };
+                    try {
+                        newCustomer = await dataService.updateCustomer(newCustomer.id, {
+                            appRegistration: errorAppReg
+                        });
+                    }
+                    catch (updateErr) {
+                        context.log('❌ Failed to update customer with error details:', updateErr);
+                    }
+                } // End of automatic app registration try-catch block
             } // End of skipAutoRegistration conditional
-
             // Transform customer data to match frontend interface
             const transformedCustomer = {
                 id: newCustomer.id,
@@ -629,17 +562,15 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 createdDate: newCustomer.createdDate,
                 lastAssessmentDate: newCustomer.lastAssessmentDate,
                 totalAssessments: newCustomer.totalAssessments || 0,
-                status: newCustomer.status as 'active' | 'inactive' | 'pending',
+                status: newCustomer.status,
                 permissions: newCustomer.appRegistration?.permissions || [],
                 contactEmail: newCustomer.contactEmail,
                 notes: newCustomer.notes,
                 consentUrl: newCustomer.appRegistration?.consentUrl || ''
             };
-
-            const successMessage = skipAutoRegistration 
+            const successMessage = skipAutoRegistration
                 ? 'Customer created successfully with manual app registration setup. Please follow the setup instructions in the customer record.'
                 : 'Customer created successfully. App registration has been triggered. Please complete admin consent.';
-
             return {
                 status: 201,
                 headers: corsHeaders,
@@ -653,7 +584,6 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 }
             };
         }
-
         return {
             status: 405,
             headers: corsHeaders,
@@ -662,10 +592,9 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 error: `Method ${request.method} not allowed`
             }
         };
-
-    } catch (error) {
+    }
+    catch (error) {
         context.error('Error in customers handler:', error);
-        
         return {
             status: 500,
             headers: corsHeaders,
@@ -677,11 +606,9 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
         };
     }
 }
-
 // Individual customer operations (get, update, delete)
-async function customerByIdHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function customerByIdHandler(request, context) {
     context.log(`Processing ${request.method} request for customer by ID`);
-
     // Handle preflight OPTIONS request immediately
     if (request.method === 'OPTIONS') {
         return {
@@ -689,13 +616,13 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
             headers: corsHeaders
         };
     }
-
     try {
         // Initialize data service with detailed error logging
         try {
             await initializeDataService(context);
             context.log('✅ Data service initialized for customer operations');
-        } catch (initError) {
+        }
+        catch (initError) {
             context.error('❌ Data service initialization failed:', initError);
             return {
                 status: 500,
@@ -713,10 +640,8 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
                 }
             };
         }
-
         const customerId = request.params.customerId;
         context.log('📋 Customer ID from request params:', customerId);
-        
         if (!customerId) {
             return {
                 status: 400,
@@ -728,7 +653,6 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
                 }
             };
         }
-
         if (typeof customerId !== 'string' || customerId.trim().length === 0) {
             return {
                 status: 400,
@@ -741,7 +665,6 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
                 }
             };
         }
-
         if (request.method === 'GET') {
             const customer = await dataService.getCustomer(customerId);
             if (!customer) {
@@ -754,7 +677,6 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
                     }
                 };
             }
-
             return {
                 status: 200,
                 headers: corsHeaders,
@@ -764,11 +686,9 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
                 }
             };
         }
-
         if (request.method === 'DELETE') {
             try {
                 context.log('🗑️ Attempting to delete customer:', customerId);
-                
                 // Check if customer exists first
                 const existingCustomer = await dataService.getCustomer(customerId);
                 if (!existingCustomer) {
@@ -784,13 +704,10 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
                         }
                     };
                 }
-
                 context.log('✅ Customer found, proceeding with deletion:', customerId);
-                
                 // Attempt to delete the customer
                 await dataService.deleteCustomer(customerId);
                 context.log('✅ Customer deleted successfully:', customerId);
-
                 return {
                     status: 200,
                     headers: corsHeaders,
@@ -800,24 +717,25 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
                         customerId: customerId
                     }
                 };
-            } catch (deleteError) {
+            }
+            catch (deleteError) {
                 context.error('❌ Failed to delete customer:', deleteError);
-                
                 // Enhanced error details
                 let errorMessage = "Failed to delete customer";
                 let statusCode = 500;
-                let troubleshooting: string[] = [];
-                
+                let troubleshooting = [];
                 if (deleteError instanceof Error) {
                     if (deleteError.message.includes('Customer not found')) {
                         errorMessage = "Customer not found";
                         statusCode = 404;
                         troubleshooting = ['Verify the customer ID is correct', 'Check if the customer was already deleted'];
-                    } else if (deleteError.message.includes('not initialized')) {
+                    }
+                    else if (deleteError.message.includes('not initialized')) {
                         errorMessage = "Data service not properly initialized";
                         statusCode = 500;
                         troubleshooting = ['Check storage account configuration', 'Verify connection strings'];
-                    } else if (deleteError.message.includes('storage') || deleteError.message.includes('table')) {
+                    }
+                    else if (deleteError.message.includes('storage') || deleteError.message.includes('table')) {
                         errorMessage = "Storage service error";
                         statusCode = 500;
                         troubleshooting = [
@@ -827,7 +745,6 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
                         ];
                     }
                 }
-                
                 return {
                     status: statusCode,
                     headers: corsHeaders,
@@ -843,13 +760,11 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
                 };
             }
         }
-
         if (request.method === 'PUT') {
             try {
-                const updateData: any = await request.json();
+                const updateData = await request.json();
                 const updatedCustomer = await dataService.updateCustomer(customerId, updateData);
                 context.log('✅ Customer updated successfully:', customerId);
-
                 return {
                     status: 200,
                     headers: corsHeaders,
@@ -859,7 +774,8 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
                         message: "Customer updated successfully"
                     }
                 };
-            } catch (updateError) {
+            }
+            catch (updateError) {
                 context.error('❌ Failed to update customer:', updateError);
                 return {
                     status: 500,
@@ -872,7 +788,6 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
                 };
             }
         }
-
         // Unsupported method
         return {
             status: 405,
@@ -882,7 +797,8 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
                 error: `Method ${request.method} not allowed`
             }
         };
-    } catch (error) {
+    }
+    catch (error) {
         context.error('Error in customer by ID handler:', error);
         return {
             status: 500,
@@ -895,38 +811,30 @@ async function customerByIdHandler(request: HttpRequest, context: InvocationCont
         };
     }
 }
-
 // Fast assessment history endpoint
-async function assessmentHistoryHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function assessmentHistoryHandler(request, context) {
     context.log(`Processing ${request.method} request for assessment history`);
-
     if (request.method === 'OPTIONS') {
         return {
             status: 200,
             headers: corsHeaders
         };
     }
-
     try {
         // Initialize data service
         await initializeDataService(context);
-
         if (request.method === 'GET') {
             const tenantId = request.params.tenantId;
             const customerId = request.params.customerId;
             const limit = Math.min(parseInt(request.query.get('limit') || '10'), 100); // Cap at 100
-
             context.log('Getting assessment history for:', tenantId || customerId || 'all');
-
             // Get assessment history from data service
             const assessmentHistory = await dataService.getAssessmentHistory({
                 tenantId,
                 customerId,
                 maxItemCount: limit
             });
-
             context.log(`Assessment history retrieved. Count: ${assessmentHistory.length}`);
-
             return {
                 status: 200,
                 headers: corsHeaders,
@@ -938,13 +846,12 @@ async function assessmentHistoryHandler(request: HttpRequest, context: Invocatio
                 }
             };
         }
-
         if (request.method === 'POST') {
-            let historyData: any = {};
-            
+            let historyData = {};
             try {
                 historyData = await request.json();
-            } catch (error) {
+            }
+            catch (error) {
                 return {
                     status: 400,
                     headers: corsHeaders,
@@ -954,9 +861,7 @@ async function assessmentHistoryHandler(request: HttpRequest, context: Invocatio
                     }
                 };
             }
-            
             context.log('Adding assessment history:', historyData);
-
             // Store assessment history using data service
             await dataService.storeAssessmentHistory({
                 id: `assessment-${Date.now()}`,
@@ -967,9 +872,7 @@ async function assessmentHistoryHandler(request: HttpRequest, context: Invocatio
                 categoryScores: historyData.categoryScores || {},
                 ...historyData
             });
-            
             context.log('Assessment history stored successfully in Cosmos DB');
-
             return {
                 status: 201,
                 headers: corsHeaders,
@@ -982,7 +885,6 @@ async function assessmentHistoryHandler(request: HttpRequest, context: Invocatio
                 }
             };
         }
-
         return {
             status: 405,
             headers: corsHeaders,
@@ -991,10 +893,9 @@ async function assessmentHistoryHandler(request: HttpRequest, context: Invocatio
                 error: `Method ${request.method} not allowed`
             }
         };
-
-    } catch (error) {
+    }
+    catch (error) {
         context.error('Error in assessment history handler:', error);
-        
         return {
             status: 500,
             headers: corsHeaders,
@@ -1006,27 +907,22 @@ async function assessmentHistoryHandler(request: HttpRequest, context: Invocatio
         };
     }
 }
-
 // Fast assessments endpoint
-async function assessmentsHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function assessmentsHandler(request, context) {
     context.log(`Processing ${request.method} request for assessments`);
-
     if (request.method === 'OPTIONS') {
         return {
             status: 200,
             headers: corsHeaders
         };
     }
-
     try {
         // Initialize data service
         await initializeDataService(context);
-
         if (request.method === 'POST') {
             // Create new assessment
-            const assessmentData: any = await request.json();
+            const assessmentData = await request.json();
             context.log('Creating new assessment:', JSON.stringify(assessmentData, null, 2));
-
             // Validate required fields
             if (!assessmentData.customerId || !assessmentData.tenantId) {
                 return {
@@ -1038,10 +934,8 @@ async function assessmentsHandler(request: HttpRequest, context: InvocationConte
                     }
                 };
             }
-
             const assessment = await dataService.createAssessment(assessmentData);
             context.log(`Assessment created successfully: ${assessment.id}`);
-
             return {
                 status: 201,
                 headers: corsHeaders,
@@ -1052,14 +946,11 @@ async function assessmentsHandler(request: HttpRequest, context: InvocationConte
                 }
             };
         }
-
         // GET request - Get query parameters for filtering
         const customerId = request.query.get('customerId');
         const status = request.query.get('status');
         const limit = Math.min(parseInt(request.query.get('limit') || '50'), 100);
-
-        let assessments: any[] = [];
-
+        let assessments = [];
         if (customerId) {
             // Get assessments for specific customer
             const result = await dataService.getCustomerAssessments(customerId, {
@@ -1067,7 +958,8 @@ async function assessmentsHandler(request: HttpRequest, context: InvocationConte
                 limit: limit
             });
             assessments = result.assessments;
-        } else {
+        }
+        else {
             // Get all assessments with optional filtering
             const result = await dataService.getAssessments({
                 status: status || undefined,
@@ -1075,9 +967,7 @@ async function assessmentsHandler(request: HttpRequest, context: InvocationConte
             });
             assessments = result.assessments;
         }
-
         context.log(`Assessments retrieved. Count: ${assessments.length}`);
-
         return {
             status: 200,
             headers: corsHeaders,
@@ -1088,10 +978,9 @@ async function assessmentsHandler(request: HttpRequest, context: InvocationConte
                 timestamp: new Date().toISOString()
             }
         };
-
-    } catch (error) {
+    }
+    catch (error) {
         context.error('Error in assessments handler:', error);
-        
         return {
             status: 500,
             headers: corsHeaders,
@@ -1103,18 +992,15 @@ async function assessmentsHandler(request: HttpRequest, context: InvocationConte
         };
     }
 }
-
 // Fast current assessment endpoint
-async function currentAssessmentHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function currentAssessmentHandler(request, context) {
     context.log('Processing request for current assessment');
-
     if (request.method === 'OPTIONS') {
         return {
             status: 200,
             headers: corsHeaders
         };
     }
-
     // Handle HEAD request for API warmup
     if (request.method === 'HEAD') {
         return {
@@ -1122,11 +1008,9 @@ async function currentAssessmentHandler(request: HttpRequest, context: Invocatio
             headers: corsHeaders
         };
     }
-
     try {
         // Return null for current assessment since we don't have one
         context.log(`Current assessment retrieved`);
-
         return {
             status: 200,
             headers: corsHeaders,
@@ -1136,10 +1020,9 @@ async function currentAssessmentHandler(request: HttpRequest, context: Invocatio
                 timestamp: new Date().toISOString()
             }
         };
-
-    } catch (error) {
+    }
+    catch (error) {
         context.error('Error in current assessment handler:', error);
-        
         return {
             status: 500,
             headers: corsHeaders,
@@ -1151,18 +1034,15 @@ async function currentAssessmentHandler(request: HttpRequest, context: Invocatio
         };
     }
 }
-
 // Best practices endpoint
-async function bestPracticesHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function bestPracticesHandler(request, context) {
     context.log('Processing request for best practices');
-
     if (request.method === 'OPTIONS') {
         return {
             status: 200,
             headers: corsHeaders
         };
     }
-
     // Handle HEAD request for API warmup
     if (request.method === 'HEAD') {
         return {
@@ -1170,7 +1050,6 @@ async function bestPracticesHandler(request: HttpRequest, context: InvocationCon
             headers: corsHeaders
         };
     }
-
     try {
         const mockBestPractices = [
             {
@@ -1190,7 +1069,6 @@ async function bestPracticesHandler(request: HttpRequest, context: InvocationCon
                 ]
             }
         ];
-
         return {
             status: 200,
             headers: corsHeaders,
@@ -1200,9 +1078,9 @@ async function bestPracticesHandler(request: HttpRequest, context: InvocationCon
                 timestamp: new Date().toISOString()
             }
         };
-    } catch (error) {
+    }
+    catch (error) {
         context.error('Error in best practices handler:', error);
-        
         return {
             status: 500,
             headers: corsHeaders,
@@ -1214,24 +1092,21 @@ async function bestPracticesHandler(request: HttpRequest, context: InvocationCon
         };
     }
 }
-
 // Create assessment endpoint
-async function createAssessmentHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function createAssessmentHandler(request, context) {
     context.log('Processing request to create assessment');
-
     if (request.method === 'OPTIONS') {
         return {
             status: 200,
             headers: corsHeaders
         };
     }
-
     try {
-        let assessmentData: any = {};
-        
+        let assessmentData = {};
         try {
             assessmentData = await request.json();
-        } catch (error) {
+        }
+        catch (error) {
             return {
                 status: 400,
                 headers: corsHeaders,
@@ -1241,87 +1116,66 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                 }
             };
         }
-
         context.log('Creating assessment with data:', assessmentData);
-
         // Initialize data service to store assessment
         await initializeDataService(context);
-
         // Extract tenant ID from the provided data
-        const tenantId = assessmentData.tenantId || 
-                         assessmentData.tenantName?.toLowerCase().replace(/\s+/g, '-') || 
-                         'new-tenant';
-
+        const tenantId = assessmentData.tenantId ||
+            assessmentData.tenantName?.toLowerCase().replace(/\s+/g, '-') ||
+            'new-tenant';
         // Get customer information to access app registration credentials
         let customer = null;
         let realData = {};
         let assessmentStatus = 'completed';
-        
         if (assessmentData.customerId) {
             customer = await dataService.getCustomer(assessmentData.customerId);
-            
             if (customer && customer.appRegistration?.clientId && customer.appRegistration?.clientSecret) {
                 context.log('🔍 Fetching real assessment data from Microsoft Graph API...');
-                
                 try {
                     // Only fetch data for the specifically requested categories to avoid GraphAPI overload
                     const requestedCategories = assessmentData.includedCategories || assessmentData.categories || ['license', 'secureScore'];
                     context.log('📋 Fetching data for requested categories:', requestedCategories);
-                    
                     let licenseInfo = null;
                     let secureScore = null;
                     const dataFetchResults = [];
-                    
                     // Fetch license information only if requested
                     if (requestedCategories.includes('license')) {
                         try {
                             context.log('🔍 Fetching license information...');
-                            licenseInfo = await graphApiService.getLicenseInfo(
-                                tenantId,
-                                customer.appRegistration.clientId,
-                                customer.appRegistration.clientSecret
-                            );
+                            licenseInfo = await graphApiService.getLicenseInfo(tenantId, customer.appRegistration.clientId, customer.appRegistration.clientSecret);
                             dataFetchResults.push('license: success');
-                        } catch (licenseError: any) {
+                        }
+                        catch (licenseError) {
                             context.warn('⚠️ License data fetch failed:', licenseError.message);
                             dataFetchResults.push(`license: failed (${licenseError.message})`);
                         }
                     }
-                    
                     // Fetch secure score only if requested
                     if (requestedCategories.includes('secureScore')) {
                         try {
                             context.log('🛡️ Fetching secure score information...');
-                            secureScore = await graphApiService.getSecureScore(
-                                tenantId,
-                                customer.appRegistration.clientId,
-                                customer.appRegistration.clientSecret
-                            );
+                            secureScore = await graphApiService.getSecureScore(tenantId, customer.appRegistration.clientId, customer.appRegistration.clientSecret);
                             dataFetchResults.push('secureScore: success');
-                        } catch (secureScoreError: any) {
+                        }
+                        catch (secureScoreError) {
                             context.warn('⚠️ Secure score fetch failed:', secureScoreError.message);
                             dataFetchResults.push(`secureScore: failed (${secureScoreError.message})`);
                         }
                     }
-                    
                     // If we couldn't fetch any data, throw an error
                     if (!licenseInfo && !secureScore) {
                         throw new Error(`Unable to fetch any assessment data. Results: ${dataFetchResults.join(', ')}`);
                     }
-                    
                     context.log('✅ Partial/full assessment data retrieved. Results:', dataFetchResults);
-                    
                     // Calculate assessment scores based on available real data
-                    const utilizationRate = licenseInfo && licenseInfo.totalLicenses > 0 
-                        ? (licenseInfo.assignedLicenses / licenseInfo.totalLicenses) * 100 
+                    const utilizationRate = licenseInfo && licenseInfo.totalLicenses > 0
+                        ? (licenseInfo.assignedLicenses / licenseInfo.totalLicenses) * 100
                         : 0;
-                    
                     // Use secure score if available, otherwise calculate based on license efficiency
-                    const overallScore = secureScore ? secureScore.percentage : 
-                                       utilizationRate > 80 ? 85 : 
-                                       utilizationRate > 60 ? 75 : 
-                                       utilizationRate > 40 ? 65 : 50;
-                    
+                    const overallScore = secureScore ? secureScore.percentage :
+                        utilizationRate > 80 ? 85 :
+                            utilizationRate > 60 ? 75 :
+                                utilizationRate > 40 ? 65 : 50;
                     // Create detailed real data object with null-safe handling
                     realData = {
                         licenseInfo: licenseInfo ? {
@@ -1348,7 +1202,6 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                             tenantDomain: customer.tenantDomain
                         }
                     };
-                    
                     // Create assessment object with real data
                     const newAssessment = {
                         id: `assessment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -1376,13 +1229,10 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                         lastModified: new Date().toISOString(),
                         createdBy: 'system'
                     };
-                    
                     context.log('✅ Assessment created with real license data');
-                    
                     // Store the assessment and return it immediately
                     const storedAssessment = await dataService.createAssessment(newAssessment);
                     context.log('✅ Assessment with real data stored successfully:', storedAssessment.id);
-
                     // Store in assessment history for frontend queries
                     try {
                         await dataService.storeAssessmentHistory({
@@ -1398,10 +1248,10 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                             }
                         });
                         context.log('✅ Assessment history stored successfully');
-                    } catch (historyError) {
+                    }
+                    catch (historyError) {
                         context.warn('⚠️ Failed to store assessment history:', historyError);
                     }
-
                     // Update customer's last assessment date
                     if (assessmentData.customerId && customer) {
                         try {
@@ -1410,11 +1260,11 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                                 totalAssessments: (customer.totalAssessments || 0) + 1
                             });
                             context.log('✅ Customer updated with assessment info');
-                        } catch (customerUpdateError) {
+                        }
+                        catch (customerUpdateError) {
                             context.warn('⚠️ Failed to update customer:', customerUpdateError);
                         }
                     }
-
                     return {
                         status: 201,
                         headers: corsHeaders,
@@ -1424,11 +1274,10 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                             realData: true
                         }
                     };
-                    
-                } catch (graphError: any) {
+                }
+                catch (graphError) {
                     context.error('❌ Failed to fetch real data from Graph API:', graphError);
                     context.log('⚠️ Creating assessment with placeholder data due to Graph API failure');
-                    
                     // Create assessment with placeholder data when Graph API fails
                     // This allows users to create assessments even when app registration has issues
                     const fallbackAssessment = {
@@ -1471,11 +1320,9 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                         lastModified: new Date().toISOString(),
                         createdBy: 'system'
                     };
-                    
                     // Store the fallback assessment
                     const storedAssessment = await dataService.createAssessment(fallbackAssessment);
                     context.log('✅ Fallback assessment created successfully:', storedAssessment.id);
-
                     // Store in assessment history for frontend queries
                     try {
                         await dataService.storeAssessmentHistory({
@@ -1491,10 +1338,10 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                             }
                         });
                         context.log('✅ Fallback assessment history stored successfully');
-                    } catch (historyError) {
+                    }
+                    catch (historyError) {
                         context.warn('⚠️ Failed to store fallback assessment history:', historyError);
                     }
-
                     return {
                         status: 201,
                         headers: corsHeaders,
@@ -1514,9 +1361,9 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                         }
                     };
                 }
-            } else {
+            }
+            else {
                 context.log('⚠️ Customer found but missing app registration credentials');
-                
                 // Return error instead of falling back to mock data
                 return {
                     status: 400,
@@ -1536,9 +1383,9 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                     }
                 };
             }
-        } else {
+        }
+        else {
             context.log('⚠️ No customer ID provided');
-            
             // Return error instead of falling back to mock data
             return {
                 status: 400,
@@ -1556,9 +1403,9 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                 }
             };
         }
-    } catch (error) {
+    }
+    catch (error) {
         context.error('Error in create assessment handler:', error);
-        
         return {
             status: 500,
             headers: corsHeaders,
@@ -1570,24 +1417,21 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
         };
     }
 }
-
 // Save assessment endpoint
-async function saveAssessmentHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function saveAssessmentHandler(request, context) {
     context.log('Processing request to save assessment');
-
     if (request.method === 'OPTIONS') {
         return {
             status: 200,
             headers: corsHeaders
         };
     }
-
     try {
-        let assessmentData: any = {};
-        
+        let assessmentData = {};
         try {
             assessmentData = await request.json();
-        } catch (error) {
+        }
+        catch (error) {
             return {
                 status: 400,
                 headers: corsHeaders,
@@ -1597,26 +1441,19 @@ async function saveAssessmentHandler(request: HttpRequest, context: InvocationCo
                 }
             };
         }
-
         context.log('Saving assessment:', assessmentData.id);
-
         // Initialize data service
         await initializeDataService(context);
-
         // Save or update the assessment in data service
         let savedAssessment;
         if (assessmentData.id && assessmentData.customerId) {
             // Update existing assessment
-            savedAssessment = await dataService.updateAssessment(
-                assessmentData.id, 
-                assessmentData.customerId, 
-                assessmentData
-            );
-        } else {
+            savedAssessment = await dataService.updateAssessment(assessmentData.id, assessmentData.customerId, assessmentData);
+        }
+        else {
             // Create new assessment
             savedAssessment = await dataService.createAssessment(assessmentData);
         }
-
         // Store in assessment history for comparison purposes
         if (savedAssessment.tenantId) {
             await dataService.storeAssessmentHistory({
@@ -1632,9 +1469,7 @@ async function saveAssessmentHandler(request: HttpRequest, context: InvocationCo
                 }
             });
         }
-
         context.log('Assessment saved successfully:', savedAssessment.id);
-
         return {
             status: 200,
             headers: corsHeaders,
@@ -1643,9 +1478,9 @@ async function saveAssessmentHandler(request: HttpRequest, context: InvocationCo
                 data: savedAssessment
             }
         };
-    } catch (error) {
+    }
+    catch (error) {
         context.error('Error in save assessment handler:', error);
-        
         return {
             status: 500,
             headers: corsHeaders,
@@ -1657,21 +1492,17 @@ async function saveAssessmentHandler(request: HttpRequest, context: InvocationCo
         };
     }
 }
-
 // Get metrics endpoint
-async function getMetricsHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function getMetricsHandler(request, context) {
     context.log('Processing request for metrics');
-
     if (request.method === 'OPTIONS') {
         return {
             status: 200,
             headers: corsHeaders
         };
     }
-
     try {
         const tenantId = request.query.get('tenantId');
-        
         if (!tenantId) {
             return {
                 status: 400,
@@ -1682,18 +1513,14 @@ async function getMetricsHandler(request: HttpRequest, context: InvocationContex
                 }
             };
         }
-
         // Initialize data service to access stored assessments
         await initializeDataService(context);
-
         try {
             // Get the most recent assessment for this tenant
             const assessments = await dataService.getAssessments();
             const tenantAssessments = assessments.assessments.filter(a => a.tenantId === tenantId);
-            
             if (tenantAssessments.length === 0) {
                 context.log(`No assessments found for tenant: ${tenantId}`);
-                
                 // Return default/empty metrics for tenants with no assessments
                 return {
                     status: 200,
@@ -1719,18 +1546,15 @@ async function getMetricsHandler(request: HttpRequest, context: InvocationContex
                     }
                 };
             }
-
             // Get the most recent assessment (sort by date, most recent first)
             const latestAssessment = tenantAssessments.sort((a, b) => {
-                const aDate = new Date((a as any).assessmentDate || (a as any).lastModified || (a as any).date || 0).getTime();
-                const bDate = new Date((b as any).assessmentDate || (b as any).lastModified || (b as any).date || 0).getTime();
+                const aDate = new Date(a.assessmentDate || a.lastModified || a.date || 0).getTime();
+                const bDate = new Date(b.assessmentDate || b.lastModified || b.date || 0).getTime();
                 return bDate - aDate;
             })[0];
-
             context.log(`Found latest assessment for tenant ${tenantId}:`, latestAssessment.id);
-
             // Extract real metrics from the assessment
-            const realMetrics: any = {
+            const realMetrics = {
                 score: {
                     overall: latestAssessment.metrics?.score?.overall || 0,
                     license: latestAssessment.metrics?.score?.license || 0,
@@ -1746,21 +1570,18 @@ async function getMetricsHandler(request: HttpRequest, context: InvocationContex
                     { category: 'Secure Score', severity: 'High', count: 1 }
                 ],
                 hasAssessment: true,
-                assessmentDate: (latestAssessment as any).assessmentDate || (latestAssessment as any).date,
+                assessmentDate: latestAssessment.assessmentDate || latestAssessment.date,
                 assessmentId: latestAssessment.id,
-                dataSource: (latestAssessment.metrics as any)?.assessmentType || 'real-data'
+                dataSource: latestAssessment.metrics?.assessmentType || 'real-data'
             };
-
             // Include real data details if available
-            if ((latestAssessment.metrics as any)?.realData) {
-                realMetrics.realData = (latestAssessment.metrics as any).realData;
+            if (latestAssessment.metrics?.realData) {
+                realMetrics.realData = latestAssessment.metrics.realData;
             }
-
             // Include recommendations if available
-            if ((latestAssessment.metrics as any)?.recommendations) {
-                realMetrics.recommendations = (latestAssessment.metrics as any).recommendations;
+            if (latestAssessment.metrics?.recommendations) {
+                realMetrics.recommendations = latestAssessment.metrics.recommendations;
             }
-
             return {
                 status: 200,
                 headers: corsHeaders,
@@ -1770,10 +1591,9 @@ async function getMetricsHandler(request: HttpRequest, context: InvocationContex
                     tenantId: tenantId
                 }
             };
-
-        } catch (dataError: any) {
+        }
+        catch (dataError) {
             context.error('Error accessing assessment data:', dataError);
-            
             return {
                 status: 500,
                 headers: corsHeaders,
@@ -1792,9 +1612,9 @@ async function getMetricsHandler(request: HttpRequest, context: InvocationContex
                 }
             };
         }
-    } catch (error) {
+    }
+    catch (error) {
         context.error('Error in get metrics handler:', error);
-        
         return {
             status: 500,
             headers: corsHeaders,
@@ -1806,26 +1626,23 @@ async function getMetricsHandler(request: HttpRequest, context: InvocationContex
         };
     }
 }
-
 // Multi-tenant app creation endpoint
-async function createMultiTenantAppHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function createMultiTenantAppHandler(request, context) {
     context.log('Creating multi-tenant Azure app registration...');
-
     if (request.method === 'OPTIONS') {
         return {
             status: 200,
             headers: corsHeaders
         };
     }
-
     try {
         await initializeDataService(context);
-
-        let requestData: any;
+        let requestData;
         try {
-            requestData = await request.json() as any;
+            requestData = await request.json();
             context.log('📋 Request data received:', JSON.stringify(requestData, null, 2));
-        } catch (parseError) {
+        }
+        catch (parseError) {
             context.log('❌ Failed to parse request JSON:', parseError);
             return {
                 status: 400,
@@ -1837,30 +1654,25 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
                 }
             };
         }
-
         const { targetTenantId, targetTenantDomain, assessmentName, requiredPermissions, tenantName, contactEmail } = requestData;
-        
         context.log('🔍 Extracted values:');
         context.log('  - targetTenantId:', targetTenantId);
         context.log('  - targetTenantDomain:', targetTenantDomain);
         context.log('  - tenantName:', tenantName);
         context.log('  - contactEmail:', contactEmail);
-
         // Extract tenant ID from domain or use provided tenant ID (same logic as customer creation)
         let finalTenantId = targetTenantId;
-        
         if (!finalTenantId && targetTenantDomain) {
             // Use the domain as-is as the tenant identifier
             // This works for custom domains and *.onmicrosoft.com domains
             context.log('⚠️ Target Tenant ID not provided - using domain as tenant identifier');
             finalTenantId = targetTenantDomain.toLowerCase();
         }
-
         if (!finalTenantId) {
             return {
                 status: 400,
                 headers: corsHeaders,
-                jsonBody: { 
+                jsonBody: {
                     success: false,
                     error: "Target tenant ID or domain is required",
                     expectedFormat: "{ targetTenantId?: string, targetTenantDomain?: string, tenantName?: string, assessmentName?: string }",
@@ -1868,17 +1680,14 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
                 }
             };
         }
-
         // Validate that we have the required Azure configuration
         context.log('🔍 Validating Azure environment variables...');
         const azureClientId = process.env.AZURE_CLIENT_ID;
         const azureClientSecret = process.env.AZURE_CLIENT_SECRET;
         const azureTenantId = process.env.AZURE_TENANT_ID;
-        
         context.log('  - AZURE_CLIENT_ID:', azureClientId ? 'SET' : 'NOT SET');
         context.log('  - AZURE_CLIENT_SECRET:', azureClientSecret ? 'SET' : 'NOT SET');
         context.log('  - AZURE_TENANT_ID:', azureTenantId ? 'SET' : 'NOT SET');
-        
         if (!azureClientId || !azureClientSecret || !azureTenantId) {
             context.log('❌ Missing required Azure environment variables for app registration');
             return {
@@ -1895,64 +1704,56 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
                     ],
                     troubleshooting: [
                         "Check that AZURE_CLIENT_ID is set in your configuration",
-                        "Check that AZURE_CLIENT_SECRET is set in your configuration", 
+                        "Check that AZURE_CLIENT_SECRET is set in your configuration",
                         "Check that AZURE_TENANT_ID is set in your configuration",
                         "Ensure the service principal has Application.ReadWrite.All permission"
                     ]
                 }
             };
         }
-
         // Prepare customer data for app creation
         const customerData = {
             tenantName: tenantName || targetTenantDomain || finalTenantId,
             tenantDomain: targetTenantDomain || 'unknown.onmicrosoft.com',
-            targetTenantId: finalTenantId,  // Use the resolved tenant ID
+            targetTenantId: finalTenantId, // Use the resolved tenant ID
             contactEmail,
             requiredPermissions
         };
-
         context.log('🏢 Creating real Azure AD app registration for tenant:', customerData.tenantName);
         context.log('🔧 Target tenant identifier:', finalTenantId);
         context.log('🔧 Target tenant domain:', targetTenantDomain || 'not provided');
         context.log('📋 Customer data for app creation:', JSON.stringify(customerData, null, 2));
-
         // Create actual multi-tenant app registration using GraphApiService
         let appRegistration;
         try {
             context.log('🚀 Calling graphApiService.createMultiTenantAppRegistration...');
-            
             // Ensure GraphApiService is available
             if (!graphApiService) {
                 throw new Error('GraphApiService is not initialized. This should not happen after initializeDataService.');
             }
-            
             appRegistration = await graphApiService.createMultiTenantAppRegistration(customerData);
             context.log('✅ GraphApiService returned:', JSON.stringify(appRegistration, null, 2));
-        } catch (graphError: any) {
+        }
+        catch (graphError) {
             context.log('❌ GraphApiService.createMultiTenantAppRegistration failed:', graphError);
             context.log('❌ GraphApiService error details:', {
                 message: graphError.message,
                 stack: graphError.stack,
                 name: graphError.name
             });
-            
             // Re-throw with better context
             throw new Error(`GraphApiService failed: ${graphError.message}`);
         }
-
         // Use the resolved tenant ID from the GraphApiService if available
         const actualTenantId = appRegistration.resolvedTenantId || finalTenantId;
         context.log('🎯 Actual tenant ID to use:', actualTenantId);
-
         // Determine the correct tenant identifier for auth URLs
         let authTenantId = actualTenantId;
-        if (actualTenantId.includes('.') && !actualTenantId.includes('.onmicrosoft.com') && 
+        if (actualTenantId.includes('.') && !actualTenantId.includes('.onmicrosoft.com') &&
             !actualTenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
             context.log('⚠️ Using common auth endpoint for custom domain:', actualTenantId);
             authTenantId = 'common';
         }
-
         // Prepare response with app registration details
         const response = {
             applicationId: appRegistration.applicationId,
@@ -1960,8 +1761,8 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
             clientId: appRegistration.clientId,
             servicePrincipalId: appRegistration.servicePrincipalId,
             clientSecret: appRegistration.clientSecret,
-            tenantId: actualTenantId,  // Use the resolved/actual tenant ID
-            originalTenantId: finalTenantId,  // Keep track of what was originally provided
+            tenantId: actualTenantId, // Use the resolved/actual tenant ID
+            originalTenantId: finalTenantId, // Keep track of what was originally provided
             consentUrl: appRegistration.consentUrl,
             authUrl: `https://login.microsoftonline.com/${authTenantId}/oauth2/v2.0/authorize`,
             redirectUri: appRegistration.redirectUri,
@@ -1969,19 +1770,17 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
             isReal: true, // Flag to indicate this is a real app registration
             domainResolved: actualTenantId !== finalTenantId // Flag to indicate if domain was resolved
         };
-
         context.log('✅ Real multi-tenant app created successfully:', appRegistration.clientId);
-
         // Patch: Update or create customer record with real app registration details
         let customer = null;
         try {
             // Get all customers and find by tenantId
             const { customers } = await tableStorageService.getCustomers({});
             customer = customers.find((c) => c.tenantId === actualTenantId);
-        } catch (err) {
+        }
+        catch (err) {
             context.log('⚠️ Could not fetch customers for tenantId lookup:', err);
         }
-
         if (customer) {
             // Update existing customer with real app registration
             try {
@@ -1993,10 +1792,12 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
                     appRegistration: response
                 });
                 context.log('✅ Customer updated with real app registration:', customer.id);
-            } catch (err) {
+            }
+            catch (err) {
                 context.log('❌ Failed to update customer with real app registration:', err);
             }
-        } else {
+        }
+        else {
             // Create new customer with real app registration
             try {
                 customer = await tableStorageService.createCustomer({
@@ -2006,17 +1807,16 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
                     contactEmail: contactEmail || '',
                 }, response);
                 context.log('✅ Customer created with real app registration:', customer.id);
-            } catch (err) {
+            }
+            catch (err) {
                 context.log('❌ Failed to create customer with real app registration:', err);
             }
         }
-
         // Create success message with domain resolution info
         let successMessage = 'Azure AD app registration created successfully. Admin consent is required in the target tenant.';
         if (actualTenantId !== finalTenantId) {
             successMessage += ` Domain '${finalTenantId}' was resolved to tenant ID '${actualTenantId}'.`;
         }
-
         return {
             status: 200,
             headers: corsHeaders,
@@ -2027,8 +1827,8 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
                 message: successMessage
             }
         };
-
-    } catch (error: any) {
+    }
+    catch (error) {
         context.log('❌ Error creating multi-tenant app:', error);
         context.log('❌ Full error details:', {
             message: error.message,
@@ -2036,14 +1836,12 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
             name: error.name,
             cause: error.cause
         });
-        
         // Provide more detailed error information
         let errorMessage = 'Failed to create multi-tenant app';
         let statusCode = 500;
-        let troubleshootingSteps: string[] = [];
+        let troubleshootingSteps = [];
         let errorDetails = error.message || 'Unknown error';
-        
-        if (error.message?.includes('Missing required environment variables') || 
+        if (error.message?.includes('Missing required environment variables') ||
             error.message?.includes('GraphApiService initialization failed')) {
             errorMessage = 'Azure configuration is incomplete. Required environment variables are not set.';
             statusCode = 500;
@@ -2054,7 +1852,8 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
                 'For local development, update the api/local.settings.json file with valid Azure credentials',
                 'Ensure the service principal has Application.ReadWrite.All permission'
             ];
-        } else if (error.message?.includes('authentication') || error.message?.includes('token')) {
+        }
+        else if (error.message?.includes('authentication') || error.message?.includes('token')) {
             errorMessage = 'Authentication failed. Please check the service principal configuration.';
             statusCode = 401;
             troubleshootingSteps = [
@@ -2063,7 +1862,8 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
                 'Verify the AZURE_TENANT_ID is correct',
                 'Check that the service principal exists and is enabled'
             ];
-        } else if (error.message?.includes('permissions') || error.message?.includes('insufficient')) {
+        }
+        else if (error.message?.includes('permissions') || error.message?.includes('insufficient')) {
             errorMessage = 'Insufficient permissions to create app registration. Check the service principal permissions.';
             statusCode = 403;
             troubleshootingSteps = [
@@ -2071,10 +1871,12 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
                 'Ensure admin consent has been granted for the permissions',
                 'Check that the service principal is not blocked by conditional access policies'
             ];
-        } else if (error.message?.includes('environment')) {
+        }
+        else if (error.message?.includes('environment')) {
             errorMessage = 'Configuration error. Please check the required environment variables.';
             statusCode = 500;
-        } else if (error.message?.includes('GraphApiService failed')) {
+        }
+        else if (error.message?.includes('GraphApiService failed')) {
             errorMessage = 'Microsoft Graph API call failed. Check service principal permissions and configuration.';
             statusCode = 500;
             troubleshootingSteps = [
@@ -2084,7 +1886,6 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
                 'Check that the Azure AD tenant allows app registrations'
             ];
         }
-
         return {
             status: statusCode,
             headers: corsHeaders,
@@ -2109,7 +1910,6 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
         };
     }
 }
-
 // Register all functions with optimized configuration
 app.http('diagnostics', {
     methods: ['GET', 'HEAD', 'OPTIONS'],
@@ -2117,21 +1917,18 @@ app.http('diagnostics', {
     route: 'diagnostics',
     handler: diagnosticsHandler
 });
-
 app.http('test', {
     methods: ['GET', 'HEAD', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'test',
     handler: testHandler
 });
-
 app.http('customers', {
     methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'customers',
     handler: customersHandler
 });
-
 // Individual customer operations (get, update, delete)
 app.http('customerById', {
     methods: ['GET', 'PUT', 'DELETE', 'OPTIONS'],
@@ -2139,7 +1936,6 @@ app.http('customerById', {
     route: 'customers/{customerId}',
     handler: customerByIdHandler
 });
-
 // Customer assessments endpoint
 app.http('customerAssessments', {
     methods: ['GET', 'OPTIONS'],
@@ -2147,21 +1943,18 @@ app.http('customerAssessments', {
     route: 'customers/{customerId}/assessments',
     handler: customerAssessmentsHandler
 });
-
 app.http('assessments', {
     methods: ['GET', 'POST', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'assessments',
     handler: assessmentsHandler
 });
-
 app.http('currentAssessment', {
     methods: ['GET', 'HEAD', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'assessment/current',
     handler: currentAssessmentHandler
 });
-
 // Assessment history endpoints
 app.http('assessmentHistory', {
     methods: ['GET', 'POST', 'OPTIONS'],
@@ -2169,21 +1962,18 @@ app.http('assessmentHistory', {
     route: 'assessment-history',
     handler: assessmentHistoryHandler
 });
-
 app.http('assessmentHistoryByTenant', {
     methods: ['GET', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'assessment-history/{tenantId}',
     handler: assessmentHistoryHandler
 });
-
 app.http('assessmentHistoryByCustomer', {
     methods: ['GET', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'assessment-history/customer/{customerId}',
     handler: assessmentHistoryHandler
 });
-
 // Best practices endpoint
 app.http('bestPractices', {
     methods: ['GET', 'HEAD', 'OPTIONS'],
@@ -2191,7 +1981,6 @@ app.http('bestPractices', {
     route: 'best-practices',
     handler: bestPracticesHandler
 });
-
 // Create assessment endpoint
 app.http('createAssessment', {
     methods: ['POST', 'OPTIONS'],
@@ -2199,7 +1988,6 @@ app.http('createAssessment', {
     route: 'assessment/create',
     handler: createAssessmentHandler
 });
-
 // Save assessment endpoint
 app.http('saveAssessment', {
     methods: ['POST', 'OPTIONS'],
@@ -2207,7 +1995,6 @@ app.http('saveAssessment', {
     route: 'save-assessment',
     handler: saveAssessmentHandler
 });
-
 // Get metrics endpoint
 app.http('getMetrics', {
     methods: ['GET', 'OPTIONS'],
@@ -2215,7 +2002,6 @@ app.http('getMetrics', {
     route: 'GetMetrics',
     handler: getMetricsHandler
 });
-
 // Multi-tenant app creation endpoint
 app.http('createMultiTenantApp', {
     methods: ['POST', 'OPTIONS'],
@@ -2223,13 +2009,12 @@ app.http('createMultiTenantApp', {
     route: 'enterprise-app/multi-tenant',
     handler: createMultiTenantAppHandler
 });
-
 // Assessment status endpoint for frontend warmup
 app.http('assessmentStatus', {
     methods: ['GET', 'OPTIONS', 'HEAD'],
     authLevel: 'anonymous',
     route: 'assessment/status',
-    handler: async function assessmentStatusHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    handler: async function assessmentStatusHandler(request, context) {
         if (request.method === 'OPTIONS' || request.method === 'HEAD') {
             return { status: 200, headers: corsHeaders };
         }
@@ -2240,25 +2025,21 @@ app.http('assessmentStatus', {
         };
     }
 });
-
 // Debug customer endpoint to check app registration status
 app.http('debugCustomer', {
     methods: ['GET', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'debug/customer/{customerId}',
-    handler: async function debugCustomerHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    handler: async function debugCustomerHandler(request, context) {
         context.log('Processing debug customer request');
-
         if (request.method === 'OPTIONS') {
             return {
                 status: 200,
                 headers: corsHeaders
             };
         }
-
         try {
             await initializeDataService(context);
-
             const customerId = request.params.customerId;
             if (!customerId) {
                 return {
@@ -2270,7 +2051,6 @@ app.http('debugCustomer', {
                     }
                 };
             }
-
             // Get customer data
             const customer = await dataService.getCustomer(customerId);
             if (!customer) {
@@ -2284,7 +2064,6 @@ app.http('debugCustomer', {
                     }
                 };
             }
-
             // Debug information about the customer and app registration
             const debugInfo = {
                 customerId: customer.id,
@@ -2298,19 +2077,19 @@ app.http('debugCustomer', {
                     hasClientId: !!customer.appRegistration?.clientId,
                     hasClientSecret: !!customer.appRegistration?.clientSecret,
                     clientIdValue: customer.appRegistration?.clientId || 'NOT_SET',
-                    clientSecretStatus: customer.appRegistration?.clientSecret ? 
-                        (customer.appRegistration.clientSecret === 'MANUAL_SETUP_REQUIRED' ? 'MANUAL_SETUP_REQUIRED' : 'SET') : 
+                    clientSecretStatus: customer.appRegistration?.clientSecret ?
+                        (customer.appRegistration.clientSecret === 'MANUAL_SETUP_REQUIRED' ? 'MANUAL_SETUP_REQUIRED' : 'SET') :
                         'NOT_SET',
                     permissions: customer.appRegistration?.permissions || [],
                     consentUrl: customer.appRegistration?.consentUrl || 'NOT_SET'
                 },
-                issues: [] as string[]
+                issues: []
             };
-
             // Check for common issues
             if (!customer.appRegistration) {
                 debugInfo.issues.push('No app registration configured');
-            } else {
+            }
+            else {
                 if (!customer.appRegistration.clientId || customer.appRegistration.clientId.startsWith('pending-')) {
                     debugInfo.issues.push('Client ID not properly configured (still pending)');
                 }
@@ -2321,7 +2100,6 @@ app.http('debugCustomer', {
                     debugInfo.issues.push('No permissions configured');
                 }
             }
-
             return {
                 status: 200,
                 headers: corsHeaders,
@@ -2337,7 +2115,8 @@ app.http('debugCustomer', {
                     timestamp: new Date().toISOString()
                 }
             };
-        } catch (error) {
+        }
+        catch (error) {
             context.error('Error in debug customer handler:', error);
             return {
                 status: 500,
@@ -2351,11 +2130,9 @@ app.http('debugCustomer', {
         }
     }
 });
-
 // Customer assessments endpoint - get assessments for a specific customer
-async function customerAssessmentsHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function customerAssessmentsHandler(request, context) {
     context.log(`Processing ${request.method} request for customer assessments`);
-
     // Handle preflight OPTIONS request immediately
     if (request.method === 'OPTIONS') {
         return {
@@ -2363,13 +2140,10 @@ async function customerAssessmentsHandler(request: HttpRequest, context: Invocat
             headers: corsHeaders
         };
     }
-
     try {
         // Initialize data service
         await initializeDataService(context);
-
         const customerId = request.params.customerId;
-        
         if (!customerId) {
             return {
                 status: 400,
@@ -2380,14 +2154,10 @@ async function customerAssessmentsHandler(request: HttpRequest, context: Invocat
                 }
             };
         }
-
         context.log('Getting assessments for customer:', customerId);
-
         // Get assessments for the specific customer
         const result = await dataService.getCustomerAssessments(customerId);
-        
         context.log(`Customer assessments retrieved. Count: ${result.assessments.length}`);
-
         return {
             status: 200,
             headers: corsHeaders,
@@ -2399,7 +2169,8 @@ async function customerAssessmentsHandler(request: HttpRequest, context: Invocat
                 timestamp: new Date().toISOString()
             }
         };
-    } catch (error) {
+    }
+    catch (error) {
         context.error('Error in customer assessments handler:', error);
         return {
             status: 500,
@@ -2412,25 +2183,21 @@ async function customerAssessmentsHandler(request: HttpRequest, context: Invocat
         };
     }
 }
-
 // License information endpoint
 app.http('licenseInfo', {
     methods: ['GET', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'assessment/license-info/{tenantId}',
-    handler: async function licenseInfoHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    handler: async function licenseInfoHandler(request, context) {
         context.log('Processing license info request');
-
         if (request.method === 'OPTIONS') {
             return {
                 status: 200,
                 headers: corsHeaders
             };
         }
-
         try {
             await initializeDataService(context);
-
             const tenantId = request.params.tenantId;
             if (!tenantId) {
                 return {
@@ -2442,11 +2209,9 @@ app.http('licenseInfo', {
                     }
                 };
             }
-
             // Get customer by tenant ID to access credentials
             const customers = await dataService.getCustomers({ status: 'active' });
             const customer = customers.customers.find(c => c.tenantId === tenantId);
-            
             if (!customer) {
                 return {
                     status: 404,
@@ -2464,7 +2229,6 @@ app.http('licenseInfo', {
                     }
                 };
             }
-            
             if (!customer.appRegistration?.clientId || !customer.appRegistration?.clientSecret) {
                 return {
                     status: 400,
@@ -2484,25 +2248,15 @@ app.http('licenseInfo', {
                     }
                 };
             }
-
-            const licenseInfo = await graphApiService.getLicenseInfo(
-                tenantId,
-                customer.appRegistration.clientId,
-                customer.appRegistration.clientSecret
-            );
-
+            const licenseInfo = await graphApiService.getLicenseInfo(tenantId, customer.appRegistration.clientId, customer.appRegistration.clientSecret);
             // Enhanced license reporting with usage analytics
             let detailedLicenseInfo = null;
             try {
-                detailedLicenseInfo = await graphApiService.getDetailedLicenseReport(
-                    tenantId,
-                    customer.appRegistration.clientId,
-                    customer.appRegistration.clientSecret
-                );
-            } catch (error) {
+                detailedLicenseInfo = await graphApiService.getDetailedLicenseReport(tenantId, customer.appRegistration.clientId, customer.appRegistration.clientSecret);
+            }
+            catch (error) {
                 context.warn('Could not fetch detailed license report:', error);
             }
-
             return {
                 status: 200,
                 headers: corsHeaders,
@@ -2514,23 +2268,22 @@ app.http('licenseInfo', {
                     }
                 }
             };
-        } catch (error) {
+        }
+        catch (error) {
             context.error('Error in license info handler:', error);
-            
             // Provide detailed error information for license data failures
             let errorMessage = "Failed to fetch license information";
             let statusCode = 500;
-            
             if (error instanceof Error) {
                 if (error.message.includes('Insufficient permissions')) {
                     errorMessage = "Insufficient permissions to access license data";
                     statusCode = 403;
-                } else if (error.message.includes('Authentication failed')) {
+                }
+                else if (error.message.includes('Authentication failed')) {
                     errorMessage = "Authentication failed - app registration consent required";
                     statusCode = 401;
                 }
             }
-            
             return {
                 status: statusCode,
                 headers: corsHeaders,
@@ -2551,25 +2304,21 @@ app.http('licenseInfo', {
         }
     }
 });
-
 // Secure score endpoint
 app.http('secureScore', {
     methods: ['GET', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'assessment/secure-score/{tenantId}',
-    handler: async function secureScoreHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    handler: async function secureScoreHandler(request, context) {
         context.log('Processing secure score request');
-
         if (request.method === 'OPTIONS') {
             return {
                 status: 200,
                 headers: corsHeaders
             };
         }
-
         try {
             await initializeDataService(context);
-
             const tenantId = request.params.tenantId;
             if (!tenantId) {
                 return {
@@ -2581,11 +2330,9 @@ app.http('secureScore', {
                     }
                 };
             }
-
             // Get customer by tenant ID to access credentials
             const customers = await dataService.getCustomers({ status: 'active' });
             const customer = customers.customers.find(c => c.tenantId === tenantId);
-            
             if (!customer) {
                 return {
                     status: 404,
@@ -2603,14 +2350,13 @@ app.http('secureScore', {
                     }
                 };
             }
-            
             if (!customer.appRegistration?.clientId || !customer.appRegistration?.clientSecret) {
                 return {
                     status: 400,
                     headers: corsHeaders,
                     jsonBody: {
                         success: false,
-                        error: "App registration credentials incomplete", 
+                        error: "App registration credentials incomplete",
                         details: "Customer exists but app registration setup is not complete",
                         troubleshooting: [
                             'Complete the app registration process for this customer',
@@ -2623,13 +2369,7 @@ app.http('secureScore', {
                     }
                 };
             }
-
-            const secureScore = await graphApiService.getSecureScore(
-                tenantId,
-                customer.appRegistration.clientId,
-                customer.appRegistration.clientSecret
-            );
-
+            const secureScore = await graphApiService.getSecureScore(tenantId, customer.appRegistration.clientId, customer.appRegistration.clientSecret);
             return {
                 status: 200,
                 headers: corsHeaders,
@@ -2638,26 +2378,26 @@ app.http('secureScore', {
                     data: secureScore
                 }
             };
-        } catch (error) {
+        }
+        catch (error) {
             context.error('Error in secure score handler:', error);
-            
             // Provide detailed error information for secure score failures
             let errorMessage = "Failed to fetch secure score";
             let statusCode = 500;
-            
             if (error instanceof Error) {
                 if (error.message.includes('Insufficient permissions')) {
                     errorMessage = "Insufficient permissions to access secure score data";
                     statusCode = 403;
-                } else if (error.message.includes('Authentication failed')) {
+                }
+                else if (error.message.includes('Authentication failed')) {
                     errorMessage = "Authentication failed - app registration consent required";
                     statusCode = 401;
-                } else if (error.message.includes('No secure score data available')) {
+                }
+                else if (error.message.includes('No secure score data available')) {
                     errorMessage = "No secure score data available for this tenant";
                     statusCode = 404;
                 }
             }
-            
             return {
                 status: statusCode,
                 headers: corsHeaders,
@@ -2679,13 +2419,12 @@ app.http('secureScore', {
         }
     }
 });
-
 // Get a specific assessment by ID, including license info and all metrics
 app.http('assessmentById', {
     methods: ['GET', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'assessment/{assessmentId}',
-    handler: async function assessmentByIdHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    handler: async function assessmentByIdHandler(request, context) {
         context.log('Processing request for assessment by ID');
         if (request.method === 'OPTIONS') {
             return {
@@ -2727,7 +2466,8 @@ app.http('assessmentById', {
                     data: assessment
                 }
             };
-        } catch (error) {
+        }
+        catch (error) {
             context.error('Error in assessmentByIdHandler:', error);
             return {
                 status: 500,
@@ -2741,3 +2481,4 @@ app.http('assessmentById', {
         }
     }
 });
+//# sourceMappingURL=index-v4-full-backup.js.map

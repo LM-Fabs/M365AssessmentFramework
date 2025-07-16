@@ -22,6 +22,8 @@
     "dist",
     "backup-functions",
     "*.backup",
-    "**/*.backup"
+    "**/*.backup",
+    "*backup*",
+    "**/*backup*"
   ]
 }
