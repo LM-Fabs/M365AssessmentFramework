@@ -222,7 +222,7 @@ async function diagnosticsHandler(request: HttpRequest, context: InvocationConte
                 type: usingPostgreSQL ? 'PostgreSQL' : 'Not Initialized',
                 postgresqlConfigured: !!(process.env.POSTGRES_HOST && process.env.POSTGRES_DATABASE)
             },
-            version: '1.0.9'
+            version: '1.0.10'
         };
 
         return {
