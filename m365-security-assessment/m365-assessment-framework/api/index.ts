@@ -1,5 +1,4 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
-import { TableStorageService } from "./shared/tableStorageService";
 import { PostgreSQLService } from "./shared/postgresqlService";
 import { GraphApiService } from "./shared/graphApiService";
 import { getKeyVaultService, KeyVaultService } from "./shared/keyVaultService";
@@ -32,11 +31,10 @@ const CACHE_TTL = {
 };
 
 // Initialize data services with connection pooling
-let tableStorageService: TableStorageService;
 let postgresqlService: PostgreSQLService;
 let graphApiService: GraphApiService;
 let keyVaultService: KeyVaultService | null = null;
-let dataService: TableStorageService | PostgreSQLService;
+let dataService: PostgreSQLService;
 let isDataServiceInitialized = false;
 let initializationPromise: Promise<void> | null = null;
 let usingPostgreSQL = false;
@@ -73,32 +71,20 @@ async function initializeDataService(context: InvocationContext): Promise<void> 
             
             // Check if PostgreSQL is configured
             const hasPostgresConfig = process.env.POSTGRES_HOST && process.env.POSTGRES_DATABASE;
-            
-            if (hasPostgresConfig) {
-                try {
-                    // Initialize PostgreSQL service
-                    context.log('🐘 Attempting to initialize PostgreSQL service...');
-                    postgresqlService = new PostgreSQLService();
-                    await postgresqlService.initialize();
-                    dataService = postgresqlService;
-                    usingPostgreSQL = true;
-                    context.log('✅ PostgreSQL service initialized successfully - unlimited data storage enabled!');
-                } catch (error) {
-                    context.warn('⚠️ PostgreSQL initialization failed, falling back to Table Storage:', error);
-                    // Fall back to Table Storage
-                    tableStorageService = new TableStorageService();
-                    await tableStorageService.initialize();
-                    dataService = tableStorageService;
-                    usingPostgreSQL = false;
-                    context.log('✅ Table Storage service initialized as fallback');
-                }
-            } else {
-                // Use Table Storage when PostgreSQL is not configured
-                context.log('📊 Using Table Storage service (PostgreSQL not configured)');
-                tableStorageService = new TableStorageService();
-                await tableStorageService.initialize();
-                dataService = tableStorageService;
-                usingPostgreSQL = false;
+            if (!hasPostgresConfig) {
+                throw new Error('PostgreSQL configuration missing: POSTGRES_HOST and/or POSTGRES_DATABASE not set.');
+            }
+            try {
+                // Initialize PostgreSQL service
+                context.log('🐘 Attempting to initialize PostgreSQL service...');
+                postgresqlService = new PostgreSQLService();
+                await postgresqlService.initialize();
+                dataService = postgresqlService;
+                usingPostgreSQL = true;
+                context.log('✅ PostgreSQL service initialized successfully - unlimited data storage enabled!');
+            } catch (error) {
+                context.error('❌ PostgreSQL initialization failed:', error);
+                throw new Error('PostgreSQL initialization failed: ' + (error instanceof Error ? error.message : error));
             }
             
             // Initialize Graph API service with better error handling
@@ -1976,7 +1962,7 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
         let customer = null;
         try {
             // Get all customers and find by tenantId
-            const { customers } = await tableStorageService.getCustomers({});
+            const { customers } = await dataService.getCustomers({});
             customer = customers.find((c) => c.tenantId === actualTenantId);
         } catch (err) {
             context.log('⚠️ Could not fetch customers for tenantId lookup:', err);
@@ -1985,7 +1971,7 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
         if (customer) {
             // Update existing customer with real app registration
             try {
-                customer = await tableStorageService.updateCustomer(customer.id, {
+                customer = await dataService.updateCustomer(customer.id, {
                     tenantId: actualTenantId,
                     tenantName: customer.tenantName,
                     tenantDomain: customer.tenantDomain,
@@ -1999,7 +1985,7 @@ async function createMultiTenantAppHandler(request: HttpRequest, context: Invoca
         } else {
             // Create new customer with real app registration
             try {
-                customer = await tableStorageService.createCustomer({
+                customer = await dataService.createCustomer({
                     tenantId: actualTenantId,
                     tenantName: tenantName || targetTenantDomain || actualTenantId,
                     tenantDomain: targetTenantDomain || 'unknown.onmicrosoft.com',
