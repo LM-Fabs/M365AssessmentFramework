@@ -32,7 +32,8 @@ export class PostgreSQLService {
     private async getAzureADToken(): Promise<string> {
         try {
             // Get access token for PostgreSQL using service principal
-            const tokenResponse = await this.credential.getToken('https://ossrdbms-aad.database.windows.net');
+            // Use the correct scope for PostgreSQL Flexible Server
+            const tokenResponse = await this.credential.getToken('https://ossrdbms-aad.database.windows.net/.default');
             
             if (tokenResponse && tokenResponse.token) {
                 console.log('🔐 PostgreSQL: Azure AD token obtained successfully');
@@ -101,7 +102,12 @@ export class PostgreSQLService {
         };
 
         // Use Azure AD authentication in production (no firewall rules needed!)
-        if (process.env.NODE_ENV === 'production') {
+        // Check multiple indicators for production environment
+        const isProduction = process.env.NODE_ENV === 'production' || 
+                           process.env.AZURE_CLIENT_ID !== undefined ||
+                           process.env.WEBSITE_SITE_NAME !== undefined;
+        
+        if (isProduction) {
             console.log('🔐 PostgreSQL: Using Azure AD authentication (no firewall rules needed)');
             
             // Set the service principal application ID as the username
