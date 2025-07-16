@@ -1057,7 +1057,7 @@ async function assessmentsHandler(request: HttpRequest, context: InvocationConte
             // Get all assessments with optional filtering
             const result = await dataService.getAssessments({
                 status: status || undefined,
-                maxItemCount: limit
+                limit
             });
             assessments = result.assessments;
         }
