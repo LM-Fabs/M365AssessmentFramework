@@ -23,25 +23,55 @@ class PostgreSQLService {
         // Pool initialization is deferred to initialize() method to allow async Key Vault retrieval
     }
     /**
-     * Setup managed identity authentication for Azure PostgreSQL
+     * Setup Azure AD authentication for PostgreSQL
+     * Uses service principal authentication instead of password
      */
-    async setupManagedIdentityAuth() {
+    async getAzureADToken() {
         try {
-            // Get access token for PostgreSQL
+            // Get access token for PostgreSQL using service principal
             const tokenResponse = await this.credential.getToken('https://ossrdbms-aad.database.windows.net');
-            if (tokenResponse) {
-                // Update pool configuration with token
-                const currentConfig = this.pool.options;
-                currentConfig.password = tokenResponse.token;
-                // Recreate pool with updated credentials
-                await this.pool.end();
-                this.pool = new pg_1.Pool(currentConfig);
-                console.log('🔐 PostgreSQL: Managed identity authentication configured');
+            if (tokenResponse && tokenResponse.token) {
+                console.log('🔐 PostgreSQL: Azure AD token obtained successfully');
+                return tokenResponse.token;
+            }
+            else {
+                throw new Error('Failed to get Azure AD token');
             }
         }
         catch (error) {
-            console.error('❌ PostgreSQL: Failed to setup managed identity auth:', error);
-            throw new Error('Failed to authenticate with managed identity');
+            console.error('❌ PostgreSQL: Failed to get Azure AD token:', error);
+            throw new Error(`Azure AD authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+    /**
+     * Fallback to password authentication if Azure AD fails
+     */
+    async usePasswordAuthentication(config) {
+        try {
+            console.log('🔐 PostgreSQL: Falling back to password authentication');
+            // Get password from Key Vault first, fallback to environment variable
+            let password;
+            try {
+                const keyVaultService = (0, keyVaultService_1.getKeyVaultService)();
+                password = await keyVaultService.getPostgreSQLPassword();
+                console.log('🔐 PostgreSQL: Password retrieved from Key Vault');
+            }
+            catch (error) {
+                console.warn('⚠️ PostgreSQL: Failed to retrieve password from Key Vault, using environment variable:', error);
+                password = process.env.POSTGRES_PASSWORD;
+            }
+            if (password) {
+                config.user = process.env.POSTGRES_USER || 'assessment_admin';
+                config.password = password;
+                console.log('✅ PostgreSQL: Password authentication configured as fallback');
+            }
+            else {
+                throw new Error('No password available for authentication');
+            }
+        }
+        catch (error) {
+            console.error('❌ PostgreSQL: Password authentication fallback failed:', error);
+            throw new Error(`Both Azure AD and password authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
     /**
@@ -72,7 +102,7 @@ class PostgreSQLService {
         }
     }
     /**
-     * Initialize connection pool with Key Vault password retrieval
+     * Initialize connection pool with Azure AD authentication
      */
     async initializePoolAsync() {
         const config = {
@@ -91,33 +121,28 @@ class PostgreSQLService {
             keepAlive: true,
             keepAliveInitialDelayMillis: 10000,
         };
-        // Get password from Key Vault first, fallback to environment variable
-        let password;
-        try {
-            const keyVaultService = (0, keyVaultService_1.getKeyVaultService)();
-            password = await keyVaultService.getPostgreSQLPassword();
-            console.log('🔐 PostgreSQL: Password retrieved from Key Vault');
-        }
-        catch (error) {
-            console.warn('⚠️ PostgreSQL: Failed to retrieve password from Key Vault, using environment variable:', error);
-            password = process.env.POSTGRES_PASSWORD;
-        }
-        // Set authentication based on environment
+        // Use Azure AD authentication in production (no firewall rules needed!)
         if (process.env.NODE_ENV === 'production') {
-            // PostgreSQL Flexible Server with managed identity or password
-            config.user = process.env.POSTGRES_USER || 'assessment_app';
-            if (password) {
-                config.password = password;
+            console.log('🔐 PostgreSQL: Using Azure AD authentication (no firewall rules needed)');
+            // Set the service principal application ID as the username
+            config.user = '1528f6e7-3452-4919-bae3-41258c155840'; // Service principal app ID
+            try {
+                // Get Azure AD token for authentication
+                const azureToken = await this.getAzureADToken();
+                config.password = azureToken;
+                console.log('✅ PostgreSQL: Azure AD authentication configured successfully');
             }
-            else {
-                // Try managed identity authentication
-                await this.setupManagedIdentityAuth();
+            catch (error) {
+                console.error('❌ PostgreSQL: Azure AD authentication failed, falling back to password auth:', error);
+                // Fallback to password authentication if Azure AD fails
+                await this.usePasswordAuthentication(config);
             }
         }
         else {
-            // Local development
+            // Local development with password
             config.user = process.env.POSTGRES_USER || 'postgres';
-            config.password = password || 'password';
+            config.password = process.env.POSTGRES_PASSWORD || 'password';
+            console.log('🔧 PostgreSQL: Using password authentication for local development');
         }
         this.pool = new pg_1.Pool(config);
         // Handle pool errors
