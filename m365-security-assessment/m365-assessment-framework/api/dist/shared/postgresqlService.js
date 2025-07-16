@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.postgresqlService = exports.postgresService = exports.PostgreSQLService = void 0;
 const pg_1 = require("pg");
 const identity_1 = require("@azure/identity");
-const keyVaultService_1 = require("./keyVaultService");
 /**
  * PostgreSQL Database Service for M365 Assessment Framework
  * Replaces Azure Table Storage with PostgreSQL Flexible Server
@@ -41,37 +40,6 @@ class PostgreSQLService {
         catch (error) {
             console.error('❌ PostgreSQL: Failed to get Azure AD token:', error);
             throw new Error(`Azure AD authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    }
-    /**
-     * Fallback to password authentication if Azure AD fails
-     */
-    async usePasswordAuthentication(config) {
-        try {
-            console.log('🔐 PostgreSQL: Falling back to password authentication');
-            // Get password from Key Vault first, fallback to environment variable
-            let password;
-            try {
-                const keyVaultService = (0, keyVaultService_1.getKeyVaultService)();
-                password = await keyVaultService.getPostgreSQLPassword();
-                console.log('🔐 PostgreSQL: Password retrieved from Key Vault');
-            }
-            catch (error) {
-                console.warn('⚠️ PostgreSQL: Failed to retrieve password from Key Vault, using environment variable:', error);
-                password = process.env.POSTGRES_PASSWORD;
-            }
-            if (password) {
-                config.user = process.env.POSTGRES_USER || 'assessment_admin';
-                config.password = password;
-                console.log('✅ PostgreSQL: Password authentication configured as fallback');
-            }
-            else {
-                throw new Error('No password available for authentication');
-            }
-        }
-        catch (error) {
-            console.error('❌ PostgreSQL: Password authentication fallback failed:', error);
-            throw new Error(`Both Azure AD and password authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
     /**
@@ -126,17 +94,10 @@ class PostgreSQLService {
             console.log('🔐 PostgreSQL: Using Azure AD authentication (no firewall rules needed)');
             // Set the service principal application ID as the username
             config.user = '1528f6e7-3452-4919-bae3-41258c155840'; // Service principal app ID
-            try {
-                // Get Azure AD token for authentication
-                const azureToken = await this.getAzureADToken();
-                config.password = azureToken;
-                console.log('✅ PostgreSQL: Azure AD authentication configured successfully');
-            }
-            catch (error) {
-                console.error('❌ PostgreSQL: Azure AD authentication failed, falling back to password auth:', error);
-                // Fallback to password authentication if Azure AD fails
-                await this.usePasswordAuthentication(config);
-            }
+            // Get Azure AD token for authentication
+            const azureToken = await this.getAzureADToken();
+            config.password = azureToken;
+            console.log('✅ PostgreSQL: Azure AD authentication configured successfully');
         }
         else {
             // Local development with password
