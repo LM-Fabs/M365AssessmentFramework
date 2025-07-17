@@ -156,101 +156,108 @@ class PostgreSQLService {
         catch (error) {
             console.warn('⚠️ PostgreSQL: pg_trgm extension not available, full-text search may be limited');
         }
-        // Customers table with optimized structure (using gen_random_uuid() as fallback)
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS customers (
-                id UUID PRIMARY KEY DEFAULT COALESCE(uuid_generate_v4(), gen_random_uuid()),
-                tenant_id VARCHAR(255) NOT NULL,
-                tenant_name VARCHAR(255) NOT NULL,
-                tenant_domain VARCHAR(255) NOT NULL,
-                contact_email VARCHAR(255),
-                notes TEXT,
-                status VARCHAR(50) DEFAULT 'active',
-                created_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                last_assessment_date TIMESTAMPTZ,
-                total_assessments INTEGER DEFAULT 0,
-                app_registration JSONB,
-                
-                -- Performance indexes
-                CONSTRAINT valid_status CHECK (status IN ('active', 'inactive', 'deleted'))
+        // Check if customers table exists and get its structure
+        const tableExists = await client.query(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'customers'
             );
         `);
-        // Handle schema migrations for existing tables - add ALL required columns
-        try {
-            // Add essential columns first (required for basic functionality)
-            await client.query(`
-                ALTER TABLE customers 
-                ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(255);
+        const hasTable = tableExists.rows[0].exists;
+        console.log(`🔍 PostgreSQL: Customers table exists: ${hasTable}`);
+        if (hasTable) {
+            // Table exists - check its columns and migrate
+            const columnsResult = await client.query(`
+                SELECT column_name, data_type, is_nullable, column_default
+                FROM information_schema.columns 
+                WHERE table_schema = 'public' 
+                AND table_name = 'customers'
+                ORDER BY ordinal_position;
             `);
-            await client.query(`
-                ALTER TABLE customers 
-                ADD COLUMN IF NOT EXISTS tenant_name VARCHAR(255);
-            `);
-            await client.query(`
-                ALTER TABLE customers 
-                ADD COLUMN IF NOT EXISTS tenant_domain VARCHAR(255);
-            `);
-            // Add optional columns
-            await client.query(`
-                ALTER TABLE customers 
-                ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active';
-            `);
-            await client.query(`
-                ALTER TABLE customers 
-                ADD COLUMN IF NOT EXISTS created_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
-            `);
-            await client.query(`
-                ALTER TABLE customers 
-                ADD COLUMN IF NOT EXISTS last_assessment_date TIMESTAMPTZ;
-            `);
-            await client.query(`
-                ALTER TABLE customers 
-                ADD COLUMN IF NOT EXISTS total_assessments INTEGER DEFAULT 0;
-            `);
-            await client.query(`
-                ALTER TABLE customers 
-                ADD COLUMN IF NOT EXISTS app_registration JSONB;
-            `);
-            await client.query(`
-                ALTER TABLE customers 
-                ADD COLUMN IF NOT EXISTS contact_email VARCHAR(255);
-            `);
-            await client.query(`
-                ALTER TABLE customers 
-                ADD COLUMN IF NOT EXISTS notes TEXT;
-            `);
+            const existingColumns = columnsResult.rows.map(row => row.column_name);
+            console.log('🔍 PostgreSQL: Existing columns:', existingColumns);
+            // Define required columns with their definitions
+            const requiredColumns = [
+                { name: 'tenant_id', definition: 'VARCHAR(255)' },
+                { name: 'tenant_name', definition: 'VARCHAR(255)' },
+                { name: 'tenant_domain', definition: 'VARCHAR(255)' },
+                { name: 'status', definition: "VARCHAR(50) DEFAULT 'active'" },
+                { name: 'created_date', definition: 'TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP' },
+                { name: 'last_assessment_date', definition: 'TIMESTAMPTZ' },
+                { name: 'total_assessments', definition: 'INTEGER DEFAULT 0' },
+                { name: 'app_registration', definition: 'JSONB' },
+                { name: 'contact_email', definition: 'VARCHAR(255)' },
+                { name: 'notes', definition: 'TEXT' }
+            ];
+            // Add missing columns one by one
+            for (const column of requiredColumns) {
+                if (!existingColumns.includes(column.name)) {
+                    try {
+                        console.log(`🔧 PostgreSQL: Adding missing column: ${column.name}`);
+                        await client.query(`ALTER TABLE customers ADD COLUMN ${column.name} ${column.definition};`);
+                        console.log(`✅ PostgreSQL: Added column ${column.name}`);
+                    }
+                    catch (error) {
+                        console.error(`❌ PostgreSQL: Failed to add column ${column.name}:`, error);
+                    }
+                }
+            }
             // Update null values in required columns with defaults
-            await client.query(`
-                UPDATE customers 
-                SET tenant_id = COALESCE(tenant_id, 'unknown-' || id::text)
-                WHERE tenant_id IS NULL;
-            `);
-            await client.query(`
-                UPDATE customers 
-                SET tenant_name = COALESCE(tenant_name, 'Unknown Tenant')
-                WHERE tenant_name IS NULL;
-            `);
-            await client.query(`
-                UPDATE customers 
-                SET tenant_domain = COALESCE(tenant_domain, 'unknown-' || id::text || '.local')
-                WHERE tenant_domain IS NULL;
-            `);
-            console.log('✅ PostgreSQL: Schema migration completed for customers table');
+            try {
+                await client.query(`
+                    UPDATE customers 
+                    SET tenant_id = COALESCE(tenant_id, 'unknown-' || id::text)
+                    WHERE tenant_id IS NULL;
+                `);
+                await client.query(`
+                    UPDATE customers 
+                    SET tenant_name = COALESCE(tenant_name, 'Unknown Tenant')
+                    WHERE tenant_name IS NULL;
+                `);
+                await client.query(`
+                    UPDATE customers 
+                    SET tenant_domain = COALESCE(tenant_domain, 'unknown-' || id::text || '.local')
+                    WHERE tenant_domain IS NULL;
+                `);
+                console.log('✅ PostgreSQL: Updated null values with defaults');
+            }
+            catch (error) {
+                console.warn('⚠️ PostgreSQL: Failed to update null values:', error);
+            }
         }
-        catch (migrationError) {
-            console.warn('⚠️ PostgreSQL: Schema migration warning:', migrationError);
+        else {
+            // Table doesn't exist - create it from scratch
+            console.log('🔧 PostgreSQL: Creating customers table from scratch');
+            await client.query(`
+                CREATE TABLE customers (
+                    id UUID PRIMARY KEY DEFAULT COALESCE(uuid_generate_v4(), gen_random_uuid()),
+                    tenant_id VARCHAR(255) NOT NULL,
+                    tenant_name VARCHAR(255) NOT NULL,
+                    tenant_domain VARCHAR(255) NOT NULL,
+                    contact_email VARCHAR(255),
+                    notes TEXT,
+                    status VARCHAR(50) DEFAULT 'active',
+                    created_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    last_assessment_date TIMESTAMPTZ,
+                    total_assessments INTEGER DEFAULT 0,
+                    app_registration JSONB,
+                    
+                    CONSTRAINT valid_status CHECK (status IN ('active', 'inactive', 'deleted'))
+                );
+            `);
+            console.log('✅ PostgreSQL: Created customers table');
         }
-        // Create indexes
+        // Create indexes (safe to run multiple times)
         try {
             await client.query(`
                 CREATE INDEX IF NOT EXISTS idx_customers_tenant_id ON customers(tenant_id);
                 CREATE INDEX IF NOT EXISTS idx_customers_status ON customers(status);
                 CREATE INDEX IF NOT EXISTS idx_customers_created_date ON customers(created_date);
                 CREATE INDEX IF NOT EXISTS idx_customers_domain ON customers(tenant_domain);
-                
-                -- GIN index for JSONB searches
                 CREATE INDEX IF NOT EXISTS idx_customers_app_registration ON customers USING gin(app_registration);
             `);
+            console.log('✅ PostgreSQL: Created indexes');
         }
         catch (indexError) {
             console.warn('⚠️ PostgreSQL: Index creation warning:', indexError);
