@@ -294,6 +294,133 @@ async function testHandler(request: HttpRequest, context: InvocationContext): Pr
 }
 
 
+// Diagnostic endpoint to check and fix app registrations for existing customers
+async function fixAppRegistrationsHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    try {
+        context.log('🔧 Checking and fixing app registrations for all customers...');
+        
+        // Initialize data service
+        await initializeDataService(context);
+        
+        // Get all customers
+        const { customers } = await dataService.getCustomers({});
+        context.log(`📊 Found ${customers.length} customers to check`);
+        
+        const results = [];
+        
+        for (const customer of customers) {
+            const customerResult: any = {
+                id: customer.id,
+                tenantName: customer.tenantName,
+                tenantDomain: customer.tenantDomain,
+                originalAppReg: customer.appRegistration,
+                hasAppReg: !!customer.appRegistration,
+                appRegType: typeof customer.appRegistration,
+                needsFix: false,
+                fixed: false,
+                error: null
+            };
+            
+            try {
+                // Check if app registration is valid
+                const appId = customer.appRegistration?.applicationId;
+                const isValidUUID = (id: string) => {
+                    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                    return uuidRegex.test(id);
+                };
+                
+                const hasRealAppReg = customer.appRegistration && 
+                                    customer.appRegistration.applicationId && 
+                                    typeof customer.appRegistration.applicationId === 'string' &&
+                                    customer.appRegistration.applicationId.trim() !== '' &&
+                                    isValidUUID(customer.appRegistration.applicationId) &&
+                                    !customer.appRegistration.applicationId.startsWith('pending-') &&
+                                    !customer.appRegistration.applicationId.startsWith('ERROR_') &&
+                                    !customer.appRegistration.applicationId.startsWith('placeholder-');
+                
+                if (!hasRealAppReg) {
+                    customerResult.needsFix = true;
+                    
+                    // Attempt to fix by creating a new app registration
+                    context.log(`🔧 Attempting to fix app registration for customer: ${customer.tenantName}`);
+                    
+                    // If app registration is completely missing or corrupted, set a placeholder
+                    if (!customer.appRegistration || 
+                        !customer.appRegistration.applicationId || 
+                        customer.appRegistration.applicationId.startsWith('ERROR_') ||
+                        customer.appRegistration.applicationId.startsWith('placeholder-')) {
+                        
+                        const placeholderAppReg = {
+                            applicationId: `placeholder-${customer.id}`,
+                            clientId: `placeholder-${customer.id}`,
+                            servicePrincipalId: `placeholder-${customer.id}`,
+                            permissions: [
+                                'Organization.Read.All',
+                                'Reports.Read.All',
+                                'Directory.Read.All',
+                                'SecurityEvents.Read.All'
+                            ],
+                            consentUrl: '',
+                            isReal: false,
+                            needsSetup: true,
+                            createdDate: new Date().toISOString(),
+                            migrationFixed: true
+                        };
+                        
+                        // Update customer with placeholder app registration
+                        await dataService.updateCustomer(customer.id, {
+                            appRegistration: placeholderAppReg
+                        });
+                        
+                        customerResult.fixed = true;
+                        customerResult.newAppReg = placeholderAppReg;
+                    }
+                } else {
+                    customerResult.isValid = true;
+                }
+                
+            } catch (error) {
+                customerResult.error = error instanceof Error ? error.message : String(error);
+                context.error(`❌ Error fixing app registration for ${customer.tenantName}:`, error);
+            }
+            
+            results.push(customerResult);
+        }
+        
+        const summary = {
+            totalCustomers: customers.length,
+            needingFix: results.filter(r => r.needsFix).length,
+            fixed: results.filter(r => r.fixed).length,
+            errors: results.filter(r => r.error).length,
+            valid: results.filter(r => r.isValid).length
+        };
+        
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                message: 'App registration fix operation completed',
+                summary,
+                details: results
+            }
+        };
+        
+    } catch (error: any) {
+        context.error('❌ Error in fix app registrations handler:', error);
+        
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: 'Failed to fix app registrations',
+                errorMessage: error.message
+            }
+        };
+    }
+}
+
 // Test app registration creation endpoint for debugging
 async function testAppRegistrationHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     try {
@@ -531,6 +658,8 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 context.log('🔍 Checking app registration:', {
                     hasAppRegistration: !!existingCustomer.appRegistration,
                     applicationId: appId,
+                    appRegistrationFull: existingCustomer.appRegistration, // Debug: Full object
+                    appRegistrationType: typeof existingCustomer.appRegistration,
                     isValidUUID: appId ? isValidUUID(appId) : false,
                     isPending: appId ? appId.startsWith('pending-') : false,
                     isError: appId ? appId.startsWith('ERROR_') : false
@@ -538,12 +667,22 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 
                 const hasRealAppReg = existingCustomer.appRegistration && 
                                     existingCustomer.appRegistration.applicationId && 
+                                    typeof existingCustomer.appRegistration.applicationId === 'string' &&
+                                    existingCustomer.appRegistration.applicationId.trim() !== '' &&
                                     isValidUUID(existingCustomer.appRegistration.applicationId) &&
                                     !existingCustomer.appRegistration.applicationId.startsWith('pending-') &&
-                                    !existingCustomer.appRegistration.applicationId.startsWith('ERROR_');
+                                    !existingCustomer.appRegistration.applicationId.startsWith('ERROR_') &&
+                                    !existingCustomer.appRegistration.applicationId.startsWith('placeholder-') &&
+                                    existingCustomer.appRegistration.isReal !== false; // Check isReal flag if it exists
                 
                 context.log('🔍 App registration validation result:', {
                     hasRealAppReg: hasRealAppReg,
+                    hasAppRegistration: !!existingCustomer.appRegistration,
+                    hasApplicationId: !!existingCustomer.appRegistration?.applicationId,
+                    applicationIdValue: existingCustomer.appRegistration?.applicationId,
+                    applicationIdType: typeof existingCustomer.appRegistration?.applicationId,
+                    isValidUUIDResult: appId ? isValidUUID(appId) : false,
+                    isRealFlag: existingCustomer.appRegistration?.isReal,
                     reason: hasRealAppReg ? 'Valid UUID found' : 'Invalid or missing UUID'
                 });
                 
@@ -583,7 +722,17 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     };
                 } else {
                     context.log('⚠️ Customer exists but app registration needs to be fixed');
+                    context.log('🔧 App registration fix details:', {
+                        currentAppReg: existingCustomer.appRegistration,
+                        needsFixing: true,
+                        reason: 'Invalid, missing, or corrupted app registration',
+                        hasAppReg: !!existingCustomer.appRegistration,
+                        appRegType: typeof existingCustomer.appRegistration,
+                        applicationId: existingCustomer.appRegistration?.applicationId,
+                        clientId: existingCustomer.appRegistration?.clientId
+                    });
                     // Continue with the app registration process for this existing customer
+                    // This will update/fix the app registration
                 }
             }
 
@@ -3098,6 +3247,14 @@ app.http('setup-service-principal', {
             };
         }
     }
+});
+
+// Fix app registrations endpoint for PostgreSQL migration issues
+app.http('fixAppRegistrations', {
+    methods: ['POST'],
+    authLevel: 'anonymous',
+    route: 'fix-app-registrations',
+    handler: fixAppRegistrationsHandler
 });
 
 // Test app registration endpoint
