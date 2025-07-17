@@ -186,15 +186,16 @@ export class PostgreSQLService {
             console.warn('⚠️ PostgreSQL: pg_trgm extension not available, full-text search may be limited');
         }
 
-        // For now, use a simple drop and recreate approach to ensure clean schema
+        // Create tables only if they don't exist - preserve existing data
         console.log('� PostgreSQL: Ensuring clean database schema...');
         
-        // Drop all tables in the correct order (to handle foreign key constraints)
-        await client.query('DROP TABLE IF EXISTS assessment_history CASCADE;');
-        await client.query('DROP TABLE IF EXISTS assessments CASCADE;');
-        await client.query('DROP TABLE IF EXISTS customers CASCADE;');            console.log('🔧 PostgreSQL: Creating customers table with complete schema...');
-            await client.query(`
-                CREATE TABLE customers (
+        // REMOVED: Drop table statements to preserve data across restarts
+        // await client.query('DROP TABLE IF EXISTS assessment_history CASCADE;');
+        // await client.query('DROP TABLE IF EXISTS assessments CASCADE;');
+        // Create customers table if it doesn't exist  
+        console.log('🔧 PostgreSQL: Creating customers table with complete schema...');
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS customers (
                     id UUID PRIMARY KEY,
                     tenant_id VARCHAR(255) NOT NULL,
                     tenant_name VARCHAR(255) NOT NULL,
