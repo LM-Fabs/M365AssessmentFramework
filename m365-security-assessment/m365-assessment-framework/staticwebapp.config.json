@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {
   "auth": {
     "identityProviders": {
@@ -118,3 +119,6 @@
     "apiRuntime": "node:20"
   }
 }
+=======
+{"routes":[{"route":"/.auth/*","allowedRoles":["anonymous"]},{"route":"/login","allowedRoles":["anonymous"],"rewrite":"/.auth/login/aad"},{"route":"/logout","allowedRoles":["anonymous"],"rewrite":"/.auth/logout"},{"route":"/auth/callback","allowedRoles":["anonymous"],"rewrite":"/index.html"},{"route":"/images/*","headers":{"cache-control":"must-revalidate, max-age=15770000"}},{"route":"/static/*","headers":{"cache-control":"no-cache, no-store, must-revalidate"}},{"route":"/api/test","methods":["GET","HEAD"],"allowedRoles":["anonymous"]},{"route":"/api/customers","methods":["GET","POST","HEAD","OPTIONS"],"allowedRoles":["anonymous"]},{"route":"/api/assessments","methods":["GET","POST","HEAD","OPTIONS"],"allowedRoles":["anonymous"]},{"route":"/api/assessment/current","methods":["GET","HEAD","OPTIONS"],"allowedRoles":["anonymous"],"rewrite":"/api/assessment-current"},{"route":"/api/assessment/status","methods":["GET","HEAD","OPTIONS"],"allowedRoles":["anonymous"]},{"route":"/api/*","allowedRoles":["anonymous"]},{"route":"/*","allowedRoles":["anonymous"],"rewrite":"/index.html","headers":{"cache-control":"no-cache"}}],"navigationFallback":{"rewrite":"/index.html","exclude":["/images/*","/static/css/*","/static/js/*","/static/media/*","/api/*","/manifest.json","/robots.txt","/favicon.ico","/.auth/*"]},"globalHeaders":{"content-security-policy":"default-src 'self' https: 'unsafe-eval' 'unsafe-inline'; object-src 'none'; style-src 'self' https: 'unsafe-inline'; script-src 'self' https: 'unsafe-eval' 'unsafe-inline'; img-src 'self' https: data: blob: login.microsoftonline.com;","X-Content-Type-Options":"nosniff"},"mimeTypes":{".html":"text/html",".css":"text/css",".js":"application/javascript",".json":"application/json",".png":"image/png",".jpg":"image/jpeg",".gif":"image/gif",".svg":"image/svg+xml",".ico":"image/x-icon",".ttf":"font/ttf",".woff":"font/woff",".woff2":"font/woff2"},"platform":{"apiRuntime":"node:20"}}
+>>>>>>> e025a41e674bb2e13cd1ee4ebdfd5f24b702beac
