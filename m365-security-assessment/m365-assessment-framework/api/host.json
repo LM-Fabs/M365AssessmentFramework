@@ -19,7 +19,7 @@
   "functionTimeout": "00:10:00",
   "extensions": {
     "http": {
-      "routePrefix": "",
+      "routePrefix": "api",
       "maxOutstandingRequests": 500,
       "maxConcurrentRequests": 200,
       "dynamicThrottlesEnabled": false
