@@ -439,6 +439,69 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 skipAutoAppRegistration: customerData.skipAutoAppRegistration || false
             };
 
+            // Check if customer already exists
+            let existingCustomer: Customer | null = null;
+            
+            // Check by tenant ID first
+            if (targetTenantId) {
+                existingCustomer = await dataService.getCustomerByTenantId(targetTenantId);
+            }
+            
+            // If not found by tenant ID, check by domain
+            if (!existingCustomer && customerData.tenantDomain) {
+                existingCustomer = await dataService.getCustomerByDomain(customerData.tenantDomain);
+            }
+            
+            if (existingCustomer) {
+                context.log('📋 Customer already exists, checking app registration status');
+                
+                // Check if existing customer has a real app registration
+                const hasRealAppReg = existingCustomer.appRegistration && 
+                                    existingCustomer.appRegistration.applicationId && 
+                                    !existingCustomer.appRegistration.applicationId.startsWith('pending-') &&
+                                    !existingCustomer.appRegistration.applicationId.startsWith('ERROR_') &&
+                                    !existingCustomer.appRegistration.applicationId.startsWith('app-');
+                
+                if (hasRealAppReg) {
+                    context.log('✅ Customer already has a valid app registration:', existingCustomer.appRegistration?.applicationId);
+                    
+                    // Transform existing customer data
+                    const transformedCustomer = {
+                        id: existingCustomer.id,
+                        tenantId: existingCustomer.tenantId,
+                        tenantName: existingCustomer.tenantName,
+                        tenantDomain: existingCustomer.tenantDomain,
+                        applicationId: existingCustomer.appRegistration?.applicationId || '',
+                        clientId: existingCustomer.appRegistration?.clientId || '',
+                        servicePrincipalId: existingCustomer.appRegistration?.servicePrincipalId || '',
+                        createdDate: existingCustomer.createdDate,
+                        lastAssessmentDate: existingCustomer.lastAssessmentDate,
+                        totalAssessments: existingCustomer.totalAssessments || 0,
+                        status: existingCustomer.status as 'active' | 'inactive' | 'pending',
+                        permissions: existingCustomer.appRegistration?.permissions || [],
+                        contactEmail: existingCustomer.contactEmail,
+                        notes: existingCustomer.notes,
+                        consentUrl: existingCustomer.appRegistration?.consentUrl || ''
+                    };
+                    
+                    return {
+                        status: 200,
+                        headers: corsHeaders,
+                        jsonBody: {
+                            success: true,
+                            data: {
+                                customer: transformedCustomer,
+                            },
+                            message: 'Customer already exists with valid app registration. No action needed.',
+                            isManualSetup: false
+                        }
+                    };
+                } else {
+                    context.log('⚠️ Customer exists but app registration needs to be fixed');
+                    // Continue with the app registration process for this existing customer
+                }
+            }
+
             const skipAutoRegistration = customerData.skipAutoAppRegistration === true;
             
             if (skipAutoRegistration) {
@@ -467,18 +530,7 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                         'Policy.Read.All',
                         'IdentityRiskyUser.Read.All',
                         'AuditLog.Read.All'
-                    ],
-                    isManualSetup: true,
-                    setupInstructions: [
-                        '1. Go to Azure Portal > App Registrations',
-                        '2. Create new registration with multi-tenant support',
-                        '3. Add required API permissions (listed above)',
-                        '4. Grant admin consent for your organization',
-                        '5. Generate client secret and update customer record',
-                        '6. Admin consent will be automatically granted during creation'
-                    ],
-                    setupStatus: 'pending',
-                    createdDate: new Date().toISOString()
+                    ]
                 };
             } else {
                 // Automatic setup - create placeholder that will be replaced
@@ -496,12 +548,26 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 };
             }
 
-            let newCustomer = await dataService.createCustomer(customerRequest, appRegistration);
+            let newCustomer: Customer;
+            
+            if (existingCustomer) {
+                context.log('📋 Updating existing customer with new app registration');
+                newCustomer = await dataService.updateCustomer(existingCustomer.id, {
+                    tenantName: customerRequest.tenantName,
+                    tenantDomain: customerRequest.tenantDomain,
+                    contactEmail: customerRequest.contactEmail,
+                    notes: customerRequest.notes,
+                    appRegistration: appRegistration
+                });
+            } else {
+                context.log('📋 Creating new customer');
+                newCustomer = await dataService.createCustomer(customerRequest, appRegistration);
+            }
             
             if (skipAutoRegistration) {
-                context.log('✅ Customer created with manual app registration setup:', newCustomer.id);
+                context.log('✅ Customer processed with manual app registration setup:', newCustomer.id);
             } else {
-                context.log('✅ Customer created with placeholder app registration:', newCustomer.id);
+                context.log('✅ Customer processed with placeholder app registration:', newCustomer.id);
             }
 
             // Enhanced permissions for comprehensive assessment (defined outside try block for error handling)

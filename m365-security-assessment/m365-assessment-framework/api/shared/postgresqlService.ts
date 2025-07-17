@@ -439,6 +439,55 @@ export class PostgreSQLService {
         }
     }
 
+    async getCustomerByTenantId(tenantId: string): Promise<Customer | null> {
+        await this.initialize();
+        
+        const client = await this.pool.connect();
+        try {
+            const query = `
+                SELECT 
+                    id,
+                    tenant_id,
+                    tenant_name,
+                    tenant_domain,
+                    contact_email,
+                    notes,
+                    status,
+                    created_date,
+                    last_assessment_date,
+                    total_assessments,
+                    app_registration
+                FROM customers
+                WHERE tenant_id = $1
+                LIMIT 1
+            `;
+            
+            const result = await client.query(query, [tenantId]);
+            
+            if (result.rows.length === 0) {
+                return null;
+            }
+            
+            const row = result.rows[0];
+            return {
+                id: row.id,
+                tenantId: row.tenant_id,
+                tenantName: row.tenant_name,
+                tenantDomain: row.tenant_domain,
+                contactEmail: row.contact_email || '',
+                notes: row.notes || '',
+                status: row.status,
+                createdDate: row.created_date,
+                lastAssessmentDate: row.last_assessment_date,
+                totalAssessments: row.total_assessments || 0,
+                appRegistration: row.app_registration || undefined
+            };
+            
+        } finally {
+            client.release();
+        }
+    }
+
     async createCustomer(customerRequest: any, appRegistration: any): Promise<Customer> {
         await this.initialize();
         

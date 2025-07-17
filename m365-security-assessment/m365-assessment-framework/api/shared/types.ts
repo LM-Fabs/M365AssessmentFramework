@@ -56,6 +56,16 @@ export interface Customer {
         clientSecret?: string;
         consentUrl?: string;
         redirectUri?: string;
+        isReal?: boolean;
+        isManualSetup?: boolean;
+        setupInstructions?: string[];
+        setupStatus?: string;
+        createdDate?: string;
+        secretExpiryDate?: string;
+        error?: string;
+        errorCode?: string;
+        errorTimestamp?: string;
+        troubleshooting?: string[];
     };
 }
 
