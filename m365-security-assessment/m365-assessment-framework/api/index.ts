@@ -3,6 +3,12 @@ import { PostgreSQLService } from "./shared/postgresqlService";
 import { GraphApiService } from "./shared/graphApiService";
 import { getKeyVaultService, KeyVaultService } from "./shared/keyVaultService";
 import { Customer } from "./shared/types";
+import { randomUUID } from 'crypto';
+
+// Generate a UUID for database records
+function generateUUID(): string {
+    return randomUUID();
+}
 
 // CORS headers optimized for better performance
 const corsHeaders = process.env.NODE_ENV === 'development' ? {
@@ -948,13 +954,13 @@ async function assessmentHistoryHandler(request: HttpRequest, context: Invocatio
 
             // Store assessment history using data service
             await dataService.storeAssessmentHistory({
-                id: `assessment-${Date.now()}`,
+                id: generateUUID(),
+                assessmentId: historyData.assessmentId || historyData.id || generateUUID(),
                 tenantId: historyData.tenantId,
                 customerId: historyData.customerId,
                 date: new Date(historyData.date || new Date()),
                 overallScore: historyData.overallScore || 0,
-                categoryScores: historyData.categoryScores || {},
-                ...historyData
+                categoryScores: historyData.categoryScores || {}
             });
             
             context.log('Assessment history stored successfully in Cosmos DB');
