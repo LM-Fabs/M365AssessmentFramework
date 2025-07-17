@@ -165,7 +165,7 @@ export class GraphApiService {
                 }
             }
 
-            // Define required permissions for security assessment (read-only, well-tested permissions)
+            // Define required permissions for security assessment (restored full set)
             const permissions = customerData.requiredPermissions || [
                 'Organization.Read.All',
                 'Directory.Read.All',
@@ -176,13 +176,11 @@ export class GraphApiService {
             // Create the app registration with multi-tenant configuration
             const appName = `M365-Security-Assessment-${customerData.tenantName.replace(/\s+/g, '-')}`;
             
-            // Define proper redirect URIs for the application (ensure uniqueness)
+            // Define proper redirect URIs for the application
             const redirectUris = [
-                "https://portal.azure.com/",                    // Azure Portal (standard for admin consent)
-                "https://login.microsoftonline.com/common/oauth2/nativeclient", // Native client fallback
-                "https://localhost:3000/auth/callback",         // Local development
-                "urn:ietf:wg:oauth:2.0:oob"                    // Out-of-band flow
-            ].filter((uri, index, array) => array.indexOf(uri) === index); // Remove duplicates
+                "https://portal.azure.com/",
+                "https://login.microsoftonline.com/common/oauth2/nativeclient"
+            ];
             
             // Use environment variable if provided, otherwise use Azure Portal
             const primaryRedirectUri = process.env.REDIRECT_URI || "https://portal.azure.com/";
@@ -192,8 +190,11 @@ export class GraphApiService {
                 description: `M365 Security Assessment Application for ${customerData.tenantName} (${customerData.tenantDomain})`,
                 signInAudience: "AzureADMultipleOrgs", // Multi-tenant application
                 web: {
-                    redirectUris: redirectUris
-                    // Removed implicitGrantSettings to test if this is causing the issue
+                    redirectUris: redirectUris,
+                    implicitGrantSettings: {
+                        enableAccessTokenIssuance: false,
+                        enableIdTokenIssuance: true
+                    }
                 },
                 requiredResourceAccess: [
                     {
@@ -216,8 +217,13 @@ export class GraphApiService {
                                 return array.findIndex(p => p!.id === permission!.id) === index;
                             })
                     }
-                ]
-                // Removed tags temporarily to test if they're causing the issue
+                ],
+                tags: [
+                    "M365Assessment",
+                    "SecurityAssessment",
+                    customerData.tenantDomain,
+                    customerData.targetTenantId
+                ].filter((tag, index, array) => array.indexOf(tag) === index) // Remove duplicates
             };
 
             console.log('📝 GraphApiService: Creating application with config:', JSON.stringify(applicationRequest, null, 2));
