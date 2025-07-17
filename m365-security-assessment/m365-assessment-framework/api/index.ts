@@ -2777,7 +2777,7 @@ app.http('setup-service-principal', {
             
             // Create the service principal user
             const createUserSQL = `
-                CREATE USER "1528f6e7-3452-4919-bae3-41258c155840" WITH LOGIN IN ROLE azure_ad_user;
+                CREATE USER "1528f6e7-3452-4919-bae3-41258c155840" WITH LOGIN;
             `;
             
             context.log('👤 Creating service principal user...');
