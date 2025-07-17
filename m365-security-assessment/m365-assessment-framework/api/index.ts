@@ -3562,3 +3562,6 @@ app.http('testAppRegistration', {
     route: 'test-app-registration',
     handler: testAppRegistrationHandler
 });
+
+// Export the app for Azure Functions
+module.exports = app;
