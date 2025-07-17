@@ -101,14 +101,27 @@ export class PostgreSQLService {
             keepAliveInitialDelayMillis: 10000,
         };
 
-        // Use Azure AD authentication as primary method (most secure and reliable)
+        // Use password authentication as primary method (most reliable for current setup)
         // Check multiple indicators for production environment
         const isProduction = process.env.NODE_ENV === 'production' || 
                            process.env.AZURE_CLIENT_ID !== undefined ||
                            process.env.WEBSITE_SITE_NAME !== undefined;
         
-        if (isProduction) {
-            console.log('🔐 PostgreSQL: Using Azure AD authentication (no firewall rules needed)');
+        if (isProduction && process.env.POSTGRES_USER && process.env.POSTGRES_PASSWORD) {
+            console.log('🔐 PostgreSQL: Using secure password authentication');
+            
+            // Use configured credentials for reliable connection
+            config.user = process.env.POSTGRES_USER;
+            // Clean up the password format (remove any newlines or extra text)
+            let cleanPassword = process.env.POSTGRES_PASSWORD;
+            if (cleanPassword.includes('\n')) {
+                cleanPassword = cleanPassword.split('\n').pop() || cleanPassword;
+            }
+            config.password = cleanPassword;
+            
+            console.log('✅ PostgreSQL: Password authentication configured successfully');
+        } else if (isProduction) {
+            console.log('🔐 PostgreSQL: Attempting Azure AD authentication');
             
             try {
                 // Set the service principal application ID as the username
@@ -120,22 +133,8 @@ export class PostgreSQLService {
                 
                 console.log('✅ PostgreSQL: Azure AD authentication configured successfully');
             } catch (azureError) {
-                console.warn('⚠️ PostgreSQL: Azure AD authentication failed, trying password fallback:', azureError);
-                
-                // Fallback to password authentication if Azure AD fails
-                if (process.env.POSTGRES_USER && process.env.POSTGRES_PASSWORD) {
-                    console.log('🔐 PostgreSQL: Falling back to password authentication');
-                    config.user = process.env.POSTGRES_USER;
-                    // Clean up the password format (remove any newlines or extra text)
-                    let cleanPassword = process.env.POSTGRES_PASSWORD;
-                    if (cleanPassword.includes('\n')) {
-                        cleanPassword = cleanPassword.split('\n').pop() || cleanPassword;
-                    }
-                    config.password = cleanPassword;
-                    console.log('✅ PostgreSQL: Password authentication configured as fallback');
-                } else {
-                    throw new Error('No valid authentication method available');
-                }
+                console.error('❌ PostgreSQL: Azure AD authentication failed:', azureError);
+                throw new Error('Azure AD authentication failed and no password credentials available');
             }
         } else {
             // Local development with password
