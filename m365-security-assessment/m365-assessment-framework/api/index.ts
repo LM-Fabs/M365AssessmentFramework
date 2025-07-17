@@ -456,11 +456,31 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 context.log('📋 Customer already exists, checking app registration status');
                 
                 // Check if existing customer has a real app registration
+                // Real Azure AD application IDs are UUIDs (36 chars with hyphens)
+                const isValidUUID = (id: string) => {
+                    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                    return uuidRegex.test(id);
+                };
+                
+                const appId = existingCustomer.appRegistration?.applicationId;
+                context.log('🔍 Checking app registration:', {
+                    hasAppRegistration: !!existingCustomer.appRegistration,
+                    applicationId: appId,
+                    isValidUUID: appId ? isValidUUID(appId) : false,
+                    isPending: appId ? appId.startsWith('pending-') : false,
+                    isError: appId ? appId.startsWith('ERROR_') : false
+                });
+                
                 const hasRealAppReg = existingCustomer.appRegistration && 
                                     existingCustomer.appRegistration.applicationId && 
+                                    isValidUUID(existingCustomer.appRegistration.applicationId) &&
                                     !existingCustomer.appRegistration.applicationId.startsWith('pending-') &&
-                                    !existingCustomer.appRegistration.applicationId.startsWith('ERROR_') &&
-                                    !existingCustomer.appRegistration.applicationId.startsWith('app-');
+                                    !existingCustomer.appRegistration.applicationId.startsWith('ERROR_');
+                
+                context.log('🔍 App registration validation result:', {
+                    hasRealAppReg: hasRealAppReg,
+                    reason: hasRealAppReg ? 'Valid UUID found' : 'Invalid or missing UUID'
+                });
                 
                 if (hasRealAppReg) {
                     context.log('✅ Customer already has a valid app registration:', existingCustomer.appRegistration?.applicationId);
@@ -514,11 +534,11 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
             let appRegistration;
             
             if (skipAutoRegistration) {
-                // Manual setup - provide guidance for admin with real placeholder values
+                // Manual setup - provide guidance for admin with placeholders that won't interfere with real UUID detection
                 appRegistration = {
-                    applicationId: `app-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                    clientId: `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                    servicePrincipalId: `sp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    applicationId: `MANUAL_SETUP_REQUIRED_${Date.now()}`,
+                    clientId: `MANUAL_SETUP_REQUIRED_${Date.now()}`,
+                    servicePrincipalId: `MANUAL_SETUP_REQUIRED_${Date.now()}`,
                     clientSecret: 'REPLACE_WITH_REAL_SECRET',
                     consentUrl: `https://login.microsoftonline.com/${targetTenantId}/oauth2/v2.0/authorize?client_id=REPLACE_CLIENT_ID&response_type=code&redirect_uri=https%3A//portal.azure.com/&response_mode=query&scope=https://graph.microsoft.com/.default&state=12345&prompt=admin_consent`,
                     redirectUri: process.env.REDIRECT_URI || "https://portal.azure.com/",
