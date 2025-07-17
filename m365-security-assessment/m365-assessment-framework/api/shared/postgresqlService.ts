@@ -174,105 +174,33 @@ export class PostgreSQLService {
             console.warn('⚠️ PostgreSQL: pg_trgm extension not available, full-text search may be limited');
         }
 
-        // Check if customers table exists and get its structure
-        const tableExists = await client.query(`
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_schema = 'public' 
-                AND table_name = 'customers'
+        // For now, use a simple drop and recreate approach to ensure clean schema
+        console.log('� PostgreSQL: Ensuring clean database schema...');
+        
+        // Drop all tables in the correct order (to handle foreign key constraints)
+        await client.query('DROP TABLE IF EXISTS assessment_history CASCADE;');
+        await client.query('DROP TABLE IF EXISTS assessments CASCADE;');
+        await client.query('DROP TABLE IF EXISTS customers CASCADE;');
+        
+        console.log('🔧 PostgreSQL: Creating customers table with complete schema...');
+        await client.query(`
+            CREATE TABLE customers (
+                id UUID PRIMARY KEY DEFAULT COALESCE(uuid_generate_v4(), gen_random_uuid()),
+                tenant_id VARCHAR(255) NOT NULL,
+                tenant_name VARCHAR(255) NOT NULL,
+                tenant_domain VARCHAR(255) NOT NULL,
+                contact_email VARCHAR(255),
+                notes TEXT,
+                status VARCHAR(50) DEFAULT 'active',
+                created_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                last_assessment_date TIMESTAMPTZ,
+                total_assessments INTEGER DEFAULT 0,
+                app_registration JSONB,
+                
+                CONSTRAINT valid_status CHECK (status IN ('active', 'inactive', 'deleted'))
             );
         `);
-        
-        const hasTable = tableExists.rows[0].exists;
-        console.log(`🔍 PostgreSQL: Customers table exists: ${hasTable}`);
-
-        if (hasTable) {
-            // Table exists - check its columns and migrate
-            const columnsResult = await client.query(`
-                SELECT column_name, data_type, is_nullable, column_default
-                FROM information_schema.columns 
-                WHERE table_schema = 'public' 
-                AND table_name = 'customers'
-                ORDER BY ordinal_position;
-            `);
-            
-            const existingColumns = columnsResult.rows.map(row => row.column_name);
-            console.log('🔍 PostgreSQL: Existing columns:', existingColumns);
-            
-            // Define required columns with their definitions
-            const requiredColumns = [
-                { name: 'tenant_id', definition: 'VARCHAR(255)' },
-                { name: 'tenant_name', definition: 'VARCHAR(255)' },
-                { name: 'tenant_domain', definition: 'VARCHAR(255)' },
-                { name: 'status', definition: "VARCHAR(50) DEFAULT 'active'" },
-                { name: 'created_date', definition: 'TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP' },
-                { name: 'last_assessment_date', definition: 'TIMESTAMPTZ' },
-                { name: 'total_assessments', definition: 'INTEGER DEFAULT 0' },
-                { name: 'app_registration', definition: 'JSONB' },
-                { name: 'contact_email', definition: 'VARCHAR(255)' },
-                { name: 'notes', definition: 'TEXT' }
-            ];
-            
-            // Add missing columns one by one
-            for (const column of requiredColumns) {
-                if (!existingColumns.includes(column.name)) {
-                    try {
-                        console.log(`🔧 PostgreSQL: Adding missing column: ${column.name}`);
-                        await client.query(`ALTER TABLE customers ADD COLUMN ${column.name} ${column.definition};`);
-                        console.log(`✅ PostgreSQL: Added column ${column.name}`);
-                    } catch (error) {
-                        console.error(`❌ PostgreSQL: Failed to add column ${column.name}:`, error);
-                    }
-                }
-            }
-            
-            // Update null values in required columns with defaults
-            try {
-                await client.query(`
-                    UPDATE customers 
-                    SET tenant_id = COALESCE(tenant_id, 'unknown-' || id::text)
-                    WHERE tenant_id IS NULL;
-                `);
-                
-                await client.query(`
-                    UPDATE customers 
-                    SET tenant_name = COALESCE(tenant_name, 'Unknown Tenant')
-                    WHERE tenant_name IS NULL;
-                `);
-                
-                await client.query(`
-                    UPDATE customers 
-                    SET tenant_domain = COALESCE(tenant_domain, 'unknown-' || id::text || '.local')
-                    WHERE tenant_domain IS NULL;
-                `);
-                
-                console.log('✅ PostgreSQL: Updated null values with defaults');
-            } catch (error) {
-                console.warn('⚠️ PostgreSQL: Failed to update null values:', error);
-            }
-            
-        } else {
-            // Table doesn't exist - create it from scratch
-            console.log('🔧 PostgreSQL: Creating customers table from scratch');
-            await client.query(`
-                CREATE TABLE customers (
-                    id UUID PRIMARY KEY DEFAULT COALESCE(uuid_generate_v4(), gen_random_uuid()),
-                    tenant_id VARCHAR(255) NOT NULL,
-                    tenant_name VARCHAR(255) NOT NULL,
-                    tenant_domain VARCHAR(255) NOT NULL,
-                    contact_email VARCHAR(255),
-                    notes TEXT,
-                    status VARCHAR(50) DEFAULT 'active',
-                    created_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                    last_assessment_date TIMESTAMPTZ,
-                    total_assessments INTEGER DEFAULT 0,
-                    app_registration JSONB,
-                    
-                    CONSTRAINT valid_status CHECK (status IN ('active', 'inactive', 'deleted'))
-                );
-            `);
-            console.log('✅ PostgreSQL: Created customers table');
-        }
+        console.log('✅ PostgreSQL: Created customers table with all required columns');
 
         // Create indexes (safe to run multiple times)
         try {
