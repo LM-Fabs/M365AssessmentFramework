@@ -184,26 +184,24 @@ export class PostgreSQLService {
         // Drop all tables in the correct order (to handle foreign key constraints)
         await client.query('DROP TABLE IF EXISTS assessment_history CASCADE;');
         await client.query('DROP TABLE IF EXISTS assessments CASCADE;');
-        await client.query('DROP TABLE IF EXISTS customers CASCADE;');
-        
-        console.log('🔧 PostgreSQL: Creating customers table with complete schema...');
-        await client.query(`
-            CREATE TABLE customers (
-                id UUID PRIMARY KEY DEFAULT COALESCE(uuid_generate_v4(), gen_random_uuid()),
-                tenant_id VARCHAR(255) NOT NULL,
-                tenant_name VARCHAR(255) NOT NULL,
-                tenant_domain VARCHAR(255) NOT NULL,
-                contact_email VARCHAR(255),
-                notes TEXT,
-                status VARCHAR(50) DEFAULT 'active',
-                created_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                last_assessment_date TIMESTAMPTZ,
-                total_assessments INTEGER DEFAULT 0,
-                app_registration JSONB,
-                
-                CONSTRAINT valid_status CHECK (status IN ('active', 'inactive', 'deleted'))
-            );
-        `);
+        await client.query('DROP TABLE IF EXISTS customers CASCADE;');            console.log('🔧 PostgreSQL: Creating customers table with complete schema...');
+            await client.query(`
+                CREATE TABLE customers (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    tenant_id VARCHAR(255) NOT NULL,
+                    tenant_name VARCHAR(255) NOT NULL,
+                    tenant_domain VARCHAR(255) NOT NULL,
+                    contact_email VARCHAR(255),
+                    notes TEXT,
+                    status VARCHAR(50) DEFAULT 'active',
+                    created_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    last_assessment_date TIMESTAMPTZ,
+                    total_assessments INTEGER DEFAULT 0,
+                    app_registration JSONB,
+                    
+                    CONSTRAINT valid_status CHECK (status IN ('active', 'inactive', 'deleted'))
+                );
+            `);
         console.log('✅ PostgreSQL: Created customers table with all required columns');
 
         // Create indexes (safe to run multiple times)
@@ -218,71 +216,69 @@ export class PostgreSQLService {
             console.log('✅ PostgreSQL: Created indexes');
         } catch (indexError) {
             console.warn('⚠️ PostgreSQL: Index creation warning:', indexError);
-        }
-
-        // Assessments table with unlimited JSONB storage
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS assessments (
-                id UUID PRIMARY KEY DEFAULT COALESCE(uuid_generate_v4(), gen_random_uuid()),
-                customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-                tenant_id VARCHAR(255) NOT NULL,
-                date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                status VARCHAR(50) DEFAULT 'completed',
-                score DECIMAL(5,2) DEFAULT 0,
-                metrics JSONB NOT NULL DEFAULT '{}',
-                recommendations JSONB NOT NULL DEFAULT '[]',
-                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        }            // Assessments table with unlimited JSONB storage
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS assessments (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+                    tenant_id VARCHAR(255) NOT NULL,
+                    date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    status VARCHAR(50) DEFAULT 'completed',
+                    score DECIMAL(5,2) DEFAULT 0,
+                    metrics JSONB NOT NULL DEFAULT '{}',
+                    recommendations JSONB NOT NULL DEFAULT '[]',
+                    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    
+                    CONSTRAINT valid_score CHECK (score >= 0 AND score <= 100),
+                    CONSTRAINT valid_status CHECK (status IN ('draft', 'in-progress', 'completed', 'failed', 'archived'))
+                );
                 
-                CONSTRAINT valid_score CHECK (score >= 0 AND score <= 100),
-                CONSTRAINT valid_status CHECK (status IN ('draft', 'in-progress', 'completed', 'failed', 'archived'))
-            );
-            
-            -- Performance indexes for assessments
-            CREATE INDEX IF NOT EXISTS idx_assessments_customer_id ON assessments(customer_id);
-            CREATE INDEX IF NOT EXISTS idx_assessments_tenant_id ON assessments(tenant_id);
-            CREATE INDEX IF NOT EXISTS idx_assessments_date ON assessments(date);
-            CREATE INDEX IF NOT EXISTS idx_assessments_status ON assessments(status);
-            CREATE INDEX IF NOT EXISTS idx_assessments_score ON assessments(score);
-            
-            -- GIN indexes for JSONB searches
-            CREATE INDEX IF NOT EXISTS idx_assessments_metrics ON assessments USING gin(metrics);
-            CREATE INDEX IF NOT EXISTS idx_assessments_recommendations ON assessments USING gin(recommendations);
-            
-            -- Composite index for common queries
-            CREATE INDEX IF NOT EXISTS idx_assessments_customer_date ON assessments(customer_id, date DESC);
-            CREATE INDEX IF NOT EXISTS idx_assessments_tenant_date ON assessments(tenant_id, date DESC);
-        `);
-
-        // Assessment history table for tracking trends
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS assessment_history (
-                id UUID PRIMARY KEY DEFAULT COALESCE(uuid_generate_v4(), gen_random_uuid()),
-                assessment_id UUID NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
-                tenant_id VARCHAR(255) NOT NULL,
-                customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-                date TIMESTAMPTZ NOT NULL,
-                overall_score DECIMAL(5,2) NOT NULL,
-                category_scores JSONB NOT NULL DEFAULT '{}',
-                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                -- Performance indexes for assessments
+                CREATE INDEX IF NOT EXISTS idx_assessments_customer_id ON assessments(customer_id);
+                CREATE INDEX IF NOT EXISTS idx_assessments_tenant_id ON assessments(tenant_id);
+                CREATE INDEX IF NOT EXISTS idx_assessments_date ON assessments(date);
+                CREATE INDEX IF NOT EXISTS idx_assessments_status ON assessments(status);
+                CREATE INDEX IF NOT EXISTS idx_assessments_score ON assessments(score);
                 
-                CONSTRAINT valid_overall_score CHECK (overall_score >= 0 AND overall_score <= 100)
-            );
-            
-            -- Performance indexes for history
-            CREATE INDEX IF NOT EXISTS idx_history_assessment_id ON assessment_history(assessment_id);
-            CREATE INDEX IF NOT EXISTS idx_history_tenant_id ON assessment_history(tenant_id);
-            CREATE INDEX IF NOT EXISTS idx_history_customer_id ON assessment_history(customer_id);
-            CREATE INDEX IF NOT EXISTS idx_history_date ON assessment_history(date);
-            CREATE INDEX IF NOT EXISTS idx_history_overall_score ON assessment_history(overall_score);
-            
-            -- GIN index for category scores
-            CREATE INDEX IF NOT EXISTS idx_history_category_scores ON assessment_history USING gin(category_scores);
-            
-            -- Composite indexes for common queries
-            CREATE INDEX IF NOT EXISTS idx_history_tenant_date ON assessment_history(tenant_id, date DESC);
-            CREATE INDEX IF NOT EXISTS idx_history_customer_date ON assessment_history(customer_id, date DESC);
-        `);
+                -- GIN indexes for JSONB searches
+                CREATE INDEX IF NOT EXISTS idx_assessments_metrics ON assessments USING gin(metrics);
+                CREATE INDEX IF NOT EXISTS idx_assessments_recommendations ON assessments USING gin(recommendations);
+                
+                -- Composite index for common queries
+                CREATE INDEX IF NOT EXISTS idx_assessments_customer_date ON assessments(customer_id, date DESC);
+                CREATE INDEX IF NOT EXISTS idx_assessments_tenant_date ON assessments(tenant_id, date DESC);
+            `);
+
+            // Assessment history table for tracking trends
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS assessment_history (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    assessment_id UUID NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
+                    tenant_id VARCHAR(255) NOT NULL,
+                    customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+                    date TIMESTAMPTZ NOT NULL,
+                    overall_score DECIMAL(5,2) NOT NULL,
+                    category_scores JSONB NOT NULL DEFAULT '{}',
+                    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    
+                    CONSTRAINT valid_overall_score CHECK (overall_score >= 0 AND overall_score <= 100)
+                );
+                
+                -- Performance indexes for history
+                CREATE INDEX IF NOT EXISTS idx_history_assessment_id ON assessment_history(assessment_id);
+                CREATE INDEX IF NOT EXISTS idx_history_tenant_id ON assessment_history(tenant_id);
+                CREATE INDEX IF NOT EXISTS idx_history_customer_id ON assessment_history(customer_id);
+                CREATE INDEX IF NOT EXISTS idx_history_date ON assessment_history(date);
+                CREATE INDEX IF NOT EXISTS idx_history_overall_score ON assessment_history(overall_score);
+                
+                -- GIN index for category scores
+                CREATE INDEX IF NOT EXISTS idx_history_category_scores ON assessment_history USING gin(category_scores);
+                
+                -- Composite indexes for common queries
+                CREATE INDEX IF NOT EXISTS idx_history_tenant_date ON assessment_history(tenant_id, date DESC);
+                CREATE INDEX IF NOT EXISTS idx_history_customer_date ON assessment_history(customer_id, date DESC);
+            `);
 
         // Create updated_at trigger for assessments
         await client.query(`
