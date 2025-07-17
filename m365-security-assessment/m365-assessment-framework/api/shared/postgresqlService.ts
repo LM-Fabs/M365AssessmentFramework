@@ -549,7 +549,7 @@ export class PostgreSQLService {
             console.error('❌ PostgreSQL: Failed to create customer:', error);
             
             if (error instanceof Error && error.message.includes('duplicate key')) {
-                throw new Error('Customer with this domain already exists');
+                throw new Error(`Customer with domain ${customerRequest.tenantDomain} already exists`);
             }
             
             throw new Error(`Failed to create customer: ${error instanceof Error ? error.message : 'Unknown error'}`);

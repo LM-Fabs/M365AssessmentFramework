@@ -561,7 +561,31 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 });
             } else {
                 context.log('📋 Creating new customer');
-                newCustomer = await dataService.createCustomer(customerRequest, appRegistration);
+                try {
+                    newCustomer = await dataService.createCustomer(customerRequest, appRegistration);
+                } catch (createError) {
+                    // Handle duplicate customer error
+                    if (createError instanceof Error && createError.message.includes('already exists')) {
+                        context.log('⚠️ Customer already exists error during creation, attempting to retrieve existing customer');
+                        
+                        // Try to get existing customer by domain
+                        const existingByDomain = await dataService.getCustomerByDomain(customerRequest.tenantDomain);
+                        if (existingByDomain) {
+                            context.log('📋 Found existing customer by domain, updating it');
+                            newCustomer = await dataService.updateCustomer(existingByDomain.id, {
+                                tenantName: customerRequest.tenantName,
+                                contactEmail: customerRequest.contactEmail,
+                                notes: customerRequest.notes,
+                                appRegistration: appRegistration
+                            });
+                        } else {
+                            // If we can't find the existing customer, return the error
+                            throw createError;
+                        }
+                    } else {
+                        throw createError;
+                    }
+                }
             }
             
             if (skipAutoRegistration) {
