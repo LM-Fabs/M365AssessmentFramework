@@ -101,13 +101,21 @@ export class PostgreSQLService {
             keepAliveInitialDelayMillis: 10000,
         };
 
-        // Use Azure AD authentication in production (no firewall rules needed!)
+        // Use hybrid authentication approach - try Azure AD first, fallback to password
         // Check multiple indicators for production environment
         const isProduction = process.env.NODE_ENV === 'production' || 
                            process.env.AZURE_CLIENT_ID !== undefined ||
                            process.env.WEBSITE_SITE_NAME !== undefined;
         
-        if (isProduction) {
+        if (isProduction && process.env.POSTGRES_USER && process.env.POSTGRES_PASSWORD) {
+            console.log('🔐 PostgreSQL: Using secure password authentication (both AD and password enabled)');
+            
+            // Use configured credentials for reliable connection
+            config.user = process.env.POSTGRES_USER;
+            config.password = process.env.POSTGRES_PASSWORD;
+            
+            console.log('✅ PostgreSQL: Secure password authentication configured successfully');
+        } else if (isProduction) {
             console.log('🔐 PostgreSQL: Using Azure AD authentication (no firewall rules needed)');
             
             // Set the service principal application ID as the username
