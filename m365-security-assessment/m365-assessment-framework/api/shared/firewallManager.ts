@@ -162,16 +162,3 @@ export function getFirewallManager(): PostgreSQLFirewallManager {
 }
 
 export default PostgreSQLFirewallManager;
-}
-
-// Export singleton instance
-let firewallManager: PostgreSQLFirewallManager | null = null;
-
-export function getFirewallManager(): PostgreSQLFirewallManager {
-    if (!firewallManager) {
-        firewallManager = new PostgreSQLFirewallManager();
-    }
-    return firewallManager;
-}
-
-export default PostgreSQLFirewallManager;
