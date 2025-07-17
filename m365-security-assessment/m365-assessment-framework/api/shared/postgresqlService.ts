@@ -194,9 +194,25 @@ export class PostgreSQLService {
             );
         `);
 
-        // Handle schema migrations for existing tables
+        // Handle schema migrations for existing tables - add ALL required columns
         try {
-            // Add missing columns if they don't exist
+            // Add essential columns first (required for basic functionality)
+            await client.query(`
+                ALTER TABLE customers 
+                ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(255);
+            `);
+            
+            await client.query(`
+                ALTER TABLE customers 
+                ADD COLUMN IF NOT EXISTS tenant_name VARCHAR(255);
+            `);
+            
+            await client.query(`
+                ALTER TABLE customers 
+                ADD COLUMN IF NOT EXISTS tenant_domain VARCHAR(255);
+            `);
+            
+            // Add optional columns
             await client.query(`
                 ALTER TABLE customers 
                 ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active';
@@ -232,9 +248,28 @@ export class PostgreSQLService {
                 ADD COLUMN IF NOT EXISTS notes TEXT;
             `);
 
+            // Update null values in required columns with defaults
+            await client.query(`
+                UPDATE customers 
+                SET tenant_id = COALESCE(tenant_id, 'unknown-' || id::text)
+                WHERE tenant_id IS NULL;
+            `);
+            
+            await client.query(`
+                UPDATE customers 
+                SET tenant_name = COALESCE(tenant_name, 'Unknown Tenant')
+                WHERE tenant_name IS NULL;
+            `);
+            
+            await client.query(`
+                UPDATE customers 
+                SET tenant_domain = COALESCE(tenant_domain, 'unknown-' || id::text || '.local')
+                WHERE tenant_domain IS NULL;
+            `);
+
             console.log('✅ PostgreSQL: Schema migration completed for customers table');
         } catch (migrationError) {
-            console.warn('⚠️ PostgreSQL: Schema migration warning (table might be new):', migrationError);
+            console.warn('⚠️ PostgreSQL: Schema migration warning:', migrationError);
         }
 
         // Create indexes
