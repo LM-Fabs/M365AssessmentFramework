@@ -2730,3 +2730,99 @@ app.http('assessmentById', {
         }
     }
 });
+
+// Temporary setup endpoint to create service principal user
+app.http('setup-service-principal', {
+    methods: ['GET', 'POST'],
+    authLevel: 'anonymous',
+    handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
+        context.log('Processing request to setup service principal user');
+
+        if (request.method === 'OPTIONS') {
+            return {
+                status: 200,
+                headers: corsHeaders
+            };
+        }
+
+        try {
+            const { Client } = require('pg');
+            const { DefaultAzureCredential } = require('@azure/identity');
+            
+            const credential = new DefaultAzureCredential();
+            
+            context.log('🔐 Getting Azure AD token for PostgreSQL...');
+            const tokenResponse = await credential.getToken('https://ossrdbms-aad.database.windows.net/.default');
+            
+            if (!tokenResponse || !tokenResponse.token) {
+                throw new Error('Failed to get Azure AD token');
+            }
+            
+            context.log('✅ Azure AD token obtained successfully');
+            
+            // Connect as the service principal admin
+            const client = new Client({
+                host: 'psql-c6qdbpkda5cvs.postgres.database.azure.com',
+                port: 5432,
+                database: 'm365_assessment',
+                user: 'm365-assessment-keyvault-access',
+                password: tokenResponse.token,
+                ssl: { rejectUnauthorized: false }
+            });
+            
+            context.log('🔌 Connecting to PostgreSQL...');
+            await client.connect();
+            
+            context.log('✅ Connected to PostgreSQL successfully');
+            
+            // Create the service principal user
+            const createUserSQL = `
+                CREATE USER "1528f6e7-3452-4919-bae3-41258c155840" WITH LOGIN IN ROLE azure_ad_user;
+            `;
+            
+            context.log('👤 Creating service principal user...');
+            await client.query(createUserSQL);
+            
+            context.log('✅ Service principal user created successfully');
+            
+            // Grant necessary permissions
+            const grantPermissionsSQL = `
+                GRANT ALL PRIVILEGES ON DATABASE m365_assessment TO "1528f6e7-3452-4919-bae3-41258c155840";
+                GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO "1528f6e7-3452-4919-bae3-41258c155840";
+                GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO "1528f6e7-3452-4919-bae3-41258c155840";
+                GRANT CREATE ON SCHEMA public TO "1528f6e7-3452-4919-bae3-41258c155840";
+            `;
+            
+            context.log('🔐 Granting permissions...');
+            await client.query(grantPermissionsSQL);
+            
+            context.log('✅ Permissions granted successfully');
+            
+            await client.end();
+            context.log('🎉 Service principal user setup completed successfully!');
+            
+            return {
+                status: 200,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: true,
+                    message: "Service principal user setup completed successfully",
+                    user: "1528f6e7-3452-4919-bae3-41258c155840"
+                }
+            };
+            
+        } catch (error) {
+            context.error('❌ Error setting up service principal user:', error);
+            
+            return {
+                status: 500,
+                headers: corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Failed to setup service principal user",
+                    details: error instanceof Error ? error.message : "Unknown error"
+                }
+            };
+        }
+    }
+});
