@@ -1515,7 +1515,6 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                     // Store in assessment history for frontend queries
                     try {
                         await dataService.storeAssessmentHistory({
-                            id: storedAssessment.id,
                             assessmentId: storedAssessment.id,
                             tenantId: storedAssessment.tenantId,
                             customerId: storedAssessment.customerId,
@@ -1529,6 +1528,14 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                         context.log('✅ Assessment history stored successfully');
                     } catch (historyError) {
                         context.warn('⚠️ Failed to store assessment history:', historyError);
+                        // Log the actual error details for debugging
+                        context.error('Assessment history error details:', {
+                            error: historyError instanceof Error ? historyError.message : String(historyError),
+                            stack: historyError instanceof Error ? historyError.stack : undefined,
+                            assessmentId: storedAssessment.id,
+                            tenantId: storedAssessment.tenantId,
+                            customerId: storedAssessment.customerId
+                        });
                     }
 
                     // Update customer's last assessment date
@@ -1608,7 +1615,6 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                     // Store in assessment history for frontend queries
                     try {
                         await dataService.storeAssessmentHistory({
-                            id: storedAssessment.id,
                             assessmentId: storedAssessment.id,
                             tenantId: storedAssessment.tenantId,
                             customerId: storedAssessment.customerId,
@@ -1622,6 +1628,14 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                         context.log('✅ Fallback assessment history stored successfully');
                     } catch (historyError) {
                         context.warn('⚠️ Failed to store fallback assessment history:', historyError);
+                        // Log the actual error details for debugging
+                        context.error('Fallback assessment history error details:', {
+                            error: historyError instanceof Error ? historyError.message : String(historyError),
+                            stack: historyError instanceof Error ? historyError.stack : undefined,
+                            assessmentId: storedAssessment.id,
+                            tenantId: storedAssessment.tenantId,
+                            customerId: storedAssessment.customerId
+                        });
                     }
 
                     return {
@@ -1749,7 +1763,6 @@ async function saveAssessmentHandler(request: HttpRequest, context: InvocationCo
         // Store in assessment history for comparison purposes
         if (savedAssessment.tenantId) {
             await dataService.storeAssessmentHistory({
-                id: savedAssessment.id,
                 assessmentId: savedAssessment.id,
                 tenantId: savedAssessment.tenantId,
                 customerId: assessmentData.customerId || undefined,

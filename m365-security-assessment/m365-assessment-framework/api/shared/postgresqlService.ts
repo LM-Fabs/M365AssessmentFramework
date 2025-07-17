@@ -1,6 +1,6 @@
 import { Pool, PoolClient, PoolConfig } from 'pg';
 import { DefaultAzureCredential } from '@azure/identity';
-import { Assessment, Customer, AssessmentHistory } from './types';
+import { Assessment, Customer, AssessmentHistory, AssessmentHistoryInput } from './types';
 import { getKeyVaultService } from './keyVaultService';
 import { randomUUID } from 'crypto';
 
@@ -1117,13 +1117,13 @@ export class PostgreSQLService {
         }
     }
 
-    async storeAssessmentHistory(historyData: AssessmentHistory): Promise<void> {
+    async storeAssessmentHistory(historyData: AssessmentHistoryInput): Promise<void> {
         await this.initialize();
         
         const client = await this.pool.connect();
         try {
             await client.query('BEGIN');
-            const historyId = generateUUID();
+            const historyId = historyData.id || generateUUID();
             
             const query = `
                 INSERT INTO assessment_history (

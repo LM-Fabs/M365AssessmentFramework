@@ -10,6 +10,16 @@ export interface AssessmentHistory {
     categoryScores: Record<string, number>;
 }
 
+export interface AssessmentHistoryInput {
+    id?: string;
+    assessmentId: string;
+    tenantId: string;
+    customerId: string;
+    date: Date;
+    overallScore: number;
+    categoryScores: Record<string, number>;
+}
+
 export interface Assessment {
     id: string;
     customerId: string;
