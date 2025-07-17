@@ -36,10 +36,10 @@
       "value": "Disabled"
     },
     "publicNetworkAccess": {
-      "value": "Enabled"
+      "value": "Disabled"
     },
     "enablePrivateEndpoints": {
-      "value": false
+      "value": true
     },
     "staticWebAppName": {
       "value": "swa-${AZURE_ENV_NAME}"

@@ -39,6 +39,9 @@ param highAvailabilityMode string = 'Disabled'
 @description('Enable public network access')
 param publicNetworkAccess string = 'Enabled'
 
+@description('Enable private endpoints for secure database access')
+param enablePrivateEndpoints bool = false
+
 @description('Static web app name')
 param staticWebAppName string = 'swa-${environmentName}'
 
@@ -191,7 +194,7 @@ resource postgresqlServer 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01'
     
     // Network configuration
     network: {
-      publicNetworkAccess: publicNetworkAccess
+      publicNetworkAccess: enablePrivateEndpoints ? 'Disabled' : publicNetworkAccess
     }
     
     // Maintenance window (optional)
@@ -214,8 +217,8 @@ resource postgresqlDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/databases
   }
 }
 
-// Create PostgreSQL Firewall Rules for Azure Services
-resource postgresqlFirewallRule 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2024-08-01' = {
+// Create PostgreSQL Firewall Rules for Azure Services (only when private endpoints are disabled)
+resource postgresqlFirewallRule 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2024-08-01' = if (!enablePrivateEndpoints) {
   name: 'AllowAllAzureServices'
   parent: postgresqlServer
   properties: {
@@ -259,6 +262,19 @@ resource staticWebApp 'Microsoft.Web/staticSites@2024-04-01' = {
       apiBuildCommand: 'npm run build'
       skipGithubActionWorkflowGeneration: true
     }
+  }
+}
+
+// Deploy private endpoints if enabled
+module privateEndpoints 'private-endpoint.bicep' = if (enablePrivateEndpoints) {
+  name: 'privateEndpoints'
+  params: {
+    location: location
+    environmentName: environmentName
+    postgresServerName: postgresqlServer.name
+    postgresResourceGroup: resourceGroup().name
+    subscriptionId: subscription().subscriptionId
+    resourceToken: resourceToken
   }
 }
 
