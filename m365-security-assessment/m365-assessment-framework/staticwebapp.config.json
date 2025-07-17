@@ -19,7 +19,7 @@
     {
       "route": "/login",
       "allowedRoles": ["anonymous"],
-      "rewrite": "/.auth/login/aad"
+      "rewrite": "/.auth/login/azureactivedirectory"
     },
     {
       "route": "/logout",
