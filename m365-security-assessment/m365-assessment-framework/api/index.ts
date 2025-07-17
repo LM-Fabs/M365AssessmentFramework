@@ -635,8 +635,22 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 const azureClientSecret = process.env.AZURE_CLIENT_SECRET;
                 const azureTenantId = process.env.AZURE_TENANT_ID;
 
+                context.log('🔍 Azure credentials check:', {
+                    hasClientId: !!azureClientId,
+                    hasClientSecret: !!azureClientSecret,
+                    hasTenantId: !!azureTenantId,
+                    clientIdLength: azureClientId?.length || 0,
+                    clientSecretLength: azureClientSecret?.length || 0,
+                    tenantIdLength: azureTenantId?.length || 0
+                });
+
                 if (!azureClientId || !azureClientSecret || !azureTenantId) {
-                    throw new Error(`Missing Azure configuration: CLIENT_ID=${!!azureClientId}, CLIENT_SECRET=${!!azureClientSecret}, TENANT_ID=${!!azureTenantId}`);
+                    const missingVars = [];
+                    if (!azureClientId) missingVars.push('AZURE_CLIENT_ID');
+                    if (!azureClientSecret) missingVars.push('AZURE_CLIENT_SECRET');
+                    if (!azureTenantId) missingVars.push('AZURE_TENANT_ID');
+                    
+                    throw new Error(`Missing Azure configuration variables: ${missingVars.join(', ')}. Please configure these environment variables to enable automatic app registration.`);
                 }
 
                 const appRegResult = await graphApiService.createMultiTenantAppRegistration({
@@ -690,7 +704,17 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 context.log('❌ Error details:', {
                     message: err.message,
                     code: err.code,
-                    stack: err.stack
+                    stack: err.stack?.split('\n').slice(0, 5).join('\n'), // Truncate stack trace for readability
+                    type: err.constructor.name
+                });
+                
+                // Log additional debugging info
+                context.log('🔍 Environment check during error:', {
+                    hasAzureClientId: !!process.env.AZURE_CLIENT_ID,
+                    hasAzureClientSecret: !!process.env.AZURE_CLIENT_SECRET,
+                    hasAzureTenantId: !!process.env.AZURE_TENANT_ID,
+                    nodeEnv: process.env.NODE_ENV,
+                    isProduction: process.env.NODE_ENV === 'production'
                 });
                 
                 // Update customer with detailed error info for troubleshooting
