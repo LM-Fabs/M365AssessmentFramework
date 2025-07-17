@@ -165,16 +165,12 @@ export class GraphApiService {
                 }
             }
 
-            // Define required permissions for security assessment (read-only)
+            // Define required permissions for security assessment (read-only, well-tested permissions)
             const permissions = customerData.requiredPermissions || [
                 'Organization.Read.All',
-                'Reports.Read.All', 
                 'Directory.Read.All',
-                'Policy.Read.All',
-                'SecurityEvents.Read.All',
-                'IdentityRiskyUser.Read.All',
-                'DeviceManagementManagedDevices.Read.All',
-                'AuditLog.Read.All'
+                'AuditLog.Read.All',
+                'SecurityEvents.Read.All'
             ];
 
             // Create the app registration with multi-tenant configuration
