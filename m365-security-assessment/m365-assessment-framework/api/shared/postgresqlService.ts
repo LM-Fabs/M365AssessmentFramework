@@ -2,6 +2,14 @@ import { Pool, PoolClient, PoolConfig } from 'pg';
 import { DefaultAzureCredential } from '@azure/identity';
 import { Assessment, Customer, AssessmentHistory } from './types';
 import { getKeyVaultService } from './keyVaultService';
+import { randomUUID } from 'crypto';
+
+/**
+ * Generate a UUID for database records
+ */
+function generateUUID(): string {
+    return randomUUID();
+}
 
 /**
  * PostgreSQL Database Service for M365 Assessment Framework
@@ -187,7 +195,7 @@ export class PostgreSQLService {
         await client.query('DROP TABLE IF EXISTS customers CASCADE;');            console.log('🔧 PostgreSQL: Creating customers table with complete schema...');
             await client.query(`
                 CREATE TABLE customers (
-                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    id UUID PRIMARY KEY,
                     tenant_id VARCHAR(255) NOT NULL,
                     tenant_name VARCHAR(255) NOT NULL,
                     tenant_domain VARCHAR(255) NOT NULL,
@@ -219,7 +227,7 @@ export class PostgreSQLService {
         }            // Assessments table with unlimited JSONB storage
             await client.query(`
                 CREATE TABLE IF NOT EXISTS assessments (
-                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    id UUID PRIMARY KEY,
                     customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
                     tenant_id VARCHAR(255) NOT NULL,
                     date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -253,7 +261,7 @@ export class PostgreSQLService {
             // Assessment history table for tracking trends
             await client.query(`
                 CREATE TABLE IF NOT EXISTS assessment_history (
-                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    id UUID PRIMARY KEY,
                     assessment_id UUID NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
                     tenant_id VARCHAR(255) NOT NULL,
                     customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
@@ -437,9 +445,11 @@ export class PostgreSQLService {
         const client = await this.pool.connect();
         try {
             await client.query('BEGIN');
+            const customerId = generateUUID();
             
             const query = `
                 INSERT INTO customers (
+                    id,
                     tenant_id,
                     tenant_name,
                     tenant_domain,
@@ -448,11 +458,12 @@ export class PostgreSQLService {
                     status,
                     total_assessments,
                     app_registration
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 RETURNING *
             `;
             
             const values = [
+                customerId,
                 customerRequest.tenantId || '',
                 customerRequest.tenantName,
                 customerRequest.tenantDomain,
@@ -789,20 +800,23 @@ export class PostgreSQLService {
         const client = await this.pool.connect();
         try {
             await client.query('BEGIN');
+            const assessmentId = generateUUID();
             
             const query = `
                 INSERT INTO assessments (
+                    id,
                     customer_id,
                     tenant_id,
                     status,
                     score,
                     metrics,
                     recommendations
-                ) VALUES ($1, $2, $3, $4, $5, $6)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
                 RETURNING *
             `;
             
             const values = [
+                assessmentId,
                 assessmentData.customerId,
                 assessmentData.tenantId,
                 'completed',
@@ -1059,19 +1073,22 @@ export class PostgreSQLService {
         const client = await this.pool.connect();
         try {
             await client.query('BEGIN');
+            const historyId = generateUUID();
             
             const query = `
                 INSERT INTO assessment_history (
+                    id,
                     assessment_id,
                     tenant_id,
                     customer_id,
                     date,
                     overall_score,
                     category_scores
-                ) VALUES ($1, $2, $3, $4, $5, $6)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
             `;
             
             const values = [
+                historyId,
                 historyData.assessmentId,
                 historyData.tenantId,
                 historyData.customerId,
