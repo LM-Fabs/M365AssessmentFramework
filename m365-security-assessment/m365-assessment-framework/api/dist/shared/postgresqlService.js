@@ -976,7 +976,7 @@ class PostgreSQLService {
         const client = await this.pool.connect();
         try {
             await client.query('BEGIN');
-            const historyId = generateUUID();
+            const historyId = historyData.id || generateUUID();
             const query = `
                 INSERT INTO assessment_history (
                     id,

@@ -293,6 +293,71 @@ async function testHandler(request: HttpRequest, context: InvocationContext): Pr
     };
 }
 
+
+// Test app registration creation endpoint for debugging
+async function testAppRegistrationHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    try {
+        context.log('🧪 Testing app registration creation...');
+        
+        // Check environment variables
+        const envCheck = {
+            hasAzureClientId: !!process.env.AZURE_CLIENT_ID,
+            hasAzureClientSecret: !!process.env.AZURE_CLIENT_SECRET,
+            hasAzureTenantId: !!process.env.AZURE_TENANT_ID,
+            azureClientIdPreview: process.env.AZURE_CLIENT_ID?.substring(0, 8) + '...',
+            azureTenantIdPreview: process.env.AZURE_TENANT_ID?.substring(0, 8) + '...',
+            azureClientSecretFormat: process.env.AZURE_CLIENT_SECRET?.substring(0, 3) + '...'
+        };
+        
+        context.log('🔍 Environment variables check:', envCheck);
+        
+        // Try to initialize GraphApiService
+        const graphApiService = new GraphApiService();
+        context.log('✅ GraphApiService initialized successfully');
+        
+        // Test with a dummy tenant
+        const testAppRegResult = await graphApiService.createMultiTenantAppRegistration({
+            tenantName: 'Test Tenant',
+            tenantDomain: 'test.onmicrosoft.com',
+            targetTenantId: 'test-tenant-id',
+            contactEmail: 'test@example.com',
+            requiredPermissions: ['Organization.Read.All', 'Reports.Read.All']
+        });
+        
+        context.log('✅ Test app registration created successfully:', testAppRegResult);
+        
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                message: 'App registration test completed successfully',
+                envCheck,
+                testResult: testAppRegResult
+            }
+        };
+        
+    } catch (testError: any) {
+        context.log('❌ App registration test failed:', testError);
+        
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: 'App registration test failed',
+                errorMessage: testError.message,
+                errorCode: testError.code,
+                envCheck: {
+                    hasAzureClientId: !!process.env.AZURE_CLIENT_ID,
+                    hasAzureClientSecret: !!process.env.AZURE_CLIENT_SECRET,
+                    hasAzureTenantId: !!process.env.AZURE_TENANT_ID
+                }
+            }
+        };
+    }
+}
+
 // Optimized customers endpoint with immediate response
 async function customersHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log(`Processing ${request.method} request for customers`);
@@ -653,12 +718,31 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     throw new Error(`Missing Azure configuration variables: ${missingVars.join(', ')}. Please configure these environment variables to enable automatic app registration.`);
                 }
 
+                context.log('🚀 About to create Azure AD app registration with GraphApiService');
+                context.log('🔧 GraphApiService input:', {
+                    tenantName: newCustomer.tenantName,
+                    tenantDomain: newCustomer.tenantDomain,
+                    targetTenantId: newCustomer.tenantId,
+                    contactEmail: newCustomer.contactEmail,
+                    requiredPermissions: requiredPermissions
+                });
+
                 const appRegResult = await graphApiService.createMultiTenantAppRegistration({
                     tenantName: newCustomer.tenantName,
                     tenantDomain: newCustomer.tenantDomain,
                     targetTenantId: newCustomer.tenantId,
                     contactEmail: newCustomer.contactEmail,
                     requiredPermissions: requiredPermissions
+                });
+
+                context.log('✅ GraphApiService returned app registration result:', {
+                    applicationId: appRegResult.applicationId,
+                    clientId: appRegResult.clientId,
+                    servicePrincipalId: appRegResult.servicePrincipalId,
+                    consentUrl: appRegResult.consentUrl,
+                    redirectUri: appRegResult.redirectUri,
+                    permissions: appRegResult.permissions,
+                    resolvedTenantId: appRegResult.resolvedTenantId
                 });
 
                 // Store client secret securely in Key Vault if available
@@ -684,7 +768,7 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     servicePrincipalId: appRegResult.servicePrincipalId,
                     clientSecret: storedSecret,
                     tenantId: newCustomer.tenantId,
-                    consentUrl: appRegResult.consentUrl,
+                    consentUrl: appRegResult.consentUrl || `https://login.microsoftonline.com/${appRegResult.resolvedTenantId || newCustomer.tenantId}/adminconsent?client_id=${appRegResult.clientId}&redirect_uri=${encodeURIComponent('https://portal.azure.com/')}`,
                     authUrl: `https://login.microsoftonline.com/${newCustomer.tenantId}/oauth2/v2.0/authorize`,
                     redirectUri: appRegResult.redirectUri,
                     permissions: appRegResult.permissions,
@@ -692,6 +776,13 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     createdDate: new Date().toISOString(),
                     secretExpiryDate: new Date(Date.now() + (2 * 365 * 24 * 60 * 60 * 1000)).toISOString() // 2 years
                 };
+
+                context.log('✅ Prepared app registration object:', {
+                    applicationId: realAppReg.applicationId,
+                    clientId: realAppReg.clientId,
+                    consentUrl: realAppReg.consentUrl,
+                    permissions: realAppReg.permissions.length
+                });
 
                 // Update customer with real app registration
                 newCustomer = await dataService.updateCustomer(newCustomer.id, {
@@ -705,14 +796,30 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     message: err.message,
                     code: err.code,
                     stack: err.stack?.split('\n').slice(0, 5).join('\n'), // Truncate stack trace for readability
-                    type: err.constructor.name
+                    type: err.constructor.name,
+                    customerTenantId: newCustomer.tenantId,
+                    customerTenantDomain: newCustomer.tenantDomain
                 });
+                
+                // Log specific error types for better troubleshooting
+                if (err.message?.includes('insufficient privileges')) {
+                    context.log('🔧 Troubleshooting: This appears to be a permissions issue. The service principal needs Application.ReadWrite.All permission.');
+                } else if (err.message?.includes('authentication')) {
+                    context.log('🔧 Troubleshooting: This appears to be an authentication issue. Check the AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID environment variables.');
+                } else if (err.message?.includes('tenant')) {
+                    context.log('🔧 Troubleshooting: This appears to be a tenant-related issue. Check if the target tenant ID is correct.');
+                } else {
+                    context.log('🔧 Troubleshooting: This is an unexpected error. Check the full error details above.');
+                }
                 
                 // Log additional debugging info
                 context.log('🔍 Environment check during error:', {
                     hasAzureClientId: !!process.env.AZURE_CLIENT_ID,
                     hasAzureClientSecret: !!process.env.AZURE_CLIENT_SECRET,
                     hasAzureTenantId: !!process.env.AZURE_TENANT_ID,
+                    azureClientIdPreview: process.env.AZURE_CLIENT_ID?.substring(0, 8) + '...',
+                    azureTenantIdPreview: process.env.AZURE_TENANT_ID?.substring(0, 8) + '...',
+                    azureClientSecretFormat: process.env.AZURE_CLIENT_SECRET?.substring(0, 3) + '...',
                     nodeEnv: process.env.NODE_ENV,
                     isProduction: process.env.NODE_ENV === 'production'
                 });
@@ -724,16 +831,20 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     servicePrincipalId: 'ERROR_DURING_CREATION',
                     permissions: requiredPermissions, // Include the required permissions
                     clientSecret: 'ERROR_DURING_CREATION',
-                    consentUrl: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
+                    consentUrl: '', // Empty since creation failed
                     error: err.message,
                     errorCode: err.code,
                     errorTimestamp: new Date().toISOString(),
+                    retryUrl: `${process.env.AZURE_STATIC_WEB_APPS_API_TOKEN ? 'https://' + process.env.AZURE_STATIC_WEB_APPS_API_TOKEN.split('@')[1] : 'http://localhost:3000'}/settings`, // URL to retry app registration
                     troubleshooting: [
-                        'Check Azure service principal configuration',
+                        'Check Azure service principal configuration in environment variables',
                         'Verify AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID are set correctly',
                         'Ensure service principal has Application.ReadWrite.All permission',
-                        'Verify admin consent has been granted for the service principal'
-                    ]
+                        'Verify admin consent has been granted for the service principal',
+                        'Check if the service principal can access Microsoft Graph API',
+                        'Retry the app registration process from the Settings page'
+                    ],
+                    isReal: false
                 };
                 
                 try {
@@ -769,6 +880,9 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 ? 'Customer created successfully with manual app registration setup. Please follow the setup instructions in the customer record.'
                 : 'Customer created successfully. App registration has been triggered. Please complete admin consent.';
 
+            // Check if app registration failed and provide appropriate response
+            const appRegFailed = newCustomer.appRegistration?.applicationId === 'ERROR_DURING_CREATION';
+            
             return {
                 status: 201,
                 headers: corsHeaders,
@@ -777,8 +891,14 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     data: {
                         customer: transformedCustomer,
                     },
-                    message: successMessage,
-                    isManualSetup: skipAutoRegistration
+                    message: appRegFailed 
+                        ? 'Customer created successfully, but automatic app registration failed. Please check the error details and retry from the Settings page.'
+                        : successMessage,
+                    isManualSetup: skipAutoRegistration,
+                    appRegistrationError: appRegFailed ? {
+                        error: newCustomer.appRegistration?.error,
+                        troubleshooting: newCustomer.appRegistration?.troubleshooting
+                    } : undefined
                 }
             };
         }
@@ -2978,4 +3098,12 @@ app.http('setup-service-principal', {
             };
         }
     }
+});
+
+// Test app registration endpoint
+app.http('testAppRegistration', {
+    methods: ['GET'],
+    authLevel: 'anonymous',
+    route: 'test-app-registration',
+    handler: testAppRegistrationHandler
 });

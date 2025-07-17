@@ -262,6 +262,11 @@ const Settings = () => {
       if (result.success && result.data) {
         const appData = result.data;
         
+        // Check if app registration failed
+        if (appData.applicationId === 'ERROR_DURING_CREATION') {
+          throw new Error(`App registration failed: ${result.appRegistrationError?.error || 'Unknown error during app registration creation'}`);
+        }
+        
         // Update customer with app registration details (excluding client secret for security)
         const customerService = CustomerService.getInstance();
         await customerService.updateCustomer(customer.id, {
@@ -275,17 +280,33 @@ const Settings = () => {
         console.log('✅ App registration created successfully:', appData.clientId);
         console.log('🔗 Admin consent URL:', appData.consentUrl);
         
+        // Ensure we have a valid consent URL
+        let consentUrl = appData.consentUrl;
+        if (!consentUrl || consentUrl.trim() === '') {
+          // Generate fallback consent URL
+          consentUrl = `https://login.microsoftonline.com/${customer.tenantId}/adminconsent?client_id=${appData.clientId}&redirect_uri=${encodeURIComponent('https://portal.azure.com/')}`;
+          console.warn('⚠️ No consent URL provided, using fallback:', consentUrl);
+        }
+        
         // Open admin consent URL in a new window
         const consentWindow = window.open(
-          appData.consentUrl,
+          consentUrl,
           'admin-consent',
           'width=600,height=800,scrollbars=yes,resizable=yes'
         );
         
-        setAppRegistrationStatus(prev => ({ 
-          ...prev, 
-          [customer.id]: 'App registration created successfully! Admin consent window opened. Please complete the consent process.' 
-        }));
+        if (!consentWindow) {
+          // Popup blocked or failed to open
+          setAppRegistrationStatus(prev => ({ 
+            ...prev, 
+            [customer.id]: `App registration created successfully! Please manually open the admin consent URL: ${consentUrl}` 
+          }));
+        } else {
+          setAppRegistrationStatus(prev => ({ 
+            ...prev, 
+            [customer.id]: 'App registration created successfully! Admin consent window opened. Please complete the consent process.' 
+          }));
+        }
         
         // Monitor consent window closure
         const checkClosed = setInterval(() => {
@@ -320,12 +341,17 @@ const Settings = () => {
       
       let errorMessage = 'Failed to create app registration';
       
-      if (error.message?.includes('authentication') || error.message?.includes('token')) {
+      if (error.message?.includes('App registration failed:')) {
+        // This is an error from the backend indicating app registration creation failed
+        errorMessage = error.message;
+      } else if (error.message?.includes('authentication') || error.message?.includes('token')) {
         errorMessage = 'Authentication failed. Please check the service configuration.';
       } else if (error.message?.includes('permissions') || error.message?.includes('403')) {
-        errorMessage = 'Insufficient permissions. Please contact your administrator.';
+        errorMessage = 'Insufficient permissions. Please contact your administrator to grant Application.ReadWrite.All permission to the service principal.';
       } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
         errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.message?.includes('Missing required environment variables')) {
+        errorMessage = 'Service configuration error. Missing Azure credentials. Please contact your administrator.';
       } else if (error.message) {
         errorMessage = error.message;
       }
