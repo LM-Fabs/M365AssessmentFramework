@@ -40,12 +40,7 @@ jobs:
         working-directory: m365-security-assessment/m365-assessment-framework/api
         run: npm ci
       
-      # Build API before deployment
-      - name: Build API
-        working-directory: m365-security-assessment/m365-assessment-framework/api
-        run: npm run build
-      
-      # Deploy to Azure Static Web Apps (SWA will use the built JS files)
+      # Deploy to Azure Static Web Apps (let SWA build the API for proper function detection)
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
@@ -57,7 +52,7 @@ jobs:
           api_location: "m365-security-assessment/m365-assessment-framework/api"
           output_location: "build"
           skip_app_build: false
-          skip_api_build: true  # We already built the API above
+          skip_api_build: false  # Let Azure SWA build the API to properly detect functions
         env:
           NODE_VERSION: "20"
           WEBSITE_NODE_DEFAULT_VERSION: "20"
