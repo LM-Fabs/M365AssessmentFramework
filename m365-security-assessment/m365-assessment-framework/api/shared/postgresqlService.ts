@@ -159,16 +159,25 @@ export class PostgreSQLService {
      * Create all required tables with optimized schema
      */
     private async createTables(client: PoolClient): Promise<void> {
-        // Enable required extensions
-        await client.query(`
-            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-            CREATE EXTENSION IF NOT EXISTS "pg_trgm";
-        `);
+        // Try to enable required extensions (may fail if not allowed, but continue anyway)
+        try {
+            await client.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
+            console.log('✅ PostgreSQL: uuid-ossp extension enabled');
+        } catch (error) {
+            console.warn('⚠️ PostgreSQL: uuid-ossp extension not available, using alternative UUID generation');
+        }
+        
+        try {
+            await client.query(`CREATE EXTENSION IF NOT EXISTS "pg_trgm";`);
+            console.log('✅ PostgreSQL: pg_trgm extension enabled');
+        } catch (error) {
+            console.warn('⚠️ PostgreSQL: pg_trgm extension not available, full-text search may be limited');
+        }
 
-        // Customers table with optimized structure
+        // Customers table with optimized structure (using gen_random_uuid() as fallback)
         await client.query(`
             CREATE TABLE IF NOT EXISTS customers (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT COALESCE(uuid_generate_v4(), gen_random_uuid()),
                 tenant_id VARCHAR(255) NOT NULL,
                 tenant_name VARCHAR(255) NOT NULL,
                 tenant_domain VARCHAR(255) NOT NULL UNIQUE,
@@ -196,7 +205,7 @@ export class PostgreSQLService {
         // Assessments table with unlimited JSONB storage
         await client.query(`
             CREATE TABLE IF NOT EXISTS assessments (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT COALESCE(uuid_generate_v4(), gen_random_uuid()),
                 customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
                 tenant_id VARCHAR(255) NOT NULL,
                 date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -230,7 +239,7 @@ export class PostgreSQLService {
         // Assessment history table for tracking trends
         await client.query(`
             CREATE TABLE IF NOT EXISTS assessment_history (
-                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                id UUID PRIMARY KEY DEFAULT COALESCE(uuid_generate_v4(), gen_random_uuid()),
                 assessment_id UUID NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
                 tenant_id VARCHAR(255) NOT NULL,
                 customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
