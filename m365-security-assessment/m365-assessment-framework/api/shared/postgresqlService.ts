@@ -180,7 +180,7 @@ export class PostgreSQLService {
                 id UUID PRIMARY KEY DEFAULT COALESCE(uuid_generate_v4(), gen_random_uuid()),
                 tenant_id VARCHAR(255) NOT NULL,
                 tenant_name VARCHAR(255) NOT NULL,
-                tenant_domain VARCHAR(255) NOT NULL UNIQUE,
+                tenant_domain VARCHAR(255) NOT NULL,
                 contact_email VARCHAR(255),
                 notes TEXT,
                 status VARCHAR(50) DEFAULT 'active',
@@ -192,15 +192,65 @@ export class PostgreSQLService {
                 -- Performance indexes
                 CONSTRAINT valid_status CHECK (status IN ('active', 'inactive', 'deleted'))
             );
-            
-            CREATE INDEX IF NOT EXISTS idx_customers_tenant_id ON customers(tenant_id);
-            CREATE INDEX IF NOT EXISTS idx_customers_status ON customers(status);
-            CREATE INDEX IF NOT EXISTS idx_customers_created_date ON customers(created_date);
-            CREATE INDEX IF NOT EXISTS idx_customers_domain ON customers(tenant_domain);
-            
-            -- GIN index for JSONB searches
-            CREATE INDEX IF NOT EXISTS idx_customers_app_registration ON customers USING gin(app_registration);
         `);
+
+        // Handle schema migrations for existing tables
+        try {
+            // Add missing columns if they don't exist
+            await client.query(`
+                ALTER TABLE customers 
+                ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active';
+            `);
+            
+            await client.query(`
+                ALTER TABLE customers 
+                ADD COLUMN IF NOT EXISTS created_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
+            `);
+            
+            await client.query(`
+                ALTER TABLE customers 
+                ADD COLUMN IF NOT EXISTS last_assessment_date TIMESTAMPTZ;
+            `);
+            
+            await client.query(`
+                ALTER TABLE customers 
+                ADD COLUMN IF NOT EXISTS total_assessments INTEGER DEFAULT 0;
+            `);
+            
+            await client.query(`
+                ALTER TABLE customers 
+                ADD COLUMN IF NOT EXISTS app_registration JSONB;
+            `);
+            
+            await client.query(`
+                ALTER TABLE customers 
+                ADD COLUMN IF NOT EXISTS contact_email VARCHAR(255);
+            `);
+            
+            await client.query(`
+                ALTER TABLE customers 
+                ADD COLUMN IF NOT EXISTS notes TEXT;
+            `);
+
+            console.log('✅ PostgreSQL: Schema migration completed for customers table');
+        } catch (migrationError) {
+            console.warn('⚠️ PostgreSQL: Schema migration warning (table might be new):', migrationError);
+        }
+
+        // Create indexes
+        try {
+            await client.query(`
+                CREATE INDEX IF NOT EXISTS idx_customers_tenant_id ON customers(tenant_id);
+                CREATE INDEX IF NOT EXISTS idx_customers_status ON customers(status);
+                CREATE INDEX IF NOT EXISTS idx_customers_created_date ON customers(created_date);
+                CREATE INDEX IF NOT EXISTS idx_customers_domain ON customers(tenant_domain);
+                
+                -- GIN index for JSONB searches
+                CREATE INDEX IF NOT EXISTS idx_customers_app_registration ON customers USING gin(app_registration);
+            `);
+        } catch (indexError) {
+            console.warn('⚠️ PostgreSQL: Index creation warning:', indexError);
+        }
 
         // Assessments table with unlimited JSONB storage
         await client.query(`
