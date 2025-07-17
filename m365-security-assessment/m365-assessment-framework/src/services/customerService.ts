@@ -74,22 +74,35 @@ export class CustomerService {
    */
   private async detectTierAndMode(): Promise<void> {
     try {
-      // Quick test to see if API endpoints are available
-      const response = await fetch(`${this.baseUrl}/test`, { 
-        method: 'HEAD',
-        cache: 'no-cache'
+      // Test with a real API call that should return JSON, not HTML
+      const response = await fetch(`${this.baseUrl}/customers`, { 
+        method: 'GET',
+        cache: 'no-cache',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
       });
       
-      if (response.ok) {
-        this.useFreeMode = false;
-        console.log('✅ CustomerService: Standard tier detected - using managed functions');
-      } else {
+      // Check if we get a real API response (JSON) or the static app HTML
+      const responseText = await response.text();
+      
+      // If we get HTML back, we're on Free tier (no managed functions)
+      if (responseText.includes('<!doctype html>') || responseText.includes('<html')) {
         this.useFreeMode = true;
-        console.log('🆓 CustomerService: Free tier detected - using localStorage mode');
+        console.log('🆓 CustomerService: Free tier detected - API returns HTML fallback, using localStorage mode');
+      } else if (response.ok && (responseText.includes('"success"') || responseText.includes('"data"') || responseText === '[]')) {
+        // We got actual API response (JSON)
+        this.useFreeMode = false;
+        console.log('✅ CustomerService: Standard tier detected - API returns JSON, using managed functions');
+      } else {
+        // Default to Free tier for any other cases
+        this.useFreeMode = true;
+        console.log('🆓 CustomerService: Free tier mode - uncertain API response, defaulting to localStorage');
       }
     } catch (error) {
       this.useFreeMode = true;
-      console.log('🆓 CustomerService: Free tier mode - API endpoints not available, using localStorage');
+      console.log('🆓 CustomerService: Free tier mode - API call failed, using localStorage');
     }
   }
 
