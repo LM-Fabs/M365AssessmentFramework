@@ -3,6 +3,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.postgresqlService = exports.postgresService = exports.PostgreSQLService = void 0;
 const pg_1 = require("pg");
 const identity_1 = require("@azure/identity");
+const crypto_1 = require("crypto");
+/**
+ * Generate a UUID for database records
+ */
+function generateUUID() {
+    return (0, crypto_1.randomUUID)();
+}
 /**
  * PostgreSQL Database Service for M365 Assessment Framework
  * Replaces Azure Table Storage with PostgreSQL Flexible Server
@@ -141,97 +148,34 @@ class PostgreSQLService {
      * Create all required tables with optimized schema
      */
     async createTables(client) {
-        // Try to enable required extensions (may fail if not allowed, but continue anyway)
+        // Use a transaction to ensure all schema changes are committed together
+        console.log('🔧 PostgreSQL: Starting schema creation without explicit transaction...');
         try {
-            await client.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
-            console.log('✅ PostgreSQL: uuid-ossp extension enabled');
-        }
-        catch (error) {
-            console.warn('⚠️ PostgreSQL: uuid-ossp extension not available, using alternative UUID generation');
-        }
-        try {
-            await client.query(`CREATE EXTENSION IF NOT EXISTS "pg_trgm";`);
-            console.log('✅ PostgreSQL: pg_trgm extension enabled');
-        }
-        catch (error) {
-            console.warn('⚠️ PostgreSQL: pg_trgm extension not available, full-text search may be limited');
-        }
-        // Check if customers table exists and get its structure
-        const tableExists = await client.query(`
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_schema = 'public' 
-                AND table_name = 'customers'
-            );
-        `);
-        const hasTable = tableExists.rows[0].exists;
-        console.log(`🔍 PostgreSQL: Customers table exists: ${hasTable}`);
-        if (hasTable) {
-            // Table exists - check its columns and migrate
-            const columnsResult = await client.query(`
-                SELECT column_name, data_type, is_nullable, column_default
-                FROM information_schema.columns 
-                WHERE table_schema = 'public' 
-                AND table_name = 'customers'
-                ORDER BY ordinal_position;
-            `);
-            const existingColumns = columnsResult.rows.map(row => row.column_name);
-            console.log('🔍 PostgreSQL: Existing columns:', existingColumns);
-            // Define required columns with their definitions
-            const requiredColumns = [
-                { name: 'tenant_id', definition: 'VARCHAR(255)' },
-                { name: 'tenant_name', definition: 'VARCHAR(255)' },
-                { name: 'tenant_domain', definition: 'VARCHAR(255)' },
-                { name: 'status', definition: "VARCHAR(50) DEFAULT 'active'" },
-                { name: 'created_date', definition: 'TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP' },
-                { name: 'last_assessment_date', definition: 'TIMESTAMPTZ' },
-                { name: 'total_assessments', definition: 'INTEGER DEFAULT 0' },
-                { name: 'app_registration', definition: 'JSONB' },
-                { name: 'contact_email', definition: 'VARCHAR(255)' },
-                { name: 'notes', definition: 'TEXT' }
-            ];
-            // Add missing columns one by one
-            for (const column of requiredColumns) {
-                if (!existingColumns.includes(column.name)) {
-                    try {
-                        console.log(`🔧 PostgreSQL: Adding missing column: ${column.name}`);
-                        await client.query(`ALTER TABLE customers ADD COLUMN ${column.name} ${column.definition};`);
-                        console.log(`✅ PostgreSQL: Added column ${column.name}`);
-                    }
-                    catch (error) {
-                        console.error(`❌ PostgreSQL: Failed to add column ${column.name}:`, error);
-                    }
-                }
-            }
-            // Update null values in required columns with defaults
+            // Try to enable required extensions (may fail if not allowed, but continue anyway)
             try {
-                await client.query(`
-                    UPDATE customers 
-                    SET tenant_id = COALESCE(tenant_id, 'unknown-' || id::text)
-                    WHERE tenant_id IS NULL;
-                `);
-                await client.query(`
-                    UPDATE customers 
-                    SET tenant_name = COALESCE(tenant_name, 'Unknown Tenant')
-                    WHERE tenant_name IS NULL;
-                `);
-                await client.query(`
-                    UPDATE customers 
-                    SET tenant_domain = COALESCE(tenant_domain, 'unknown-' || id::text || '.local')
-                    WHERE tenant_domain IS NULL;
-                `);
-                console.log('✅ PostgreSQL: Updated null values with defaults');
+                await client.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
+                console.log('✅ PostgreSQL: uuid-ossp extension enabled');
             }
             catch (error) {
-                console.warn('⚠️ PostgreSQL: Failed to update null values:', error);
+                console.warn('⚠️ PostgreSQL: uuid-ossp extension not available, using alternative UUID generation');
             }
-        }
-        else {
-            // Table doesn't exist - create it from scratch
-            console.log('🔧 PostgreSQL: Creating customers table from scratch');
+            try {
+                await client.query(`CREATE EXTENSION IF NOT EXISTS "pg_trgm";`);
+                console.log('✅ PostgreSQL: pg_trgm extension enabled');
+            }
+            catch (error) {
+                console.warn('⚠️ PostgreSQL: pg_trgm extension not available, full-text search may be limited');
+            }
+            // For now, use a simple drop and recreate approach to ensure clean schema
+            console.log('� PostgreSQL: Ensuring clean database schema...');
+            // Drop all tables in the correct order (to handle foreign key constraints)
+            await client.query('DROP TABLE IF EXISTS assessment_history CASCADE;');
+            await client.query('DROP TABLE IF EXISTS assessments CASCADE;');
+            await client.query('DROP TABLE IF EXISTS customers CASCADE;');
+            console.log('🔧 PostgreSQL: Creating customers table with complete schema...');
             await client.query(`
                 CREATE TABLE customers (
-                    id UUID PRIMARY KEY DEFAULT COALESCE(uuid_generate_v4(), gen_random_uuid()),
+                    id UUID PRIMARY KEY,
                     tenant_id VARCHAR(255) NOT NULL,
                     tenant_name VARCHAR(255) NOT NULL,
                     tenant_domain VARCHAR(255) NOT NULL,
@@ -246,86 +190,84 @@ class PostgreSQLService {
                     CONSTRAINT valid_status CHECK (status IN ('active', 'inactive', 'deleted'))
                 );
             `);
-            console.log('✅ PostgreSQL: Created customers table');
-        }
-        // Create indexes (safe to run multiple times)
-        try {
-            await client.query(`
+            console.log('✅ PostgreSQL: Created customers table with all required columns');
+            // Create indexes (safe to run multiple times)
+            try {
+                await client.query(`
                 CREATE INDEX IF NOT EXISTS idx_customers_tenant_id ON customers(tenant_id);
                 CREATE INDEX IF NOT EXISTS idx_customers_status ON customers(status);
                 CREATE INDEX IF NOT EXISTS idx_customers_created_date ON customers(created_date);
                 CREATE INDEX IF NOT EXISTS idx_customers_domain ON customers(tenant_domain);
                 CREATE INDEX IF NOT EXISTS idx_customers_app_registration ON customers USING gin(app_registration);
             `);
-            console.log('✅ PostgreSQL: Created indexes');
-        }
-        catch (indexError) {
-            console.warn('⚠️ PostgreSQL: Index creation warning:', indexError);
-        }
-        // Assessments table with unlimited JSONB storage
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS assessments (
-                id UUID PRIMARY KEY DEFAULT COALESCE(uuid_generate_v4(), gen_random_uuid()),
-                customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-                tenant_id VARCHAR(255) NOT NULL,
-                date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                status VARCHAR(50) DEFAULT 'completed',
-                score DECIMAL(5,2) DEFAULT 0,
-                metrics JSONB NOT NULL DEFAULT '{}',
-                recommendations JSONB NOT NULL DEFAULT '[]',
-                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                console.log('✅ PostgreSQL: Created indexes');
+            }
+            catch (indexError) {
+                console.warn('⚠️ PostgreSQL: Index creation warning:', indexError);
+            } // Assessments table with unlimited JSONB storage
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS assessments (
+                    id UUID PRIMARY KEY,
+                    customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+                    tenant_id VARCHAR(255) NOT NULL,
+                    date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    status VARCHAR(50) DEFAULT 'completed',
+                    score DECIMAL(5,2) DEFAULT 0,
+                    metrics JSONB NOT NULL DEFAULT '{}',
+                    recommendations JSONB NOT NULL DEFAULT '[]',
+                    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    
+                    CONSTRAINT valid_score CHECK (score >= 0 AND score <= 100),
+                    CONSTRAINT valid_status CHECK (status IN ('draft', 'in-progress', 'completed', 'failed', 'archived'))
+                );
                 
-                CONSTRAINT valid_score CHECK (score >= 0 AND score <= 100),
-                CONSTRAINT valid_status CHECK (status IN ('draft', 'in-progress', 'completed', 'failed', 'archived'))
-            );
-            
-            -- Performance indexes for assessments
-            CREATE INDEX IF NOT EXISTS idx_assessments_customer_id ON assessments(customer_id);
-            CREATE INDEX IF NOT EXISTS idx_assessments_tenant_id ON assessments(tenant_id);
-            CREATE INDEX IF NOT EXISTS idx_assessments_date ON assessments(date);
-            CREATE INDEX IF NOT EXISTS idx_assessments_status ON assessments(status);
-            CREATE INDEX IF NOT EXISTS idx_assessments_score ON assessments(score);
-            
-            -- GIN indexes for JSONB searches
-            CREATE INDEX IF NOT EXISTS idx_assessments_metrics ON assessments USING gin(metrics);
-            CREATE INDEX IF NOT EXISTS idx_assessments_recommendations ON assessments USING gin(recommendations);
-            
-            -- Composite index for common queries
-            CREATE INDEX IF NOT EXISTS idx_assessments_customer_date ON assessments(customer_id, date DESC);
-            CREATE INDEX IF NOT EXISTS idx_assessments_tenant_date ON assessments(tenant_id, date DESC);
-        `);
-        // Assessment history table for tracking trends
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS assessment_history (
-                id UUID PRIMARY KEY DEFAULT COALESCE(uuid_generate_v4(), gen_random_uuid()),
-                assessment_id UUID NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
-                tenant_id VARCHAR(255) NOT NULL,
-                customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-                date TIMESTAMPTZ NOT NULL,
-                overall_score DECIMAL(5,2) NOT NULL,
-                category_scores JSONB NOT NULL DEFAULT '{}',
-                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                -- Performance indexes for assessments
+                CREATE INDEX IF NOT EXISTS idx_assessments_customer_id ON assessments(customer_id);
+                CREATE INDEX IF NOT EXISTS idx_assessments_tenant_id ON assessments(tenant_id);
+                CREATE INDEX IF NOT EXISTS idx_assessments_date ON assessments(date);
+                CREATE INDEX IF NOT EXISTS idx_assessments_status ON assessments(status);
+                CREATE INDEX IF NOT EXISTS idx_assessments_score ON assessments(score);
                 
-                CONSTRAINT valid_overall_score CHECK (overall_score >= 0 AND overall_score <= 100)
-            );
-            
-            -- Performance indexes for history
-            CREATE INDEX IF NOT EXISTS idx_history_assessment_id ON assessment_history(assessment_id);
-            CREATE INDEX IF NOT EXISTS idx_history_tenant_id ON assessment_history(tenant_id);
-            CREATE INDEX IF NOT EXISTS idx_history_customer_id ON assessment_history(customer_id);
-            CREATE INDEX IF NOT EXISTS idx_history_date ON assessment_history(date);
-            CREATE INDEX IF NOT EXISTS idx_history_overall_score ON assessment_history(overall_score);
-            
-            -- GIN index for category scores
-            CREATE INDEX IF NOT EXISTS idx_history_category_scores ON assessment_history USING gin(category_scores);
-            
-            -- Composite indexes for common queries
-            CREATE INDEX IF NOT EXISTS idx_history_tenant_date ON assessment_history(tenant_id, date DESC);
-            CREATE INDEX IF NOT EXISTS idx_history_customer_date ON assessment_history(customer_id, date DESC);
-        `);
-        // Create updated_at trigger for assessments
-        await client.query(`
+                -- GIN indexes for JSONB searches
+                CREATE INDEX IF NOT EXISTS idx_assessments_metrics ON assessments USING gin(metrics);
+                CREATE INDEX IF NOT EXISTS idx_assessments_recommendations ON assessments USING gin(recommendations);
+                
+                -- Composite index for common queries
+                CREATE INDEX IF NOT EXISTS idx_assessments_customer_date ON assessments(customer_id, date DESC);
+                CREATE INDEX IF NOT EXISTS idx_assessments_tenant_date ON assessments(tenant_id, date DESC);
+            `);
+            // Assessment history table for tracking trends
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS assessment_history (
+                    id UUID PRIMARY KEY,
+                    assessment_id UUID NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
+                    tenant_id VARCHAR(255) NOT NULL,
+                    customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+                    date TIMESTAMPTZ NOT NULL,
+                    overall_score DECIMAL(5,2) NOT NULL,
+                    category_scores JSONB NOT NULL DEFAULT '{}',
+                    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    
+                    CONSTRAINT valid_overall_score CHECK (overall_score >= 0 AND overall_score <= 100)
+                );
+                
+                -- Performance indexes for history
+                CREATE INDEX IF NOT EXISTS idx_history_assessment_id ON assessment_history(assessment_id);
+                CREATE INDEX IF NOT EXISTS idx_history_tenant_id ON assessment_history(tenant_id);
+                CREATE INDEX IF NOT EXISTS idx_history_customer_id ON assessment_history(customer_id);
+                CREATE INDEX IF NOT EXISTS idx_history_date ON assessment_history(date);
+                CREATE INDEX IF NOT EXISTS idx_history_overall_score ON assessment_history(overall_score);
+                
+                -- GIN index for category scores
+                CREATE INDEX IF NOT EXISTS idx_history_category_scores ON assessment_history USING gin(category_scores);
+                
+                -- Composite indexes for common queries
+                CREATE INDEX IF NOT EXISTS idx_history_tenant_date ON assessment_history(tenant_id, date DESC);
+                CREATE INDEX IF NOT EXISTS idx_history_customer_date ON assessment_history(customer_id, date DESC);
+            `);
+            // Create updated_at trigger for assessments
+            await client.query(`
             CREATE OR REPLACE FUNCTION update_updated_at_column()
             RETURNS TRIGGER AS $$
             BEGIN
@@ -340,7 +282,12 @@ class PostgreSQLService {
                 FOR EACH ROW
                 EXECUTE FUNCTION update_updated_at_column();
         `);
-        console.log('📊 PostgreSQL: All tables created successfully');
+            console.log('📊 PostgreSQL: All tables created successfully');
+        }
+        catch (error) {
+            console.error('❌ PostgreSQL: Schema creation failed:', error);
+            throw error;
+        }
     }
     /**
      * Customer operations
@@ -451,13 +398,59 @@ class PostgreSQLService {
             client.release();
         }
     }
+    async getCustomerByTenantId(tenantId) {
+        await this.initialize();
+        const client = await this.pool.connect();
+        try {
+            const query = `
+                SELECT 
+                    id,
+                    tenant_id,
+                    tenant_name,
+                    tenant_domain,
+                    contact_email,
+                    notes,
+                    status,
+                    created_date,
+                    last_assessment_date,
+                    total_assessments,
+                    app_registration
+                FROM customers
+                WHERE tenant_id = $1
+                LIMIT 1
+            `;
+            const result = await client.query(query, [tenantId]);
+            if (result.rows.length === 0) {
+                return null;
+            }
+            const row = result.rows[0];
+            return {
+                id: row.id,
+                tenantId: row.tenant_id,
+                tenantName: row.tenant_name,
+                tenantDomain: row.tenant_domain,
+                contactEmail: row.contact_email || '',
+                notes: row.notes || '',
+                status: row.status,
+                createdDate: row.created_date,
+                lastAssessmentDate: row.last_assessment_date,
+                totalAssessments: row.total_assessments || 0,
+                appRegistration: row.app_registration || undefined
+            };
+        }
+        finally {
+            client.release();
+        }
+    }
     async createCustomer(customerRequest, appRegistration) {
         await this.initialize();
         const client = await this.pool.connect();
         try {
             await client.query('BEGIN');
+            const customerId = generateUUID();
             const query = `
                 INSERT INTO customers (
+                    id,
                     tenant_id,
                     tenant_name,
                     tenant_domain,
@@ -466,10 +459,11 @@ class PostgreSQLService {
                     status,
                     total_assessments,
                     app_registration
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 RETURNING *
             `;
             const values = [
+                customerId,
                 customerRequest.tenantId || '',
                 customerRequest.tenantName,
                 customerRequest.tenantDomain,
@@ -502,7 +496,7 @@ class PostgreSQLService {
             await client.query('ROLLBACK');
             console.error('❌ PostgreSQL: Failed to create customer:', error);
             if (error instanceof Error && error.message.includes('duplicate key')) {
-                throw new Error('Customer with this domain already exists');
+                throw new Error(`Customer with domain ${customerRequest.tenantDomain} already exists`);
             }
             throw new Error(`Failed to create customer: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
@@ -755,18 +749,21 @@ class PostgreSQLService {
         const client = await this.pool.connect();
         try {
             await client.query('BEGIN');
+            const assessmentId = generateUUID();
             const query = `
                 INSERT INTO assessments (
+                    id,
                     customer_id,
                     tenant_id,
                     status,
                     score,
                     metrics,
                     recommendations
-                ) VALUES ($1, $2, $3, $4, $5, $6)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
                 RETURNING *
             `;
             const values = [
+                assessmentId,
                 assessmentData.customerId,
                 assessmentData.tenantId,
                 'completed',
@@ -979,17 +976,20 @@ class PostgreSQLService {
         const client = await this.pool.connect();
         try {
             await client.query('BEGIN');
+            const historyId = generateUUID();
             const query = `
                 INSERT INTO assessment_history (
+                    id,
                     assessment_id,
                     tenant_id,
                     customer_id,
                     date,
                     overall_score,
                     category_scores
-                ) VALUES ($1, $2, $3, $4, $5, $6)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
             `;
             const values = [
+                historyId,
                 historyData.assessmentId,
                 historyData.tenantId,
                 historyData.customerId,
