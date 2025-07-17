@@ -1,6 +1,7 @@
 # Local Development Setup Instructions
 
 This guide helps you set up the M365 Assessment Framework for local development.
+fuck
 
 ## Prerequisites
 
