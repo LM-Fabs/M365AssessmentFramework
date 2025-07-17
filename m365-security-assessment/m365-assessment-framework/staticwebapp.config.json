@@ -31,36 +31,7 @@
         "cache-control": "no-cache, no-store, must-revalidate"
       }
     },
-    {
-      "route": "/api/test",
-      "methods": ["GET", "HEAD"],
-      "allowedRoles": ["anonymous"]
-    },
-    {
-      "route": "/api/customers",
-      "methods": ["GET", "POST", "HEAD", "OPTIONS"],
-      "allowedRoles": ["anonymous"]
-    },
-    {
-      "route": "/api/assessments",
-      "methods": ["GET", "POST", "HEAD", "OPTIONS"],
-      "allowedRoles": ["anonymous"]
-    },
-    {
-      "route": "/api/assessment/current",
-      "methods": ["GET", "HEAD", "OPTIONS"],
-      "allowedRoles": ["anonymous"],
-      "rewrite": "/api/assessment-current"
-    },
-    {
-      "route": "/api/assessment/status",
-      "methods": ["GET", "HEAD", "OPTIONS"],
-      "allowedRoles": ["anonymous"]
-    },
-    {
-      "route": "/api/*",
-      "allowedRoles": ["anonymous"]
-    },
+
     {
       "route": "/*",
       "allowedRoles": ["anonymous"],
@@ -101,8 +72,5 @@
     ".ttf": "font/ttf",
     ".woff": "font/woff",
     ".woff2": "font/woff2"
-  },
-  "platform": {
-    "apiRuntime": "node:20"
   }
 }

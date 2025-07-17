@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Assessment } from '../models/Assessment';
+import { LocalCustomerService } from './customerService.local';
 
 export interface Customer {
   id: string;
@@ -37,6 +38,8 @@ export class CustomerService {
   private static instance: CustomerService;
   private baseUrl: string;
   private isWarmed = false;
+  private localService: LocalCustomerService;
+  private useFreeMode = true; // Default to Free tier mode
 
   // Cache for prefetched data
   private customersCache: Customer[] | null = null;
@@ -44,6 +47,9 @@ export class CustomerService {
   private readonly CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache
 
   private constructor() {
+    // Initialize local service for Free tier compatibility
+    this.localService = LocalCustomerService.getInstance();
+    
     // Azure Static Web Apps API routing:
     // - Local development: http://localhost:7072/api
     // - Production SWA: /api (automatically routed by Static Web Apps)
@@ -55,13 +61,35 @@ export class CustomerService {
       // Azure Static Web Apps automatically routes /api to the Functions backend
       this.baseUrl = '/api';
     }
-    console.log('🔧 CustomerService: Using API base URL:', this.baseUrl);
-    console.log('🌍 CustomerService: Environment:', process.env.NODE_ENV);
-    console.log('🚀 CustomerService: Static Web App URL: https://victorious-pond-069956e03.6.azurestaticapps.net/');
     
-    // Warm up the API in production to reduce cold start impact
-    if (process.env.NODE_ENV === 'production') {
-      this.warmUpAPI();
+    console.log('🔧 CustomerService: Initialized for Free tier with localStorage');
+    console.log('🌍 CustomerService: Environment:', process.env.NODE_ENV);
+    
+    // Test if we're on Free tier (no managed functions available)
+    this.detectTierAndMode();
+  }
+
+  /**
+   * Detect if we're on Free tier or Standard tier
+   */
+  private async detectTierAndMode(): Promise<void> {
+    try {
+      // Quick test to see if API endpoints are available
+      const response = await fetch(`${this.baseUrl}/test`, { 
+        method: 'HEAD',
+        cache: 'no-cache'
+      });
+      
+      if (response.ok) {
+        this.useFreeMode = false;
+        console.log('✅ CustomerService: Standard tier detected - using managed functions');
+      } else {
+        this.useFreeMode = true;
+        console.log('🆓 CustomerService: Free tier detected - using localStorage mode');
+      }
+    } catch (error) {
+      this.useFreeMode = true;
+      console.log('🆓 CustomerService: Free tier mode - API endpoints not available, using localStorage');
     }
   }
 
@@ -97,7 +125,12 @@ export class CustomerService {
    * Get all registered customers with their Azure app registrations
    */
   public async getCustomers(): Promise<Customer[]> {
-    // Check cache first
+    // Use local service for Free tier
+    if (this.useFreeMode) {
+      return this.localService.getCustomers();
+    }
+
+    // Standard tier logic - check cache first
     const cachedCustomers = this.getCachedCustomers();
     if (cachedCustomers) {
       return cachedCustomers;
@@ -168,6 +201,12 @@ export class CustomerService {
    * Prefetch customers data in the background
    */
   public async prefetchCustomers(): Promise<void> {
+    // Use local service for Free tier
+    if (this.useFreeMode) {
+      return this.localService.prefetchCustomers();
+    }
+
+    // Standard tier logic
     try {
       console.log('🚀 CustomerService: Prefetching customers in background...');
       const customers = await this.getCustomers();
@@ -264,6 +303,16 @@ export class CustomerService {
    * Get a specific customer by ID
    */
   public async getCustomer(customerId: string): Promise<Customer> {
+    // Use local service for Free tier
+    if (this.useFreeMode) {
+      const customer = await this.localService.getCustomerById(customerId);
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+      return customer;
+    }
+
+    // Standard tier logic
     try {
       const response = await axios.get(`${this.baseUrl}/customers/${customerId}`);
       return {
@@ -281,6 +330,12 @@ export class CustomerService {
    * Create a new customer with Azure app registration
    */
   public async createCustomer(customerData: CreateCustomerRequest): Promise<Customer> {
+    // Use local service for Free tier
+    if (this.useFreeMode) {
+      return this.localService.createCustomer(customerData);
+    }
+
+    // Standard tier logic
     try {
       console.log('🔧 CustomerService: Creating customer with data:', customerData);
       console.log('🌐 CustomerService: Using base URL:', this.baseUrl);
@@ -351,6 +406,12 @@ export class CustomerService {
    * Delete a customer and all associated data
    */
   public async deleteCustomer(customerId: string): Promise<void> {
+    // Use local service for Free tier
+    if (this.useFreeMode) {
+      return this.localService.deleteCustomer(customerId);
+    }
+
+    // Standard tier logic
     try {
       console.log('🗑️ CustomerService: Deleting customer:', customerId);
       const response = await axios.delete(`${this.baseUrl}/customers/${customerId}`);
@@ -383,6 +444,12 @@ export class CustomerService {
    * Update customer information
    */
   public async updateCustomer(customerId: string, updates: Partial<Customer>): Promise<Customer> {
+    // Use local service for Free tier
+    if (this.useFreeMode) {
+      return this.localService.updateCustomer(customerId, updates);
+    }
+
+    // Standard tier logic
     try {
       console.log('📝 CustomerService: Updating customer:', customerId, 'with:', updates);
       const response = await axios.put(`${this.baseUrl}/customers/${customerId}`, updates);
@@ -418,6 +485,12 @@ export class CustomerService {
    * Get customers with their recent assessment summaries
    */
   public async getCustomersWithAssessments(): Promise<CustomerAssessmentSummary[]> {
+    // Use local service for Free tier
+    if (this.useFreeMode) {
+      return this.localService.getCustomersWithAssessments();
+    }
+
+    // Standard tier logic
     try {
       const response = await axios.get(`${this.baseUrl}/customers/with-assessments`);
       return response.data.map((item: any) => ({
@@ -443,6 +516,16 @@ export class CustomerService {
    * Search customers by name or domain
    */
   public async searchCustomers(query: string): Promise<Customer[]> {
+    // Use local service for Free tier
+    if (this.useFreeMode) {
+      const customers = await this.localService.getCustomers();
+      return customers.filter(customer => 
+        customer.tenantName.toLowerCase().includes(query.toLowerCase()) ||
+        customer.tenantDomain.toLowerCase().includes(query.toLowerCase())
+      );
+    }
+
+    // Standard tier logic
     try {
       const response = await axios.get(`${this.baseUrl}/customers/search`, {
         params: { q: query }
@@ -462,6 +545,20 @@ export class CustomerService {
    * Validate if a customer's Azure app registration is still valid
    */
   public async validateCustomerAppRegistration(customerId: string): Promise<boolean> {
+    // Use local service for Free tier
+    if (this.useFreeMode) {
+      // In Free tier, we can't validate app registrations server-side
+      // but we can check if the customer has the necessary Graph API permissions
+      try {
+        const customer = await this.localService.getCustomerById(customerId);
+        return customer !== null && !!customer.applicationId && !!customer.clientId;
+      } catch (error) {
+        console.error('Error validating customer app registration in Free tier:', error);
+        return false;
+      }
+    }
+
+    // Standard tier logic
     try {
       const response = await axios.post(`${this.baseUrl}/customers/${customerId}/validate`);
       return response.data.isValid;
@@ -475,6 +572,14 @@ export class CustomerService {
    * Deactivate a customer (soft delete)
    */
   public async deactivateCustomer(customerId: string): Promise<void> {
+    // Use local service for Free tier
+    if (this.useFreeMode) {
+      // In Free tier, update customer status to inactive
+      await this.localService.updateCustomer(customerId, { status: 'inactive' });
+      return;
+    }
+
+    // Standard tier logic
     try {
       await axios.patch(`${this.baseUrl}/customers/${customerId}/deactivate`);
     } catch (error) {
@@ -487,6 +592,13 @@ export class CustomerService {
    * Get customer assessment history
    */
   public async getCustomerAssessments(customerId: string, limit?: number): Promise<Assessment[]> {
+    // Use local service for Free tier
+    if (this.useFreeMode) {
+      const assessments = await this.localService.getCustomerAssessments(customerId);
+      return limit ? assessments.slice(0, limit) : assessments;
+    }
+
+    // Standard tier logic
     try {
       const response = await axios.get(`${this.baseUrl}/customers/${customerId}/assessments`, {
         params: limit ? { limit } : undefined
