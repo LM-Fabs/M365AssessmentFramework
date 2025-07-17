@@ -9,7 +9,7 @@ export const authConfig = {
 
 // Azure Static Web Apps auth endpoints
 export const staticWebAppAuth = {
-  loginUrl: '/.auth/login/azureactivedirectory',
+  loginUrl: '/.auth/login/aad',
   logoutUrl: '/.auth/logout',
   meUrl: '/.auth/me',
 };
