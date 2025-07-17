@@ -159,13 +159,17 @@ export class PostgreSQLService {
      * Create all required tables with optimized schema
      */
     private async createTables(client: PoolClient): Promise<void> {
-        // Try to enable required extensions (may fail if not allowed, but continue anyway)
+        // Use a transaction to ensure all schema changes are committed together
+        await client.query('BEGIN');
+        
         try {
-            await client.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
-            console.log('✅ PostgreSQL: uuid-ossp extension enabled');
-        } catch (error) {
-            console.warn('⚠️ PostgreSQL: uuid-ossp extension not available, using alternative UUID generation');
-        }
+            // Try to enable required extensions (may fail if not allowed, but continue anyway)
+            try {
+                await client.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
+                console.log('✅ PostgreSQL: uuid-ossp extension enabled');
+            } catch (error) {
+                console.warn('⚠️ PostgreSQL: uuid-ossp extension not available, using alternative UUID generation');
+            }
         
         try {
             await client.query(`CREATE EXTENSION IF NOT EXISTS "pg_trgm";`);
@@ -298,6 +302,17 @@ export class PostgreSQLService {
         `);
 
         console.log('📊 PostgreSQL: All tables created successfully');
+        
+        // Commit the transaction
+        await client.query('COMMIT');
+        console.log('✅ PostgreSQL: Schema transaction committed successfully');
+            
+        } catch (error) {
+            // Rollback on error
+            await client.query('ROLLBACK');
+            console.error('❌ PostgreSQL: Schema creation failed, rolling back:', error);
+            throw error;
+        }
     }
 
     /**
