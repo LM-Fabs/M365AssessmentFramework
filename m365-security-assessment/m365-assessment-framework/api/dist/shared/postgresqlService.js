@@ -90,19 +90,39 @@ class PostgreSQLService {
             keepAlive: true,
             keepAliveInitialDelayMillis: 10000,
         };
-        // Use Azure AD authentication in production (no firewall rules needed!)
+        // Use Azure AD authentication as primary method (most secure and reliable)
         // Check multiple indicators for production environment
         const isProduction = process.env.NODE_ENV === 'production' ||
             process.env.AZURE_CLIENT_ID !== undefined ||
             process.env.WEBSITE_SITE_NAME !== undefined;
         if (isProduction) {
             console.log('🔐 PostgreSQL: Using Azure AD authentication (no firewall rules needed)');
-            // Set the service principal application ID as the username
-            config.user = '1528f6e7-3452-4919-bae3-41258c155840'; // Service principal app ID
-            // Get Azure AD token for authentication
-            const azureToken = await this.getAzureADToken();
-            config.password = azureToken;
-            console.log('✅ PostgreSQL: Azure AD authentication configured successfully');
+            try {
+                // Set the service principal application ID as the username
+                config.user = '1528f6e7-3452-4919-bae3-41258c155840'; // Service principal app ID
+                // Get Azure AD token for authentication
+                const azureToken = await this.getAzureADToken();
+                config.password = azureToken;
+                console.log('✅ PostgreSQL: Azure AD authentication configured successfully');
+            }
+            catch (azureError) {
+                console.warn('⚠️ PostgreSQL: Azure AD authentication failed, trying password fallback:', azureError);
+                // Fallback to password authentication if Azure AD fails
+                if (process.env.POSTGRES_USER && process.env.POSTGRES_PASSWORD) {
+                    console.log('🔐 PostgreSQL: Falling back to password authentication');
+                    config.user = process.env.POSTGRES_USER;
+                    // Clean up the password format (remove any newlines or extra text)
+                    let cleanPassword = process.env.POSTGRES_PASSWORD;
+                    if (cleanPassword.includes('\n')) {
+                        cleanPassword = cleanPassword.split('\n').pop() || cleanPassword;
+                    }
+                    config.password = cleanPassword;
+                    console.log('✅ PostgreSQL: Password authentication configured as fallback');
+                }
+                else {
+                    throw new Error('No valid authentication method available');
+                }
+            }
         }
         else {
             // Local development with password
