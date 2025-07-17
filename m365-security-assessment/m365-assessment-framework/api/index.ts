@@ -3342,7 +3342,7 @@ app.http('setup-service-principal', {
             
             // Create the service principal user
             const createUserSQL = `
-                CREATE USER "1528f6e7-3452-4919-bae3-41258c155840" WITH LOGIN;
+                CREATE USER "dd9864b2-219d-4683-9769-97690f7a9760" WITH LOGIN;
             `;
             
             context.log('👤 Creating service principal user...');
@@ -3352,10 +3352,10 @@ app.http('setup-service-principal', {
             
             // Grant necessary permissions
             const grantPermissionsSQL = `
-                GRANT ALL PRIVILEGES ON DATABASE m365_assessment TO "1528f6e7-3452-4919-bae3-41258c155840";
-                GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO "1528f6e7-3452-4919-bae3-41258c155840";
-                GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO "1528f6e7-3452-4919-bae3-41258c155840";
-                GRANT CREATE ON SCHEMA public TO "1528f6e7-3452-4919-bae3-41258c155840";
+                GRANT ALL PRIVILEGES ON DATABASE m365_assessment TO "dd9864b2-219d-4683-9769-97690f7a9760";
+                GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO "dd9864b2-219d-4683-9769-97690f7a9760";
+                GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO "dd9864b2-219d-4683-9769-97690f7a9760";
+                GRANT CREATE ON SCHEMA public TO "dd9864b2-219d-4683-9769-97690f7a9760";
             `;
             
             context.log('🔐 Granting permissions...');
@@ -3372,7 +3372,7 @@ app.http('setup-service-principal', {
                 jsonBody: {
                     success: true,
                     message: "Service principal user setup completed successfully",
-                    user: "1528f6e7-3452-4919-bae3-41258c155840"
+                    user: "dd9864b2-219d-4683-9769-97690f7a9760"
                 }
             };
             
@@ -3401,11 +3401,150 @@ app.http('fixAppRegistrations', {
 });
 
 // Test Azure configuration endpoint
+app.http('testPermissions', {
+    methods: ['GET'],
+    authLevel: 'anonymous',
+    handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
+        try {
+            // Test the permission mapping to identify duplicate issues
+            const permissions = [
+                'Organization.Read.All',
+                'Reports.Read.All', 
+                'Directory.Read.All',
+                'Policy.Read.All',
+                'SecurityEvents.Read.All',
+                'IdentityRiskyUser.Read.All',
+                'DeviceManagementManagedDevices.Read.All',
+                'AuditLog.Read.All'
+            ];
+
+            const permissionMap: Record<string, string> = {
+                'Organization.Read.All': '498476ce-e0fe-48b0-b801-37ba7e2685c6',
+                'Reports.Read.All': '230c1aed-a721-4c5d-9cb4-a90514e508ef',
+                'Directory.Read.All': '7ab1d382-f21e-4acd-a863-ba3e13f7da61',
+                'Policy.Read.All': '246dd0d5-5bd0-4def-940b-0421030a5b68',
+                'SecurityEvents.Read.All': 'bf394140-e372-4bf9-a898-299cfc7564e5',
+                'IdentityRiskyUser.Read.All': 'dc5007c0-2d7d-4c42-879c-2dab87571379',
+                'DeviceManagementManagedDevices.Read.All': '2f51be20-0bb4-4fed-bf7b-db946066c75e',
+                'AuditLog.Read.All': 'b0afded3-3588-46d8-8b3d-9842eff778da'
+            };
+
+            const resourceAccess = permissions.map(permission => ({
+                id: permissionMap[permission],
+                type: "Role",
+                permission: permission
+            }));
+
+            // Check for duplicates
+            const ids = resourceAccess.map(ra => ra.id);
+            const uniqueIds = [...new Set(ids)];
+            const hasDuplicates = ids.length !== uniqueIds.length;
+
+            return {
+                status: 200,
+                headers: corsHeaders,
+                body: JSON.stringify({
+                    permissions,
+                    resourceAccess,
+                    totalPermissions: permissions.length,
+                    totalResourceAccess: resourceAccess.length,
+                    uniqueIds: uniqueIds.length,
+                    hasDuplicates,
+                    duplicateCheck: ids.map((id, index) => ({
+                        id,
+                        permission: permissions[index],
+                        isDuplicate: ids.indexOf(id) !== index
+                    }))
+                })
+            };
+
+        } catch (error) {
+            return {
+                status: 500,
+                headers: corsHeaders,
+                body: JSON.stringify({
+                    error: error instanceof Error ? error.message : 'Unknown error'
+                })
+            };
+        }
+    }
+});
+
 app.http('testAzureConfig', {
     methods: ['GET'],
     authLevel: 'anonymous',
     route: 'test-azure-config',
     handler: testAzureConfigHandler
+});
+
+// Test permission mapping endpoint for debugging
+app.http('testPermissions', {
+    methods: ['GET'],
+    authLevel: 'anonymous',
+    handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
+        try {
+            // Test the permission mapping to identify duplicate issues
+            const permissions = [
+                'Organization.Read.All',
+                'Reports.Read.All', 
+                'Directory.Read.All',
+                'Policy.Read.All',
+                'SecurityEvents.Read.All',
+                'IdentityRiskyUser.Read.All',
+                'DeviceManagementManagedDevices.Read.All',
+                'AuditLog.Read.All'
+            ];
+
+            const permissionMap: Record<string, string> = {
+                'Organization.Read.All': '498476ce-e0fe-48b0-b801-37ba7e2685c6',
+                'Reports.Read.All': '230c1aed-a721-4c5d-9cb4-a90514e508ef',
+                'Directory.Read.All': '7ab1d382-f21e-4acd-a863-ba3e13f7da61',
+                'Policy.Read.All': '246dd0d5-5bd0-4def-940b-0421030a5b68',
+                'SecurityEvents.Read.All': 'bf394140-e372-4bf9-a898-299cfc7564e5',
+                'IdentityRiskyUser.Read.All': 'dc5007c0-2d7d-4c42-879c-2dab87571379',
+                'DeviceManagementManagedDevices.Read.All': '2f51be20-0bb4-4fed-bf7b-db946066c75e',
+                'AuditLog.Read.All': 'b0afded3-3588-46d8-8b3d-9842eff778da'
+            };
+
+            const resourceAccess = permissions.map(permission => ({
+                id: permissionMap[permission],
+                type: "Role",
+                permission: permission
+            }));
+
+            // Check for duplicates
+            const ids = resourceAccess.map(ra => ra.id);
+            const uniqueIds = [...new Set(ids)];
+            const hasDuplicates = ids.length !== uniqueIds.length;
+
+            return {
+                status: 200,
+                headers: corsHeaders,
+                body: JSON.stringify({
+                    permissions,
+                    resourceAccess,
+                    totalPermissions: permissions.length,
+                    totalResourceAccess: resourceAccess.length,
+                    uniqueIds: uniqueIds.length,
+                    hasDuplicates,
+                    duplicateCheck: ids.map((id, index) => ({
+                        id,
+                        permission: permissions[index],
+                        isDuplicate: ids.indexOf(id) !== index
+                    }))
+                })
+            };
+
+        } catch (error) {
+            return {
+                status: 500,
+                headers: corsHeaders,
+                body: JSON.stringify({
+                    error: error instanceof Error ? error.message : 'Unknown error'
+                })
+            };
+        }
+    }
 });
 
 // Also create a shorter alias endpoint

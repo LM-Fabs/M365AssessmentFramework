@@ -173,7 +173,7 @@ export class PostgreSQLService {
             
             try {
                 // Set the service principal application ID as the username
-                config.user = '1528f6e7-3452-4919-bae3-41258c155840'; // Service principal app ID
+                config.user = 'dd9864b2-219d-4683-9769-97690f7a9760'; // Service principal app ID (M365AssessmentFramework-sp)
                 
                 // Get Azure AD token for authentication
                 const azureToken = await this.getAzureADToken();

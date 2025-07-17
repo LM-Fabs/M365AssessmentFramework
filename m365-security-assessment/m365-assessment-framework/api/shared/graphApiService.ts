@@ -174,20 +174,19 @@ export class GraphApiService {
                 'SecurityEvents.Read.All',
                 'IdentityRiskyUser.Read.All',
                 'DeviceManagementManagedDevices.Read.All',
-                'AuditLog.Read.All',
-                'ThreatIndicators.Read.All'
+                'AuditLog.Read.All'
             ];
 
             // Create the app registration with multi-tenant configuration
             const appName = `M365-Security-Assessment-${customerData.tenantName.replace(/\s+/g, '-')}`;
             
-            // Define proper redirect URIs for the application
+            // Define proper redirect URIs for the application (ensure uniqueness)
             const redirectUris = [
                 "https://portal.azure.com/",                    // Azure Portal (standard for admin consent)
                 "https://login.microsoftonline.com/common/oauth2/nativeclient", // Native client fallback
                 "https://localhost:3000/auth/callback",         // Local development
                 "urn:ietf:wg:oauth:2.0:oob"                    // Out-of-band flow
-            ];
+            ].filter((uri, index, array) => array.indexOf(uri) === index); // Remove duplicates
             
             // Use environment variable if provided, otherwise use Azure Portal
             const primaryRedirectUri = process.env.REDIRECT_URI || "https://portal.azure.com/";
@@ -197,27 +196,32 @@ export class GraphApiService {
                 description: `M365 Security Assessment Application for ${customerData.tenantName} (${customerData.tenantDomain})`,
                 signInAudience: "AzureADMultipleOrgs", // Multi-tenant application
                 web: {
-                    redirectUris: redirectUris,
-                    implicitGrantSettings: {
-                        enableAccessTokenIssuance: false,
-                        enableIdTokenIssuance: true
-                    }
+                    redirectUris: redirectUris
+                    // Removed implicitGrantSettings to test if this is causing the issue
                 },
                 requiredResourceAccess: [
                     {
                         resourceAppId: "00000003-0000-0000-c000-000000000000", // Microsoft Graph
-                        resourceAccess: permissions.map(permission => ({
-                            id: this.getPermissionId(permission),
-                            type: "Role" // Application permissions (not delegated)
-                        }))
+                        resourceAccess: permissions
+                            .map(permission => {
+                                try {
+                                    return {
+                                        id: this.getPermissionId(permission),
+                                        type: "Role" // Application permissions (not delegated)
+                                    };
+                                } catch (error) {
+                                    console.warn(`⚠️ GraphApiService: Skipping invalid permission: ${permission}. Error: ${error}`);
+                                    return null;
+                                }
+                            })
+                            .filter(Boolean) // Remove null entries
+                            .filter((permission, index, array) => {
+                                // Remove duplicates by permission ID
+                                return array.findIndex(p => p!.id === permission!.id) === index;
+                            })
                     }
-                ],
-                tags: [
-                    "M365Assessment",
-                    "SecurityAssessment",
-                    customerData.tenantDomain,
-                    customerData.targetTenantId
                 ]
+                // Removed tags temporarily to test if they're causing the issue
             };
 
             console.log('📝 GraphApiService: Creating application with config:', JSON.stringify(applicationRequest, null, 2));
