@@ -3563,5 +3563,6 @@ app.http('testAppRegistration', {
     handler: testAppRegistrationHandler
 });
 
-// Export the app for Azure Functions
+// Export the app for Azure Functions (using both CommonJS and ES6 formats for compatibility)
 module.exports = app;
+export default app;
