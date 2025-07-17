@@ -16,10 +16,10 @@
     "id": "Microsoft.Azure.Functions.ExtensionBundle",
     "version": "[4.*, 5.0.0)"
   },
-  "functionTimeout": "00:05:00",
+  "functionTimeout": "00:10:00",
   "extensions": {
     "http": {
-      "routePrefix": "api",
+      "routePrefix": "",
       "maxOutstandingRequests": 500,
       "maxConcurrentRequests": 200,
       "dynamicThrottlesEnabled": false
