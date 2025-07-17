@@ -38,7 +38,7 @@ const CACHE_TTL = {
 
 // Initialize data services with connection pooling
 let postgresqlService: PostgreSQLService;
-let graphApiService: GraphApiService;
+let graphApiService: GraphApiService | null = null;
 let keyVaultService: KeyVaultService | null = null;
 let dataService: PostgreSQLService;
 let isDataServiceInitialized = false;
@@ -94,12 +94,15 @@ async function initializeDataService(context: InvocationContext): Promise<void> 
             }
             
             // Initialize Graph API service with better error handling
+            // Don't fail the entire initialization if GraphAPI service can't be created
             try {
                 graphApiService = new GraphApiService();
                 context.log('✅ GraphApiService initialized successfully');
             } catch (error) {
-                context.error('❌ GraphApiService initialization failed:', error);
-                throw new Error(`GraphApiService initialization failed: ${error instanceof Error ? error.message : error}`);
+                context.warn('⚠️ GraphApiService initialization failed - automatic app registration will not be available:', error);
+                context.warn('⚠️ This is usually due to missing AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, or AZURE_TENANT_ID environment variables');
+                context.warn('⚠️ Customers will need to use manual app registration setup');
+                graphApiService = null; // Set to null so we can check for it later
             }
             
             // Initialize Key Vault service (optional - may not be available in all environments)
@@ -416,6 +419,99 @@ async function fixAppRegistrationsHandler(request: HttpRequest, context: Invocat
                 success: false,
                 error: 'Failed to fix app registrations',
                 errorMessage: error.message
+            }
+        };
+    }
+}
+
+// Test endpoint to validate Azure configuration for app registration
+async function testAzureConfigHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    try {
+        context.log('🧪 Testing Azure configuration for app registration...');
+        
+        // Check environment variables
+        const config = {
+            AZURE_CLIENT_ID: process.env.AZURE_CLIENT_ID ? `${process.env.AZURE_CLIENT_ID.substring(0, 8)}...` : 'MISSING',
+            AZURE_CLIENT_SECRET: process.env.AZURE_CLIENT_SECRET ? `${process.env.AZURE_CLIENT_SECRET.substring(0, 3)}...` : 'MISSING',
+            AZURE_TENANT_ID: process.env.AZURE_TENANT_ID ? `${process.env.AZURE_TENANT_ID.substring(0, 8)}...` : 'MISSING',
+            NODE_ENV: process.env.NODE_ENV,
+            hasClientId: !!process.env.AZURE_CLIENT_ID,
+            hasClientSecret: !!process.env.AZURE_CLIENT_SECRET,
+            hasTenantId: !!process.env.AZURE_TENANT_ID,
+            clientIdLength: process.env.AZURE_CLIENT_ID?.length || 0,
+            clientSecretLength: process.env.AZURE_CLIENT_SECRET?.length || 0,
+            tenantIdLength: process.env.AZURE_TENANT_ID?.length || 0
+        };
+        
+        context.log('🔍 Azure configuration check:', config);
+        
+        // Test GraphApiService initialization
+        let graphServiceTest = {
+            canInitialize: false,
+            initError: null as string | null
+        };
+        
+        try {
+            const testGraphService = new GraphApiService();
+            graphServiceTest.canInitialize = true;
+            context.log('✅ GraphApiService can be initialized');
+        } catch (initError) {
+            graphServiceTest.canInitialize = false;
+            graphServiceTest.initError = initError instanceof Error ? initError.message : String(initError);
+            context.log('❌ GraphApiService initialization failed:', initError);
+        }
+        
+        // Test database connection
+        let databaseTest = {
+            canConnect: false,
+            connectError: null as string | null
+        };
+        
+        try {
+            await initializeDataService(context);
+            databaseTest.canConnect = true;
+            context.log('✅ Database connection successful');
+        } catch (dbError) {
+            databaseTest.canConnect = false;
+            databaseTest.connectError = dbError instanceof Error ? dbError.message : String(dbError);
+            context.log('❌ Database connection failed:', dbError);
+        }
+        
+        return {
+            status: 200,
+            headers: corsHeaders,
+            jsonBody: {
+                success: true,
+                timestamp: new Date().toISOString(),
+                environment: config,
+                graphApiService: graphServiceTest,
+                database: databaseTest,
+                recommendations: [
+                    !config.hasClientId && 'Set AZURE_CLIENT_ID environment variable',
+                    !config.hasClientSecret && 'Set AZURE_CLIENT_SECRET environment variable', 
+                    !config.hasTenantId && 'Set AZURE_TENANT_ID environment variable',
+                    config.clientSecretLength < 30 && 'Verify AZURE_CLIENT_SECRET is the actual secret value, not the secret ID',
+                    !graphServiceTest.canInitialize && 'Fix GraphApiService initialization issues',
+                    !databaseTest.canConnect && 'Fix database connection issues'
+                ].filter(Boolean)
+            }
+        };
+        
+    } catch (error: any) {
+        context.error('❌ Error in Azure config test:', error);
+        
+        return {
+            status: 500,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: 'Failed to test Azure configuration',
+                errorMessage: error.message,
+                errorDetails: {
+                    type: error.constructor.name,
+                    code: error.code,
+                    stack: error.stack?.split('\n').slice(0, 5).join('\n')
+                }
             }
         };
     }
@@ -844,6 +940,11 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 try {
                     context.log('🚀 Triggering real Azure AD app registration for new customer:', newCustomer.tenantDomain);
                 
+                // Validate GraphApiService is available for automatic app registration
+                if (!graphApiService) {
+                    throw new Error('GraphApiService is not available. This is usually due to missing AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, or AZURE_TENANT_ID environment variables. Automatic app registration is disabled.');
+                }
+
                 // Validate required environment variables before attempting app registration
                 const azureClientId = process.env.AZURE_CLIENT_ID;
                 const azureClientSecret = process.env.AZURE_CLIENT_SECRET;
@@ -1674,6 +1775,9 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                     if (requestedCategories.includes('license')) {
                         try {
                             context.log('🔍 Fetching license information...');
+                            if (!graphApiService) {
+                                throw new Error('GraphApiService not available');
+                            }
                             licenseInfo = await graphApiService.getLicenseInfo(
                                 tenantId,
                                 customer.appRegistration.clientId,
@@ -1688,17 +1792,22 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                     
                     // Fetch secure score only if requested
                     if (requestedCategories.includes('secureScore')) {
-                        try {
-                            context.log('🛡️ Fetching secure score information...');
-                            secureScore = await graphApiService.getSecureScore(
-                                tenantId,
-                                customer.appRegistration.clientId,
-                                customer.appRegistration.clientSecret
-                            );
-                            dataFetchResults.push('secureScore: success');
-                        } catch (secureScoreError: any) {
-                            context.warn('⚠️ Secure score fetch failed:', secureScoreError.message);
-                            dataFetchResults.push(`secureScore: failed (${secureScoreError.message})`);
+                        if (!graphApiService) {
+                            context.warn('⚠️ Secure score fetch skipped: GraphApiService not available');
+                            dataFetchResults.push('secureScore: skipped (GraphApiService not available)');
+                        } else {
+                            try {
+                                context.log('🛡️ Fetching secure score information...');
+                                secureScore = await graphApiService.getSecureScore(
+                                    tenantId,
+                                    customer.appRegistration.clientId,
+                                    customer.appRegistration.clientSecret
+                                );
+                                dataFetchResults.push('secureScore: success');
+                            } catch (secureScoreError: any) {
+                                context.warn('⚠️ Secure score fetch failed:', secureScoreError.message);
+                                dataFetchResults.push(`secureScore: failed (${secureScoreError.message})`);
+                            }
                         }
                     }
                     
@@ -2896,6 +3005,23 @@ app.http('licenseInfo', {
                 };
             }
 
+            if (!graphApiService) {
+                return {
+                    status: 503,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "GraphAPI service unavailable",
+                        details: "Azure configuration is not properly set up",
+                        troubleshooting: [
+                            'Ensure AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID are configured',
+                            'Verify the Azure app registration exists and has proper permissions',
+                            'Check that the service principal has the required Microsoft Graph permissions'
+                        ]
+                    }
+                };
+            }
+
             const licenseInfo = await graphApiService.getLicenseInfo(
                 tenantId,
                 customer.appRegistration.clientId,
@@ -3031,6 +3157,23 @@ app.http('secureScore', {
                         customerId: customer.id,
                         customerName: customer.tenantName,
                         tenantId: tenantId
+                    }
+                };
+            }
+
+            if (!graphApiService) {
+                return {
+                    status: 503,
+                    headers: corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "GraphAPI service unavailable",
+                        details: "Azure configuration is not properly set up",
+                        troubleshooting: [
+                            'Ensure AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID are configured',
+                            'Verify the Azure app registration exists and has proper permissions',
+                            'Check that the service principal has the required Microsoft Graph permissions'
+                        ]
                     }
                 };
             }
@@ -3251,9 +3394,25 @@ app.http('setup-service-principal', {
 
 // Fix app registrations endpoint for PostgreSQL migration issues
 app.http('fixAppRegistrations', {
-    methods: ['POST'],
+    methods: ['POST', 'GET'],
     authLevel: 'anonymous',
     route: 'fix-app-registrations',
+    handler: fixAppRegistrationsHandler
+});
+
+// Test Azure configuration endpoint
+app.http('testAzureConfig', {
+    methods: ['GET'],
+    authLevel: 'anonymous',
+    route: 'test-azure-config',
+    handler: testAzureConfigHandler
+});
+
+// Also create a shorter alias endpoint
+app.http('fixApps', {
+    methods: ['POST', 'GET'],
+    authLevel: 'anonymous',
+    route: 'fix-apps',
     handler: fixAppRegistrationsHandler
 });
 
