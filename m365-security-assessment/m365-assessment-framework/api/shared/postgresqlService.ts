@@ -160,7 +160,7 @@ export class PostgreSQLService {
      */
     private async createTables(client: PoolClient): Promise<void> {
         // Use a transaction to ensure all schema changes are committed together
-        await client.query('BEGIN');
+        console.log('🔧 PostgreSQL: Starting schema creation without explicit transaction...');
         
         try {
             // Try to enable required extensions (may fail if not allowed, but continue anyway)
@@ -299,14 +299,8 @@ export class PostgreSQLService {
 
         console.log('📊 PostgreSQL: All tables created successfully');
         
-        // Commit the transaction
-        await client.query('COMMIT');
-        console.log('✅ PostgreSQL: Schema transaction committed successfully');
-            
         } catch (error) {
-            // Rollback on error
-            await client.query('ROLLBACK');
-            console.error('❌ PostgreSQL: Schema creation failed, rolling back:', error);
+            console.error('❌ PostgreSQL: Schema creation failed:', error);
             throw error;
         }
     }
