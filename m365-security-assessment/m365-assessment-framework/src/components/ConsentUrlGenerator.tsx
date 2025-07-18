@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Customer } from '../services/customerService';
+import { GraphService } from '../services/graphService';
+import { AdminConsentService, M365_ASSESSMENT_CONFIG } from '../services/adminConsentService';
+import { useAuth } from '../hooks/useAuth';
 import './ConsentUrlGenerator.css';
 
 interface ConsentUrlGeneratorProps {
@@ -16,26 +19,18 @@ interface ConsentUrlData {
 }
 
 export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ customers, onClose }) => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState<ConsentUrlData>({
     customer: null,
     clientId: '',
-    tenantId: '',
-    redirectUri: 'https://portal.azure.com/',
-    permissions: [
-      'Organization.Read.All',
-      'SecurityEvents.Read.All',
-      'Reports.Read.All',
-      'Directory.Read.All',
-      'Policy.Read.All',
-      'IdentityRiskyUser.Read.All',
-      'AuditLog.Read.All',
-      'DeviceManagementManagedDevices.Read.All',
-      'ThreatIndicators.Read.All'
-    ]
+    tenantId: user?.tenantId || '', // Auto-populate from current user
+    redirectUri: process.env.REACT_APP_CONSENT_REDIRECT_URI || M365_ASSESSMENT_CONFIG.defaultRedirectUri,
+    permissions: [...M365_ASSESSMENT_CONFIG.requiredPermissions]
   });
 
   const [generatedUrl, setGeneratedUrl] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
+  const [isAutoDetecting, setIsAutoDetecting] = useState<boolean>(false);
 
   // Auto-populate fields when customer is selected
   useEffect(() => {
@@ -51,60 +46,78 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
   // Generate consent URL whenever relevant fields change
   useEffect(() => {
     generateConsentUrl();
-  }, [formData.clientId, formData.tenantId, formData.redirectUri, formData.permissions]);
+  }, [formData.clientId, formData.tenantId, formData.redirectUri, formData.permissions, formData.customer]);
 
-  const generateConsentUrl = () => {
-    if (!formData.clientId || !formData.tenantId) {
+  const generateConsentUrl = async () => {
+    if (!formData.clientId || !formData.customer?.id) {
       setGeneratedUrl('');
       return;
     }
 
     try {
-      // Create state parameter with customer and consent information for callback
-      const stateData = {
-        customerId: formData.customer?.id || 'manual-entry',
-        clientId: formData.clientId,
-        tenantId: formData.tenantId,
-        timestamp: Date.now(),
-        permissions: formData.permissions
-      };
-
-      const encodedState = encodeURIComponent(JSON.stringify(stateData));
+      const adminConsentService = AdminConsentService.getInstance();
       
-      // Use the API base URL or fallback to current domain
-      const baseUrl = process.env.REACT_APP_API_URL || window.location.origin;
-      const callbackUrl = `${baseUrl}/api/consent-callback`;
-      
-      // Determine the correct tenant identifier for the consent URL
-      let consentTenantId = formData.tenantId;
-      
-      // If the tenantId looks like a custom domain (contains dots but not onmicrosoft.com), 
-      // use 'common' endpoint which allows consent from any tenant
-      if (formData.tenantId.includes('.') && 
-          !formData.tenantId.includes('.onmicrosoft.com') && 
-          !formData.tenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-        consentTenantId = 'common';
+      // If no tenant ID is provided, try to auto-detect it
+      let tenantId = formData.tenantId;
+      if (!tenantId) {
+        const autoDetectResult = await adminConsentService.generateConsentUrlWithAutoTenant(
+          formData.clientId,
+          formData.redirectUri,
+          formData.customer.id,
+          formData.permissions.join(' ')
+        );
+        
+        if (autoDetectResult.url) {
+          setGeneratedUrl(autoDetectResult.url);
+          // Update the form with the detected tenant ID
+          if (autoDetectResult.tenantId) {
+            setFormData(prev => ({ ...prev, tenantId: autoDetectResult.tenantId! }));
+          }
+          return;
+        }
       }
 
-      // Create enhanced admin consent URL that will trigger enterprise app creation
-      const baseConsentUrl = `https://login.microsoftonline.com/${consentTenantId}/oauth2/v2.0/authorize`;
-      const params = new URLSearchParams({
-        client_id: formData.clientId,
-        response_type: 'code',
-        redirect_uri: callbackUrl,
-        response_mode: 'query',
-        scope: 'https://graph.microsoft.com/.default',
-        state: encodedState,
-        prompt: 'admin_consent',
-        // Additional parameters to ensure proper consent flow
-        access_type: 'offline'
-      });
-
-      const url = `${baseConsentUrl}?${params.toString()}`;
-      setGeneratedUrl(url);
+      // Fallback to manual tenant ID if provided
+      if (tenantId) {
+        const consentUrl = adminConsentService.generateCustomerConsentUrl({
+          clientId: formData.clientId,
+          redirectUri: formData.redirectUri,
+          customerId: formData.customer.id,
+          customerTenantId: tenantId,
+          scope: formData.permissions.join(' ')
+        });
+        
+        setGeneratedUrl(consentUrl);
+      } else {
+        setGeneratedUrl('');
+      }
     } catch (error) {
       console.error('Error generating consent URL:', error);
       setGeneratedUrl('');
+    }
+  };
+
+  const handleAutoDetectTenant = async () => {
+    setIsAutoDetecting(true);
+    
+    try {
+      const adminConsentService = AdminConsentService.getInstance();
+      const userTenantInfo = await adminConsentService.getCurrentUserTenantInfo();
+      
+      if (userTenantInfo?.tenantId) {
+        setFormData(prev => ({ 
+          ...prev, 
+          tenantId: userTenantInfo.tenantId!,
+          clientId: prev.clientId || process.env.REACT_APP_CLIENT_ID || ''
+        }));
+      } else {
+        alert('Could not automatically detect your tenant ID. Please enter it manually.');
+      }
+    } catch (error) {
+      console.error('Error auto-detecting tenant:', error);
+      alert('Failed to auto-detect tenant ID. Please enter it manually.');
+    } finally {
+      setIsAutoDetecting(false);
     }
   };
 
@@ -223,17 +236,28 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
 
             <div className="form-field">
               <label htmlFor="tenantId">Customer Tenant ID/Domain *</label>
-              <input
-                type="text"
-                id="tenantId"
-                value={formData.tenantId}
-                onChange={(e) => handleInputChange('tenantId', e.target.value)}
-                placeholder="customer.onmicrosoft.com or tenant ID"
-                className="form-input"
-                required
-              />
+              <div className="input-with-button">
+                <input
+                  type="text"
+                  id="tenantId"
+                  value={formData.tenantId}
+                  onChange={(e) => handleInputChange('tenantId', e.target.value)}
+                  placeholder="customer.onmicrosoft.com or tenant ID"
+                  className="form-input"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={handleAutoDetectTenant}
+                  disabled={isAutoDetecting}
+                  className="auto-detect-button"
+                  title="Auto-detect from current user session"
+                >
+                  {isAutoDetecting ? '🔄' : '🔍'}
+                </button>
+              </div>
               <small className="form-help">
-                Customer's tenant ID or domain
+                Customer's tenant ID or domain. Click 🔍 to auto-detect from your current session.
               </small>
             </div>
           </div>

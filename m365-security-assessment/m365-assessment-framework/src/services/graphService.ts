@@ -5,6 +5,7 @@ import { InteractionType, PublicClientApplication } from "@azure/msal-browser";
 import { msalConfig, loginRequest } from "../config/auth";
 import { Metrics } from '../models/Metrics';
 import { AuthenticationProvider } from '@microsoft/microsoft-graph-client';
+import { AdminConsentService, M365_ASSESSMENT_CONFIG } from './adminConsentService';
 import {
   User as BaseUser,
   Device as BaseDevice,
@@ -86,9 +87,11 @@ export class GraphService {
   private static instance: GraphService;
   private msalInstance: PublicClientApplication;
   private graphClient: Client | null = null;
+  private adminConsentService: AdminConsentService;
 
   private constructor() {
     this.msalInstance = new PublicClientApplication(msalConfig);
+    this.adminConsentService = AdminConsentService.getInstance();
   }
 
   public static getInstance(): GraphService {
@@ -98,6 +101,42 @@ export class GraphService {
     return GraphService.instance;
   }
 
+  /**
+   * Generates an admin consent URL for customer tenant registration
+   * This allows external tenant admins to register the M365 Assessment app
+   */
+  public generateCustomerConsentUrl(customerId: string, customerTenantId: string): string {
+    const clientId = msalConfig.auth.clientId;
+    const redirectUri = process.env.REACT_APP_CONSENT_REDIRECT_URI || 
+                       M365_ASSESSMENT_CONFIG.defaultRedirectUri;
+
+    return this.adminConsentService.generateCustomerConsentUrl({
+      clientId,
+      redirectUri,
+      customerId,
+      customerTenantId,
+      scope: 'https://graph.microsoft.com/.default'
+    });
+  }
+
+  /**
+   * Validates that the current application is properly configured for multi-tenant access
+   */
+  public async validateMultiTenantSetup(): Promise<{ isValid: boolean; errors: string[] }> {
+    if (!this.graphClient) {
+      await this.initializeGraphClient();
+    }
+
+    const clientId = msalConfig.auth.clientId;
+    return await this.adminConsentService.validateMultiTenantConfiguration(
+      clientId, 
+      this.graphClient!
+    );
+  }
+
+  /**
+   * Initializes the Graph client for the current user session
+   */
   public async initializeGraphClient(): Promise<void> {
     const account = this.msalInstance.getAllAccounts()[0];
     if (!account) {
@@ -115,7 +154,56 @@ export class GraphService {
     });
   }
 
+  /**
+   * Initializes Graph client for a specific customer tenant using app-only authentication
+   * Used after admin consent has been granted by the customer
+   */
+  public async initializeCustomerGraphClient(
+    customerTenantId: string, 
+    accessToken: string
+  ): Promise<Client> {
+    // Create a custom auth provider for the customer tenant
+    const customAuthProvider: AuthenticationProvider = {
+      getAccessToken: async () => {
+        return accessToken;
+      }
+    };
+
+    return Client.initWithMiddleware({
+      authProvider: customAuthProvider,
+      baseUrl: `https://graph.microsoft.com/v1.0`
+    });
+  }
+
+  /**
+   * Gets security metrics for the current authenticated user's tenant
+   */
   public async getSecurityMetrics(): Promise<Metrics> {
+    if (!this.graphClient) {
+      await this.initializeGraphClient();
+    }
+    return this.fetchSecurityMetricsFromTenant(this.graphClient!);
+  }
+
+  /**
+   * Gets security metrics for a specific customer tenant
+   * Used after admin consent has been granted and enterprise app is registered
+   */
+  public async getCustomerSecurityMetrics(
+    customerTenantId: string, 
+    accessToken: string
+  ): Promise<Metrics> {
+    const customerGraphClient = await this.initializeCustomerGraphClient(
+      customerTenantId, 
+      accessToken
+    );
+    return this.fetchSecurityMetricsFromTenant(customerGraphClient);
+  }
+
+  /**
+   * Core method to fetch security metrics from any tenant's Graph client
+   */
+  private async fetchSecurityMetricsFromTenant(graphClient: Client): Promise<Metrics> {
     const [
       mfaReport,
       secureScoreControlProfiles,
@@ -126,14 +214,14 @@ export class GraphService {
       dlpPolicies,
       alerts
     ] = await Promise.all([
-      this.getMfaReport(),
-      this.getSecureScore(),
-      this.getDevices(),
-      this.getConditionalAccessPolicies(),
-      this.getAdminUsers(),
-      this.getGuestUsers(),
-      this.getDlpPolicies(),
-      this.getSecurityAlerts()
+      this.getMfaReport(graphClient),
+      this.getSecureScore(graphClient),
+      this.getDevices(graphClient),
+      this.getConditionalAccessPolicies(graphClient),
+      this.getAdminUsers(graphClient),
+      this.getGuestUsers(graphClient),
+      this.getDlpPolicies(graphClient),
+      this.getSecurityAlerts(graphClient)
     ]);
 
     // Calculate identity metrics
@@ -248,59 +336,59 @@ export class GraphService {
     };
   }
 
-  private async getMfaReport(): Promise<MfaRegistrationDetail[]> {
-    const response = await this.graphClient!
+  private async getMfaReport(graphClient: Client): Promise<MfaRegistrationDetail[]> {
+    const response = await graphClient
       .api('/reports/credentialUserRegistrationDetails')
       .get();
     return response.value;
   }
 
-  private async getSecureScore(): Promise<SecureScoreControlProfile[]> {
-    const response = await this.graphClient!
+  private async getSecureScore(graphClient: Client): Promise<SecureScoreControlProfile[]> {
+    const response = await graphClient
       .api('/security/secureScoreControlProfiles')
       .get();
     return response.value;
   }
 
-  private async getDevices(): Promise<Device[]> {
-    const response = await this.graphClient!
+  private async getDevices(graphClient: Client): Promise<Device[]> {
+    const response = await graphClient
       .api('/devices')
       .get();
     return response.value;
   }
 
-  private async getConditionalAccessPolicies(): Promise<ConditionalAccessPolicy[]> {
-    const response = await this.graphClient!
+  private async getConditionalAccessPolicies(graphClient: Client): Promise<ConditionalAccessPolicy[]> {
+    const response = await graphClient
       .api('/identity/conditionalAccess/policies')
       .get();
     return response.value;
   }
 
-  private async getAdminUsers(): Promise<User[]> {
-    const response = await this.graphClient!
+  private async getAdminUsers(graphClient: Client): Promise<User[]> {
+    const response = await graphClient
       .api('/users')
       .filter('assignedRoles/any()')
       .get();
     return response.value;
   }
 
-  private async getGuestUsers(): Promise<User[]> {
-    const response = await this.graphClient!
+  private async getGuestUsers(graphClient: Client): Promise<User[]> {
+    const response = await graphClient
       .api('/users')
       .filter('userType eq \'Guest\'')
       .get();
     return response.value;
   }
 
-  private async getDlpPolicies(): Promise<DlpPolicy[]> {
-    const response = await this.graphClient!
+  private async getDlpPolicies(graphClient: Client): Promise<DlpPolicy[]> {
+    const response = await graphClient
       .api('/security/dlpPolicies')
       .get();
     return response.value;
   }
 
-  private async getSecurityAlerts(): Promise<Alert[]> {
-    const response = await this.graphClient!
+  private async getSecurityAlerts(graphClient: Client): Promise<Alert[]> {
+    const response = await graphClient
       .api('/security/alerts')
       .get();
     return response.value;
