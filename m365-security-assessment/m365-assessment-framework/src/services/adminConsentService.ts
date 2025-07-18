@@ -547,6 +547,23 @@ export interface EnterpriseAppResult {
  * Configuration for M365 Assessment Framework multi-tenant setup
  */
 export const M365_ASSESSMENT_CONFIG = {
+  // Your master application's client ID - get this from YOUR Azure AD app registration
+  // This is the same ID for ALL customers - it identifies YOUR multi-tenant app
+  get clientId(): string {
+    // Check for environment variable first (production/deployed apps)
+    const envClientId = process.env.REACT_APP_CLIENT_ID || process.env.AZURE_CLIENT_ID;
+    if (envClientId && envClientId !== 'your-client-id') {
+      return envClientId;
+    }
+    
+    // Fallback to hardcoded ID for development (replace with your actual client ID)
+    // TODO: Replace this with your actual Azure AD application client ID
+    const fallbackClientId = 'd1cc9e16-9194-4892-92c5-473c9f65dcb3';
+    
+    console.warn('⚠️ Using fallback client ID. For production, set REACT_APP_CLIENT_ID environment variable.');
+    return fallbackClientId;
+  },
+  
   // Standard permissions required for security assessment
   requiredPermissions: [
     'User.Read.All',                    // Read user profiles
@@ -561,8 +578,17 @@ export const M365_ASSESSMENT_CONFIG = {
     'RoleManagement.Read.Directory'     // Read role assignments
   ],
   
-  // Default redirect URI for production
-  defaultRedirectUri: 'https://m365assessment.azurewebsites.net/auth/consent-callback',
+  // Default redirect URI for production - where customers land after consent
+  get defaultRedirectUri(): string {
+    const envRedirectUri = process.env.REACT_APP_CONSENT_REDIRECT_URI;
+    if (envRedirectUri) {
+      return envRedirectUri;
+    }
+    
+    // Construct from current origin for dynamic environments
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://localhost:3000';
+    return `${origin}/api/consent-callback`;
+  },
   
   // Application display name in customer tenants
   applicationDisplayName: 'M365 Security Assessment Framework',

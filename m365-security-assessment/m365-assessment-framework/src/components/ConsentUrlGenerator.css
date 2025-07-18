@@ -149,6 +149,18 @@
   cursor: not-allowed;
 }
 
+.form-input.readonly {
+  background-color: #f8fafc;
+  color: #6b7280;
+  border-color: #e5e7eb;
+  cursor: not-allowed;
+}
+
+.form-input.readonly:focus {
+  border-color: #e5e7eb;
+  box-shadow: none;
+}
+
 .form-help {
   display: block;
   margin-top: 0.25rem;

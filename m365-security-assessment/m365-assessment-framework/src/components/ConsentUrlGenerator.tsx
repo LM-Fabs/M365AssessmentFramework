@@ -22,9 +22,9 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
   const { user } = useAuth();
   const [formData, setFormData] = useState<ConsentUrlData>({
     customer: null,
-    clientId: '',
+    clientId: M365_ASSESSMENT_CONFIG.clientId, // Use YOUR app's client ID, not customer's
     tenantId: user?.tenantId || '', // Auto-populate from current user
-    redirectUri: process.env.REACT_APP_CONSENT_REDIRECT_URI || M365_ASSESSMENT_CONFIG.defaultRedirectUri,
+    redirectUri: M365_ASSESSMENT_CONFIG.defaultRedirectUri,
     permissions: [...M365_ASSESSMENT_CONFIG.requiredPermissions]
   });
 
@@ -37,7 +37,8 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
     if (formData.customer) {
       setFormData(prev => ({
         ...prev,
-        clientId: formData.customer?.clientId || '',
+        // NOTE: We do NOT use customer's clientId - we use OUR app's clientId
+        // The customer's tenant ID is what we need for targeting the consent
         tenantId: formData.customer?.tenantId || ''
       }));
     }
@@ -49,7 +50,7 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
   }, [formData.clientId, formData.tenantId, formData.redirectUri, formData.permissions, formData.customer]);
 
   const generateConsentUrl = async () => {
-    if (!formData.clientId || !formData.customer?.id) {
+    if (!formData.customer?.id) {
       setGeneratedUrl('');
       return;
     }
@@ -57,11 +58,14 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
     try {
       const adminConsentService = AdminConsentService.getInstance();
       
+      // Always use YOUR app's client ID (not customer's)
+      const clientId = M365_ASSESSMENT_CONFIG.clientId;
+      
       // If no tenant ID is provided, try to auto-detect it
       let tenantId = formData.tenantId;
       if (!tenantId) {
         const autoDetectResult = await adminConsentService.generateConsentUrlWithAutoTenant(
-          formData.clientId,
+          clientId, // YOUR app's client ID
           formData.redirectUri,
           formData.customer.id,
           formData.permissions.join(' ')
@@ -80,10 +84,10 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
       // Fallback to manual tenant ID if provided
       if (tenantId) {
         const consentUrl = adminConsentService.generateCustomerConsentUrl({
-          clientId: formData.clientId,
+          clientId: clientId, // YOUR app's client ID
           redirectUri: formData.redirectUri,
           customerId: formData.customer.id,
-          customerTenantId: tenantId,
+          customerTenantId: tenantId, // Customer's tenant ID
           scope: formData.permissions.join(' ')
         });
         
@@ -107,8 +111,8 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
       if (userTenantInfo?.tenantId) {
         setFormData(prev => ({ 
           ...prev, 
-          tenantId: userTenantInfo.tenantId!,
-          clientId: prev.clientId || process.env.REACT_APP_CLIENT_ID || ''
+          tenantId: userTenantInfo.tenantId!
+          // Note: clientId is always M365_ASSESSMENT_CONFIG.clientId - not customer specific
         }));
       } else {
         alert('Could not automatically detect your tenant ID. Please enter it manually.');
@@ -219,18 +223,17 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
 
           <div className="form-row">
             <div className="form-field">
-              <label htmlFor="clientId">Application (Client) ID *</label>
+              <label htmlFor="clientId">Application (Client) ID (Auto-configured)</label>
               <input
                 type="text"
                 id="clientId"
-                value={formData.clientId}
-                onChange={(e) => handleInputChange('clientId', e.target.value)}
-                placeholder="12345678-1234-1234-1234-123456789012"
-                className="form-input"
-                required
+                value={M365_ASSESSMENT_CONFIG.clientId}
+                readOnly
+                className="form-input readonly"
+                title="This is YOUR app's client ID - same for all customers"
               />
               <small className="form-help">
-                From Azure Portal → App registrations → Overview
+                ✅ Auto-configured from your M365 Assessment Framework app registration
               </small>
             </div>
 
