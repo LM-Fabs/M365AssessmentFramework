@@ -100,8 +100,8 @@ const CustomerSelector = forwardRef<CustomerSelectorRef, CustomerSelectorProps>(
   };
 
   const filteredCustomers = customers.filter(customer =>
-    customer.tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    customer.tenantDomain.toLowerCase().includes(searchQuery.toLowerCase())
+    (customer.tenantName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (customer.tenantDomain || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleCustomerSelect = (customer: Customer) => {
@@ -190,8 +190,8 @@ const CustomerSelector = forwardRef<CustomerSelectorRef, CustomerSelectorProps>(
           {selectedCustomer ? (
             <div className="selected-customer">
               <div className="customer-main">
-                <span className="customer-name">{selectedCustomer.tenantName}</span>
-                <span className="customer-domain">{selectedCustomer.tenantDomain}</span>
+                <span className="customer-name">{selectedCustomer.tenantName || ''}</span>
+                <span className="customer-domain">{selectedCustomer.tenantDomain || ''}</span>
               </div>
               <div className="customer-meta">
                 <span className="assessment-count">{selectedCustomer.totalAssessments} assessments</span>
@@ -252,8 +252,8 @@ const CustomerSelector = forwardRef<CustomerSelectorRef, CustomerSelectorProps>(
                           onClick={() => handleCustomerSelect(customer)}
                         >
                           <div className="customer-option-main">
-                            <span className="customer-option-name">{customer.tenantName}</span>
-                            <span className="customer-option-domain">{customer.tenantDomain}</span>
+                            <span className="customer-option-name">{customer.tenantName || ''}</span>
+                            <span className="customer-option-domain">{customer.tenantDomain || ''}</span>
                           </div>
                           <div className="customer-option-meta">
                             <span className="option-assessment-count">{customer.totalAssessments} assessments</span>
