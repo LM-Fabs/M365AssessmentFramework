@@ -205,20 +205,39 @@ class SimplePostgreSQLService {
                 throw new Error('No fields to update');
             }
             
-            // Add updated_at field
+            // Add updated_at field - try different column names for compatibility
             updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
             
             // Add customer ID as the last parameter
             values.push(customerData.id);
             
-            const query = `
+            let query = `
                 UPDATE customers 
                 SET ${updateFields.join(', ')}
                 WHERE id = $${paramIndex}
                 RETURNING *
             `;
             
-            const result = await client.query(query, values);
+            let result;
+            try {
+                result = await client.query(query, values);
+            } catch (error) {
+                // If updated_at column doesn't exist, try without it
+                if (error.message.includes('updated_at') && error.message.includes('does not exist')) {
+                    console.log('updated_at column not found, trying without it...');
+                    updateFields.pop(); // Remove the updated_at field
+                    query = `
+                        UPDATE customers 
+                        SET ${updateFields.join(', ')}
+                        WHERE id = $${paramIndex}
+                        RETURNING *
+                    `;
+                    result = await client.query(query, values);
+                } else {
+                    throw error;
+                }
+            }
+            
             await client.query('COMMIT');
             
             if (result.rows.length === 0) {
@@ -229,7 +248,9 @@ class SimplePostgreSQLService {
             let appRegistration = null;
             if (row.app_registration) {
                 try {
-                    appRegistration = JSON.parse(row.app_registration);
+                    appRegistration = typeof row.app_registration === 'string' 
+                        ? JSON.parse(row.app_registration) 
+                        : row.app_registration;
                 } catch (e) {
                     console.warn('Failed to parse app_registration JSON:', e);
                 }
@@ -243,8 +264,8 @@ class SimplePostgreSQLService {
                 contactEmail: row.contact_email || '',
                 notes: row.notes || '',
                 status: row.status || 'active',
-                createdAt: row.created_date,
-                updatedAt: row.updated_at,
+                createdAt: row.created_at || row.created_date,
+                updatedAt: row.updated_at || row.updated_date || row.created_at || row.created_date,
                 totalAssessments: row.total_assessments || 0,
                 appRegistration: appRegistration
             };
