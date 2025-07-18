@@ -553,6 +553,7 @@ export const M365_ASSESSMENT_CONFIG = {
     // Check for environment variable first (production/deployed apps)
     const envClientId = process.env.REACT_APP_CLIENT_ID || process.env.AZURE_CLIENT_ID;
     if (envClientId && envClientId !== 'your-client-id') {
+      console.log('✅ Using environment client ID:', envClientId.substring(0, 8) + '...');
       return envClientId;
     }
     
@@ -561,6 +562,10 @@ export const M365_ASSESSMENT_CONFIG = {
     const fallbackClientId = 'd1cc9e16-9194-4892-92c5-473c9f65dcb3';
     
     console.warn('⚠️ Using fallback client ID. For production, set REACT_APP_CLIENT_ID environment variable.');
+    console.log('🔧 Available env vars:', {
+      REACT_APP_CLIENT_ID: process.env.REACT_APP_CLIENT_ID ? 'SET' : 'NOT SET',
+      AZURE_CLIENT_ID: process.env.AZURE_CLIENT_ID ? 'SET' : 'NOT SET'
+    });
     return fallbackClientId;
   },
   

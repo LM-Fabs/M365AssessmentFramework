@@ -75,16 +75,36 @@ export class CustomerService {
     
     try {
       console.log('🔥 CustomerService: Warming up API...');
-      // Make a quick HEAD request to wake up the function
-      await axios.head(`${this.baseUrl}/customers`, {
-        timeout: 5000,
-        headers: { 'X-Warmup': 'true' }
+      // Use GET instead of HEAD for better compatibility with Azure Static Web Apps
+      const response = await axios.get(`${this.baseUrl}/customers`, {
+        timeout: 8000,
+        headers: { 
+          'X-Warmup': 'true',
+          'Cache-Control': 'no-cache'
+        },
+        params: {
+          warmup: 'true',
+          limit: 1 // Minimal response for warmup
+        }
       });
-      this.isWarmed = true;
-      console.log('✅ CustomerService: API warmed up successfully');
-    } catch (error) {
-      // Warming up failed, but that's OK - the actual request will handle cold start
+      
+      if (response.status === 200) {
+        this.isWarmed = true;
+        console.log('✅ CustomerService: API warmed up successfully');
+      } else {
+        console.log(`⚠️ CustomerService: API warmup returned status ${response.status}`);
+      }
+    } catch (error: any) {
+      // Log detailed error information for debugging
       console.log('🔥 CustomerService: API warmup failed (expected for cold start)');
+      if (error.response) {
+        console.log('Response status:', error.response.status);
+        console.log('Response data:', error.response.data);
+      } else if (error.request) {
+        console.log('No response received:', error.message);
+      } else {
+        console.log('Request setup error:', error.message);
+      }
     }
   }
 
@@ -150,7 +170,31 @@ export class CustomerService {
         return [];
       }
     } catch (error: any) {
-      console.error('Error fetching customers:', error);
+      console.error('❌ CustomerService: Error fetching customers:', error);
+      
+      // Detailed error logging for debugging
+      if (error.response) {
+        console.error('Response Error Details:');
+        console.error('- Status:', error.response.status);
+        console.error('- Status Text:', error.response.statusText);
+        console.error('- URL:', error.config?.url);
+        console.error('- Headers:', error.response.headers);
+        console.error('- Data:', error.response.data);
+        
+        if (error.response.status === 404) {
+          console.error('🚨 API Endpoint Not Found - Check deployment:');
+          console.error('1. Verify API function is deployed to Azure');
+          console.error('2. Check Azure Static Web Apps configuration');
+          console.error('3. Ensure /api/customers route is working');
+          console.error('4. Try browsing to', `${this.baseUrl}/customers`, 'manually');
+        }
+      } else if (error.request) {
+        console.error('Network Error:', error.message);
+        console.error('Request was made but no response received');
+        console.error('Check network connectivity and CORS settings');
+      } else {
+        console.error('Request Setup Error:', error.message);
+      }
       
       // Always return empty array for customer list failures
       // This allows the UI to show empty state instead of crashing

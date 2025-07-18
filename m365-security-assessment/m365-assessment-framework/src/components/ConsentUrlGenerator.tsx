@@ -20,6 +20,14 @@ interface ConsentUrlData {
 
 export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ customers, onClose }) => {
   const { user } = useAuth();
+  
+  // Debug logging
+  console.log('🎯 ConsentUrlGenerator initialized:', {
+    customersCount: customers.length,
+    customers: customers,
+    user: user
+  });
+
   const [formData, setFormData] = useState<ConsentUrlData>({
     customer: null,
     clientId: M365_ASSESSMENT_CONFIG.clientId, // Use YOUR app's client ID, not customer's
@@ -47,10 +55,17 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
   // Generate consent URL whenever relevant fields change
   useEffect(() => {
     generateConsentUrl();
-  }, [formData.clientId, formData.tenantId, formData.redirectUri, formData.permissions, formData.customer]);
+  }, [formData.tenantId, formData.redirectUri, formData.permissions, formData.customer]);
 
   const generateConsentUrl = async () => {
+    console.log('🔍 generateConsentUrl called:', {
+      customer: formData.customer,
+      tenantId: formData.tenantId,
+      clientId: M365_ASSESSMENT_CONFIG.clientId
+    });
+
     if (!formData.customer?.id) {
+      console.log('❌ No customer selected, clearing URL');
       setGeneratedUrl('');
       return;
     }
@@ -60,10 +75,12 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
       
       // Always use YOUR app's client ID (not customer's)
       const clientId = M365_ASSESSMENT_CONFIG.clientId;
+      console.log('📋 Using client ID:', clientId);
       
       // If no tenant ID is provided, try to auto-detect it
       let tenantId = formData.tenantId;
       if (!tenantId) {
+        console.log('🔄 No tenant ID provided, trying auto-detection...');
         const autoDetectResult = await adminConsentService.generateConsentUrlWithAutoTenant(
           clientId, // YOUR app's client ID
           formData.redirectUri,
@@ -72,17 +89,21 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
         );
         
         if (autoDetectResult.url) {
+          console.log('✅ Auto-detection successful:', autoDetectResult);
           setGeneratedUrl(autoDetectResult.url);
           // Update the form with the detected tenant ID
           if (autoDetectResult.tenantId) {
             setFormData(prev => ({ ...prev, tenantId: autoDetectResult.tenantId! }));
           }
           return;
+        } else {
+          console.log('❌ Auto-detection failed:', autoDetectResult);
         }
       }
 
       // Fallback to manual tenant ID if provided
       if (tenantId) {
+        console.log('🎯 Using manual tenant ID:', tenantId);
         const consentUrl = adminConsentService.generateCustomerConsentUrl({
           clientId: clientId, // YOUR app's client ID
           redirectUri: formData.redirectUri,
@@ -91,8 +112,10 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
           scope: formData.permissions.join(' ')
         });
         
+        console.log('✅ Generated consent URL:', consentUrl);
         setGeneratedUrl(consentUrl);
       } else {
+        console.log('❌ No tenant ID available, clearing URL');
         setGeneratedUrl('');
       }
     } catch (error) {
@@ -212,7 +235,8 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
               <option value="">Manual entry</option>
               {customers.map(customer => (
                 <option key={customer.id} value={customer.id}>
-                  {customer.tenantName} ({customer.tenantDomain})
+                  {customer.tenantName || customer.tenantDomain || customer.id} 
+                  {customer.tenantDomain && customer.tenantName !== customer.tenantDomain ? ` (${customer.tenantDomain})` : ''}
                 </option>
               ))}
             </select>
