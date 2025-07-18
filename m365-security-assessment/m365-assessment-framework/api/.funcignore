@@ -8,3 +8,35 @@ getting_started.md
 node_modules/@types/
 node_modules/azure-functions-core-tools/
 node_modules/typescript/
+# Exclude individual function folders since we use v4 programming model
+customers/
+bestPractices/
+assessments/
+currentAssessment/
+test/
+diagnostics/
+customerAssessments/
+createAssessment/
+customerById/
+assessmentHistory/
+assessmentHistoryByTenant/
+assessmentHistoryByCustomer/
+saveAssessment/
+getMetrics/
+createMultiTenantApp/
+assessmentStatus/
+debugCustomer/
+licenseInfo/
+secureScore/
+assessmentById/
+setup-service-principal/
+test-endpoint/
+# Exclude backup folders
+backup*/
+*backup*/
+*-backup*/
+GetAssessment.backup/
+GetCurrentAssessment.backup/
+GetCustomers.backup/
+functions-backup/
+temp-backup/

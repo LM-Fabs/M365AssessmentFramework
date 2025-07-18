@@ -8,7 +8,9 @@
     "watch": "tsc -w",
     "prestart": "npm run build",
     "start": "func start",
-    "test": "echo \"No tests yet...\""
+    "test": "echo \"No tests yet...\"",
+    "postinstall": "npm run build",
+    "azure-functions-core-tools": "npm install -g azure-functions-core-tools@4"
   },
   "dependencies": {
     "@azure/cosmos": "^4.0.0",
@@ -24,5 +26,8 @@
     "@types/node": "^20.x",
     "@types/pg": "^8.10.9",
     "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
