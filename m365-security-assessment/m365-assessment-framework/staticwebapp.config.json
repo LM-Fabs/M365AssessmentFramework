@@ -33,6 +33,10 @@
     },
 
     {
+      "route": "/api/*",
+      "allowedRoles": ["anonymous"]
+    },
+    {
       "route": "/*",
       "allowedRoles": ["anonymous"],
       "rewrite": "/index.html",
