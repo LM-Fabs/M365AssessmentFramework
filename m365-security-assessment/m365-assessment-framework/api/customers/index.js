@@ -1,3 +1,15 @@
+const { SimplePostgreSQLService } = require('../shared/simplePostgresqlService');
+
+let postgresqlService = null;
+
+// Initialize PostgreSQL service
+async function initializeService() {
+    if (!postgresqlService) {
+        postgresqlService = new SimplePostgreSQLService();
+        await postgresqlService.initialize();
+    }
+}
+
 module.exports = async function (context, req) {
     context.log('Customers function called');
 
@@ -15,22 +27,12 @@ module.exports = async function (context, req) {
     }
 
     try {
+        // Initialize database connection
+        await initializeService();
+
         if (req.method === 'GET') {
-            // Get customers
-            const customers = [
-                {
-                    id: '1',
-                    name: 'Sample Customer 1',
-                    tenantId: 'tenant-1',
-                    domain: 'customer1.com'
-                },
-                {
-                    id: '2', 
-                    name: 'Sample Customer 2',
-                    tenantId: 'tenant-2',
-                    domain: 'customer2.com'
-                }
-            ];
+            // Get customers from database
+            const customers = await postgresqlService.getCustomers();
 
             context.res = {
                 status: 200,
@@ -46,19 +48,20 @@ module.exports = async function (context, req) {
                 })
             };
         } else if (req.method === 'POST') {
-            // Create customer
+            // Create customer in database
             const customerData = req.body;
             
             // Map frontend fields to backend format
             const newCustomer = {
-                id: Date.now().toString(),
-                name: customerData.tenantName || customerData.name || 'New Customer',
+                tenantName: customerData.tenantName || customerData.name || 'New Customer',
                 tenantId: customerData.tenantId || 'new-tenant',
-                domain: customerData.tenantDomain || customerData.domain || 'newcustomer.com',
+                tenantDomain: customerData.tenantDomain || customerData.domain || 'newcustomer.com',
                 contactEmail: customerData.contactEmail || '',
-                notes: customerData.notes || '',
-                createdAt: new Date().toISOString()
+                notes: customerData.notes || ''
             };
+
+            // Save to database
+            const createdCustomer = await postgresqlService.createCustomer(newCustomer);
 
             context.res = {
                 status: 201,
@@ -71,7 +74,7 @@ module.exports = async function (context, req) {
                 body: JSON.stringify({
                     success: true,
                     data: {
-                        customer: newCustomer
+                        customer: createdCustomer
                     }
                 })
             };
@@ -89,6 +92,7 @@ module.exports = async function (context, req) {
             };
         }
     } catch (error) {
+        context.log.error('Database error:', error);
         context.res = {
             status: 500,
             headers: {

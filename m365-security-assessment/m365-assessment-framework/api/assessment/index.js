@@ -1,3 +1,15 @@
+const { SimplePostgreSQLService } = require('../shared/simplePostgresqlService');
+
+let postgresqlService = null;
+
+// Initialize PostgreSQL service
+async function initializeService() {
+    if (!postgresqlService) {
+        postgresqlService = new SimplePostgreSQLService();
+        await postgresqlService.initialize();
+    }
+}
+
 module.exports = async function (context, req) {
     context.log('Assessment function called');
     
@@ -17,10 +29,14 @@ module.exports = async function (context, req) {
     }
 
     try {
+        // Initialize database connection
+        await initializeService();
+        
         let response;
         
         switch (action) {
             case 'current':
+                // Get current assessment from database (mock for now)
                 response = {
                     success: true,
                     data: {
@@ -51,26 +67,42 @@ module.exports = async function (context, req) {
                 if (req.method === 'POST') {
                     const assessmentData = req.body;
                     
-                    // Create new assessment
+                    // Create new assessment in database
                     const newAssessment = {
-                        id: Date.now().toString(),
                         customerId: assessmentData.customerId,
                         tenantId: assessmentData.tenantId,
-                        assessmentName: assessmentData.assessmentName || 'New Assessment',
                         status: 'created',
-                        progress: 0,
-                        includedCategories: assessmentData.includedCategories || [],
-                        notificationEmail: assessmentData.notificationEmail || '',
-                        autoSchedule: assessmentData.autoSchedule || false,
-                        scheduleFrequency: assessmentData.scheduleFrequency || 'monthly',
-                        createdAt: new Date().toISOString(),
-                        lastModified: new Date().toISOString()
+                        metrics: {
+                            assessmentName: assessmentData.assessmentName || 'New Assessment',
+                            includedCategories: assessmentData.includedCategories || [],
+                            notificationEmail: assessmentData.notificationEmail || '',
+                            autoSchedule: assessmentData.autoSchedule || false,
+                            scheduleFrequency: assessmentData.scheduleFrequency || 'monthly'
+                        },
+                        score: 0,
+                        recommendations: []
                     };
+                    
+                    // Save to database
+                    const createdAssessment = await postgresqlService.createAssessment(newAssessment);
                     
                     response = {
                         success: true,
                         data: {
-                            assessment: newAssessment
+                            assessment: {
+                                id: createdAssessment.id,
+                                customerId: createdAssessment.customerId,
+                                tenantId: createdAssessment.tenantId,
+                                assessmentName: newAssessment.metrics.assessmentName,
+                                status: createdAssessment.status,
+                                progress: 0,
+                                includedCategories: newAssessment.metrics.includedCategories,
+                                notificationEmail: newAssessment.metrics.notificationEmail,
+                                autoSchedule: newAssessment.metrics.autoSchedule,
+                                scheduleFrequency: newAssessment.metrics.scheduleFrequency,
+                                createdAt: createdAssessment.createdAt,
+                                lastModified: createdAssessment.updatedAt
+                            }
                         }
                     };
                 } else {
@@ -101,6 +133,7 @@ module.exports = async function (context, req) {
             body: JSON.stringify(response)
         };
     } catch (error) {
+        context.log.error('Database error:', error);
         context.res = {
             status: 500,
             headers: {

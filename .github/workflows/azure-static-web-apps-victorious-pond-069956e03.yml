@@ -61,6 +61,16 @@ jobs:
           AZURE_FUNCTIONS_ENVIRONMENT: "production"
           REACT_APP_API_URL: "/api"
           REACT_APP_CLIENT_ID: "d1cc9e16-9194-4892-92c5-473c9f65dcb3"
+          # PostgreSQL Configuration
+          POSTGRES_HOST: "psql-c6qdbpkda5cvs.postgres.database.azure.com"
+          POSTGRES_PORT: "5432"
+          POSTGRES_DATABASE: "m365_assessment"
+          POSTGRES_USER: "assessment_admin"
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          # Azure Identity Configuration
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
