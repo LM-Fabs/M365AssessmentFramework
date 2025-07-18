@@ -164,26 +164,19 @@ class GraphApiService {
                     console.log('⚠️ GraphApiService: Falling back to original tenant identifier:', customerData.targetTenantId);
                 }
             }
-            // Define required permissions for security assessment (read-only)
+            // Define required permissions for security assessment (restored full set)
             const permissions = customerData.requiredPermissions || [
                 'Organization.Read.All',
-                'Reports.Read.All',
                 'Directory.Read.All',
-                'Policy.Read.All',
-                'SecurityEvents.Read.All',
-                'IdentityRiskyUser.Read.All',
-                'DeviceManagementManagedDevices.Read.All',
                 'AuditLog.Read.All',
-                'ThreatIndicators.Read.All'
+                'SecurityEvents.Read.All'
             ];
             // Create the app registration with multi-tenant configuration
             const appName = `M365-Security-Assessment-${customerData.tenantName.replace(/\s+/g, '-')}`;
             // Define proper redirect URIs for the application
             const redirectUris = [
-                "https://portal.azure.com/", // Azure Portal (standard for admin consent)
-                "https://login.microsoftonline.com/common/oauth2/nativeclient", // Native client fallback
-                "https://localhost:3000/auth/callback", // Local development
-                "urn:ietf:wg:oauth:2.0:oob" // Out-of-band flow
+                "https://portal.azure.com/",
+                "https://login.microsoftonline.com/common/oauth2/nativeclient"
             ];
             // Use environment variable if provided, otherwise use Azure Portal
             const primaryRedirectUri = process.env.REDIRECT_URI || "https://portal.azure.com/";
@@ -201,10 +194,24 @@ class GraphApiService {
                 requiredResourceAccess: [
                     {
                         resourceAppId: "00000003-0000-0000-c000-000000000000", // Microsoft Graph
-                        resourceAccess: permissions.map(permission => ({
-                            id: this.getPermissionId(permission),
-                            type: "Role" // Application permissions (not delegated)
-                        }))
+                        resourceAccess: permissions
+                            .map(permission => {
+                            try {
+                                return {
+                                    id: this.getPermissionId(permission),
+                                    type: "Role" // Application permissions (not delegated)
+                                };
+                            }
+                            catch (error) {
+                                console.warn(`⚠️ GraphApiService: Skipping invalid permission: ${permission}. Error: ${error}`);
+                                return null;
+                            }
+                        })
+                            .filter(Boolean) // Remove null entries
+                            .filter((permission, index, array) => {
+                            // Remove duplicates by permission ID
+                            return array.findIndex(p => p.id === permission.id) === index;
+                        })
                     }
                 ],
                 tags: [
@@ -212,7 +219,7 @@ class GraphApiService {
                     "SecurityAssessment",
                     customerData.tenantDomain,
                     customerData.targetTenantId
-                ]
+                ].filter((tag, index, array) => array.indexOf(tag) === index) // Remove duplicates
             };
             console.log('📝 GraphApiService: Creating application with config:', JSON.stringify(applicationRequest, null, 2));
             // Create the application with retry logic

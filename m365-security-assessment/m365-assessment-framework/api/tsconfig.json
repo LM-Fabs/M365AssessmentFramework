@@ -26,6 +26,8 @@
     "*backup*",
     "**/*backup*",
     "test-*.js",
-    "**/*test*.js"
+    "**/*test*.js",
+    "test/index.js",
+    "test-endpoint/index.js"
   ]
 }

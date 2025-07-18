@@ -11,6 +11,41 @@ function generateUUID() {
     return (0, crypto_1.randomUUID)();
 }
 /**
+ * Validate and sanitize app registration data from PostgreSQL JSONB
+ * This ensures compatibility after migration from Azure Table Storage
+ */
+function validateAppRegistration(appRegData) {
+    if (!appRegData) {
+        return undefined;
+    }
+    // If it's a string, try to parse it as JSON
+    if (typeof appRegData === 'string') {
+        try {
+            const parsed = JSON.parse(appRegData);
+            return validateAppRegistration(parsed); // Recursive validation
+        }
+        catch {
+            console.warn('Invalid JSON string in app registration data:', appRegData);
+            return undefined;
+        }
+    }
+    // If it's an object, validate required properties
+    if (typeof appRegData === 'object') {
+        // Check if it has the basic structure we expect
+        if (appRegData.applicationId || appRegData.clientId) {
+            return appRegData; // Return as-is if it has expected properties
+        }
+        // If it's an empty object or malformed, return undefined
+        if (Object.keys(appRegData).length === 0) {
+            return undefined;
+        }
+        // Return the object even if it might be malformed - let the validation logic handle it
+        return appRegData;
+    }
+    // For any other type, return undefined
+    return undefined;
+}
+/**
  * PostgreSQL Database Service for M365 Assessment Framework
  * Replaces Azure Table Storage with PostgreSQL Flexible Server
  *
@@ -118,7 +153,7 @@ class PostgreSQLService {
             console.log('🔐 PostgreSQL: Attempting Azure AD authentication');
             try {
                 // Set the service principal application ID as the username
-                config.user = '1528f6e7-3452-4919-bae3-41258c155840'; // Service principal app ID
+                config.user = 'dd9864b2-219d-4683-9769-97690f7a9760'; // Service principal app ID (M365AssessmentFramework-sp)
                 // Get Azure AD token for authentication
                 const azureToken = await this.getAzureADToken();
                 config.password = azureToken;
@@ -343,7 +378,7 @@ class PostgreSQLService {
                 createdDate: row.created_date,
                 lastAssessmentDate: row.last_assessment_date,
                 totalAssessments: row.total_assessments || 0,
-                appRegistration: row.app_registration || undefined
+                appRegistration: validateAppRegistration(row.app_registration)
             }));
             return {
                 customers,
@@ -391,7 +426,7 @@ class PostgreSQLService {
                 createdDate: row.created_date,
                 lastAssessmentDate: row.last_assessment_date,
                 totalAssessments: row.total_assessments || 0,
-                appRegistration: row.app_registration || undefined
+                appRegistration: validateAppRegistration(row.app_registration)
             };
         }
         finally {
@@ -435,7 +470,7 @@ class PostgreSQLService {
                 createdDate: row.created_date,
                 lastAssessmentDate: row.last_assessment_date,
                 totalAssessments: row.total_assessments || 0,
-                appRegistration: row.app_registration || undefined
+                appRegistration: validateAppRegistration(row.app_registration)
             };
         }
         finally {
@@ -540,7 +575,7 @@ class PostgreSQLService {
                 createdDate: row.created_date,
                 lastAssessmentDate: row.last_assessment_date,
                 totalAssessments: row.total_assessments || 0,
-                appRegistration: row.app_registration || undefined
+                appRegistration: validateAppRegistration(row.app_registration)
             };
         }
         finally {
@@ -619,7 +654,7 @@ class PostgreSQLService {
                 createdDate: row.created_date,
                 lastAssessmentDate: row.last_assessment_date,
                 totalAssessments: row.total_assessments || 0,
-                appRegistration: row.app_registration || undefined
+                appRegistration: validateAppRegistration(row.app_registration)
             };
             console.log('✅ PostgreSQL: Customer updated successfully:', customer.id);
             return customer;
@@ -690,7 +725,7 @@ class PostgreSQLService {
                 createdDate: row.created_date,
                 lastAssessmentDate: row.last_assessment_date,
                 totalAssessments: row.total_assessments || 0,
-                appRegistration: row.app_registration || undefined
+                appRegistration: validateAppRegistration(row.app_registration)
             };
         }
         finally {
