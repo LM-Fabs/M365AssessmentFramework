@@ -3,35 +3,11 @@
 .git*
 .vscode
 local.settings.json
-test
 getting_started.md
 node_modules/@types/
 node_modules/azure-functions-core-tools/
 node_modules/typescript/
-# Exclude individual function folders since we use v4 programming model
-customers/
-bestPractices/
-assessments/
-currentAssessment/
-test/
-diagnostics/
-customerAssessments/
-createAssessment/
-customerById/
-assessmentHistory/
-assessmentHistoryByTenant/
-assessmentHistoryByCustomer/
-saveAssessment/
-getMetrics/
-createMultiTenantApp/
-assessmentStatus/
-debugCustomer/
-licenseInfo/
-secureScore/
-assessmentById/
-setup-service-principal/
-test-endpoint/
-# Exclude backup folders
+# Exclude backup folders only
 backup*/
 *backup*/
 *-backup*/
@@ -40,3 +16,9 @@ GetCurrentAssessment.backup/
 GetCustomers.backup/
 functions-backup/
 temp-backup/
+# Exclude non-essential files from the main API
+index.ts
+diagnostic.ts
+test-domain-resolution.ts
+validateKeyVaultLocal.ts
+migrate-app-registrations.js
