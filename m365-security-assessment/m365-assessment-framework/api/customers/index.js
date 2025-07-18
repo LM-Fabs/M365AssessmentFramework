@@ -19,7 +19,7 @@ module.exports = async function (context, req) {
             status: 200,
             headers: {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, Authorization'
             }
         };
@@ -39,7 +39,7 @@ module.exports = async function (context, req) {
                 headers: {
                     'Content-Type': 'application/json',
                     'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
                     'Access-Control-Allow-Headers': 'Content-Type, Authorization'
                 },
                 body: JSON.stringify({
@@ -68,13 +68,73 @@ module.exports = async function (context, req) {
                 headers: {
                     'Content-Type': 'application/json',
                     'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
                     'Access-Control-Allow-Headers': 'Content-Type, Authorization'
                 },
                 body: JSON.stringify({
                     success: true,
                     data: {
                         customer: createdCustomer
+                    }
+                })
+            };
+        } else if (req.method === 'PUT') {
+            // Update customer in database
+            // Extract customer ID from URL path or query parameter
+            const customerId = context.bindingData.id || req.query.id;
+            
+            if (!customerId) {
+                context.res = {
+                    status: 400,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    body: JSON.stringify({
+                        success: false,
+                        error: 'Customer ID is required'
+                    })
+                };
+                return;
+            }
+
+            const customerData = req.body;
+            
+            // Map frontend fields to backend format
+            const updateData = {
+                id: customerId,
+                tenantName: customerData.tenantName || customerData.name,
+                tenantId: customerData.tenantId,
+                tenantDomain: customerData.tenantDomain || customerData.domain,
+                contactEmail: customerData.contactEmail,
+                notes: customerData.notes,
+                // App registration fields
+                applicationId: customerData.applicationId,
+                clientId: customerData.clientId,
+                servicePrincipalId: customerData.servicePrincipalId,
+                clientSecret: customerData.clientSecret,
+                tenantIdField: customerData.tenantIdField,
+                consentUrl: customerData.consentUrl,
+                authUrl: customerData.authUrl,
+                redirectUri: customerData.redirectUri,
+                permissions: customerData.permissions
+            };
+
+            // Update in database
+            const updatedCustomer = await postgresqlService.updateCustomer(updateData);
+
+            context.res = {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+                },
+                body: JSON.stringify({
+                    success: true,
+                    data: {
+                        customer: updatedCustomer
                     }
                 })
             };
@@ -106,7 +166,7 @@ module.exports = async function (context, req) {
                 headers: {
                     'Content-Type': 'application/json',
                     'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
                     'Access-Control-Allow-Headers': 'Content-Type, Authorization'
                 },
                 body: JSON.stringify({

@@ -1,6 +1,20 @@
 module.exports = async function (context, req) {
     context.log('Test function called');
 
+    // Handle HEAD request for API warmup
+    if (req.method === 'HEAD') {
+        context.res = {
+            status: 200,
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+            }
+        };
+        return;
+    }
+
     try {
         const responseMessage = {
             message: 'M365 Assessment API is working!',
@@ -15,7 +29,7 @@ module.exports = async function (context, req) {
             headers: {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, Authorization'
             },
             body: JSON.stringify(responseMessage)
