@@ -226,23 +226,23 @@ export class GraphService {
 
     return {
       license: {
-        totalLicenses: 100,
-        assignedLicenses: 85,
-        utilizationRate: 85,
+        totalLicenses: 0,
+        assignedLicenses: 0,
+        utilizationRate: 0,
         licenseDetails: [],
-        summary: 'Mock license data'
+        summary: 'License data unavailable - API authentication required'
       },
       secureScore: {
-        percentage: 75,
-        currentScore: 75,
-        maxScore: 100,
+        percentage: 0,
+        currentScore: 0,
+        maxScore: 0,
         controlScores: [],
-        summary: 'Mock secure score'
+        summary: 'Secure score unavailable - API authentication required'
       },
       score: {
-        overall: 80,
-        license: 85,
-        secureScore: 75
+        overall: 0,
+        license: 0,
+        secureScore: 0
       },
       lastUpdated: new Date()
     };

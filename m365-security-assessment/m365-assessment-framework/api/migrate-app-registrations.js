@@ -46,7 +46,7 @@ async function migrateAppRegistrations() {
         
         console.log(`📊 Found ${result.rows.length} customers to check`);
         
-        const fixes = [];
+        const customersNeedingFix = [];
         
         for (const row of result.rows) {
             const customerId = row.id;
@@ -85,39 +85,12 @@ async function migrateAppRegistrations() {
             
             if (needsFix) {
                 console.log(`   ❌ Needs fix: ${fixReason}`);
-                
-                // Create a placeholder app registration
-                const placeholderAppReg = {
-                    applicationId: `placeholder-${customerId}`,
-                    clientId: `placeholder-${customerId}`,
-                    servicePrincipalId: `placeholder-${customerId}`,
-                    permissions: [
-                        'Organization.Read.All',
-                        'Reports.Read.All',
-                        'Directory.Read.All',
-                        'SecurityEvents.Read.All'
-                    ],
-                    consentUrl: '',
-                    isReal: false,
-                    needsSetup: true,
-                    createdDate: new Date().toISOString(),
-                    migrationFixed: true,
-                    migrationReason: fixReason
-                };
-                
-                // Update the customer record
-                await client.query(
-                    'UPDATE customers SET app_registration = $1 WHERE id = $2',
-                    [JSON.stringify(placeholderAppReg), customerId]
-                );
-                
-                console.log(`   ✅ Fixed with placeholder app registration`);
-                
-                fixes.push({
+                console.log(`   ⚠️ Customer ${customerId} requires manual app registration setup`);
+                // No longer creating placeholder registrations - require manual setup
+                customersNeedingFix.push({
                     customerId,
                     tenantName,
-                    reason: fixReason,
-                    fixed: true
+                    reason: fixReason
                 });
             } else {
                 console.log(`   ✅ App registration is valid`);
@@ -126,24 +99,23 @@ async function migrateAppRegistrations() {
         
         console.log(`\n📋 Migration Summary:`);
         console.log(`   Total customers: ${result.rows.length}`);
-        console.log(`   Customers needing fixes: ${fixes.length}`);
-        console.log(`   Customers fixed: ${fixes.filter(f => f.fixed).length}`);
+        console.log(`   Customers needing manual setup: ${customersNeedingFix.length}`);
         
-        if (fixes.length > 0) {
-            console.log(`\n🔧 Fixed customers:`);
-            fixes.forEach(fix => {
-                console.log(`   - ${fix.tenantName}: ${fix.reason}`);
+        if (customersNeedingFix.length > 0) {
+            console.log(`\n⚠️ Customers requiring manual app registration setup:`);
+            customersNeedingFix.forEach(customer => {
+                console.log(`   - ${customer.tenantName}: ${customer.reason}`);
             });
         }
         
         console.log('\n🎉 Migration completed successfully!');
+        console.log('⚠️ Note: No mock/placeholder app registrations created. Manual setup required for flagged customers.');
         
         return {
             success: true,
             totalCustomers: result.rows.length,
-            fixesNeeded: fixes.length,
-            fixesApplied: fixes.filter(f => f.fixed).length,
-            fixes
+            customersNeedingManualSetup: customersNeedingFix.length,
+            customersNeedingFix
         };
         
     } catch (error) {

@@ -347,36 +347,22 @@ async function fixAppRegistrationsHandler(request: HttpRequest, context: Invocat
                     // Attempt to fix by creating a new app registration
                     context.log(`🔧 Attempting to fix app registration for customer: ${customer.tenantName}`);
                     
-                    // If app registration is completely missing or corrupted, set a placeholder
+                    // If app registration is missing or corrupted, return error instead of creating placeholder
                     if (!customer.appRegistration || 
                         !customer.appRegistration.applicationId || 
                         customer.appRegistration.applicationId.startsWith('ERROR_') ||
                         customer.appRegistration.applicationId.startsWith('placeholder-')) {
                         
-                        const placeholderAppReg = {
-                            applicationId: `placeholder-${customer.id}`,
-                            clientId: `placeholder-${customer.id}`,
-                            servicePrincipalId: `placeholder-${customer.id}`,
-                            permissions: [
-                                'Organization.Read.All',
-                                'Reports.Read.All',
-                                'Directory.Read.All',
-                                'SecurityEvents.Read.All'
-                            ],
-                            consentUrl: '',
-                            isReal: false,
-                            needsSetup: true,
-                            createdDate: new Date().toISOString(),
-                            migrationFixed: true
+                        context.res = {
+                            status: 500,
+                            body: {
+                                error: 'App registration not configured',
+                                message: 'Customer app registration is missing or invalid. Please create a real app registration.',
+                                details: 'No placeholder or mock data will be generated. Real Azure AD app registration is required.',
+                                customerId: customer.id
+                            }
                         };
-                        
-                        // Update customer with placeholder app registration
-                        await dataService.updateCustomer(customer.id, {
-                            appRegistration: placeholderAppReg
-                        });
-                        
-                        customerResult.fixed = true;
-                        customerResult.newAppReg = placeholderAppReg;
+                        return;
                     }
                 } else {
                     customerResult.isValid = true;
@@ -1074,36 +1060,24 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     isProduction: process.env.NODE_ENV === 'production'
                 });
                 
-                // Update customer with detailed error info for troubleshooting
-                const errorAppReg = {
-                    applicationId: 'ERROR_DURING_CREATION',
-                    clientId: 'ERROR_DURING_CREATION',
-                    servicePrincipalId: 'ERROR_DURING_CREATION',
-                    permissions: requiredPermissions, // Include the required permissions
-                    clientSecret: 'ERROR_DURING_CREATION',
-                    consentUrl: '', // Empty since creation failed
-                    error: err.message,
-                    errorCode: err.code,
-                    errorTimestamp: new Date().toISOString(),
-                    retryUrl: `${process.env.AZURE_STATIC_WEB_APPS_API_TOKEN ? 'https://' + process.env.AZURE_STATIC_WEB_APPS_API_TOKEN.split('@')[1] : 'http://localhost:3000'}/settings`, // URL to retry app registration
-                    troubleshooting: [
-                        'Check Azure service principal configuration in environment variables',
-                        'Verify AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID are set correctly',
-                        'Ensure service principal has Application.ReadWrite.All permission',
-                        'Verify admin consent has been granted for the service principal',
-                        'Check if the service principal can access Microsoft Graph API',
-                        'Retry the app registration process from the Settings page'
-                    ],
-                    isReal: false
+                // Return error instead of creating mock app registration
+                context.res = {
+                    status: 500,
+                    body: {
+                        error: 'App registration creation failed',
+                        message: 'Failed to create Azure AD app registration. Please configure manually.',
+                        details: err.message,
+                        troubleshooting: [
+                            'Check Azure service principal configuration in environment variables',
+                            'Verify AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID are set correctly',
+                            'Ensure service principal has Application.ReadWrite.All permission',
+                            'Verify admin consent has been granted for the service principal',
+                            'Check if the service principal can access Microsoft Graph API',
+                            'Create app registration manually in Azure Portal'
+                        ]
+                    }
                 };
-                
-                try {
-                    newCustomer = await dataService.updateCustomer(newCustomer.id, {
-                        appRegistration: errorAppReg
-                    });
-                } catch (updateErr) {
-                    context.log('❌ Failed to update customer with error details:', updateErr);
-                }
+                return;
             } // End of automatic app registration try-catch block
             } // End of skipAutoRegistration conditional
 
@@ -1974,7 +1948,7 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                                     'Re-run assessment after fixing authentication'
                                 ]
                             },
-                            assessmentType: 'placeholder-due-to-api-failure',
+                            assessmentType: 'error',
                             dataCollected: false,
                             recommendations: [
                                 'Fix Microsoft Graph API access to get detailed security recommendations',

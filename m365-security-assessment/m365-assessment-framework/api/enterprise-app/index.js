@@ -94,31 +94,27 @@ module.exports = async function (context, req) {
                 return;
             }
 
-            // For now, return a mock response since we don't have the full GraphApiService
-            // integrated into the v3 JavaScript model yet
-            const mockAppRegistration = {
-                applicationId: `mock-app-${Date.now()}`,
-                clientId: `mock-client-${Math.random().toString(36).substr(2, 9)}`,
-                servicePrincipalId: `mock-sp-${Math.random().toString(36).substr(2, 9)}`,
-                clientSecret: `mock-secret-${Math.random().toString(36).substr(2, 16)}`,
-                tenantId: finalTenantId,
-                consentUrl: `https://login.microsoftonline.com/${finalTenantId}/adminconsent?client_id=mock-client-id`,
-                authUrl: `https://login.microsoftonline.com/${finalTenantId}/oauth2/v2.0/authorize`,
-                redirectUri: "https://portal.azure.com/",
-                permissions: requiredPermissions,
-                isReal: false, // Flag to indicate this is a mock registration
-                message: "This is a mock app registration for development. Real Azure AD integration requires full service configuration."
-            };
-
-            context.log('✅ Mock multi-tenant app created successfully:', mockAppRegistration.clientId);
-
+            // TODO: Implement real Azure AD app registration using Microsoft Graph API
+            // This requires implementing the GraphApiService for Azure Functions v3
             context.res = {
-                status: 200,
+                status: 501,
                 headers: corsHeaders,
                 body: JSON.stringify({
-                    success: true,
-                    data: mockAppRegistration,
-                    message: "Mock multi-tenant app registration created successfully. This is for development purposes only."
+                    success: false,
+                    error: "Azure AD app registration not implemented",
+                    message: "Real Azure AD integration is not yet implemented for this endpoint",
+                    requiredImplementation: {
+                        service: "GraphApiService integration for Azure Functions v3",
+                        permissions: [
+                            "Application.ReadWrite.All",
+                            "Directory.Read.All"
+                        ],
+                        endpoints: [
+                            "POST /applications",
+                            "POST /servicePrincipals"
+                        ]
+                    },
+                    recommendation: "Use manual Azure AD app registration process until this feature is implemented"
                 })
             };
         } else {
