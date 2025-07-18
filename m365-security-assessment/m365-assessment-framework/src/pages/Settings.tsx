@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { AssessmentService } from '../services/assessmentService';
 import { Customer, CustomerService } from '../services/customerService';
 import CustomerSelector, { CustomerSelectorRef } from '../components/ui/CustomerSelector';
+import { ConsentUrlGenerator } from '../components/ConsentUrlGenerator';
 import { SECURITY_CATEGORIES } from '../shared/constants';
 import './Settings.css';
 
@@ -38,6 +39,9 @@ const Settings = () => {
   // App registration management state
   const [creatingAppRegistration, setCreatingAppRegistration] = useState<string | null>(null);
   const [appRegistrationStatus, setAppRegistrationStatus] = useState<{[customerId: string]: string}>({});
+  
+  // Consent URL generator state
+  const [showConsentUrlGenerator, setShowConsentUrlGenerator] = useState(false);
   
   // Helper function to generate assessment name with date
   const generateAssessmentName = (customerName?: string) => {
@@ -874,6 +878,26 @@ const Settings = () => {
                   )}
                 </div>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* Consent URL Generator Section */}
+        <div className="form-section">
+          <div className="section-header">
+            <h2>Admin Consent URL Generator</h2>
+            <button
+              type="button"
+              className="toggle-button"
+              onClick={() => setShowConsentUrlGenerator(!showConsentUrlGenerator)}
+            >
+              {showConsentUrlGenerator ? 'Hide' : 'Generate Consent URLs'}
+            </button>
+          </div>
+          
+          {showConsentUrlGenerator && (
+            <div className="consent-url-generator-section">
+              <ConsentUrlGenerator customers={customers} />
             </div>
           )}
         </div>
