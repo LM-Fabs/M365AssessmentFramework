@@ -532,13 +532,7 @@ export class AssessmentService {
   }
 
   private getAuthHeaders(): Record<string, string> {
-    // Add authentication headers if available
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      return {
-        'Authorization': `Bearer ${token}`
-      };
-    }
+    // Add authentication headers if available - using standard session-based auth
     return {};
   }
 }
