@@ -10,6 +10,24 @@ function generateUUID(): string {
     return randomUUID();
 }
 
+// Generate placeholder UUID that follows Azure AD application ID format
+// but is clearly identifiable as a placeholder
+// Manual setup: 00000000-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+// Pending/Auto: 11111111-xxxx-xxxx-xxxx-xxxxxxxxxxxx  
+// This improves compatibility with UUID validation while maintaining clear placeholder identification
+function generatePlaceholderUuid(type: 'MANUAL' | 'PENDING'): string {
+    const uuid = randomUUID();
+    // Replace the first 8 characters with a recognizable placeholder pattern
+    // This maintains UUID format while being clearly identifiable as placeholder
+    const prefix = type === 'MANUAL' ? '00000000' : '11111111';
+    return prefix + uuid.substring(8);
+}
+
+// Check if UUID is a placeholder (starts with 00000000 for manual or 11111111 for pending)
+function isPlaceholderUUID(id: string): boolean {
+    return id.startsWith('00000000-') || id.startsWith('11111111-');
+}
+
 // CORS headers optimized for better performance
 const corsHeaders = process.env.NODE_ENV === 'development' ? {
     'Access-Control-Allow-Origin': '*',
@@ -743,6 +761,7 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     appRegistrationFull: existingCustomer.appRegistration, // Debug: Full object
                     appRegistrationType: typeof existingCustomer.appRegistration,
                     isValidUUID: appId ? isValidUUID(appId) : false,
+                    isPlaceholder: appId ? isPlaceholderUUID(appId) : false,
                     isPending: appId ? appId.startsWith('pending-') : false,
                     isError: appId ? appId.startsWith('ERROR_') : false
                 });
@@ -752,6 +771,7 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                                     typeof existingCustomer.appRegistration.applicationId === 'string' &&
                                     existingCustomer.appRegistration.applicationId.trim() !== '' &&
                                     isValidUUID(existingCustomer.appRegistration.applicationId) &&
+                                    !isPlaceholderUUID(existingCustomer.appRegistration.applicationId) &&
                                     !existingCustomer.appRegistration.applicationId.startsWith('pending-') &&
                                     !existingCustomer.appRegistration.applicationId.startsWith('ERROR_') &&
                                     !existingCustomer.appRegistration.applicationId.startsWith('placeholder-') &&
@@ -830,11 +850,12 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
             let appRegistration;
             
             if (skipAutoRegistration) {
-                // Manual setup - provide guidance for admin with placeholders that won't interfere with real UUID detection
+                // Manual setup - use UUID format placeholders for better compatibility
+                const placeholderUuid = generatePlaceholderUuid('MANUAL');
                 appRegistration = {
-                    applicationId: `MANUAL_SETUP_REQUIRED_${Date.now()}`,
-                    clientId: `MANUAL_SETUP_REQUIRED_${Date.now()}`,
-                    servicePrincipalId: `MANUAL_SETUP_REQUIRED_${Date.now()}`,
+                    applicationId: placeholderUuid,
+                    clientId: placeholderUuid,
+                    servicePrincipalId: generatePlaceholderUuid('MANUAL'),
                     clientSecret: 'REPLACE_WITH_REAL_SECRET',
                     consentUrl: `https://login.microsoftonline.com/${targetTenantId}/oauth2/v2.0/authorize?client_id=REPLACE_CLIENT_ID&response_type=code&redirect_uri=https%3A//portal.azure.com/&response_mode=query&scope=https://graph.microsoft.com/.default&state=12345&prompt=admin_consent`,
                     redirectUri: process.env.REDIRECT_URI || "https://portal.azure.com/",
@@ -849,12 +870,13 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                     ]
                 };
             } else {
-                // Automatic setup - create placeholder that will be replaced
+                // Automatic setup - create UUID-format placeholder that will be replaced
+                const pendingUuid = generatePlaceholderUuid('PENDING');
                 appRegistration = {
-                    applicationId: `pending-${Date.now()}`,
-                    clientId: `pending-${Date.now()}`,
-                    servicePrincipalId: `pending-${Date.now()}`,
-                    clientSecret: 'MANUAL_SETUP_REQUIRED',
+                    applicationId: pendingUuid,
+                    clientId: pendingUuid,
+                    servicePrincipalId: generatePlaceholderUuid('PENDING'),
+                    clientSecret: 'PENDING_AUTOMATIC_CREATION',
                     consentUrl: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
                     redirectUri: process.env.REDIRECT_URI || "https://portal.azure.com/",
                     permissions: [
@@ -2793,7 +2815,10 @@ app.http('debugCustomer', {
                     hasClientSecret: !!customer.appRegistration?.clientSecret,
                     clientIdValue: customer.appRegistration?.clientId || 'NOT_SET',
                     clientSecretStatus: customer.appRegistration?.clientSecret ? 
-                        (customer.appRegistration.clientSecret === 'MANUAL_SETUP_REQUIRED' ? 'MANUAL_SETUP_REQUIRED' : 'SET') : 
+                        (customer.appRegistration.clientSecret === 'MANUAL_SETUP_REQUIRED' || 
+                         customer.appRegistration.clientSecret === 'REPLACE_WITH_REAL_SECRET' ||
+                         customer.appRegistration.clientSecret === 'PENDING_AUTOMATIC_CREATION' ? 
+                         'PENDING_SETUP' : 'SET') : 
                         'NOT_SET',
                     permissions: customer.appRegistration?.permissions || [],
                     consentUrl: customer.appRegistration?.consentUrl || 'NOT_SET'
@@ -2805,10 +2830,15 @@ app.http('debugCustomer', {
             if (!customer.appRegistration) {
                 debugInfo.issues.push('No app registration configured');
             } else {
-                if (!customer.appRegistration.clientId || customer.appRegistration.clientId.startsWith('pending-')) {
+                if (!customer.appRegistration.clientId || 
+                    customer.appRegistration.clientId.startsWith('pending-') ||
+                    isPlaceholderUUID(customer.appRegistration.clientId)) {
                     debugInfo.issues.push('Client ID not properly configured (still pending)');
                 }
-                if (!customer.appRegistration.clientSecret || customer.appRegistration.clientSecret === 'MANUAL_SETUP_REQUIRED') {
+                if (!customer.appRegistration.clientSecret || 
+                    customer.appRegistration.clientSecret === 'MANUAL_SETUP_REQUIRED' ||
+                    customer.appRegistration.clientSecret === 'REPLACE_WITH_REAL_SECRET' ||
+                    customer.appRegistration.clientSecret === 'PENDING_AUTOMATIC_CREATION') {
                     debugInfo.issues.push('Client secret requires manual setup');
                 }
                 if (!customer.appRegistration.permissions || customer.appRegistration.permissions.length === 0) {
