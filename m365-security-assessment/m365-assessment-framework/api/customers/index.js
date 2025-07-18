@@ -19,7 +19,7 @@ module.exports = async function (context, req) {
             status: 200,
             headers: {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, Authorization'
             }
         };
@@ -39,7 +39,7 @@ module.exports = async function (context, req) {
                 headers: {
                     'Content-Type': 'application/json',
                     'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
                     'Access-Control-Allow-Headers': 'Content-Type, Authorization'
                 },
                 body: JSON.stringify({
@@ -68,7 +68,7 @@ module.exports = async function (context, req) {
                 headers: {
                     'Content-Type': 'application/json',
                     'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
                     'Access-Control-Allow-Headers': 'Content-Type, Authorization'
                 },
                 body: JSON.stringify({
@@ -76,6 +76,43 @@ module.exports = async function (context, req) {
                     data: {
                         customer: createdCustomer
                     }
+                })
+            };
+        } else if (req.method === 'DELETE') {
+            // Extract customer ID from URL path
+            // URL format: /api/customers/{id}
+            const urlParts = req.url.split('/');
+            const customerId = urlParts[urlParts.length - 1];
+            
+            if (!customerId || customerId === 'customers') {
+                context.res = {
+                    status: 400,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    body: JSON.stringify({
+                        success: false,
+                        error: 'Customer ID is required'
+                    })
+                };
+                return;
+            }
+
+            // Delete customer from database
+            const result = await postgresqlService.deleteCustomer(customerId);
+
+            context.res = {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+                },
+                body: JSON.stringify({
+                    success: true,
+                    data: result
                 })
             };
         } else {

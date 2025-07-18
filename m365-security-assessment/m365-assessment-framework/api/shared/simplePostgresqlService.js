@@ -198,6 +198,46 @@ class SimplePostgreSQLService {
             client.release();
         }
     }
+
+    async deleteCustomer(customerId) {
+        await this.initialize();
+        
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            
+            // First check if customer exists
+            const checkQuery = 'SELECT id FROM customers WHERE id = $1';
+            const checkResult = await client.query(checkQuery, [customerId]);
+            
+            if (checkResult.rows.length === 0) {
+                throw new Error('Customer not found');
+            }
+            
+            // Delete related assessments first (if any)
+            await client.query('DELETE FROM assessments WHERE customer_id = $1', [customerId]);
+            
+            // Delete the customer
+            const deleteQuery = 'DELETE FROM customers WHERE id = $1 RETURNING *';
+            const deleteResult = await client.query(deleteQuery, [customerId]);
+            
+            await client.query('COMMIT');
+            
+            return {
+                success: true,
+                deletedCustomer: {
+                    id: deleteResult.rows[0].id,
+                    tenantName: deleteResult.rows[0].tenant_name,
+                    tenantDomain: deleteResult.rows[0].tenant_domain
+                }
+            };
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
 }
 
 module.exports = { SimplePostgreSQLService };
