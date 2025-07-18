@@ -85,16 +85,16 @@ class SimplePostgreSQLService {
             const result = await client.query(query, ['active']);
             
             return result.rows.map(row => ({
-                id: row.id,
-                name: row.tenant_name,
-                tenantId: row.tenant_id,
-                domain: row.tenant_domain,
-                contactEmail: row.contact_email,
-                notes: row.notes,
-                status: row.status,
+                id: row.id || '',
+                name: row.tenant_name || '',
+                tenantId: row.tenant_id || '',
+                domain: row.tenant_domain || '',
+                contactEmail: row.contact_email || '',
+                notes: row.notes || '',
+                status: row.status || 'active',
                 createdAt: row.created_date,
-                totalAssessments: row.total_assessments,
-                appRegistration: row.app_registration
+                totalAssessments: row.total_assessments || 0,
+                appRegistration: row.app_registration || null
             }));
         } finally {
             client.release();
@@ -133,15 +133,15 @@ class SimplePostgreSQLService {
             
             const row = result.rows[0];
             return {
-                id: row.id,
-                name: row.tenant_name,
-                tenantId: row.tenant_id,
-                domain: row.tenant_domain,
-                contactEmail: row.contact_email,
-                notes: row.notes,
-                status: row.status,
+                id: row.id || '',
+                name: row.tenant_name || '',
+                tenantId: row.tenant_id || '',
+                domain: row.tenant_domain || '',
+                contactEmail: row.contact_email || '',
+                notes: row.notes || '',
+                status: row.status || 'active',
                 createdAt: row.created_date,
-                totalAssessments: row.total_assessments
+                totalAssessments: row.total_assessments || 0
             };
         } catch (error) {
             await client.query('ROLLBACK');
