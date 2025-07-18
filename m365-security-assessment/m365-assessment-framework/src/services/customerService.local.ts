@@ -1,6 +1,6 @@
 import { Customer, CreateCustomerRequest, CustomerAssessmentSummary } from './customerService';
 import { Assessment as BaseAssessment } from '../models/Assessment';
-import { graphApiService } from './graphApiService';
+// Note: GraphApiService import will be added dynamically to avoid circular dependencies
 
 // Extended Assessment interface for local storage
 interface LocalAssessment extends BaseAssessment {
@@ -158,11 +158,11 @@ export class LocalCustomerService {
       }
 
       // Initialize Graph API service with the access token
-      const graphService = graphApiService;
-      await graphService.initialize(accessToken);
+      const { graphApiService } = await import('./graphApiService');
+      await graphApiService.initialize(accessToken);
 
       // Perform the assessment
-      const baseAssessment = await graphService.performSecurityAssessment(customer);
+      const baseAssessment = await graphApiService.performSecurityAssessment(customer);
       
       // Add customerId to make it compatible with LocalAssessment
       const assessment: Assessment = {
@@ -231,11 +231,11 @@ export class LocalCustomerService {
       const customer = await this.getCustomerById(customerId);
       if (!customer) return false;
 
-      const graphService = graphApiService;
-      await graphService.initialize(accessToken);
+      const { graphApiService } = await import('./graphApiService');
+      await graphApiService.initialize(accessToken);
       
       // Test basic Graph API access
-      const profile = await graphService.getOrganizationProfile();
+      const profile = await graphApiService.getOrganizationProfile();
       return profile !== null;
     } catch (error) {
       console.error('❌ LocalCustomerService: Graph API test failed:', error);

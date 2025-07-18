@@ -343,11 +343,17 @@ export class CustomerService {
    * Create a new customer with Azure app registration
    */
   public async createCustomer(customerData: CreateCustomerRequest): Promise<Customer> {
+    console.log('🔧 CustomerService: Create customer called with data:', customerData);
+    console.log('🔧 CustomerService: Free mode status:', this.useFreeMode);
+    
     // Use local service for Free tier
     if (this.useFreeMode) {
+      console.log('🆓 CustomerService: Using LocalCustomerService for Free tier');
       return this.localService.createCustomer(customerData);
     }
 
+    console.log('⚡ CustomerService: Using Standard tier API');
+    
     // Standard tier logic
     try {
       console.log('🔧 CustomerService: Creating customer with data:', customerData);
