@@ -40,7 +40,7 @@ jobs:
         working-directory: m365-security-assessment/m365-assessment-framework/api
         run: npm ci
       
-      # Deploy to Azure Static Web Apps (let SWA build the API for proper function detection)
+      # Deploy to Azure Static Web Apps (force production deployment)
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
@@ -53,6 +53,7 @@ jobs:
           output_location: "build"
           skip_app_build: false
           skip_api_build: false  # Let Azure SWA build the API to properly detect functions
+          deployment_environment: "production"  # Force deployment to production environment
         env:
           NODE_VERSION: "20"
           WEBSITE_NODE_DEFAULT_VERSION: "20"
