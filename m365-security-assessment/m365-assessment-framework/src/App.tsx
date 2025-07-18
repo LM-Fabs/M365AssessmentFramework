@@ -12,6 +12,7 @@ import History from './pages/History';
 import Settings from './pages/Settings';
 import AuthCallback from './pages/AuthCallback';
 import { AssessmentResults } from './components/AssessmentResults';
+import ConsentResult from './components/ConsentResult';
 import './App.css';
 
 function App() {
@@ -45,6 +46,7 @@ function AppContent() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/consent-result" element={<ConsentResult />} />
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     );
@@ -63,6 +65,7 @@ function AppContent() {
             <Route path="/reports" element={<Reports />} />
             <Route path="/history" element={<History />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/consent-result" element={<ConsentResult />} />
             <Route path="/assessment-results/:assessmentId" element={<AssessmentResults />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="*" element={<Navigate to="/dashboard" />} />

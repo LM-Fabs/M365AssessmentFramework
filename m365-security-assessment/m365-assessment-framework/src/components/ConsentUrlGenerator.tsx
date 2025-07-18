@@ -60,6 +60,21 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
     }
 
     try {
+      // Create state parameter with customer and consent information for callback
+      const stateData = {
+        customerId: formData.customer?.id || 'manual-entry',
+        clientId: formData.clientId,
+        tenantId: formData.tenantId,
+        timestamp: Date.now(),
+        permissions: formData.permissions
+      };
+
+      const encodedState = encodeURIComponent(JSON.stringify(stateData));
+      
+      // Use the API base URL or fallback to current domain
+      const baseUrl = process.env.REACT_APP_API_URL || window.location.origin;
+      const callbackUrl = `${baseUrl}/api/consent-callback`;
+      
       // Determine the correct tenant identifier for the consent URL
       let consentTenantId = formData.tenantId;
       
@@ -71,14 +86,21 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
         consentTenantId = 'common';
       }
 
-      // Create admin consent URL
-      const baseUrl = `https://login.microsoftonline.com/${consentTenantId}/adminconsent`;
+      // Create enhanced admin consent URL that will trigger enterprise app creation
+      const baseConsentUrl = `https://login.microsoftonline.com/${consentTenantId}/oauth2/v2.0/authorize`;
       const params = new URLSearchParams({
         client_id: formData.clientId,
-        redirect_uri: formData.redirectUri
+        response_type: 'code',
+        redirect_uri: callbackUrl,
+        response_mode: 'query',
+        scope: 'https://graph.microsoft.com/.default',
+        state: encodedState,
+        prompt: 'admin_consent',
+        // Additional parameters to ensure proper consent flow
+        access_type: 'offline'
       });
 
-      const url = `${baseUrl}?${params.toString()}`;
+      const url = `${baseConsentUrl}?${params.toString()}`;
       setGeneratedUrl(url);
     } catch (error) {
       console.error('Error generating consent URL:', error);
