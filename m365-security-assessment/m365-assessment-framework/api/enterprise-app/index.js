@@ -94,27 +94,48 @@ module.exports = async function (context, req) {
                 return;
             }
 
-            // TODO: Implement real Azure AD app registration using Microsoft Graph API
-            // This requires implementing the GraphApiService for Azure Functions v3
+            // Load the GraphApiService
+            const { GraphApiService } = require('../shared/graphApiService');
+
+            // Initialize GraphApiService
+            const graphApiService = new GraphApiService();
+            
+            // Prepare customer data for app creation
+            const customerData = {
+                tenantName: tenantName || targetTenantDomain || finalTenantId,
+                tenantDomain: targetTenantDomain || 'unknown.onmicrosoft.com',
+                targetTenantId: finalTenantId,
+                contactEmail,
+                requiredPermissions
+            };
+
+            context.log('🚀 Creating Azure AD app registration using GraphApiService...');
+            context.log('📋 Customer data:', JSON.stringify(customerData, null, 2));
+
+            // Create the multi-tenant app registration
+            const appRegistration = await graphApiService.createMultiTenantAppRegistration(customerData);
+            
+            context.log('✅ App registration created successfully:', appRegistration.clientId);
+
+            // Return the app registration details
             context.res = {
-                status: 501,
+                status: 200,
                 headers: corsHeaders,
                 body: JSON.stringify({
-                    success: false,
-                    error: "Azure AD app registration not implemented",
-                    message: "Real Azure AD integration is not yet implemented for this endpoint",
-                    requiredImplementation: {
-                        service: "GraphApiService integration for Azure Functions v3",
-                        permissions: [
-                            "Application.ReadWrite.All",
-                            "Directory.Read.All"
-                        ],
-                        endpoints: [
-                            "POST /applications",
-                            "POST /servicePrincipals"
-                        ]
+                    success: true,
+                    data: {
+                        applicationId: appRegistration.applicationId,
+                        clientId: appRegistration.clientId,
+                        servicePrincipalId: appRegistration.servicePrincipalId,
+                        clientSecret: appRegistration.clientSecret,
+                        consentUrl: appRegistration.consentUrl,
+                        redirectUri: appRegistration.redirectUri,
+                        permissions: appRegistration.permissions,
+                        resolvedTenantId: appRegistration.resolvedTenantId,
+                        isReal: true,
+                        createdDate: new Date().toISOString()
                     },
-                    recommendation: "Use manual Azure AD app registration process until this feature is implemented"
+                    message: 'Azure AD app registration created successfully. Admin consent is required in the target tenant.'
                 })
             };
         } else {
@@ -128,14 +149,47 @@ module.exports = async function (context, req) {
             };
         }
     } catch (error) {
-        context.log.error('Error in enterprise-app multi-tenant endpoint:', error);
+        context.log.error('❌ Error creating app registration:', error);
+        
+        // Enhanced error handling with specific error types
+        let statusCode = 500;
+        let errorMessage = 'Failed to create Azure AD app registration';
+        let troubleshootingSteps = [
+            'Check Azure service principal configuration',
+            'Verify required permissions are granted',
+            'Ensure admin consent has been provided'
+        ];
+
+        const errorMsg = error instanceof Error ? error.message : String(error);
+
+        if (errorMsg.includes('authentication') || errorMsg.includes('credentials')) {
+            errorMessage = 'Authentication failed. Check the service principal credentials.';
+            statusCode = 401;
+            troubleshootingSteps = [
+                'Verify the AZURE_CLIENT_ID is correct',
+                'Verify the AZURE_CLIENT_SECRET is valid and not expired',
+                'Verify the AZURE_TENANT_ID is correct',
+                'Check that the service principal exists and is enabled'
+            ];
+        } else if (errorMsg.includes('permissions') || errorMsg.includes('insufficient')) {
+            errorMessage = 'Insufficient permissions to create app registration. Check the service principal permissions.';
+            statusCode = 403;
+            troubleshootingSteps = [
+                'Grant Application.ReadWrite.All permission to the service principal',
+                'Ensure admin consent has been granted for the permissions',
+                'Check that the service principal is not blocked by conditional access policies'
+            ];
+        }
+
         context.res = {
-            status: 500,
+            status: statusCode,
             headers: corsHeaders,
             body: JSON.stringify({
                 success: false,
-                error: error instanceof Error ? error.message : 'Internal server error',
-                message: 'Failed to create multi-tenant app registration'
+                error: errorMessage,
+                details: errorMsg,
+                troubleshooting: troubleshootingSteps,
+                timestamp: new Date().toISOString()
             })
         };
     }
