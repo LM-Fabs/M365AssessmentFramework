@@ -8,7 +8,7 @@ node_modules/
 # Exclude TypeScript files completely
 tsconfig.json
 dist/
-# Exclude v4 programming model files
+# Exclude v4 programming model files - keep main index.js excluded but allow function-specific index.js
 index.js
 index.ts
 diagnostic.ts
@@ -18,6 +18,14 @@ migrate-app-registrations.js
 # Exclude all TypeScript function implementations
 */index.ts
 # Exclude backup folders
+backup*/
+*backup*
+# Keep our v3 JavaScript functions
+!customers/index.js
+!test/index.js
+!diagnostics/index.js
+!assessment/index.js
+!best-practices/index.js
 backup*/
 *backup*/
 *-backup*/

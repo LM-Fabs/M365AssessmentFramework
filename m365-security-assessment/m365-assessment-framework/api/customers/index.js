@@ -15,32 +15,77 @@ module.exports = async function (context, req) {
     }
 
     try {
-        // Simple mock data for now - you can integrate your actual data service later
-        const customers = [
-            {
-                id: '1',
-                name: 'Sample Customer 1',
-                tenantId: 'tenant-1',
-                domain: 'customer1.com'
-            },
-            {
-                id: '2', 
-                name: 'Sample Customer 2',
-                tenantId: 'tenant-2',
-                domain: 'customer2.com'
-            }
-        ];
+        if (req.method === 'GET') {
+            // Get customers
+            const customers = [
+                {
+                    id: '1',
+                    name: 'Sample Customer 1',
+                    tenantId: 'tenant-1',
+                    domain: 'customer1.com'
+                },
+                {
+                    id: '2', 
+                    name: 'Sample Customer 2',
+                    tenantId: 'tenant-2',
+                    domain: 'customer2.com'
+                }
+            ];
 
-        context.res = {
-            status: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-            },
-            body: JSON.stringify(customers)
-        };
+            context.res = {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+                },
+                body: JSON.stringify({
+                    success: true,
+                    data: customers
+                })
+            };
+        } else if (req.method === 'POST') {
+            // Create customer
+            const customerData = req.body;
+            
+            // Simulate creating a customer
+            const newCustomer = {
+                id: Date.now().toString(),
+                name: customerData.name || 'New Customer',
+                tenantId: customerData.tenantId || 'new-tenant',
+                domain: customerData.domain || 'newcustomer.com',
+                createdAt: new Date().toISOString()
+            };
+
+            context.res = {
+                status: 201,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+                },
+                body: JSON.stringify({
+                    success: true,
+                    data: {
+                        customer: newCustomer
+                    }
+                })
+            };
+        } else {
+            context.res = {
+                status: 405,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                body: JSON.stringify({ 
+                    success: false,
+                    error: 'Method not allowed'
+                })
+            };
+        }
     } catch (error) {
         context.res = {
             status: 500,
@@ -49,8 +94,9 @@ module.exports = async function (context, req) {
                 'Access-Control-Allow-Origin': '*'
             },
             body: JSON.stringify({ 
+                success: false,
                 error: error.message,
-                message: 'Failed to retrieve customers'
+                message: 'Failed to process customer request'
             })
         };
     }
