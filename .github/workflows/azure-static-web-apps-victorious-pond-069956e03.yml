@@ -53,7 +53,6 @@ jobs:
           output_location: "build"
           skip_app_build: false
           skip_api_build: false  # Let Azure SWA build the API to properly detect functions
-          deployment_environment: "production"  # Force deployment to production environment
         env:
           NODE_VERSION: "20"
           WEBSITE_NODE_DEFAULT_VERSION: "20"
