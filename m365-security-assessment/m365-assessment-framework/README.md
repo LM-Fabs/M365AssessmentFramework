@@ -1,5 +1,7 @@
 # Microsoft 365 Security Assessment Framework
 
+*API deployment status: Testing Azure Static Web Apps managed functions - July 18, 2025*
+
 ## Overview
 
 The Microsoft 365 Security Assessment Framework is a web application designed for consultants to evaluate the security posture of Microsoft 365 tenants. It provides tools to compare security metrics, calculate security scores, and offer insights and recommendations for improving tenant health.
