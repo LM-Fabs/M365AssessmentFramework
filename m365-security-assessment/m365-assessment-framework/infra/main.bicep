@@ -257,7 +257,7 @@ resource staticWebApp 'Microsoft.Web/staticSites@2024-04-01' = {
     buildProperties: {
       appLocation: '/m365-assessment-framework'
       apiLocation: '/m365-assessment-framework/api'
-      outputLocation: 'dist'
+      outputLocation: 'build'
       appBuildCommand: 'npm run build'
       apiBuildCommand: 'npm run build'
       skipGithubActionWorkflowGeneration: true

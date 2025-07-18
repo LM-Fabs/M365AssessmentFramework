@@ -4,12 +4,7 @@ name: m365-assessment-framework
 metadata:
   template: m365-security-assessment@0.0.1-beta
 
-services:
-  m365-assessment-api:
-    project: .
-    language: ts
-    host: staticwebapp
-    dist: build
+# No services defined - using Azure Static Web Apps GitHub Action for deployment
 
 hooks:
   preprovision:
