@@ -350,7 +350,7 @@ export class CustomerService {
   public async deleteCustomer(customerId: string): Promise<void> {
     try {
       console.log('🗑️ CustomerService: Deleting customer:', customerId);
-      const response = await axios.delete(`${this.baseUrl}/customers/${customerId}`);
+      const response = await axios.delete(`${this.baseUrl}/customers?id=${customerId}`);
       
       if (response.data.success) {
         console.log('✅ CustomerService: Customer deleted successfully:', customerId);

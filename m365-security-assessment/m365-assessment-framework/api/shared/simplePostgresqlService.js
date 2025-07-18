@@ -170,7 +170,7 @@ class SimplePostgreSQLService {
                 assessmentId,
                 assessmentData.customerId,
                 assessmentData.tenantId,
-                assessmentData.status || 'created',
+                assessmentData.status || 'pending',
                 assessmentData.score || 0,
                 JSON.stringify(assessmentData.metrics || {}),
                 JSON.stringify(assessmentData.recommendations || [])

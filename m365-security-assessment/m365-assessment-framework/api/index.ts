@@ -1952,7 +1952,7 @@ async function createAssessmentHandler(request: HttpRequest, context: Invocation
                         tenantName: customer.tenantName || assessmentData.tenantName || 'New Assessment',
                         assessmentName: assessmentData.assessmentName || `Security Assessment for ${customer.tenantName}`,
                         assessmentDate: new Date().toISOString(),
-                        status: 'completed-limited-data',
+                        status: 'completed',
                         categories: assessmentData.includedCategories || assessmentData.categories || ['license', 'secureScore'],
                         notificationEmail: assessmentData.notificationEmail || '',
                         autoSchedule: assessmentData.autoSchedule || false,

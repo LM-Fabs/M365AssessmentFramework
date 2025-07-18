@@ -71,7 +71,7 @@ module.exports = async function (context, req) {
                     const newAssessment = {
                         customerId: assessmentData.customerId,
                         tenantId: assessmentData.tenantId,
-                        status: 'created',
+                        status: 'pending',
                         metrics: {
                             assessmentName: assessmentData.assessmentName || 'New Assessment',
                             includedCategories: assessmentData.includedCategories || [],

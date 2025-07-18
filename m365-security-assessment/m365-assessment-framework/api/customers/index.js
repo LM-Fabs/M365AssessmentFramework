@@ -79,12 +79,11 @@ module.exports = async function (context, req) {
                 })
             };
         } else if (req.method === 'DELETE') {
-            // Extract customer ID from URL path
-            // URL format: /api/customers/{id}
-            const urlParts = req.url.split('/');
-            const customerId = urlParts[urlParts.length - 1];
+            // Extract customer ID from query parameter
+            // URL format: /api/customers?id={id}
+            const customerId = req.query.id;
             
-            if (!customerId || customerId === 'customers') {
+            if (!customerId) {
                 context.res = {
                     status: 400,
                     headers: {
@@ -93,7 +92,7 @@ module.exports = async function (context, req) {
                     },
                     body: JSON.stringify({
                         success: false,
-                        error: 'Customer ID is required'
+                        error: 'Customer ID is required as query parameter (?id=...)'
                     })
                 };
                 return;
