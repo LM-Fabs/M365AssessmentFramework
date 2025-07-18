@@ -47,17 +47,51 @@ module.exports = async function (context, req) {
                 };
                 break;
                 
+            case 'create':
+                if (req.method === 'POST') {
+                    const assessmentData = req.body;
+                    
+                    // Create new assessment
+                    const newAssessment = {
+                        id: Date.now().toString(),
+                        customerId: assessmentData.customerId,
+                        tenantId: assessmentData.tenantId,
+                        assessmentName: assessmentData.assessmentName || 'New Assessment',
+                        status: 'created',
+                        progress: 0,
+                        includedCategories: assessmentData.includedCategories || [],
+                        notificationEmail: assessmentData.notificationEmail || '',
+                        autoSchedule: assessmentData.autoSchedule || false,
+                        scheduleFrequency: assessmentData.scheduleFrequency || 'monthly',
+                        createdAt: new Date().toISOString(),
+                        lastModified: new Date().toISOString()
+                    };
+                    
+                    response = {
+                        success: true,
+                        data: {
+                            assessment: newAssessment
+                        }
+                    };
+                } else {
+                    response = {
+                        success: false,
+                        error: 'POST method required for creating assessments'
+                    };
+                }
+                break;
+                
             default:
                 response = {
                     success: false,
                     error: 'Unknown assessment action',
-                    availableActions: ['current', 'status']
+                    availableActions: ['current', 'status', 'create']
                 };
                 break;
         }
 
         context.res = {
-            status: response.success ? 200 : 404,
+            status: response.success ? (action === 'create' && req.method === 'POST' ? 201 : 200) : 404,
             headers: {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*',

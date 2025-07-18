@@ -49,12 +49,14 @@ module.exports = async function (context, req) {
             // Create customer
             const customerData = req.body;
             
-            // Simulate creating a customer
+            // Map frontend fields to backend format
             const newCustomer = {
                 id: Date.now().toString(),
-                name: customerData.name || 'New Customer',
+                name: customerData.tenantName || customerData.name || 'New Customer',
                 tenantId: customerData.tenantId || 'new-tenant',
-                domain: customerData.domain || 'newcustomer.com',
+                domain: customerData.tenantDomain || customerData.domain || 'newcustomer.com',
+                contactEmail: customerData.contactEmail || '',
+                notes: customerData.notes || '',
                 createdAt: new Date().toISOString()
             };
 
