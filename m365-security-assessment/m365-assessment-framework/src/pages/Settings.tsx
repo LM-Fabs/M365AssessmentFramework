@@ -399,6 +399,13 @@ const Settings = () => {
     }
   }, [showCustomerManagement]);
 
+  // Load customers when consent URL generator is opened
+  useEffect(() => {
+    if (showConsentUrlGenerator) {
+      loadCustomers();
+    }
+  }, [showConsentUrlGenerator]);
+
   // Pre-load customers when Settings component mounts to improve UX
   useEffect(() => {
     const preloadCustomers = async () => {
