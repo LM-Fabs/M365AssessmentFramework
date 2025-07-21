@@ -590,8 +590,13 @@ export const M365_ASSESSMENT_CONFIG = {
       return envRedirectUri;
     }
     
-    // Construct from current origin for dynamic environments
+    // Use the correct Azure Static Web Apps URL for production
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://localhost:3000';
+    if (origin.includes('azurestaticapps.net')) {
+      return 'https://victorious-pond-069956e03.6.azurestaticapps.net/api/consent-callback';
+    }
+    
+    // Fallback for local development
     return `${origin}/api/consent-callback`;
   },
   
