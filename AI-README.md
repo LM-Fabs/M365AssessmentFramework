@@ -5,7 +5,21 @@
 **Name:** M365 Security Assessment Framework  
 **Type:** Full-stack web application with Azure Static Web Apps deployment  
 **Purpose:** Enterprise Microsoft 365 securi### Next Steps:
-1. **� URGENT: Investigate 500 Errors** - Check Azure Application Insights or Function logs for runtime errors
+1. **� URGENT: Inves### Next Steps:
+1. **⏳ MONITORING: New Deployment Running** - GitHub Actions deploying with corrected Functions v4 runtime configuration
+2. **🔍 URGENT: Investigate 500 Errors** - Check Azure Application Insights or Function logs for runtime errors
+3. **🔧 Validate Shared Services** - Verify PostgreSQLService and GraphApiService compile and execute correctly
+4. **💾 Check Database Connectivity** - Test PostgreSQL connection with current environment variables
+5. **📊 Monitor Azure Portal** - Check Function execution logs and error details
+6. **🛠️ Isolate Function Issues** - Test simplest functions first (test-function, diagnostics) before complex ones
+
+### DEBUGGING CHECKLIST (Monitor After New Deployment):
+- [ ] Check if 500 errors persist or change to different status codes
+- [ ] Test `/api/test-function` endpoint (simplest function)
+- [ ] Test `/api/diagnostics` endpoint (environment variable check)
+- [ ] Review Azure Application Insights for detailed error logs
+- [ ] Verify environment variables are properly set in Azure Static Web Apps
+- [ ] Check if PostgreSQL connection is the root cause of 500 errors500 Errors** - Check Azure Application Insights or Function logs for runtime errors
 2. **� Validate Shared Services** - Verify PostgreSQLService and GraphApiService compile and execute correctly
 3. **� Check Database Connectivity** - Test PostgreSQL connection with current environment variables
 4. **📊 Monitor Azure Portal** - Check Function execution logs and error details
