@@ -56,7 +56,6 @@ jobs:
           is_static_export: false
           app_build_command: "npm run build"
           api_build_command: "npm run build"
-          deployment_environment: "Production"
         env:
           NODE_VERSION: "20"
           WEBSITE_NODE_DEFAULT_VERSION: "20"
