@@ -217,21 +217,22 @@ cd api && npm install && npm run build
 
 ## Current Status: DEPLOYMENT SUCCESSFUL BUT RUNTIME ERRORS ⚠️
 
-### CRITICAL DISCOVERY #5 - RUNTIME EXECUTION ERRORS:
-**Issue**: API functions are now loading (no more 404s) but returning 500 Internal Server Errors
-**Root Cause**: **Functions Runtime v4 is working, but functions are failing during execution**
+### CRITICAL DISCOVERY #5 - DEPLOYMENT STATUS UPDATE:
+**Issue**: API functions returning 404 errors again after configuration fixes
+**Root Cause**: **Deployment cycle - Azure Static Web Apps takes time to deploy changes**
 **Evidence**: 
-- Console logs show 500 errors instead of 404 errors ✅ (Runtime is loading functions)
-- Frontend v1.0.4 with cache-busting is deployed ✅
-- All endpoints `/api/customers`, `/api/test`, `/api/diagnostics` return 500 errors ❌
-- Functions are being invoked but failing during execution ❌
+- All Functions v4 configuration fixes are committed and pushed ✅
+- GitHub Actions workflow has FUNCTIONS_EXTENSION_VERSION: "~4" ✅  
+- host.json has extensionBundle: "[4.*, 5.0.0)" ✅
+- Fresh deployment triggered and in progress ⏳
+- 404 errors suggest deployment hasn't completed yet ⏳
 
 ### CURRENT STATUS (July 21, 2025):
-1. **✅ Functions Runtime v4 Working** - No more 404 errors, functions are being invoked
-2. **✅ GitHub Actions Fixed** - Deployment using correct runtime version
-3. **✅ Host.json Configuration** - Extension bundle properly configured
-4. **❌ Function Execution Failing** - All functions return 500 Internal Server Error
-5. **❌ Potential Issues** - Database connections, shared services, or TypeScript compilation errors
+1. **⚠️ 404 Errors Returned** - Back to 404 errors instead of 500 errors
+2. **✅ GitHub Actions Fixed** - FUNCTIONS_EXTENSION_VERSION: "~4" and NODE_VERSION: "20" deployed
+3. **✅ Host.json Configuration** - Extension bundle properly configured and deployed
+4. **🔄 New Deployment Triggered** - Fresh deployment in progress with all fixes
+5. **⏳ Waiting for Deployment** - Azure Static Web Apps deployment takes 5-10 minutes
 
 ### CRITICAL DISCOVERY #4 - FINAL CONFIGURATION FIXES APPLIED:
 **Issue**: GitHub Actions workflow still deploying with Functions Runtime v3 despite code being v4

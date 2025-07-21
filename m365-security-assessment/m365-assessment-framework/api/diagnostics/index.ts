@@ -1,72 +1,83 @@
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { corsHeaders } from "../shared/utils";
 
 /**
  * Azure Functions v4 - Diagnostics endpoint
- * Converted from v3 to v4 programming model for Azure Static Web Apps compatibility
+ * Provides runtime diagnostics without database dependencies
  */
 export default async function (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log('Processing diagnostics request');
-
-    // CORS headers
-    const corsHeaders = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Warmup, Cache-Control',
-        'Access-Control-Max-Age': '86400',
-        'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=60, s-maxage=60'
-    };
-
-    if (request.method === 'OPTIONS') {
-        return {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
-
-    // Handle HEAD request for API warmup
-    if (request.method === 'HEAD') {
-        return {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
+    context.log(`🔍 Diagnostics function called - ${request.method} ${request.url}`);
 
     try {
+        // Handle preflight OPTIONS request
+        if (request.method === 'OPTIONS') {
+            return {
+                status: 200,
+                headers: corsHeaders
+            };
+        }
+
         const diagnostics = {
+            status: "Functions v4 Runtime Active",
             timestamp: new Date().toISOString(),
-            environment: {
-                AZURE_CLIENT_ID: process.env.AZURE_CLIENT_ID ? 'SET' : 'NOT SET',
-                AZURE_TENANT_ID: process.env.AZURE_TENANT_ID ? 'SET' : 'NOT SET',
-                KEY_VAULT_URL: process.env.KEY_VAULT_URL ? 'SET' : 'NOT SET',
-                POSTGRES_HOST: process.env.POSTGRES_HOST ? 'SET' : 'NOT SET',
-                POSTGRES_DATABASE: process.env.POSTGRES_DATABASE ? 'SET' : 'NOT SET',
-                POSTGRES_USER: process.env.POSTGRES_USER ? 'SET' : 'NOT SET',
-                POSTGRES_PASSWORD: process.env.POSTGRES_PASSWORD ? 'SET' : 'NOT SET',
-                NODE_ENV: process.env.NODE_ENV || 'NOT SET',
-                APPLICATIONINSIGHTS_CONNECTION_STRING: process.env.APPLICATIONINSIGHTS_CONNECTION_STRING ? 'SET' : 'NOT SET'
+            nodeVersion: process.version,
+            environment: process.env.NODE_ENV || 'unknown',
+            functionVersion: process.env.FUNCTIONS_EXTENSION_VERSION || 'unknown',
+            workerRuntime: process.env.FUNCTIONS_WORKER_RUNTIME || 'unknown',
+            azureEnvironment: process.env.AZURE_FUNCTIONS_ENVIRONMENT || 'unknown',
+            
+            // Check environment variables (without exposing secrets)
+            environmentChecks: {
+                hasPostgresHost: !!process.env.POSTGRES_HOST,
+                hasPostgresDatabase: !!process.env.POSTGRES_DATABASE,
+                hasPostgresUser: !!process.env.POSTGRES_USER,
+                hasPostgresPassword: !!process.env.POSTGRES_PASSWORD,
+                hasAzureClientId: !!process.env.AZURE_CLIENT_ID,
+                hasAzureClientSecret: !!process.env.AZURE_CLIENT_SECRET,
+                hasAzureTenantId: !!process.env.AZURE_TENANT_ID,
+                postgresHost: process.env.POSTGRES_HOST || 'NOT_SET',
+                postgresDatabase: process.env.POSTGRES_DATABASE || 'NOT_SET',
+                postgresUser: process.env.POSTGRES_USER || 'NOT_SET'
             },
-            version: '1.0.12'
+
+            // Test basic functionality
+            requestInfo: {
+                method: request.method,
+                url: request.url,
+                headers: Object.fromEntries(request.headers.entries())
+            },
+
+            // Runtime information
+            runtimeInfo: {
+                uptime: process.uptime(),
+                memoryUsage: process.memoryUsage(),
+                cpuUsage: process.cpuUsage()
+            }
         };
+
+        context.log('✅ Diagnostics completed successfully');
 
         return {
             status: 200,
             headers: corsHeaders,
             jsonBody: {
                 success: true,
-                data: diagnostics
+                data: diagnostics,
+                message: "Functions v4 runtime is working correctly"
             }
         };
+
     } catch (error) {
-        context.error('Error in diagnostics handler:', error);
+        context.error('❌ Diagnostics function error:', error);
         
         return {
             status: 500,
             headers: corsHeaders,
             jsonBody: {
                 success: false,
-                error: "Internal server error",
-                details: error instanceof Error ? error.message : "Unknown error"
+                error: error instanceof Error ? error.message : 'Unknown error',
+                stack: error instanceof Error ? error.stack : undefined,
+                timestamp: new Date().toISOString()
             }
         };
     }
