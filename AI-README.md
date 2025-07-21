@@ -5,12 +5,13 @@
 **Name:** M365 Security Assessment Framework  
 **Type:** Full-stack web application with Azure Static Web Apps deployment  
 **Purpose:** Enterprise Microsoft 365 securi### Next Steps:
-1. **🚀 Deploy Critical Fixes** - Commit and push the updated GitHub Actions workflow and host.json configuration
-2. **🔍 Monitor New Deployment** - Verify that Functions Runtime v4 deploys correctly with extension bundle
-3. **🔧 Verify API Endpoints** - Test `/api/customers`, `/api/diagnostics` etc. work correctly after fixes
-4. **📊 Check Azure Portal** - Verify production environment now shows "Function App" as Backend Type
-5. **✅ Validate Function Runtime** - Ensure all endpoints return proper responses instead of 404 errorsssment tool with OAuth admin consent workflow  
-**URL ENDPOINT** https://victorious-pond-069956e03.6.azurestaticapps.net/
+1. **� URGENT: Investigate 500 Errors** - Check Azure Application Insights or Function logs for runtime errors
+2. **� Validate Shared Services** - Verify PostgreSQLService and GraphApiService compile and execute correctly
+3. **� Check Database Connectivity** - Test PostgreSQL connection with current environment variables
+4. **📊 Monitor Azure Portal** - Check Function execution logs and error details
+5. **🛠️ Isolate Function Issues** - Test simplest functions first (test-function, diagnostics) before complex ones
+
+### Breakthrough Understanding:
 
 ## 🏗️ ARCHITECTURE & DEPLOYMENT
 
@@ -200,7 +201,23 @@ cd api && npm install && npm run build
 5. **ALWAYS** use Azure Static Web Apps compatible patterns
 6. **REMEMBER** this is NOT standalone Azure Functions - it's SWA
 
-## Current Status: API DEPLOYMENT CONFIGURATION FIXES APPLIED ✅
+## Current Status: DEPLOYMENT SUCCESSFUL BUT RUNTIME ERRORS ⚠️
+
+### CRITICAL DISCOVERY #5 - RUNTIME EXECUTION ERRORS:
+**Issue**: API functions are now loading (no more 404s) but returning 500 Internal Server Errors
+**Root Cause**: **Functions Runtime v4 is working, but functions are failing during execution**
+**Evidence**: 
+- Console logs show 500 errors instead of 404 errors ✅ (Runtime is loading functions)
+- Frontend v1.0.4 with cache-busting is deployed ✅
+- All endpoints `/api/customers`, `/api/test`, `/api/diagnostics` return 500 errors ❌
+- Functions are being invoked but failing during execution ❌
+
+### CURRENT STATUS (July 21, 2025):
+1. **✅ Functions Runtime v4 Working** - No more 404 errors, functions are being invoked
+2. **✅ GitHub Actions Fixed** - Deployment using correct runtime version
+3. **✅ Host.json Configuration** - Extension bundle properly configured
+4. **❌ Function Execution Failing** - All functions return 500 Internal Server Error
+5. **❌ Potential Issues** - Database connections, shared services, or TypeScript compilation errors
 
 ### CRITICAL DISCOVERY #4 - FINAL CONFIGURATION FIXES APPLIED:
 **Issue**: GitHub Actions workflow still deploying with Functions Runtime v3 despite code being v4
