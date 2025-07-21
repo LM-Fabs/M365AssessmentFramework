@@ -13,5 +13,5 @@
       "name": "res"
     }
   ],
-  "scriptFile": "../dist/diagnostics/index.js"
+  "scriptFile": "index.js"
 }

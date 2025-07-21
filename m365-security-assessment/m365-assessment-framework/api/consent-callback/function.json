@@ -13,5 +13,5 @@
       "name": "res"
     }
   ],
-  "scriptFile": "../dist/consent-callback/index.js"
+  "scriptFile": "index.js"
 }

@@ -13,5 +13,5 @@
       "name": "res"
     }
   ],
-  "scriptFile": "../dist/customerAssessments/index.js"
+  "scriptFile": "index.js"
 }
