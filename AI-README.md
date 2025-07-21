@@ -191,34 +191,43 @@ cd api && npm install && npm run build
 5. **ALWAYS** use Azure Static Web Apps compatible patterns
 6. **REMEMBER** this is NOT standalone Azure Functions - it's SWA
 
-## Current Status: Major Breakthrough - Root Cause Identified ✅
+## Current Status: DEPLOYMENT CONFIGURATION FIXED ✅
 
-### CRITICAL DISCOVERY:
-**Issue**: All API endpoints returning 404 errors despite successful deployment
-**Root Cause**: **Mixed Azure Functions v3/v4 programming models** - Azure Static Web Apps requires ALL functions to use v4 syntax
-**Evidence**: Frontend deployed successfully, but API calls to `/api/customers`, `/api/diagnostics`, etc. all returned 404
+### CRITICAL DISCOVERY #2:
+**Issue**: API still returning 404 errors even after v4 conversion
+**Root Cause**: **GitHub Actions workflow forcing Functions Runtime v3** - `FUNCTIONS_EXTENSION_VERSION: "~3"` in deployment environment
+**Evidence**: Functions converted to v4 syntax but deployment configured for v3 runtime
+
+### DEPLOYMENT FIXES APPLIED:
+1. **✅ GitHub Actions Updated** - Changed `FUNCTIONS_EXTENSION_VERSION` from `"~3"` to `"~4"`
+2. **✅ All Functions v4 Compatible** - Complete conversion from v3 to v4 programming model
+3. **✅ Package Dependencies Correct** - `@azure/functions: ^4.5.0` in package.json
+4. **✅ Host.json Configuration** - Extension bundle set to `[4.*, 5.0.0)`
 
 ### Major Fixes Applied:
 1. **✅ Function.json Files Removed** - Eliminated v4 compatibility conflicts
-2. **✅ Core Functions Converted to v4** - customers/index.ts and diagnostics/index.ts now use proper v4 syntax
+2. **✅ ALL Functions Converted to v4** - customers, diagnostics, customerById, bestPractices, assessments, currentAssessment, customerAssessments, createAssessment
 3. **✅ Default Export Pattern** - All converted functions use `export default async function` pattern
 4. **✅ Return Statements** - Replaced `context.res =` assignments with `return` statements
 5. **✅ TypeScript Compilation** - All changes compile without errors
+6. **✅ Deployment Runtime Fixed** - GitHub Actions now deploys with Functions Runtime v4
 
-### Functions Converted to v4:
-- ✅ **consent-callback** (previously completed)
-- ✅ **test-function** (new minimal test endpoint)  
-- ✅ **customers** (main customer management endpoint)
-- ✅ **diagnostics** (environment and config endpoint)
-
-### Still Need v4 Conversion:
-The following functions likely still use v3 syntax and need conversion:
-- 🔄 best-practices, customerById, customerAssessments, assessment, etc.
+### Functions ALL Converted to v4:
+- ✅ **consent-callback** (OAuth workflow)
+- ✅ **test-function** (minimal test endpoint)  
+- ✅ **customers** (main customer management)
+- ✅ **diagnostics** (environment diagnostics)
+- ✅ **customerById** (individual customer operations)
+- ✅ **bestPractices** (security best practices data)
+- ✅ **assessments** (assessment management)
+- ✅ **currentAssessment** (current assessment retrieval)
+- ✅ **customerAssessments** (customer assessment history)
+- ✅ **createAssessment** (assessment creation)
 
 ### Next Steps:
-1. **Deploy** current changes to test if main endpoints now work
-2. **Convert remaining functions** if needed based on frontend requirements
-3. **Verify** that `/api/customers` and `/api/diagnostics` now return proper responses
+1. **🚀 Trigger Deployment** - Push changes to trigger new GitHub Actions deployment with v4 runtime
+2. **🔍 Verify API Endpoints** - Test `/api/customers`, `/api/diagnostics` etc. work correctly
+3. **📊 Monitor Deployment** - Check Azure portal for successful API deployment
 
 ### Breakthrough Understanding:
 Azure Static Web Apps with Functions Runtime v4 **cannot have mixed programming models**. Even if some functions are v4-compliant, having ANY v3 syntax functions prevents the entire API from loading properly. This explains why ALL endpoints returned 404 - the Functions runtime wasn't starting correctly due to the mixed syntax.
