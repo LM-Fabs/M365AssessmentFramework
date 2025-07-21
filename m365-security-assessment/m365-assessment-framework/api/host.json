@@ -6,23 +6,11 @@
         "isEnabled": true,
         "excludedTypes": "Request"
       }
-    },
-    "logLevel": {
-      "default": "Information",
-      "Function": "Information"
     }
   },
   "extensionBundle": {
     "id": "Microsoft.Azure.Functions.ExtensionBundle",
-    "version": "[4.*, 5.0.0)"
+    "version": "[3.*, 4.0.0)"
   },
-  "functionTimeout": "00:10:00",
-  "extensions": {
-    "http": {
-      "routePrefix": "api",
-      "maxOutstandingRequests": 500,
-      "maxConcurrentRequests": 200,
-      "dynamicThrottlesEnabled": false
-    }
-  }
+  "functionTimeout": "00:10:00"
 }
