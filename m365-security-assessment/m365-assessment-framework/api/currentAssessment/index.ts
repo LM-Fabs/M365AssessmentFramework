@@ -1,12 +1,12 @@
-import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+// v3 compatible imports
 import { corsHeaders, initializeDataService, dataService } from "../shared/utils";
 
-const httpTrigger = async function (req: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+const httpTrigger = async function (context: any, req: any): Promise<void> {
     context.log('Processing current assessment request');
 
     // Handle preflight OPTIONS request immediately
     if (req.method === 'OPTIONS') {
-        return {
+        context.res = {
             status: 200,
             headers: corsHeaders
         };
@@ -14,7 +14,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
 
     // Handle HEAD request for API warmup
     if (req.method === 'HEAD') {
-        return {
+        context.res = {
             status: 200,
             headers: corsHeaders
         };
@@ -30,7 +30,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
             const tenantId = url.searchParams.get('tenantId');
             
             if (!tenantId) {
-                return {
+                context.res = {
                     status: 400,
                     headers: corsHeaders,
                     jsonBody: {
@@ -49,7 +49,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
             });
             
             if (assessments.length === 0) {
-                return {
+                context.res = {
                     status: 404,
                     headers: corsHeaders,
                     jsonBody: {
@@ -61,7 +61,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
 
             const currentAssessment = assessments[0];
 
-            return {
+            context.res = {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
@@ -72,7 +72,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
             };
         }
 
-        return {
+        context.res = {
             status: 405,
             headers: corsHeaders,
             jsonBody: {
@@ -84,7 +84,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
     } catch (error) {
         context.error('Error in current assessment handler:', error);
         
-        return {
+        context.res = {
             status: 500,
             headers: corsHeaders,
             jsonBody: {

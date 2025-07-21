@@ -1,4 +1,4 @@
-import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+// v3 compatible imports
 import { PostgreSQLService } from "../shared/postgresqlService";
 import { GraphApiService } from "../shared/graphApiService";
 import { getKeyVaultService, KeyVaultService } from "../shared/keyVaultService";
@@ -29,7 +29,7 @@ let isDataServiceInitialized = false;
 let initializationPromise: Promise<void> | null = null;
 
 // Optimized data service initialization with singleton pattern
-export async function initializeDataService(context: InvocationContext): Promise<void> {
+export async function initializeDataService(context: any): Promise<void> {
     if (isDataServiceInitialized) {
         return;
     }

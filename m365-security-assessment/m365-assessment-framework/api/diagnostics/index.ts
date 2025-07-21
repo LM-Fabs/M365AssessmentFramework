@@ -1,6 +1,6 @@
-import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+// v3 compatible imports
 
-const httpTrigger = async function (req: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+const httpTrigger = async function (context: any, req: any): Promise<void> {
     context.log('Processing diagnostics request');
 
     // CORS headers
@@ -14,7 +14,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
     };
 
     if (req.method === 'OPTIONS') {
-        return {
+        context.res = {
             status: 200,
             headers: corsHeaders
         };
@@ -22,7 +22,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
 
     // Handle HEAD request for API warmup
     if (req.method === 'HEAD') {
-        return {
+        context.res = {
             status: 200,
             headers: corsHeaders
         };
@@ -45,7 +45,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
             version: '1.0.12'
         };
 
-        return {
+        context.res = {
             status: 200,
             headers: corsHeaders,
             jsonBody: {
@@ -56,7 +56,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
     } catch (error) {
         context.error('Error in diagnostics handler:', error);
         
-        return {
+        context.res = {
             status: 500,
             headers: corsHeaders,
             jsonBody: {

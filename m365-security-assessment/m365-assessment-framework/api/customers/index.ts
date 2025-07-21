@@ -1,13 +1,13 @@
-import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+// v3 compatible imports
 import { corsHeaders, initializeDataService, dataService } from "../shared/utils";
 import { Customer } from "../shared/types";
 
-const httpTrigger = async function (req: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+const httpTrigger = async function (context: any, req: any): Promise<void> {
     context.log(`Processing ${req.method} request for customers`);
 
     // Handle preflight OPTIONS request immediately
     if (req.method === 'OPTIONS') {
-        return {
+        context.res = {
             status: 200,
             headers: corsHeaders
         };
@@ -15,7 +15,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
 
     // Handle HEAD request for API warmup
     if (req.method === 'HEAD') {
-        return {
+        context.res = {
             status: 200,
             headers: corsHeaders
         };
@@ -38,7 +38,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
             // Transform customers to match frontend interface
             const transformedCustomers = result.customers.map((customer: any) => {
                 const appReg = customer.appRegistration || {};
-                return {
+                context.res = {
                     id: customer.id,
                     tenantId: customer.tenantId || '',
                     tenantName: customer.tenantName,
@@ -56,7 +56,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
                 };
             });
             
-            return {
+            context.res = {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
@@ -76,7 +76,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
                 customerData = await req.json();
             } catch (error) {
                 context.log('Invalid JSON in request body');
-                return {
+                context.res = {
                     status: 400,
                     headers: corsHeaders,
                     jsonBody: {
@@ -90,7 +90,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
 
             // Validate required fields
             if (!customerData.tenantName || !customerData.tenantDomain) {
-                return {
+                context.res = {
                     status: 400,
                     headers: corsHeaders,
                     jsonBody: {
@@ -104,7 +104,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
             if (customerData.tenantDomain) {
                 const existingCustomer = await dataService.getCustomerByDomain(customerData.tenantDomain);
                 if (existingCustomer) {
-                    return {
+                    context.res = {
                         status: 409,
                         headers: corsHeaders,
                         jsonBody: {
@@ -125,7 +125,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
             }
 
             if (!targetTenantId) {
-                return {
+                context.res = {
                     status: 400,
                     headers: corsHeaders,
                     jsonBody: {
@@ -167,7 +167,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
                 notes: result.notes
             };
 
-            return {
+            context.res = {
                 status: 201,
                 headers: corsHeaders,
                 jsonBody: {
@@ -180,7 +180,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
             };
         }
 
-        return {
+        context.res = {
             status: 405,
             headers: corsHeaders,
             jsonBody: {
@@ -192,7 +192,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
     } catch (error) {
         context.error('Error in customers handler:', error);
         
-        return {
+        context.res = {
             status: 500,
             headers: corsHeaders,
             jsonBody: {

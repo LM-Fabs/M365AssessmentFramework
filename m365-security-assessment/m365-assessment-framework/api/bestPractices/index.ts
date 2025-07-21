@@ -1,12 +1,12 @@
-import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+// v3 compatible imports
 import { corsHeaders } from "../shared/utils";
 
-const httpTrigger = async function (req: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+const httpTrigger = async function (context: any, req: any): Promise<void> {
     context.log('Processing best practices request');
 
     // Handle preflight OPTIONS request immediately
     if (req.method === 'OPTIONS') {
-        return {
+        context.res = {
             status: 200,
             headers: corsHeaders
         };
@@ -14,7 +14,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
 
     // Handle HEAD request for API warmup
     if (req.method === 'HEAD') {
-        return {
+        context.res = {
             status: 200,
             headers: corsHeaders
         };
@@ -98,7 +98,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
                 }
             ];
 
-            return {
+            context.res = {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
@@ -110,7 +110,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
             };
         }
 
-        return {
+        context.res = {
             status: 405,
             headers: corsHeaders,
             jsonBody: {
@@ -122,7 +122,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
     } catch (error) {
         context.error('Error in best practices handler:', error);
         
-        return {
+        context.res = {
             status: 500,
             headers: corsHeaders,
             jsonBody: {

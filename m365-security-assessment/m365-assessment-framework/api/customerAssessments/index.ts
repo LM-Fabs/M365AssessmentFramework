@@ -1,12 +1,12 @@
-import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+// v3 compatible imports
 import { corsHeaders, initializeDataService, dataService } from "../shared/utils";
 
-const httpTrigger = async function (req: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+const httpTrigger = async function (context: any, req: any): Promise<void> {
     context.log(`Processing ${req.method} request for customer assessments`);
 
     // Handle preflight OPTIONS request immediately
     if (req.method === 'OPTIONS') {
-        return {
+        context.res = {
             status: 200,
             headers: corsHeaders
         };
@@ -18,7 +18,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
 
         const customerId = req.params.customerId;
         if (!customerId) {
-            return {
+            context.res = {
                 status: 400,
                 headers: corsHeaders,
                 jsonBody: {
@@ -44,7 +44,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
                 lastModified: assessment.lastModified
             }));
 
-            return {
+            context.res = {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
@@ -55,7 +55,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
             };
         }
 
-        return {
+        context.res = {
             status: 405,
             headers: corsHeaders,
             jsonBody: {
@@ -68,7 +68,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
         context.error('Error in customer assessments handler:', error);
         
         if (error instanceof Error && error.message.includes('not found')) {
-            return {
+            context.res = {
                 status: 404,
                 headers: corsHeaders,
                 jsonBody: {
@@ -78,7 +78,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
             };
         }
         
-        return {
+        context.res = {
             status: 500,
             headers: corsHeaders,
             jsonBody: {

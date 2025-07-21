@@ -1,12 +1,12 @@
-import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+// v3 compatible imports
 import { corsHeaders, initializeDataService, dataService } from "../shared/utils";
 
-const httpTrigger = async function (req: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+const httpTrigger = async function (context: any, req: any): Promise<void> {
     context.log(`Processing ${req.method} request for customer by ID`);
 
     // Handle preflight OPTIONS request immediately
     if (req.method === 'OPTIONS') {
-        return {
+        context.res = {
             status: 200,
             headers: corsHeaders
         };
@@ -18,7 +18,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
 
         const customerId = req.params.customerId;
         if (!customerId) {
-            return {
+            context.res = {
                 status: 400,
                 headers: corsHeaders,
                 jsonBody: {
@@ -32,7 +32,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
             const customer = await dataService.getCustomer(customerId);
             
             if (!customer) {
-                return {
+                context.res = {
                     status: 404,
                     headers: corsHeaders,
                     jsonBody: {
@@ -61,7 +61,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
                 notes: customer.notes
             };
 
-            return {
+            context.res = {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: transformedCustomer
@@ -74,7 +74,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
             try {
                 updateData = await req.json();
             } catch (error) {
-                return {
+                context.res = {
                     status: 400,
                     headers: corsHeaders,
                     jsonBody: {
@@ -105,7 +105,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
                 notes: updatedCustomer.notes
             };
 
-            return {
+            context.res = {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
@@ -118,7 +118,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
         if (req.method === 'DELETE') {
             await dataService.deleteCustomer(customerId);
             
-            return {
+            context.res = {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
@@ -128,7 +128,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
             };
         }
 
-        return {
+        context.res = {
             status: 405,
             headers: corsHeaders,
             jsonBody: {
@@ -141,7 +141,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
         context.error('Error in customer by ID handler:', error);
         
         if (error instanceof Error && error.message.includes('not found')) {
-            return {
+            context.res = {
                 status: 404,
                 headers: corsHeaders,
                 jsonBody: {
@@ -151,7 +151,7 @@ const httpTrigger = async function (req: HttpRequest, context: InvocationContext
             };
         }
         
-        return {
+        context.res = {
             status: 500,
             headers: corsHeaders,
             jsonBody: {
