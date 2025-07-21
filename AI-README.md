@@ -4,15 +4,23 @@
 
 **Name:** M365 Security Assessment Framework  
 **Type:** Full-stack web application with Azure Static Web Apps deployment  
-**Purpose:** Enterprise Microsoft 365 security assessment tool with OAuth admin consent workflow  
+**Purpose:** Enterprise Microsoft 365 securi### Next Steps:
+1. **🚀 Deploy Critical Fixes** - Commit and push the updated GitHub Actions workflow and host.json configuration
+2. **🔍 Monitor New Deployment** - Verify that Functions Runtime v4 deploys correctly with extension bundle
+3. **🔧 Verify API Endpoints** - Test `/api/customers`, `/api/diagnostics` etc. work correctly after fixes
+4. **📊 Check Azure Portal** - Verify production environment now shows "Function App" as Backend Type
+5. **✅ Validate Function Runtime** - Ensure all endpoints return proper responses instead of 404 errorsssment tool with OAuth admin consent workflow  
 **URL ENDPOINT** https://victorious-pond-069956e03.6.azurestaticapps.net/
 
 ## 🏗️ ARCHITECTURE & DEPLOYMENT
 
 ### Deployment Platform
 - **Azure Static Web Apps** (NOT standalone Azure Functions)
+- **Tier:** Standard tier (configured in infrastructure as `staticWebAppSku: 'Standard'`)
 - **Important:** Azure Static Web Apps forces Functions Runtime ~4 regardless of environment variables
 - **Critical:** Uses hybrid runtime model with specific compatibility requirements
+- **Subscription ID:** 200830ff-e2b0-4cd7-9fb8-b263090a28a3
+- **Tenant ID:** 70adb6e8-c6f7-4f25-a75f-9bca098db644
 
 ### Frontend
 - **Framework:** React with TypeScript
@@ -49,7 +57,8 @@ export default async function (request: HttpRequest, context: InvocationContext)
 
 ### Package Dependencies:
 - `@azure/functions: ^4.5.0` (NOT v3.x.x)
-- `host.json` extensionBundle: `"[4.*, 5.0.0)"`
+- `host.json` extensionBundle: `"[4.*, 5.0.0)"` ✅ **CONFIGURED**
+- Node.js version: 20.x (aligned with deployment environment)
 
 ## 📁 PROJECT STRUCTURE
 
@@ -193,6 +202,20 @@ cd api && npm install && npm run build
 
 ## Current Status: API DEPLOYMENT CONFIGURATION FIXES APPLIED ✅
 
+### CRITICAL DISCOVERY #4 - FINAL CONFIGURATION FIXES APPLIED:
+**Issue**: GitHub Actions workflow still deploying with Functions Runtime v3 despite code being v4
+**Root Cause**: **Deployment environment variables not aligned with code conversion**
+**Evidence**: 
+- All functions converted to v4 programming model ✅
+- GitHub Actions still had `FUNCTIONS_EXTENSION_VERSION: "~3"` ❌
+- host.json missing required extensionBundle configuration ❌
+
+### FINAL CRITICAL FIXES APPLIED (July 21, 2025):
+1. **✅ GitHub Actions Runtime Fixed** - Updated `FUNCTIONS_EXTENSION_VERSION` from `"~3"` to `"~4"`
+2. **✅ Node Version Aligned** - Updated NODE_VERSION from "18" to "20" to match staticwebapp.config.json
+3. **✅ Host.json Extension Bundle Added** - Added missing extensionBundle configuration: `"[4.*, 5.0.0)"`
+4. **✅ Complete Runtime Alignment** - All deployment configs now match Functions v4 requirements
+
 ### CRITICAL DISCOVERY #3:
 **Issue**: API builds successfully but not visible in Azure Static Web Apps production environment
 **Root Cause**: **Configuration mismatches between deployment and runtime settings**
@@ -208,11 +231,12 @@ cd api && npm install && npm run build
 4. **✅ Environment Configuration** - All environment variables properly configured for production deployment
 
 ### DEPLOYMENT FIXES APPLIED:
-1. **✅ GitHub Actions Updated** - Changed `FUNCTIONS_EXTENSION_VERSION` from `"~3"` to `"~4"`
+1. **✅ GitHub Actions Updated** - Changed `FUNCTIONS_EXTENSION_VERSION` from `"~3"` to `"~4"` and NODE_VERSION to "20"
 2. **✅ All Functions v4 Compatible** - Complete conversion from v3 to v4 programming model
 3. **✅ Package Dependencies Correct** - `@azure/functions: ^4.5.0` in package.json
-4. **✅ Host.json Configuration** - Extension bundle set to `[4.*, 5.0.0)`
+4. **✅ Host.json Configuration** - Extension bundle `[4.*, 5.0.0)` **ADDED to host.json**
 5. **✅ Runtime Configuration** - API runtime and deployment environment aligned
+6. **✅ Infrastructure Configuration** - Standard tier SWA deployment configured
 
 ### Major Fixes Applied:
 1. **✅ Function.json Files Removed** - Eliminated v4 compatibility conflicts
@@ -235,10 +259,12 @@ cd api && npm install && npm run build
 - ✅ **createAssessment** (assessment creation)
 
 ### Next Steps:
-1. **🚀 Monitor New Deployment** - Latest deployment with runtime alignment and production branch configuration
-2. **🔍 Verify API Endpoints** - Test `/api/customers`, `/api/diagnostics` etc. work correctly after configuration fixes
-3. **📊 Check Azure Portal** - Verify production environment now shows "Function App" as Backend Type
-4. **🔧 Additional Debugging** - If still not working, may need to investigate Azure Static Web Apps specific configuration or contact Azure support
+1. **� CRITICAL FIX NEEDED** - GitHub Actions still has `FUNCTIONS_EXTENSION_VERSION: "~3"` - must be updated to `"~4"`
+2. **🔧 Host.json Missing Config** - Add extensionBundle configuration for Functions v4
+3. **�🚀 Monitor New Deployment** - Latest deployment with runtime alignment and production branch configuration
+4. **🔍 Verify API Endpoints** - Test `/api/customers`, `/api/diagnostics` etc. work correctly after configuration fixes
+5. **📊 Check Azure Portal** - Verify production environment now shows "Function App" as Backend Type
+6. **🔧 Additional Debugging** - If still not working, may need to investigate Azure Static Web Apps specific configuration or contact Azure support
 
 ### Breakthrough Understanding:
 Azure Static Web Apps with Functions Runtime v4 **cannot have mixed programming models**. Even if some functions are v4-compliant, having ANY v3 syntax functions prevents the entire API from loading properly. This explains why ALL endpoints returned 404 - the Functions runtime wasn't starting correctly due to the mixed syntax.

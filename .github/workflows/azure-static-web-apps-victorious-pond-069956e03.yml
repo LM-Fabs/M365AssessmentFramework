@@ -57,9 +57,9 @@ jobs:
           app_build_command: "npm run build"
           api_build_command: "npm run build"
         env:
-          NODE_VERSION: "18"
-          WEBSITE_NODE_DEFAULT_VERSION: "18"
-          FUNCTIONS_EXTENSION_VERSION: "~3"
+          NODE_VERSION: "20"
+          WEBSITE_NODE_DEFAULT_VERSION: "20"
+          FUNCTIONS_EXTENSION_VERSION: "~4"
           FUNCTIONS_WORKER_RUNTIME: "node"
           AZURE_FUNCTIONS_ENVIRONMENT: "production"
           REACT_APP_API_URL: "/api"
