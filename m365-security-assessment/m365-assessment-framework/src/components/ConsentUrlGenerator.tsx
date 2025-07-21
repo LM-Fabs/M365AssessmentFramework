@@ -49,13 +49,15 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
         // The customer's tenant ID is what we need for targeting the consent
         tenantId: formData.customer?.tenantId || ''
       }));
+      // Trigger URL generation immediately when customer changes
+      generateConsentUrl();
     }
   }, [formData.customer]);
 
   // Generate consent URL whenever relevant fields change
   useEffect(() => {
     generateConsentUrl();
-  }, [formData.tenantId, formData.redirectUri, formData.permissions, formData.customer]);
+  }, [formData.tenantId, formData.redirectUri, formData.permissions, formData.customer, formData.clientId]);
 
   const generateConsentUrl = async () => {
     console.log('🔍 generateConsentUrl called:', {
