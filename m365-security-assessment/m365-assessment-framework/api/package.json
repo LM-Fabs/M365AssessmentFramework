@@ -4,17 +4,19 @@
   "description": "M365 Security Assessment API",
   "main": "dist/index.js",
   "scripts": {
-    "build": "echo 'Using JavaScript v3 functions - no build needed'",
-    "watch": "echo 'Using JavaScript v3 functions - no watch needed'",
-    "prestart": "echo 'Ready to start'",
+    "build": "tsc",
+    "build:production": "tsc --project tsconfig.json",
+    "watch": "tsc --watch",
+    "prestart": "npm run build",
     "start": "func start",
+    "clean": "rimraf dist",
     "test": "echo \"No tests yet...\"",
-    "postinstall": "echo 'Dependencies installed'"
+    "postinstall": "npm run build"
   },
   "dependencies": {
     "@azure/cosmos": "^4.0.0",
     "@azure/data-tables": "^13.2.2",
-    "@azure/functions": "^3.5.1",
+    "@azure/functions": "^4.5.0",
     "@azure/identity": "^4.0.1",
     "@azure/keyvault-secrets": "^4.8.0",
     "@microsoft/microsoft-graph-client": "^3.0.7",
@@ -24,6 +26,7 @@
   "devDependencies": {
     "@types/node": "^20.x",
     "@types/pg": "^8.10.9",
+    "rimraf": "^5.0.5",
     "typescript": "^5.0.0"
   },
   "engines": {

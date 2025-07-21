@@ -684,6 +684,99 @@ class GraphApiService {
         }
     }
     /**
+     * Create enterprise application in customer tenant after consent
+     * This method creates a service principal in the customer's tenant
+     * to represent our multi-tenant application
+     */
+    async createEnterpriseApplication(config) {
+        try {
+            console.log('🏢 Creating enterprise application in customer tenant:', config.tenantId);
+            // Create service principal for the existing multi-tenant application
+            const servicePrincipalRequest = {
+                appId: config.clientId,
+                displayName: config.displayName,
+                notes: `M365 Assessment Framework enterprise app for ${config.customerData.tenantName}`,
+                // Add tags for identification and management
+                tags: [
+                    'WindowsAzureActiveDirectoryIntegratedApp',
+                    'HideApp', // Hide from user app launcher
+                    'M365AssessmentFramework'
+                ],
+                // Configure app role assignment required for security
+                appRoleAssignmentRequired: true,
+                // Set preferred single sign-on mode
+                preferredSingleSignOnMode: 'saml'
+            };
+            console.log('📝 Enterprise app request:', JSON.stringify(servicePrincipalRequest, null, 2));
+            // Create service principal with retry logic
+            let servicePrincipal;
+            let retryCount = 0;
+            const maxRetries = 3;
+            while (retryCount < maxRetries) {
+                try {
+                    servicePrincipal = await this.graphClient
+                        .api('/servicePrincipals')
+                        .post(servicePrincipalRequest);
+                    break;
+                }
+                catch (error) {
+                    retryCount++;
+                    if (error.code === 'Request_BadRequest' && error.message?.includes('already exists')) {
+                        // Service principal already exists, try to get it
+                        console.log('ℹ️ Service principal already exists, attempting to retrieve it...');
+                        try {
+                            const existingResponse = await this.graphClient
+                                .api('/servicePrincipals')
+                                .filter(`appId eq '${config.clientId}'`)
+                                .get();
+                            if (existingResponse.value && existingResponse.value.length > 0) {
+                                servicePrincipal = existingResponse.value[0];
+                                console.log('✅ Retrieved existing service principal:', servicePrincipal?.id);
+                                break;
+                            }
+                        }
+                        catch (getError) {
+                            console.log('❌ Failed to retrieve existing service principal:', getError);
+                        }
+                    }
+                    if (retryCount >= maxRetries) {
+                        throw error;
+                    }
+                    // Wait before retry with exponential backoff
+                    await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+                }
+            }
+            if (!servicePrincipal || !servicePrincipal.id) {
+                throw new Error('Failed to create or retrieve enterprise application - missing service principal ID');
+            }
+            console.log('✅ Enterprise application created/retrieved successfully:', servicePrincipal.id);
+            // Optionally assign users or groups to the enterprise application
+            // This would require additional permissions and user/group information
+            return {
+                id: servicePrincipal.id,
+                objectId: servicePrincipal.id, // In Microsoft Graph, id and objectId are the same
+                appId: servicePrincipal.appId || config.clientId,
+                displayName: servicePrincipal.displayName || config.displayName,
+                servicePrincipalType: servicePrincipal.servicePrincipalType || 'Application',
+                createdDateTime: new Date().toISOString() // Use current timestamp since createdDateTime might not be available
+            };
+        }
+        catch (error) {
+            console.error('❌ Failed to create enterprise application:', error);
+            // Enhanced error handling for common scenarios
+            if (error.code === 'Forbidden' || error.code === 'Authorization_RequestDenied') {
+                throw new Error('Insufficient permissions to create enterprise application. Ensure admin consent has been granted.');
+            }
+            else if (error.code === 'BadRequest' && error.message?.includes('appId')) {
+                throw new Error('Invalid application ID. Verify the multi-tenant application exists and is properly configured.');
+            }
+            else if (error.code === 'TooManyRequests') {
+                throw new Error('Rate limit exceeded. Please try again in a few minutes.');
+            }
+            throw new Error(`Failed to create enterprise application: ${error.message || error}`);
+        }
+    }
+    /**
      * Validate application permissions
      * Used to ensure app has required permissions for assessment
      */

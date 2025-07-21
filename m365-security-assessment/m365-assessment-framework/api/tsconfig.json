@@ -9,14 +9,20 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "allowJs": true,
-    "checkJs": true,
+    "allowJs": false,
+    "checkJs": false,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "lib": ["es2020"],
-    "sourceMap": true
+    "sourceMap": true,
+    "declaration": false,
+    "noEmitOnError": true,
+    "incremental": true
   },
-  "include": ["./**/*"],
+  "include": [
+    "./**/*.ts",
+    "shared/**/*.ts"
+  ],
   "exclude": [
     "node_modules",
     "dist",
@@ -28,6 +34,8 @@
     "test-*.js",
     "**/*test*.js",
     "test/index.js",
-    "test-endpoint/index.js"
+    "simple-*.js",
+    "migrate-*.js",
+    "**/*.js"
   ]
 }
