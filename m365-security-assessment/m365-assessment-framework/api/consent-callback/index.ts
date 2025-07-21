@@ -15,7 +15,7 @@ const corsHeaders = {
  * Handles OAuth consent callback and creates enterprise app registration
  * This endpoint is called after customer admin grants consent
  */
-const httpTrigger: AzureFunction = async function (context: Context, req: HttpRequest): Promise<void> {
+const consentCallbackHandler: AzureFunction = async function (context: Context, req: HttpRequest): Promise<void> {
     context.log('🔗 Consent callback received');
 
     try {
@@ -534,4 +534,4 @@ const httpTrigger: AzureFunction = async function (context: Context, req: HttpRe
     }
 };
 
-export default httpTrigger;
+export default consentCallbackHandler;
