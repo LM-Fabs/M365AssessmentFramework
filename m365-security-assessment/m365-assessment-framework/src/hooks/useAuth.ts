@@ -27,7 +27,15 @@ export const useAuth = () => {
     try {
       setAuthState(prev => ({ ...prev, loading: true, error: null }));
       
-      const response = await fetch(staticWebAppAuth.meUrl);
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(staticWebAppAuth.meUrl, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
       
       if (response.ok) {
         const authData = await response.json();

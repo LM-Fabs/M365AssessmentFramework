@@ -16,10 +16,11 @@ import ConsentResult from './components/ConsentResult';
 import './App.css';
 
 function App() {
-  // Start API warmup as early as possible
+  // Temporarily disable API warmup to debug 500 error
   useEffect(() => {
-    const warmupService = ApiWarmupService.getInstance();
-    warmupService.startBackgroundWarmup();
+    // const warmupService = ApiWarmupService.getInstance();
+    // warmupService.startBackgroundWarmup();
+    console.log('API warmup temporarily disabled for debugging');
   }, []);
 
   return (
