@@ -3,7 +3,7 @@
     "module": "CommonJS",
     "target": "ES2020",
     "moduleResolution": "node",
-    "outDir": "dist",
+    "outDir": ".",
     "rootDir": ".",
     "strict": false,
     "esModuleInterop": true,
@@ -32,10 +32,6 @@
     "*backup*",
     "**/*backup*",
     "test-*.js",
-    "**/*test*.js",
-    "test/index.js",
-    "simple-*.js",
-    "migrate-*.js",
-    "**/*.js"
+    "migrate-*.js"
   ]
 }
