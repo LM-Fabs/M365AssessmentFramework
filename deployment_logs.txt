@@ -1,0 +1,692 @@
+Build and Deploy	Set up job	﻿2025-07-21T10:57:56.7960874Z Current runner version: '2.326.0'
+Build and Deploy	Set up job	2025-07-21T10:57:56.7985796Z ##[group]Runner Image Provisioner
+Build and Deploy	Set up job	2025-07-21T10:57:56.7986810Z Hosted Compute Agent
+Build and Deploy	Set up job	2025-07-21T10:57:56.7987384Z Version: 20250711.363
+Build and Deploy	Set up job	2025-07-21T10:57:56.7987977Z Commit: 6785254374ce925a23743850c1cb91912ce5c14c
+Build and Deploy	Set up job	2025-07-21T10:57:56.7988763Z Build Date: 2025-07-11T20:04:25Z
+Build and Deploy	Set up job	2025-07-21T10:57:56.7989335Z ##[endgroup]
+Build and Deploy	Set up job	2025-07-21T10:57:56.7989917Z ##[group]Operating System
+Build and Deploy	Set up job	2025-07-21T10:57:56.7990570Z Ubuntu
+Build and Deploy	Set up job	2025-07-21T10:57:56.7991152Z 24.04.2
+Build and Deploy	Set up job	2025-07-21T10:57:56.7991664Z LTS
+Build and Deploy	Set up job	2025-07-21T10:57:56.7992159Z ##[endgroup]
+Build and Deploy	Set up job	2025-07-21T10:57:56.7992725Z ##[group]Runner Image
+Build and Deploy	Set up job	2025-07-21T10:57:56.7993360Z Image: ubuntu-24.04
+Build and Deploy	Set up job	2025-07-21T10:57:56.7993900Z Version: 20250710.1.0
+Build and Deploy	Set up job	2025-07-21T10:57:56.7995197Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20250710.1/images/ubuntu/Ubuntu2404-Readme.md
+Build and Deploy	Set up job	2025-07-21T10:57:56.7996806Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20250710.1
+Build and Deploy	Set up job	2025-07-21T10:57:56.7998115Z ##[endgroup]
+Build and Deploy	Set up job	2025-07-21T10:57:56.7999264Z ##[group]GITHUB_TOKEN Permissions
+Build and Deploy	Set up job	2025-07-21T10:57:56.8001104Z Contents: read
+Build and Deploy	Set up job	2025-07-21T10:57:56.8001802Z Metadata: read
+Build and Deploy	Set up job	2025-07-21T10:57:56.8002373Z Packages: read
+Build and Deploy	Set up job	2025-07-21T10:57:56.8002934Z ##[endgroup]
+Build and Deploy	Set up job	2025-07-21T10:57:56.8005284Z Secret source: Actions
+Build and Deploy	Set up job	2025-07-21T10:57:56.8006056Z Prepare workflow directory
+Build and Deploy	Set up job	2025-07-21T10:57:56.8331925Z Prepare all required actions
+Build and Deploy	Set up job	2025-07-21T10:57:56.8377096Z Getting action download info
+Build and Deploy	Set up job	2025-07-21T10:57:57.3211820Z ##[group]Download immutable action package 'actions/checkout@v4'
+Build and Deploy	Set up job	2025-07-21T10:57:57.3212855Z Version: 4.2.2
+Build and Deploy	Set up job	2025-07-21T10:57:57.3214007Z Digest: sha256:ccb2698953eaebd21c7bf6268a94f9c26518a7e38e27e0b83c1fe1ad049819b1
+Build and Deploy	Set up job	2025-07-21T10:57:57.3215376Z Source commit SHA: 11bd71901bbe5b1630ceea73d27597364c9af683
+Build and Deploy	Set up job	2025-07-21T10:57:57.3216184Z ##[endgroup]
+Build and Deploy	Set up job	2025-07-21T10:57:57.4247667Z ##[group]Download immutable action package 'actions/setup-node@v4'
+Build and Deploy	Set up job	2025-07-21T10:57:57.4248715Z Version: 4.4.0
+Build and Deploy	Set up job	2025-07-21T10:57:57.4249742Z Digest: sha256:9427cefe82346e992fb5b949e3569b39d537ae41aa3086483b14eceebfc16bc1
+Build and Deploy	Set up job	2025-07-21T10:57:57.4250754Z Source commit SHA: 49933ea5288caeca8642d1e84afbd3f7d6820020
+Build and Deploy	Set up job	2025-07-21T10:57:57.4251537Z ##[endgroup]
+Build and Deploy	Set up job	2025-07-21T10:57:57.5490363Z Download action repository 'Azure/static-web-apps-deploy@v1' (SHA:4d27395796ac319302594769cfe812bd207490b1)
+Build and Deploy	Set up job	2025-07-21T10:57:58.0173451Z Complete job name: Build and Deploy
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	﻿2025-07-21T10:57:58.0613583Z ##[group]Build container for action use: '/home/runner/work/_actions/Azure/static-web-apps-deploy/v1/Dockerfile'.
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:57:58.0684923Z ##[command]/usr/bin/docker build -t 1d1de7:1babe845a3bd49948437b31f158eb448 -f "/home/runner/work/_actions/Azure/static-web-apps-deploy/v1/Dockerfile" "/home/runner/work/_actions/Azure/static-web-apps-deploy/v1"
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:00.9066905Z #0 building with "default" instance using docker driver
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:00.9067749Z 
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:00.9068045Z #1 [internal] load build definition from Dockerfile
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:00.9068746Z #1 transferring dockerfile: 160B done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:00.9069199Z #1 DONE 0.0s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:00.9069344Z 
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:00.9069623Z #2 [internal] load metadata for mcr.microsoft.com/appsvc/staticappsclient:stable
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:00.9070188Z #2 DONE 0.1s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.0240021Z 
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.0242441Z #3 [internal] load .dockerignore
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.0243175Z #3 transferring context: 2B done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.0243879Z #3 DONE 0.0s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.0244139Z 
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.0244364Z #4 [internal] load build context
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.0245098Z #4 transferring context: 107B done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.0245598Z #4 DONE 0.0s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.0245799Z 
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.0246521Z #5 [1/2] FROM mcr.microsoft.com/appsvc/staticappsclient:stable@sha256:41473a2ebc45daa6e63c82a7f32a5680b0fe34dac49ab85dd6369c764b191308
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.0248097Z #5 resolve mcr.microsoft.com/appsvc/staticappsclient:stable@sha256:41473a2ebc45daa6e63c82a7f32a5680b0fe34dac49ab85dd6369c764b191308 done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.0249876Z #5 sha256:c4961ea170d16177c6dec81c5b9e721a02636907f90fc43917ad54d55ab89087 13.35kB / 13.35kB done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.0251000Z #5 sha256:b3ff24b88ad3798f817849ad391d809ece121dc9b7f82f24bb68eed84561f048 6.29MB / 54.59MB 0.1s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.0252215Z #5 sha256:41473a2ebc45daa6e63c82a7f32a5680b0fe34dac49ab85dd6369c764b191308 2.71kB / 2.71kB done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.0253417Z #5 sha256:84811b2a563b9003abbd1c06f6e45a857315b931855030bdd0443d13d950a996 15.76MB / 15.76MB 0.1s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.0254645Z #5 sha256:ac323bdaa10f869bd9e7adecd8f5326e44acc4c59168868108b1cdf3891089cc 13.63MB / 55.09MB 0.1s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.1247933Z #5 sha256:b3ff24b88ad3798f817849ad391d809ece121dc9b7f82f24bb68eed84561f048 33.55MB / 54.59MB 0.2s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.1253688Z #5 sha256:84811b2a563b9003abbd1c06f6e45a857315b931855030bdd0443d13d950a996 15.76MB / 15.76MB 0.1s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.1256155Z #5 sha256:ac323bdaa10f869bd9e7adecd8f5326e44acc4c59168868108b1cdf3891089cc 41.94MB / 55.09MB 0.2s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.1257225Z #5 sha256:c6f58f24df78e3aabf785017c3197c2a09fd606e7f19a830a1cfde41f681f39e 9.53MB / 196.99MB 0.2s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.2256574Z #5 sha256:b3ff24b88ad3798f817849ad391d809ece121dc9b7f82f24bb68eed84561f048 54.59MB / 54.59MB 0.3s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.2262454Z #5 sha256:ac323bdaa10f869bd9e7adecd8f5326e44acc4c59168868108b1cdf3891089cc 55.09MB / 55.09MB 0.3s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.2265452Z #5 sha256:c6f58f24df78e3aabf785017c3197c2a09fd606e7f19a830a1cfde41f681f39e 29.36MB / 196.99MB 0.3s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.2266781Z #5 extracting sha256:ac323bdaa10f869bd9e7adecd8f5326e44acc4c59168868108b1cdf3891089cc
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.2267926Z #5 sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1 32B / 32B 0.3s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.2269124Z #5 sha256:9f9b29a4bb02782e9ef637948482cf6186b2cfea4bfecee192ad953107a7b130 3.15MB / 80.86MB 0.3s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.4157656Z #5 sha256:b3ff24b88ad3798f817849ad391d809ece121dc9b7f82f24bb68eed84561f048 54.59MB / 54.59MB 0.3s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.4160880Z #5 sha256:c6f58f24df78e3aabf785017c3197c2a09fd606e7f19a830a1cfde41f681f39e 54.53MB / 196.99MB 0.4s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.4162156Z #5 sha256:9f9b29a4bb02782e9ef637948482cf6186b2cfea4bfecee192ad953107a7b130 38.68MB / 80.86MB 0.4s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.4164469Z #5 sha256:7c32381cbc15887afa5092d985e48bd3ce82af22ca1c343be2fcb39d4caa2143 1.56MB / 1.56MB 0.3s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.4165993Z #5 sha256:5715d6ba5c0ffccc0bcdf9d1d2dd8ce68b580cd2f45d982886db8fe278df83b9 6.29MB / 72.28MB 0.4s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.5240349Z #5 sha256:c6f58f24df78e3aabf785017c3197c2a09fd606e7f19a830a1cfde41f681f39e 85.98MB / 196.99MB 0.6s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.5241728Z #5 sha256:9f9b29a4bb02782e9ef637948482cf6186b2cfea4bfecee192ad953107a7b130 80.86MB / 80.86MB 0.6s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.5242955Z #5 sha256:5715d6ba5c0ffccc0bcdf9d1d2dd8ce68b580cd2f45d982886db8fe278df83b9 38.80MB / 72.28MB 0.6s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.5244188Z #5 sha256:095fb23ecbf649df312cb6981dd528233a1af3d4a040165bcc0c37590c9e62a4 115.53kB / 115.53kB 0.6s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.6345095Z #5 sha256:c6f58f24df78e3aabf785017c3197c2a09fd606e7f19a830a1cfde41f681f39e 103.81MB / 196.99MB 0.7s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.6346514Z #5 sha256:5715d6ba5c0ffccc0bcdf9d1d2dd8ce68b580cd2f45d982886db8fe278df83b9 57.67MB / 72.28MB 0.7s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.6347718Z #5 sha256:218a528d080a1bebdabe150b46ac3853b986c047c42f1f5b42c3544b7fdfe841 1.16MB / 1.16MB 0.6s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.6348918Z #5 sha256:e8e496d4f914a3099ff9504db622ffe27eddc493f797c4705b0bddc6683bb9f8 643.40kB / 643.40kB 0.6s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.6350168Z #5 sha256:2b22defda84c5a2fffe4ed153f8a3323fc7215a67b9bd62a7d66a7c56f5e8b9a 11.53MB / 34.82MB 0.7s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.7412456Z #5 sha256:c6f58f24df78e3aabf785017c3197c2a09fd606e7f19a830a1cfde41f681f39e 122.68MB / 196.99MB 0.8s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.7417699Z #5 sha256:5715d6ba5c0ffccc0bcdf9d1d2dd8ce68b580cd2f45d982886db8fe278df83b9 72.28MB / 72.28MB 0.8s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.7419034Z #5 sha256:2b22defda84c5a2fffe4ed153f8a3323fc7215a67b9bd62a7d66a7c56f5e8b9a 34.82MB / 34.82MB 0.8s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.8465320Z #5 sha256:c6f58f24df78e3aabf785017c3197c2a09fd606e7f19a830a1cfde41f681f39e 159.38MB / 196.99MB 0.9s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.8468273Z #5 sha256:5715d6ba5c0ffccc0bcdf9d1d2dd8ce68b580cd2f45d982886db8fe278df83b9 72.28MB / 72.28MB 0.8s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.8470885Z #5 sha256:2b22defda84c5a2fffe4ed153f8a3323fc7215a67b9bd62a7d66a7c56f5e8b9a 34.82MB / 34.82MB 0.8s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.8473625Z #5 sha256:fc089199951098f589969385263430a7644c55e648f3691c2522efbcd5ff36d9 169B / 169B 0.9s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.8475422Z #5 sha256:4c6a44587e13e5c37d3f6d6f61aad47cb49baa4e5b6b11aa02e8c83a6b5b4d3d 168B / 168B 0.8s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:01.9476765Z #5 sha256:c6f58f24df78e3aabf785017c3197c2a09fd606e7f19a830a1cfde41f681f39e 189.10MB / 196.99MB 1.0s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:02.2978422Z #5 sha256:c6f58f24df78e3aabf785017c3197c2a09fd606e7f19a830a1cfde41f681f39e 196.99MB / 196.99MB 1.2s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:03.2058674Z #5 extracting sha256:ac323bdaa10f869bd9e7adecd8f5326e44acc4c59168868108b1cdf3891089cc 2.0s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:03.3307828Z #5 extracting sha256:84811b2a563b9003abbd1c06f6e45a857315b931855030bdd0443d13d950a996 0.1s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:03.7833216Z #5 extracting sha256:84811b2a563b9003abbd1c06f6e45a857315b931855030bdd0443d13d950a996 0.4s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:03.8694171Z #5 extracting sha256:b3ff24b88ad3798f817849ad391d809ece121dc9b7f82f24bb68eed84561f048
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:05.8969634Z #5 extracting sha256:b3ff24b88ad3798f817849ad391d809ece121dc9b7f82f24bb68eed84561f048 1.9s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:05.9988486Z #5 extracting sha256:c6f58f24df78e3aabf785017c3197c2a09fd606e7f19a830a1cfde41f681f39e
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:10.7078364Z #5 extracting sha256:c6f58f24df78e3aabf785017c3197c2a09fd606e7f19a830a1cfde41f681f39e 4.7s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:11.8260481Z #5 extracting sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:11.9610473Z #5 extracting sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1 done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:11.9611928Z #5 extracting sha256:9f9b29a4bb02782e9ef637948482cf6186b2cfea4bfecee192ad953107a7b130 0.1s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:14.4961661Z #5 extracting sha256:9f9b29a4bb02782e9ef637948482cf6186b2cfea4bfecee192ad953107a7b130 2.5s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:14.6740003Z #5 extracting sha256:7c32381cbc15887afa5092d985e48bd3ce82af22ca1c343be2fcb39d4caa2143
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:14.9214076Z #5 extracting sha256:7c32381cbc15887afa5092d985e48bd3ce82af22ca1c343be2fcb39d4caa2143 0.1s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:14.9215807Z #5 extracting sha256:5715d6ba5c0ffccc0bcdf9d1d2dd8ce68b580cd2f45d982886db8fe278df83b9 0.1s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:15.8736659Z #5 extracting sha256:5715d6ba5c0ffccc0bcdf9d1d2dd8ce68b580cd2f45d982886db8fe278df83b9 0.9s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:15.9451723Z #5 extracting sha256:095fb23ecbf649df312cb6981dd528233a1af3d4a040165bcc0c37590c9e62a4
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:16.0664929Z #5 extracting sha256:095fb23ecbf649df312cb6981dd528233a1af3d4a040165bcc0c37590c9e62a4 done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:16.0666270Z #5 extracting sha256:218a528d080a1bebdabe150b46ac3853b986c047c42f1f5b42c3544b7fdfe841 0.0s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:16.0667392Z #5 extracting sha256:e8e496d4f914a3099ff9504db622ffe27eddc493f797c4705b0bddc6683bb9f8 0.0s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:16.1873460Z #5 extracting sha256:2b22defda84c5a2fffe4ed153f8a3323fc7215a67b9bd62a7d66a7c56f5e8b9a 0.1s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:16.5043052Z #5 extracting sha256:2b22defda84c5a2fffe4ed153f8a3323fc7215a67b9bd62a7d66a7c56f5e8b9a 0.4s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:16.5044602Z #5 extracting sha256:4c6a44587e13e5c37d3f6d6f61aad47cb49baa4e5b6b11aa02e8c83a6b5b4d3d
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:16.7412929Z #5 extracting sha256:4c6a44587e13e5c37d3f6d6f61aad47cb49baa4e5b6b11aa02e8c83a6b5b4d3d done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:16.7413930Z #5 extracting sha256:fc089199951098f589969385263430a7644c55e648f3691c2522efbcd5ff36d9 done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:16.7414598Z #5 DONE 15.7s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:16.7415019Z 
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:16.7415212Z #6 [2/2] COPY entrypoint.sh /entrypoint.sh
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:16.7415696Z #6 DONE 0.0s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:16.7415939Z 
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:16.7416077Z #7 exporting to image
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:16.7416579Z #7 exporting layers
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:17.7756937Z #7 exporting layers 1.2s done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:17.8015982Z #7 writing image sha256:0d1edba8f5fce9252e6bfb8599ce8a0eca68f99a9ce5e944f30a51c4b6ec6850 done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:17.8017060Z #7 naming to docker.io/library/1d1de7:1babe845a3bd49948437b31f158eb448 done
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:17.8017705Z #7 DONE 1.2s
+Build and Deploy	Build Azure/static-web-apps-deploy@v1	2025-07-21T10:58:17.8067427Z ##[endgroup]
+Build and Deploy	Run actions/checkout@v4	﻿2025-07-21T10:58:17.8323086Z ##[group]Run actions/checkout@v4
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.8323637Z with:
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.8323839Z   submodules: true
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.8324041Z   lfs: false
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.8324264Z   repository: LM-Fabs/M365AssessmentFramework
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.8324717Z   token: ***
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.8325085Z   ssh-strict: true
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.8325284Z   ssh-user: git
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.8325479Z   persist-credentials: true
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.8325714Z   clean: true
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.8325926Z   sparse-checkout-cone-mode: true
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.8326168Z   fetch-depth: 1
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.8326382Z   fetch-tags: false
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.8326579Z   show-progress: true
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.8326786Z   set-safe-directory: true
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.8327216Z ##[endgroup]
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9399549Z Syncing repository: LM-Fabs/M365AssessmentFramework
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9400916Z ##[group]Getting Git version info
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9401430Z Working directory is '/home/runner/work/M365AssessmentFramework/M365AssessmentFramework'
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9402230Z [command]/usr/bin/git version
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9408743Z git version 2.50.1
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9434590Z ##[endgroup]
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9449432Z Temporarily overriding HOME='/home/runner/work/_temp/5b1d5cde-fced-4005-8379-824dbbb4b443' before making global git config changes
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9450391Z Adding repository directory to the temporary git global config as a safe directory
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9462841Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/M365AssessmentFramework/M365AssessmentFramework
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9496521Z Deleting the contents of '/home/runner/work/M365AssessmentFramework/M365AssessmentFramework'
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9500019Z ##[group]Initializing the repository
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9504071Z [command]/usr/bin/git init /home/runner/work/M365AssessmentFramework/M365AssessmentFramework
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9568361Z hint: Using 'master' as the name for the initial branch. This default branch name
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9569331Z hint: is subject to change. To configure the initial branch name to use in all
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9570208Z hint: of your new repositories, which will suppress this warning, call:
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9570869Z hint:
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9571344Z hint: 	git config --global init.defaultBranch <name>
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9571890Z hint:
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9572406Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9573227Z hint: 'development'. The just-created branch can be renamed via this command:
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9573696Z hint:
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9573990Z hint: 	git branch -m <name>
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9574293Z hint:
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9574682Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9575670Z Initialized empty Git repository in /home/runner/work/M365AssessmentFramework/M365AssessmentFramework/.git/
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9582884Z [command]/usr/bin/git remote add origin https://github.com/LM-Fabs/M365AssessmentFramework
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9662970Z ##[endgroup]
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9663422Z ##[group]Disabling automatic garbage collection
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9667737Z [command]/usr/bin/git config --local gc.auto 0
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9696692Z ##[endgroup]
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9697251Z ##[group]Setting up auth
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9703606Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:17.9733071Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:18.0014736Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:18.0044213Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:18.0268286Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:18.0304601Z ##[endgroup]
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:18.0305445Z ##[group]Fetching the repository
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:18.0322251Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +9d5e24645debfe8af75e22a654c49cf5e49aecd2:refs/remotes/origin/main
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:26.9096429Z From https://github.com/LM-Fabs/M365AssessmentFramework
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:26.9097261Z  * [new ref]           9d5e24645debfe8af75e22a654c49cf5e49aecd2 -> origin/main
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:26.9122738Z ##[endgroup]
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:26.9123368Z ##[group]Determining the checkout info
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:26.9125117Z ##[endgroup]
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:26.9131549Z [command]/usr/bin/git sparse-checkout disable
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:26.9215816Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:26.9242432Z ##[group]Checking out the ref
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:26.9247651Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:28.6069262Z Updating files:  24% (14895/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:29.0028447Z Updating files:  25% (15349/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:29.3554682Z Updating files:  25% (15650/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:30.0074214Z Updating files:  26% (15963/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:30.1658060Z Updating files:  26% (16318/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:30.5423518Z Updating files:  27% (16577/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:30.8079317Z Updating files:  28% (17191/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.0231924Z Updating files:  29% (17805/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.0273466Z Updating files:  29% (18352/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.1840085Z Updating files:  30% (18419/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.3710955Z Updating files:  31% (19033/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.4460281Z Updating files:  32% (19647/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.4816873Z Updating files:  33% (20261/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.5142251Z Updating files:  34% (20875/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.5435133Z Updating files:  35% (21489/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.5785359Z Updating files:  36% (22103/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.6012250Z Updating files:  37% (22717/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.6209918Z Updating files:  38% (23331/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.6392625Z Updating files:  39% (23945/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.6592133Z Updating files:  40% (24558/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.6828482Z Updating files:  41% (25172/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.7027618Z Updating files:  42% (25786/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.7216432Z Updating files:  43% (26400/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.7405664Z Updating files:  44% (27014/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.7605489Z Updating files:  45% (27628/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.7821600Z Updating files:  46% (28242/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.8060204Z Updating files:  47% (28856/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.8269978Z Updating files:  48% (29470/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.8672581Z Updating files:  49% (30084/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.9025072Z Updating files:  50% (30698/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.9257645Z Updating files:  51% (31312/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.9492187Z Updating files:  52% (31926/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.9783334Z Updating files:  53% (32540/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:31.9803485Z Updating files:  54% (33154/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.0146063Z Updating files:  54% (33185/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.0381369Z Updating files:  55% (33768/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.0614543Z Updating files:  56% (34382/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.0869567Z Updating files:  57% (34996/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.1216789Z Updating files:  58% (35610/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.1496200Z Updating files:  59% (36224/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.1814621Z Updating files:  60% (36837/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.2037980Z Updating files:  61% (37451/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.2256689Z Updating files:  62% (38065/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.2476963Z Updating files:  63% (38679/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.2778874Z Updating files:  64% (39293/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.3097737Z Updating files:  65% (39907/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.3415270Z Updating files:  66% (40521/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.3812580Z Updating files:  67% (41135/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.4108224Z Updating files:  68% (41749/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.4420344Z Updating files:  69% (42363/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.4964681Z Updating files:  70% (42977/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.5279697Z Updating files:  71% (43591/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.5577555Z Updating files:  72% (44205/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.5828260Z Updating files:  73% (44819/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.6099649Z Updating files:  74% (45433/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.6412239Z Updating files:  75% (46047/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.6828340Z Updating files:  76% (46661/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.7174670Z Updating files:  77% (47275/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.7420844Z Updating files:  78% (47889/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.7763260Z Updating files:  79% (48503/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.8105227Z Updating files:  80% (49116/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.8463169Z Updating files:  81% (49730/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.8823780Z Updating files:  82% (50344/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.9341113Z Updating files:  83% (50958/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.9608139Z Updating files:  84% (51572/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:32.9804428Z Updating files:  85% (52186/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.0153750Z Updating files:  85% (52506/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.0394642Z Updating files:  86% (52800/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.0610383Z Updating files:  87% (53414/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.0849531Z Updating files:  88% (54028/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.1137867Z Updating files:  89% (54642/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.1467204Z Updating files:  90% (55256/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.1768145Z Updating files:  91% (55870/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.2274384Z Updating files:  92% (56484/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.4831609Z Updating files:  93% (57098/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.5096493Z Updating files:  94% (57712/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.5430509Z Updating files:  95% (58326/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.5838247Z Updating files:  96% (58940/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.6182608Z Updating files:  97% (59554/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.6457330Z Updating files:  98% (60168/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.6806218Z Updating files:  99% (60782/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.6806805Z Updating files: 100% (61395/61395)
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.6807330Z Updating files: 100% (61395/61395), done.
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.7551284Z Switched to a new branch 'main'
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.7553476Z branch 'main' set up to track 'origin/main'.
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.7694653Z ##[endgroup]
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.7695684Z ##[group]Setting up auth for fetching submodules
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.7701797Z [command]/usr/bin/git config --global http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.7739949Z [command]/usr/bin/git config --global --unset-all url.https://github.com/.insteadOf
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.7769560Z [command]/usr/bin/git config --global --add url.https://github.com/.insteadOf git@github.com:
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.7802050Z [command]/usr/bin/git config --global --add url.https://github.com/.insteadOf org-206868809@github.com:
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.7827120Z ##[endgroup]
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.7827751Z ##[group]Fetching submodules
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.7831876Z [command]/usr/bin/git submodule sync
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.8112688Z [command]/usr/bin/git -c protocol.version=2 submodule update --init --force --depth=1
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.8405468Z [command]/usr/bin/git submodule foreach git config --local gc.auto 0
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.8691985Z ##[endgroup]
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.8692707Z ##[group]Persisting credentials for submodules
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.8699004Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'url\.https\:\/\/github\.com\/\.insteadOf' && git config --local --unset-all 'url.https://github.com/.insteadOf' || :"
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.8993802Z [command]/usr/bin/git submodule foreach sh -c "git config --local 'http.https://github.com/.extraheader' 'AUTHORIZATION: basic ***' && git config --local --show-origin --name-only --get-regexp remote.origin.url"
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.9280524Z [command]/usr/bin/git submodule foreach git config --local --add 'url.https://github.com/.insteadOf' 'git@github.com:'
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.9576732Z [command]/usr/bin/git submodule foreach git config --local --add 'url.https://github.com/.insteadOf' 'org-206868809@github.com:'
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.9863933Z ##[endgroup]
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.9902545Z [command]/usr/bin/git log -1 --format=%H
+Build and Deploy	Run actions/checkout@v4	2025-07-21T10:58:33.9924938Z 9d5e24645debfe8af75e22a654c49cf5e49aecd2
+Build and Deploy	Set up Node.js	﻿2025-07-21T10:58:34.0123611Z ##[group]Run actions/setup-node@v4
+Build and Deploy	Set up Node.js	2025-07-21T10:58:34.0123901Z with:
+Build and Deploy	Set up Node.js	2025-07-21T10:58:34.0124107Z   node-version: 20.x
+Build and Deploy	Set up Node.js	2025-07-21T10:58:34.0124310Z   cache: npm
+Build and Deploy	Set up Node.js	2025-07-21T10:58:34.0125123Z   cache-dependency-path: m365-security-assessment/m365-assessment-framework/package-lock.json
+Build and Deploy	Set up Node.js	m365-security-assessment/m365-assessment-framework/api/package-lock.json
+Build and Deploy	Set up Node.js	
+Build and Deploy	Set up Node.js	2025-07-21T10:58:34.0125828Z   always-auth: false
+Build and Deploy	Set up Node.js	2025-07-21T10:58:34.0126031Z   check-latest: false
+Build and Deploy	Set up Node.js	2025-07-21T10:58:34.0126371Z   token: ***
+Build and Deploy	Set up Node.js	2025-07-21T10:58:34.0126548Z ##[endgroup]
+Build and Deploy	Set up Node.js	2025-07-21T10:58:34.2058665Z Found in cache @ /opt/hostedtoolcache/node/20.19.3/x64
+Build and Deploy	Set up Node.js	2025-07-21T10:58:34.2065713Z ##[group]Environment details
+Build and Deploy	Set up Node.js	2025-07-21T10:58:36.0574226Z node: v20.19.3
+Build and Deploy	Set up Node.js	2025-07-21T10:58:36.0574536Z npm: 10.8.2
+Build and Deploy	Set up Node.js	2025-07-21T10:58:36.0574758Z yarn: 1.22.22
+Build and Deploy	Set up Node.js	2025-07-21T10:58:36.0575509Z ##[endgroup]
+Build and Deploy	Set up Node.js	2025-07-21T10:58:36.0595432Z [command]/opt/hostedtoolcache/node/20.19.3/x64/bin/npm config get cache
+Build and Deploy	Set up Node.js	2025-07-21T10:58:36.3081793Z /home/runner/.npm
+Build and Deploy	Set up Node.js	2025-07-21T10:58:36.7066195Z Cache hit for: node-cache-Linux-x64-npm-2e8a3c934cd980da7555271417d49aaa44b555baefdd48e074fad4c7d7742f80
+Build and Deploy	Set up Node.js	2025-07-21T10:58:38.0108870Z Received 4194304 of 65904406 (6.4%), 4.0 MBs/sec
+Build and Deploy	Set up Node.js	2025-07-21T10:58:38.7229117Z Received 65904406 of 65904406 (100.0%), 36.7 MBs/sec
+Build and Deploy	Set up Node.js	2025-07-21T10:58:38.7230603Z Cache Size: ~63 MB (65904406 B)
+Build and Deploy	Set up Node.js	2025-07-21T10:58:38.7266224Z [command]/usr/bin/tar -xf /home/runner/work/_temp/6ba5aa63-7a53-4e16-858b-863b385102a6/cache.tzst -P -C /home/runner/work/M365AssessmentFramework/M365AssessmentFramework --use-compress-program unzstd
+Build and Deploy	Set up Node.js	2025-07-21T10:58:39.1590924Z Cache restored successfully
+Build and Deploy	Set up Node.js	2025-07-21T10:58:39.1746623Z Cache restored from key: node-cache-Linux-x64-npm-2e8a3c934cd980da7555271417d49aaa44b555baefdd48e074fad4c7d7742f80
+Build and Deploy	Install frontend dependencies	﻿2025-07-21T10:58:39.1891230Z ##[group]Run npm ci
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:39.1891511Z [36;1mnpm ci[0m
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:39.2195534Z shell: /usr/bin/bash -e {0}
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:39.2195818Z ##[endgroup]
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:48.6470565Z npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:48.7109410Z npm warn deprecated stable@0.1.8: Modern JS already guarantees Array#sort() is a stable sort, so this library is deprecated. See the compatibility table on MDN: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort#browser_compatibility
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:48.7665569Z npm warn deprecated @babel/plugin-proposal-private-methods@7.18.6: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-private-methods instead.
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:48.7668991Z npm warn deprecated @babel/plugin-proposal-numeric-separator@7.18.6: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-numeric-separator instead.
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:48.7671381Z npm warn deprecated @babel/plugin-proposal-nullish-coalescing-operator@7.18.6: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-nullish-coalescing-operator instead.
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:48.7674624Z npm warn deprecated @babel/plugin-proposal-class-properties@7.18.6: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-class-properties instead.
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:48.8711651Z npm warn deprecated rimraf@2.7.1: Rimraf versions prior to v4 are no longer supported
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:48.8880886Z npm warn deprecated rollup-plugin-terser@7.0.2: This package has been deprecated and is no longer maintained. Please use @rollup/plugin-terser
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:48.9224679Z npm warn deprecated @humanwhocodes/config-array@0.13.0: Use @eslint/config-array instead
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:48.9588660Z npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:48.9856848Z npm warn deprecated abab@2.0.6: Use your platform's native atob() and btoa() methods instead
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:48.9979034Z npm warn deprecated @babel/plugin-proposal-optional-chaining@7.21.0: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-optional-chaining instead.
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:49.0135108Z npm warn deprecated @babel/plugin-proposal-private-property-in-object@7.21.11: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-private-property-in-object instead.
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:49.1547923Z npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:49.1680279Z npm warn deprecated @humanwhocodes/object-schema@2.0.3: Use @eslint/object-schema instead
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:49.2106602Z npm warn deprecated domexception@2.0.1: Use your platform's native DOMException instead
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:49.2396346Z npm warn deprecated w3c-hr-time@1.0.2: Use your platform's native performance.now() and performance.timeOrigin.
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:49.2884188Z npm warn deprecated q@1.5.1: You or someone you depend on is using Q, the JavaScript Promise library that gave JavaScript developers strong feelings about promises. They can almost certainly migrate to the native JavaScript promise now. Thank you literally everyone for joining me in this bet against the odds. Be excellent to each other.
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:49.2886312Z npm warn deprecated
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:49.2886967Z npm warn deprecated (For a CapTP with native promises, see @endo/eventual-send and @endo/captp)
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:49.3431551Z npm warn deprecated sourcemap-codec@1.4.8: Please use @jridgewell/sourcemap-codec instead
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:49.8596133Z npm warn deprecated sudo-prompt@8.2.5: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:49.9402658Z npm warn deprecated workbox-cacheable-response@6.6.0: workbox-background-sync@6.6.0
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:50.0476676Z npm warn deprecated workbox-google-analytics@6.6.0: It is not compatible with newer versions of GA starting with v4, as long as you are using GAv3 it should be ok, but the package is not longer being maintained
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:50.8474004Z npm warn deprecated svgo@1.3.2: This SVGO version is no longer supported. Upgrade to v2.x.x.
+Build and Deploy	Install frontend dependencies	2025-07-21T10:58:52.7662678Z npm warn deprecated eslint@8.57.1: This version is no longer supported. Please see https://eslint.org/version-support for other options.
+Build and Deploy	Install frontend dependencies	2025-07-21T10:59:13.2270051Z 
+Build and Deploy	Install frontend dependencies	2025-07-21T10:59:13.2271119Z added 1753 packages, and audited 1754 packages in 34s
+Build and Deploy	Install frontend dependencies	2025-07-21T10:59:13.2278065Z 
+Build and Deploy	Install frontend dependencies	2025-07-21T10:59:13.2278491Z 300 packages are looking for funding
+Build and Deploy	Install frontend dependencies	2025-07-21T10:59:13.2279068Z   run `npm fund` for details
+Build and Deploy	Install frontend dependencies	2025-07-21T10:59:13.2443851Z 
+Build and Deploy	Install frontend dependencies	2025-07-21T10:59:13.2444527Z 22 vulnerabilities (4 low, 8 moderate, 10 high)
+Build and Deploy	Install frontend dependencies	2025-07-21T10:59:13.2445166Z 
+Build and Deploy	Install frontend dependencies	2025-07-21T10:59:13.2445571Z To address issues that do not require attention, run:
+Build and Deploy	Install frontend dependencies	2025-07-21T10:59:13.2446670Z   npm audit fix
+Build and Deploy	Install frontend dependencies	2025-07-21T10:59:13.2446901Z 
+Build and Deploy	Install frontend dependencies	2025-07-21T10:59:13.2447297Z To address all issues (including breaking changes), run:
+Build and Deploy	Install frontend dependencies	2025-07-21T10:59:13.2447904Z   npm audit fix --force
+Build and Deploy	Install frontend dependencies	2025-07-21T10:59:13.2448173Z 
+Build and Deploy	Install frontend dependencies	2025-07-21T10:59:13.2448375Z Run `npm audit` for details.
+Build and Deploy	Install API dependencies	﻿2025-07-21T10:59:13.3185465Z ##[group]Run npm ci
+Build and Deploy	Install API dependencies	2025-07-21T10:59:13.3185770Z [36;1mnpm ci[0m
+Build and Deploy	Install API dependencies	2025-07-21T10:59:13.3217381Z shell: /usr/bin/bash -e {0}
+Build and Deploy	Install API dependencies	2025-07-21T10:59:13.3217777Z ##[endgroup]
+Build and Deploy	Install API dependencies	2025-07-21T10:59:16.2351192Z 
+Build and Deploy	Install API dependencies	2025-07-21T10:59:16.2352074Z > m365-assessment-api@1.0.0 postinstall
+Build and Deploy	Install API dependencies	2025-07-21T10:59:16.2352640Z > npm run build
+Build and Deploy	Install API dependencies	2025-07-21T10:59:16.2352860Z 
+Build and Deploy	Install API dependencies	2025-07-21T10:59:16.3580967Z 
+Build and Deploy	Install API dependencies	2025-07-21T10:59:16.3581761Z > m365-assessment-api@1.0.0 build
+Build and Deploy	Install API dependencies	2025-07-21T10:59:16.3583288Z > tsc
+Build and Deploy	Install API dependencies	2025-07-21T10:59:16.3583503Z 
+Build and Deploy	Install API dependencies	2025-07-21T10:59:19.0875072Z 
+Build and Deploy	Install API dependencies	2025-07-21T10:59:19.0876339Z added 124 packages, and audited 125 packages in 6s
+Build and Deploy	Install API dependencies	2025-07-21T10:59:19.0876663Z 
+Build and Deploy	Install API dependencies	2025-07-21T10:59:19.0876877Z 26 packages are looking for funding
+Build and Deploy	Install API dependencies	2025-07-21T10:59:19.0877402Z   run `npm fund` for details
+Build and Deploy	Install API dependencies	2025-07-21T10:59:19.0887335Z 
+Build and Deploy	Install API dependencies	2025-07-21T10:59:19.0887628Z found 0 vulnerabilities
+Build and Deploy	Build And Deploy	﻿2025-07-21T10:59:19.1180548Z ##[group]Run Azure/static-web-apps-deploy@v1
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1180872Z with:
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1181558Z   azure_static_web_apps_api_token: ***
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1181962Z   repo_token: ***
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1182171Z   action: upload
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1182469Z   app_location: m365-security-assessment/m365-assessment-framework
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1182915Z   api_location: m365-security-assessment/m365-assessment-framework/api
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1183268Z   output_location: build
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1183492Z   skip_app_build: false
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1183702Z   skip_api_build: false
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1183901Z env:
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1184071Z   NODE_VERSION: 20
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1184278Z   WEBSITE_NODE_DEFAULT_VERSION: 20
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1184534Z   FUNCTIONS_EXTENSION_VERSION: ~4
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1185006Z   FUNCTIONS_WORKER_RUNTIME: node
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1185337Z   AZURE_FUNCTIONS_ENVIRONMENT: production
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1185609Z   REACT_APP_API_URL: /api
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1185891Z   REACT_APP_CLIENT_ID: d1cc9e16-9194-4892-92c5-473c9f65dcb3
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1186323Z   POSTGRES_HOST: psql-c6qdbpkda5cvs.postgres.database.azure.com
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1186661Z   POSTGRES_PORT: 5432
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1186882Z   POSTGRES_DATABASE: m365_assessment
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1187141Z   POSTGRES_USER: assessment_admin
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1187437Z   POSTGRES_PASSWORD: ***
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1187706Z   AZURE_CLIENT_ID: ***
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1188025Z   AZURE_CLIENT_SECRET: ***
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1188297Z   AZURE_TENANT_ID: ***
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1188497Z ##[endgroup]
+Build and Deploy	Build And Deploy	2025-07-21T10:59:19.1282027Z ##[command]/usr/bin/docker run --name d1de71babe845a3bd49948437b31f158eb448_fdb27b --label 1d1de7 --workdir /github/workspace --rm -e "NODE_VERSION" -e "WEBSITE_NODE_DEFAULT_VERSION" -e "FUNCTIONS_EXTENSION_VERSION" -e "FUNCTIONS_WORKER_RUNTIME" -e "AZURE_FUNCTIONS_ENVIRONMENT" -e "REACT_APP_API_URL" -e "REACT_APP_CLIENT_ID" -e "POSTGRES_HOST" -e "POSTGRES_PORT" -e "POSTGRES_DATABASE" -e "POSTGRES_USER" -e "POSTGRES_PASSWORD" -e "AZURE_CLIENT_ID" -e "AZURE_CLIENT_SECRET" -e "AZURE_TENANT_ID" -e "INPUT_AZURE_STATIC_WEB_APPS_API_TOKEN" -e "INPUT_REPO_TOKEN" -e "INPUT_ACTION" -e "INPUT_APP_LOCATION" -e "INPUT_API_LOCATION" -e "INPUT_OUTPUT_LOCATION" -e "INPUT_SKIP_APP_BUILD" -e "INPUT_SKIP_API_BUILD" -e "INPUT_API_BUILD_COMMAND" -e "INPUT_APP_ARTIFACT_LOCATION" -e "INPUT_APP_BUILD_COMMAND" -e "INPUT_ROUTES_LOCATION" -e "INPUT_CONFIG_FILE_LOCATION" -e "INPUT_PRODUCTION_BRANCH" -e "INPUT_DEPLOYMENT_ENVIRONMENT" -e "INPUT_IS_STATIC_EXPORT" -e "INPUT_DATA_API_LOCATION" -e "INPUT_GITHUB_ID_TOKEN" -e "HOME" -e "GITHUB_JOB" -e "GITHUB_REF" -e "GITHUB_SHA" -e "GITHUB_REPOSITORY" -e "GITHUB_REPOSITORY_OWNER" -e "GITHUB_REPOSITORY_OWNER_ID" -e "GITHUB_RUN_ID" -e "GITHUB_RUN_NUMBER" -e "GITHUB_RETENTION_DAYS" -e "GITHUB_RUN_ATTEMPT" -e "GITHUB_ACTOR_ID" -e "GITHUB_ACTOR" -e "GITHUB_WORKFLOW" -e "GITHUB_HEAD_REF" -e "GITHUB_BASE_REF" -e "GITHUB_EVENT_NAME" -e "GITHUB_SERVER_URL" -e "GITHUB_API_URL" -e "GITHUB_GRAPHQL_URL" -e "GITHUB_REF_NAME" -e "GITHUB_REF_PROTECTED" -e "GITHUB_REF_TYPE" -e "GITHUB_WORKFLOW_REF" -e "GITHUB_WORKFLOW_SHA" -e "GITHUB_REPOSITORY_ID" -e "GITHUB_TRIGGERING_ACTOR" -e "GITHUB_WORKSPACE" -e "GITHUB_ACTION" -e "GITHUB_EVENT_PATH" -e "GITHUB_ACTION_REPOSITORY" -e "GITHUB_ACTION_REF" -e "GITHUB_PATH" -e "GITHUB_ENV" -e "GITHUB_STEP_SUMMARY" -e "GITHUB_STATE" -e "GITHUB_OUTPUT" -e "RUNNER_OS" -e "RUNNER_ARCH" -e "RUNNER_NAME" -e "RUNNER_ENVIRONMENT" -e "RUNNER_TOOL_CACHE" -e "RUNNER_TEMP" -e "RUNNER_WORKSPACE" -e "ACTIONS_RUNTIME_URL" -e "ACTIONS_RUNTIME_TOKEN" -e "ACTIONS_CACHE_URL" -e "ACTIONS_RESULTS_URL" -e GITHUB_ACTIONS=true -e CI=true -v "/var/run/docker.sock":"/var/run/docker.sock" -v "/home/runner/work/_temp/_github_home":"/github/home" -v "/home/runner/work/_temp/_github_workflow":"/github/workflow" -v "/home/runner/work/_temp/_runner_file_commands":"/github/file_commands" -v "/home/runner/work/M365AssessmentFramework/M365AssessmentFramework":"/github/workspace" 1d1de7:1babe845a3bd49948437b31f158eb448
+Build and Deploy	Build And Deploy	2025-07-21T10:59:20.2055556Z DeploymentId: 593c2e8e-22b0-4bae-b649-03a0c969419c
+Build and Deploy	Build And Deploy	2025-07-21T10:59:20.2056126Z 
+Build and Deploy	Build And Deploy	2025-07-21T10:59:20.3206778Z [37mTry to validate location at: '/github/workspace/m365-security-assessment/m365-assessment-framework'.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:20.3218813Z [37mApp Directory Location: 'm365-security-assessment/m365-assessment-framework' was found.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:20.3220244Z [37mTry to validate location at: '/github/workspace/swa-db-connections'.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:20.3221281Z [37mLooking for event info[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:21.2860146Z [37mStarting to build app with Oryx[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:21.2862409Z [33mAzure Static Web Apps utilizes Oryx to build both static applications and Azure Functions. You can find more details on Oryx here: https://github.com/microsoft/Oryx[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:21.2863919Z [37m---Oryx build logs---[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:21.2866155Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:21.2866651Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:21.6648366Z [37mOperation performed by Microsoft Oryx, https://github.com/Microsoft/Oryx[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:21.6651771Z [37mYou can report issues at https://github.com/Microsoft/Oryx/issues[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:21.6653189Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:21.6654325Z [37mOryx Version: 0.2.20241003.1, Commit: d5352431d933306ccee1be9b5d822c73bf723e9e, ReleaseTagName: 20241003.1[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:21.6655436Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:21.6655992Z [37mBuild Operation ID: 5e53a0636cce29cd[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:21.6656572Z [37mOS Type           : bullseye[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:21.6656972Z [37mImage Type        : githubactions[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:21.6657268Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:21.6796458Z [37mDetecting platforms...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:24.2500332Z [37mDetected following platforms:[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:24.2501104Z [37m  nodejs: 20.19.3[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:24.2501623Z [37m  php: 8.0.30[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:24.2540083Z [37mVersion '20.19.3' of platform 'nodejs' is not installed. Generating script to install it...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:24.2558944Z [37mVersion '8.0.30' of platform 'php' is not installed. Generating script to install it...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:24.3053018Z [37mDetected the following frameworks: Typescript,React[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:24.3941040Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:24.4008091Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:24.4015160Z [37mSource directory     : /github/workspace/m365-security-assessment/m365-assessment-framework[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:24.4016767Z [37mDestination directory: /bin/staticsites/593c2e8e-22b0-4bae-b649-03a0c969419c-swa-oryx/app[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:24.4017642Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:24.4026166Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:24.4029680Z [37mDownloading and extracting 'nodejs' version '20.19.3' to '/tmp/oryx/platforms/nodejs/20.19.3'...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:24.4058677Z [37mDetected image debian flavor: bullseye.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:24.7183671Z [37mDownloaded in 0 sec(s).[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:24.7187501Z [37mVerifying checksum...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:24.7252116Z [37mExtracting contents...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:25.8565631Z [37mperforming sha512 checksum for: nodejs...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:25.9952100Z [37mDone in 1 sec(s).[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:25.9954431Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:25.9983923Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:25.9985480Z [37mDownloading and extracting 'php' version '8.0.30' to '/tmp/oryx/platforms/php/8.0.30'...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.0012887Z [37mDetected image debian flavor: bullseye.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.2633967Z [37mDownloaded in 0 sec(s).[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.2634708Z [37mVerifying checksum...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.2692309Z [37mExtracting contents...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.6082956Z [37mperforming sha512 checksum for: php...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.6487663Z [37mDone in 1 sec(s).[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.6488138Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.6519545Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.6526255Z [37mDownloading and extracting 'php-composer' version '2.6.2' to '/tmp/oryx/platforms/php-composer/2.6.2'...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.6549149Z [37mDetected image debian flavor: bullseye.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.7139272Z [37mDownloaded in 0 sec(s).[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.7140465Z [37mVerifying checksum...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.7199607Z [37mExtracting contents...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.7393730Z [37mperforming sha512 checksum for: php-composer...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.7444423Z [37mDone in 0 sec(s).[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.7470947Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.8160088Z [37mRemoving existing manifest file[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.8172329Z [37mCreating directory for command manifest file if it does not exist[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.8203174Z [37mCreating a manifest file...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.8207510Z [37mNode Build Command Manifest file created.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.8208542Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.8209060Z [37mUsing Node version:[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.8241050Z [37mv20.19.3[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.8251151Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.8252116Z [37mUsing Npm version:[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:26.9147999Z [37m10.8.2[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:27.6668548Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:27.6669135Z [37mRunning 'npm install'...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:27.6669637Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.6462667Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.6464388Z [37mup to date, audited 1754 packages in 3s[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.6465193Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.6465577Z [37m300 packages are looking for funding[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.6465996Z [37m  run `npm fund` for details[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.6640479Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.6648237Z [37m22 vulnerabilities (4 low, 8 moderate, 10 high)[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.6648921Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.6649683Z [37mTo address issues that do not require attention, run:[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.6650435Z [37m  npm audit fix[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.6650900Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.6651651Z [37mTo address all issues (including breaking changes), run:[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.6652399Z [37m  npm audit fix --force[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.6652728Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.6653023Z [37mRun `npm audit` for details.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.6784956Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.6785487Z [37mRunning 'npm run build'...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.6785793Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.7840807Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.7842221Z [37m> m365-assessment-framework@1.0.4 build[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.7843322Z [37m> CI=false GENERATE_SOURCEMAP=false react-scripts build[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:30.7844063Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:31.8201301Z [37mCreating an optimized production build...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:44.3410188Z [37mCompiled successfully.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:44.3420706Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:44.3427291Z [37mFile sizes after gzip:[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:44.3428721Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:44.3598501Z [37m  115.86 kB  build/static/js/main.e291cda1.js[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:44.3604424Z [37m  19.22 kB   build/static/css/main.73af4112.css[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:44.3605270Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:44.3609060Z [37mThe project was built assuming it is hosted at ./.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:44.3610147Z [37mYou can control this with the homepage field in your package.json.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:44.3610802Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:44.3611361Z [37mThe build folder is ready to be deployed.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:44.3611882Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:44.3612411Z [37mFind out more about deployment here:[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:44.3612832Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:44.3613144Z [37m  https://cra.link/deployment[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:44.3613440Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:44.4387539Z [37mPreparing output...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:44.4388118Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:44.4389367Z [37mCopying files to destination directory '/bin/staticsites/593c2e8e-22b0-4bae-b649-03a0c969419c-swa-oryx/app'...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:53.5872231Z [37mDone in 9 sec(s).[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:53.5890418Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:53.5891448Z [37mRemoving existing manifest file[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:53.5902333Z [37mCreating a manifest file...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:53.5909236Z [37mManifest file created.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:53.5915825Z [37mCopying .ostype to manifest output directory.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:53.5931913Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:53.5932371Z [37mDone in 29 sec(s).[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:53.7108605Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:53.7108924Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:53.7109258Z [37m---End of Oryx build logs---[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:53.7131857Z [37mTry to validate location at: '/bin/staticsites/593c2e8e-22b0-4bae-b649-03a0c969419c-swa-oryx/app/build'.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:53.7132756Z [37mFinished building app with Oryx[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:53.9516339Z [37mUsing 'staticwebapp.config.json' file for configuration information, 'routes.json' will be ignored.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:53.9692003Z [37mCopying 'staticwebapp.config.json' to build output[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:53.9754741Z [37mTry to validate location at: '/github/workspace/m365-security-assessment/m365-assessment-framework/api'.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:53.9756128Z [37mApi Directory Location: 'm365-security-assessment/m365-assessment-framework/api' was found.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:54.0258319Z [37mStarting to build function app with Oryx[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:54.0259263Z [37m---Oryx build logs---[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:54.0259619Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:54.0259863Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:54.3758862Z [37mOperation performed by Microsoft Oryx, https://github.com/Microsoft/Oryx[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:54.3760690Z [37mYou can report issues at https://github.com/Microsoft/Oryx/issues[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:54.3762548Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:54.3763764Z [37mOryx Version: 0.2.20241003.1, Commit: d5352431d933306ccee1be9b5d822c73bf723e9e, ReleaseTagName: 20241003.1[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:54.3764763Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:54.3771060Z [37mBuild Operation ID: cbfa9c8076c31c0e[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:54.3771791Z [37mOS Type           : bullseye[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:54.3772458Z [37mImage Type        : githubactions[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:54.3772969Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:54.3912256Z [37mDetecting platforms...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:55.6811405Z [37mDetected following platforms:[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:55.6812344Z [37m  nodejs: 18.20.8[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:55.6865195Z [37mVersion '18.20.8' of platform 'nodejs' is not installed. Generating script to install it...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:55.7346401Z [37mDetected the following frameworks: Typescript[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:55.8308317Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:55.8382324Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:55.8383304Z [37mSource directory     : /github/workspace/m365-security-assessment/m365-assessment-framework/api[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:55.8384219Z [37mDestination directory: /bin/staticsites/593c2e8e-22b0-4bae-b649-03a0c969419c-swa-oryx/api[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:55.8384701Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:55.8394698Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:55.8396432Z [37mDownloading and extracting 'nodejs' version '18.20.8' to '/tmp/oryx/platforms/nodejs/18.20.8'...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:55.8425420Z [37mDetected image debian flavor: bullseye.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:56.2898653Z [37mDownloaded in 1 sec(s).[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:56.2902417Z [37mVerifying checksum...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:56.2952432Z [37mExtracting contents...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:57.4521482Z [37mperforming sha512 checksum for: nodejs...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:57.5858716Z [37mDone in 2 sec(s).[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:57.5859229Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:57.6334624Z [37mRemoving existing manifest file[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:57.6347823Z [37mCreating directory for command manifest file if it does not exist[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:57.6375450Z [37mCreating a manifest file...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:57.6380459Z [37mNode Build Command Manifest file created.[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:57.6382346Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:57.6382828Z [37mUsing Node version:[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:57.6423099Z [37mv18.20.8[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:57.6436687Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:57.6437904Z [37mUsing Npm version:[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:57.7491364Z [37m10.8.2[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:57.7586558Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:57.7591219Z [37mInstalling production dependencies in '/github/workspace/m365-security-assessment/m365-assessment-framework/api/.oryx_prod_node_modules'...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:57.7592614Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:57.7593578Z [37mRunning 'npm install --production'...[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:57.7594167Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T10:59:57.8663906Z [31mnpm warn config production Use `--omit=dev` instead.[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:01.7204297Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:01.7205235Z [37m> m365-assessment-api@1.0.0 postinstall[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:01.7205911Z [37m> npm run build[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:01.7206358Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:01.8511853Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:01.8512592Z [37m> m365-assessment-api@1.0.0 build[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:01.8513167Z [37m> tsc[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:01.8513548Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:03.8898347Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:03.8900381Z [37madded 78 packages, and audited 79 packages in 6s[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:03.8900972Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:03.8901480Z [37m12 packages are looking for funding[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:03.8902166Z [37m  run `npm fund` for details[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:03.8909288Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:03.8913158Z [37mfound 0 vulnerabilities[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:03.9073539Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:03.9076674Z [37mCopying production dependencies from '/github/workspace/m365-security-assessment/m365-assessment-framework/api/.oryx_prod_node_modules' to '/github/workspace/m365-security-assessment/m365-assessment-framework/api/node_modules'...[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:04.2011825Z [37mDone in 1 sec(s).[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:04.3883171Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:04.3883729Z [37mRunning 'npm install'...[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:04.3884037Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:05.0402865Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:05.0403659Z [37m> m365-assessment-api@1.0.0 postinstall[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:05.0404355Z [37m> npm run build[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:05.0405008Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:05.1660510Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:05.1661060Z [37m> m365-assessment-api@1.0.0 build[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:05.1661391Z [37m> tsc[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:05.1661629Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:07.2049187Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:07.2050772Z [37mup to date, audited 125 packages in 3s[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:07.2052242Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:07.2052815Z [37m26 packages are looking for funding[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:07.2053483Z [37m  run `npm fund` for details[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:07.2062916Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:07.2063690Z [37mfound 0 vulnerabilities[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:07.2146749Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:07.2148772Z [37mRunning 'npm run build'...[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:07.2149290Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:07.3374746Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:07.3376202Z [37m> m365-assessment-api@1.0.0 build[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:07.3377038Z [37m> tsc[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:07.3377473Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:09.3573963Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:09.3576553Z [37mCopy '/github/workspace/m365-security-assessment/m365-assessment-framework/api/node_modules' with all dependencies to '/github/workspace/m365-security-assessment/m365-assessment-framework/api/.oryx_all_node_modules'...[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:10.4426433Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:10.4428341Z [37mCopying production dependencies from '/github/workspace/m365-security-assessment/m365-assessment-framework/api/.oryx_prod_node_modules/node_modules' to '/github/workspace/m365-security-assessment/m365-assessment-framework/api/node_modules'...[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:10.8209250Z [37mPreparing output...[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:10.8210379Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:10.8211966Z [37mCopying files to destination directory '/bin/staticsites/593c2e8e-22b0-4bae-b649-03a0c969419c-swa-oryx/api'...[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:12.1572032Z [37mDone in 2 sec(s).[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:12.1592042Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:12.1595093Z [37mRemoving existing manifest file[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:12.1605697Z [37mCreating a manifest file...[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:12.1609978Z [37mManifest file created.[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:12.1610835Z [37mCopying .ostype to manifest output directory.[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:12.1628274Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:12.1628753Z [37mDone in 17 sec(s).[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:12.4929863Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:12.4930161Z [37m[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:12.4930809Z [37m---End of Oryx build logs---[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:12.4933524Z [33mFunction Runtime Information. OS: linux, Functions Runtime: ~4, node version: 18[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:12.4935368Z [37mFinished building function app with Oryx[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:13.3192823Z [37mZipping Api Artifacts[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:15.2956413Z [37mDone Zipping Api Artifacts[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:16.4013441Z [37mZipping App Artifacts[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:16.4188625Z [37mDone Zipping App Artifacts[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:16.4189411Z [37mUploading build artifacts.[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:18.9683268Z [32mFinished Upload. Polling on deployment.[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:19.2113902Z [37mStatus: InProgress. Time: 0.2427089(s)[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:34.4759312Z [37mStatus: InProgress. Time: 15.5076796(s)[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:49.7276388Z [37mStatus: Succeeded. Time: 30.7593737(s)[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:49.7278388Z [32mDeployment Complete :)[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:49.7279169Z [32mVisit your site at: https://victorious-pond-069956e03.6.azurestaticapps.net[0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:49.8878014Z [37mThanks for using Azure Static Web Apps![0m
+Build and Deploy	Build And Deploy	2025-07-21T11:00:49.8880168Z [37mExiting[0m
+Build and Deploy	Post Set up Node.js	﻿2025-07-21T11:00:53.4068017Z Post job cleanup.
+Build and Deploy	Post Set up Node.js	2025-07-21T11:00:53.5586489Z Cache hit occurred on the primary key node-cache-Linux-x64-npm-2e8a3c934cd980da7555271417d49aaa44b555baefdd48e074fad4c7d7742f80, not saving cache.
+Build and Deploy	Post Run actions/checkout@v4	﻿2025-07-21T11:00:53.5690272Z Post job cleanup.
+Build and Deploy	Post Run actions/checkout@v4	2025-07-21T11:00:53.6626930Z [command]/usr/bin/git version
+Build and Deploy	Post Run actions/checkout@v4	2025-07-21T11:00:53.6662987Z git version 2.50.1
+Build and Deploy	Post Run actions/checkout@v4	2025-07-21T11:00:53.6707685Z Temporarily overriding HOME='/home/runner/work/_temp/fa1222be-709c-463e-96b0-86c3b387e8a6' before making global git config changes
+Build and Deploy	Post Run actions/checkout@v4	2025-07-21T11:00:53.6709213Z Adding repository directory to the temporary git global config as a safe directory
+Build and Deploy	Post Run actions/checkout@v4	2025-07-21T11:00:53.6714392Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/M365AssessmentFramework/M365AssessmentFramework
+Build and Deploy	Post Run actions/checkout@v4	2025-07-21T11:00:53.6749853Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Build and Deploy	Post Run actions/checkout@v4	2025-07-21T11:00:53.6782369Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Build and Deploy	Post Run actions/checkout@v4	2025-07-21T11:00:53.7075347Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Build and Deploy	Post Run actions/checkout@v4	2025-07-21T11:00:53.7103319Z http.https://github.com/.extraheader
+Build and Deploy	Post Run actions/checkout@v4	2025-07-21T11:00:53.7120546Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+Build and Deploy	Post Run actions/checkout@v4	2025-07-21T11:00:53.7156368Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Build and Deploy	Complete job	﻿2025-07-21T11:00:53.7577831Z Cleaning up orphan processes
