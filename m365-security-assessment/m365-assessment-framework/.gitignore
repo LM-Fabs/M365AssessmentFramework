@@ -13,9 +13,9 @@ app-settings.json
 .env.development
 .env.production
 
-# Build outputs
+# Build outputs (excluding api/dist for Azure Static Web Apps deployment)
 /build
-/dist
+# Note: api/dist is NOT ignored because Azure Static Web Apps needs compiled functions
 
 # Dependencies
 node_modules/
