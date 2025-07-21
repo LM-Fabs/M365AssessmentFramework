@@ -1,20 +1,21 @@
-// v3 compatible imports
+// v4 compatible imports
+import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { corsHeaders, initializeDataService, dataService } from "../shared/utils";
 
-const httpTrigger = async function (context: any, req: any): Promise<void> {
+export default async function currentAssessment(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('Processing current assessment request');
 
     // Handle preflight OPTIONS request immediately
-    if (req.method === 'OPTIONS') {
-        context.res = {
+    if (request.method === 'OPTIONS') {
+        return {
             status: 200,
             headers: corsHeaders
         };
     }
 
     // Handle HEAD request for API warmup
-    if (req.method === 'HEAD') {
-        context.res = {
+    if (request.method === 'HEAD') {
+        return {
             status: 200,
             headers: corsHeaders
         };
@@ -24,13 +25,13 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
         // Initialize data service
         await initializeDataService(context);
 
-        if (req.method === 'GET') {
+        if (request.method === 'GET') {
             // Get query parameters
-            const url = new URL(req.url);
+            const url = new URL(request.url);
             const tenantId = url.searchParams.get('tenantId');
             
             if (!tenantId) {
-                context.res = {
+                return {
                     status: 400,
                     headers: corsHeaders,
                     jsonBody: {
@@ -49,7 +50,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             });
             
             if (assessments.length === 0) {
-                context.res = {
+                return {
                     status: 404,
                     headers: corsHeaders,
                     jsonBody: {
@@ -61,7 +62,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
 
             const currentAssessment = assessments[0];
 
-            context.res = {
+            return {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
@@ -72,7 +73,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             };
         }
 
-        context.res = {
+        return {
             status: 405,
             headers: corsHeaders,
             jsonBody: {
@@ -84,7 +85,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
     } catch (error) {
         context.error('Error in current assessment handler:', error);
         
-        context.res = {
+        return {
             status: 500,
             headers: corsHeaders,
             jsonBody: {
@@ -94,6 +95,4 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             }
         };
     }
-};
-
-export default httpTrigger;
+}

@@ -1,27 +1,31 @@
-// v3 compatible imports
+import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { corsHeaders } from "../shared/utils";
 
-const httpTrigger = async function (context: any, req: any): Promise<void> {
+/**
+ * Azure Functions v4 - Best Practices endpoint
+ * Converted from v3 to v4 programming model for Azure Static Web Apps compatibility
+ */
+export default async function (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('Processing best practices request');
 
-    // Handle preflight OPTIONS request immediately
-    if (req.method === 'OPTIONS') {
-        context.res = {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
-
-    // Handle HEAD request for API warmup
-    if (req.method === 'HEAD') {
-        context.res = {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
-
     try {
-        if (req.method === 'GET') {
+        // Handle preflight OPTIONS request immediately
+        if (request.method === 'OPTIONS') {
+            return {
+                status: 200,
+                headers: corsHeaders
+            };
+        }
+
+        // Handle HEAD request for API warmup
+        if (request.method === 'HEAD') {
+            return {
+                status: 200,
+                headers: corsHeaders
+            };
+        }
+
+        if (request.method === 'GET') {
             // Return comprehensive M365 security best practices
             const bestPractices = [
                 {
@@ -98,7 +102,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
                 }
             ];
 
-            context.res = {
+            return {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
@@ -110,7 +114,8 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             };
         }
 
-        context.res = {
+        // Method not allowed
+        return {
             status: 405,
             headers: corsHeaders,
             jsonBody: {
@@ -122,7 +127,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
     } catch (error) {
         context.error('Error in best practices handler:', error);
         
-        context.res = {
+        return {
             status: 500,
             headers: corsHeaders,
             jsonBody: {
@@ -132,6 +137,4 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             }
         };
     }
-};
-
-export default httpTrigger;
+}

@@ -1,6 +1,10 @@
-// v3 compatible imports
+import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
-const httpTrigger = async function (context: any, req: any): Promise<void> {
+/**
+ * Azure Functions v4 - Assessments endpoint
+ * Converted from v3 to v4 programming model for Azure Static Web Apps compatibility
+ */
+export default async function (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('Processing assessments request');
 
     // CORS headers
@@ -13,8 +17,8 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
         'Cache-Control': 'public, max-age=60, s-maxage=60'
     };
 
-    if (req.method === 'OPTIONS') {
-        context.res = {
+    if (request.method === 'OPTIONS') {
+        return {
             status: 200,
             headers: corsHeaders
         };
@@ -22,8 +26,8 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
 
     try {
         // For now, return a simple response until we properly migrate the full logic
-        if (req.method === 'GET') {
-            context.res = {
+        if (request.method === 'GET') {
+            return {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
@@ -34,8 +38,8 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             };
         }
 
-        if (req.method === 'POST') {
-            context.res = {
+        if (request.method === 'POST') {
+            return {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
@@ -45,7 +49,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             };
         }
 
-        context.res = {
+        return {
             status: 405,
             headers: corsHeaders,
             jsonBody: {
@@ -57,7 +61,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
     } catch (error) {
         context.error('Error in assessments handler:', error);
         
-        context.res = {
+        return {
             status: 500,
             headers: corsHeaders,
             jsonBody: {
@@ -67,6 +71,4 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             }
         };
     }
-};
-
-export default httpTrigger;
+}

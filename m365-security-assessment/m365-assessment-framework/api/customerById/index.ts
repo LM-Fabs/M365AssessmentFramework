@@ -1,24 +1,32 @@
-// v3 compatible imports
+import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { corsHeaders, initializeDataService, dataService } from "../shared/utils";
 
-const httpTrigger = async function (context: any, req: any): Promise<void> {
-    context.log(`Processing ${req.method} request for customer by ID`);
-
-    // Handle preflight OPTIONS request immediately
-    if (req.method === 'OPTIONS') {
-        context.res = {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
+/**
+ * Azure Functions v4 - Customer by ID endpoint
+ * Converted from v3 to v4 programming model for Azure Static Web Apps compatibility
+ */
+export default async function (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    context.log(`Processing ${request.method} request for customer by ID`);
 
     try {
+        // Handle preflight OPTIONS request immediately
+        if (request.method === 'OPTIONS') {
+            return {
+                status: 200,
+                headers: corsHeaders
+            };
+        }
+
         // Initialize data service
         await initializeDataService(context);
 
-        const customerId = req.params.customerId;
-        if (!customerId) {
-            context.res = {
+        // Get customer ID from URL parameters
+        const url = new URL(request.url);
+        const pathSegments = url.pathname.split('/');
+        const customerId = pathSegments[pathSegments.length - 1];
+
+        if (!customerId || customerId === 'customerById') {
+            return {
                 status: 400,
                 headers: corsHeaders,
                 jsonBody: {
@@ -28,11 +36,11 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             };
         }
 
-        if (req.method === 'GET') {
+        if (request.method === 'GET') {
             const customer = await dataService.getCustomer(customerId);
             
             if (!customer) {
-                context.res = {
+                return {
                     status: 404,
                     headers: corsHeaders,
                     jsonBody: {
@@ -61,20 +69,21 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
                 notes: customer.notes
             };
 
-            context.res = {
+            return {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: transformedCustomer
             };
         }
 
-        if (req.method === 'PUT') {
+        if (request.method === 'PUT') {
             let updateData: any = {};
             
             try {
-                updateData = await req.json();
+                const body = await request.text();
+                updateData = JSON.parse(body);
             } catch (error) {
-                context.res = {
+                return {
                     status: 400,
                     headers: corsHeaders,
                     jsonBody: {
@@ -105,7 +114,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
                 notes: updatedCustomer.notes
             };
 
-            context.res = {
+            return {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
@@ -115,10 +124,10 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             };
         }
 
-        if (req.method === 'DELETE') {
+        if (request.method === 'DELETE') {
             await dataService.deleteCustomer(customerId);
             
-            context.res = {
+            return {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
@@ -128,7 +137,8 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             };
         }
 
-        context.res = {
+        // Method not allowed
+        return {
             status: 405,
             headers: corsHeaders,
             jsonBody: {
@@ -141,7 +151,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
         context.error('Error in customer by ID handler:', error);
         
         if (error instanceof Error && error.message.includes('not found')) {
-            context.res = {
+            return {
                 status: 404,
                 headers: corsHeaders,
                 jsonBody: {
@@ -151,7 +161,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             };
         }
         
-        context.res = {
+        return {
             status: 500,
             headers: corsHeaders,
             jsonBody: {
@@ -161,6 +171,4 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             }
         };
     }
-};
-
-export default httpTrigger;
+}

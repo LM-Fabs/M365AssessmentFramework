@@ -1,12 +1,13 @@
-// v3 compatible imports
+// v4 compatible imports
+import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { corsHeaders, initializeDataService, dataService } from "../shared/utils";
 
-const httpTrigger = async function (context: any, req: any): Promise<void> {
-    context.log(`Processing ${req.method} request for customer assessments`);
+export default async function customerAssessments(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    context.log(`Processing ${request.method} request for customer assessments`);
 
     // Handle preflight OPTIONS request immediately
-    if (req.method === 'OPTIONS') {
-        context.res = {
+    if (request.method === 'OPTIONS') {
+        return {
             status: 200,
             headers: corsHeaders
         };
@@ -16,9 +17,9 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
         // Initialize data service
         await initializeDataService(context);
 
-        const customerId = req.params.customerId;
+        const customerId = request.params.customerId;
         if (!customerId) {
-            context.res = {
+            return {
                 status: 400,
                 headers: corsHeaders,
                 jsonBody: {
@@ -28,9 +29,9 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             };
         }
 
-        if (req.method === 'GET') {
+        if (request.method === 'GET') {
             // Get limit from query parameters
-            const url = new URL(req.url);
+            const url = new URL(request.url);
             const limit = url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit')!) : undefined;
             
             context.log(`Getting assessments for customer ${customerId} with limit: ${limit}`);
@@ -44,7 +45,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
                 lastModified: assessment.lastModified
             }));
 
-            context.res = {
+            return {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
@@ -55,7 +56,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             };
         }
 
-        context.res = {
+        return {
             status: 405,
             headers: corsHeaders,
             jsonBody: {
@@ -68,7 +69,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
         context.error('Error in customer assessments handler:', error);
         
         if (error instanceof Error && error.message.includes('not found')) {
-            context.res = {
+            return {
                 status: 404,
                 headers: corsHeaders,
                 jsonBody: {
@@ -78,7 +79,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             };
         }
         
-        context.res = {
+        return {
             status: 500,
             headers: corsHeaders,
             jsonBody: {
@@ -88,6 +89,4 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             }
         };
     }
-};
-
-export default httpTrigger;
+}

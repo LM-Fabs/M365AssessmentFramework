@@ -1,12 +1,13 @@
-// v3 compatible imports
+// v4 compatible imports
+import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { corsHeaders, initializeDataService, dataService } from "../shared/utils";
 
-const httpTrigger = async function (context: any, req: any): Promise<void> {
+export default async function createAssessment(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('Processing create assessment request');
 
     // Handle preflight OPTIONS request immediately
-    if (req.method === 'OPTIONS') {
-        context.res = {
+    if (request.method === 'OPTIONS') {
+        return {
             status: 200,
             headers: corsHeaders
         };
@@ -16,13 +17,13 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
         // Initialize data service
         await initializeDataService(context);
 
-        if (req.method === 'POST') {
+        if (request.method === 'POST') {
             let assessmentData: any = {};
             
             try {
-                assessmentData = await req.json();
+                assessmentData = await request.json();
             } catch (error) {
-                context.res = {
+                return {
                     status: 400,
                     headers: corsHeaders,
                     jsonBody: {
@@ -36,7 +37,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
 
             // Validate required fields
             if (!assessmentData.tenantId) {
-                context.res = {
+                return {
                     status: 400,
                     headers: corsHeaders,
                     jsonBody: {
@@ -50,7 +51,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             try {
                 const assessment = await dataService.createAssessment(assessmentData);
                 
-                context.res = {
+                return {
                     status: 201,
                     headers: corsHeaders,
                     jsonBody: {
@@ -61,7 +62,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
                 };
             } catch (error) {
                 context.error('Failed to create assessment:', error);
-                context.res = {
+                return {
                     status: 500,
                     headers: corsHeaders,
                     jsonBody: {
@@ -73,7 +74,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             }
         }
 
-        context.res = {
+        return {
             status: 405,
             headers: corsHeaders,
             jsonBody: {
@@ -85,7 +86,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
     } catch (error) {
         context.error('Error in create assessment handler:', error);
         
-        context.res = {
+        return {
             status: 500,
             headers: corsHeaders,
             jsonBody: {
@@ -95,6 +96,4 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             }
         };
     }
-};
-
-export default httpTrigger;
+}
