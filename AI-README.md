@@ -191,18 +191,28 @@ cd api && npm install && npm run build
 5. **ALWAYS** use Azure Static Web Apps compatible patterns
 6. **REMEMBER** this is NOT standalone Azure Functions - it's SWA
 
-## Current Status: DEPLOYMENT CONFIGURATION FIXED ✅
+## Current Status: API DEPLOYMENT CONFIGURATION FIXES APPLIED ✅
 
-### CRITICAL DISCOVERY #2:
-**Issue**: API still returning 404 errors even after v4 conversion
-**Root Cause**: **GitHub Actions workflow forcing Functions Runtime v3** - `FUNCTIONS_EXTENSION_VERSION: "~3"` in deployment environment
-**Evidence**: Functions converted to v4 syntax but deployment configured for v3 runtime
+### CRITICAL DISCOVERY #3:
+**Issue**: API builds successfully but not visible in Azure Static Web Apps production environment
+**Root Cause**: **Configuration mismatches between deployment and runtime settings**
+**Evidence**: 
+- Deployment logs show successful API build and deployment
+- Azure portal shows production environment with "-" for Backend Type
+- Preview environment shows "Function App" as Backend Type (managed)
+
+### ADDITIONAL DEPLOYMENT FIXES APPLIED:
+1. **✅ Runtime Version Alignment** - Updated `staticwebapp.config.json` apiRuntime from "node:18" to "node:20" to match deployment environment
+2. **✅ Production Branch Specification** - Added `production_branch: "main"` to GitHub Actions workflow to ensure main branch deploys to production environment
+3. **✅ API Build Verification** - Confirmed API compiles and deploys successfully with Functions Runtime v4
+4. **✅ Environment Configuration** - All environment variables properly configured for production deployment
 
 ### DEPLOYMENT FIXES APPLIED:
 1. **✅ GitHub Actions Updated** - Changed `FUNCTIONS_EXTENSION_VERSION` from `"~3"` to `"~4"`
 2. **✅ All Functions v4 Compatible** - Complete conversion from v3 to v4 programming model
 3. **✅ Package Dependencies Correct** - `@azure/functions: ^4.5.0` in package.json
 4. **✅ Host.json Configuration** - Extension bundle set to `[4.*, 5.0.0)`
+5. **✅ Runtime Configuration** - API runtime and deployment environment aligned
 
 ### Major Fixes Applied:
 1. **✅ Function.json Files Removed** - Eliminated v4 compatibility conflicts
@@ -225,9 +235,10 @@ cd api && npm install && npm run build
 - ✅ **createAssessment** (assessment creation)
 
 ### Next Steps:
-1. **🚀 Trigger Deployment** - Push changes to trigger new GitHub Actions deployment with v4 runtime
-2. **🔍 Verify API Endpoints** - Test `/api/customers`, `/api/diagnostics` etc. work correctly
-3. **📊 Monitor Deployment** - Check Azure portal for successful API deployment
+1. **🚀 Monitor New Deployment** - Latest deployment with runtime alignment and production branch configuration
+2. **🔍 Verify API Endpoints** - Test `/api/customers`, `/api/diagnostics` etc. work correctly after configuration fixes
+3. **📊 Check Azure Portal** - Verify production environment now shows "Function App" as Backend Type
+4. **🔧 Additional Debugging** - If still not working, may need to investigate Azure Static Web Apps specific configuration or contact Azure support
 
 ### Breakthrough Understanding:
 Azure Static Web Apps with Functions Runtime v4 **cannot have mixed programming models**. Even if some functions are v4-compliant, having ANY v3 syntax functions prevents the entire API from loading properly. This explains why ALL endpoints returned 404 - the Functions runtime wasn't starting correctly due to the mixed syntax.

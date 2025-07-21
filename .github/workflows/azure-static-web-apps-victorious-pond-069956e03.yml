@@ -53,7 +53,9 @@ jobs:
           output_location: "build"
           skip_app_build: false
           skip_api_build: false
-          production_branch: "main"
+          is_static_export: false
+          app_build_command: "npm run build"
+          api_build_command: "npm run build"
         env:
           NODE_VERSION: "20"
           WEBSITE_NODE_DEFAULT_VERSION: "20"
