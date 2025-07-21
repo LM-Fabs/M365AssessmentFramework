@@ -1,3 +1,4 @@
+import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { GraphApiService } from "../shared/graphApiService";
 import { PostgreSQLService } from "../shared/postgresqlService";
 
@@ -14,50 +15,48 @@ const corsHeaders = {
  * Handles OAuth consent callback and creates enterprise app registration
  * This endpoint is called after customer admin grants consent
  */
-export default async function (context: any, req: any): Promise<void> {
+export async function consentCallback(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('🔗 Consent callback received');
 
     try {
         // Handle preflight OPTIONS request
-        if (req.method === 'OPTIONS') {
-            context.res = {
+        if (request.method === 'OPTIONS') {
+            return {
                 status: 200,
                 headers: corsHeaders
             };
-            return;
         }
 
-        if (req.method !== 'GET' && req.method !== 'POST') {
-            context.res = {
+        if (request.method !== 'GET' && request.method !== 'POST') {
+            return {
                 status: 405,
                 headers: corsHeaders,
-                body: JSON.stringify({ error: 'Method not allowed' })
+                jsonBody: { error: 'Method not allowed' }
             };
-            return;
         }
 
         // Extract parameters from query string (GET) or body (POST)
         let params: any = {};
         
-        if (req.method === 'GET') {
-            // Parse query parameters using req.query object
+        if (request.method === 'GET') {
+            // Parse query parameters using URLSearchParams from request.url
+            const url = new URL(request.url);
             params = {
-                code: req.query.code,
-                state: req.query.state,
-                tenant: req.query.tenant,
-                admin_consent: req.query.admin_consent,
-                error: req.query.error,
-                error_description: req.query.error_description
+                code: url.searchParams.get('code'),
+                state: url.searchParams.get('state'),
+                tenant: url.searchParams.get('tenant'),
+                admin_consent: url.searchParams.get('admin_consent'),
+                error: url.searchParams.get('error'),
+                error_description: url.searchParams.get('error_description')
             };
-        } else if (req.method === 'POST') {
+        } else if (request.method === 'POST') {
             // Parse POST body
-            if (req.body) {
-                try {
-                    params = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-                } catch (e) {
-                    context.log('Failed to parse POST body as JSON');
-                    params = req.body;
-                }
+            try {
+                const body = await request.text();
+                params = body ? JSON.parse(body) : {};
+            } catch (e) {
+                context.log('Failed to parse POST body as JSON');
+                params = {};
             }
         }
 
@@ -66,58 +65,54 @@ export default async function (context: any, req: any): Promise<void> {
         // Check for consent error
         if (params.error) {
             context.log('❌ Consent error:', params.error);
-            context.res = {
+            return {
                 status: 400,
                 headers: corsHeaders,
-                body: JSON.stringify({ 
+                jsonBody: { 
                     error: 'Consent was denied or failed',
                     details: params.error_description || params.error 
-                })
+                }
             };
-            return;
         }
 
         // Validate required parameters
         if (!params.admin_consent && !params.code) {
             context.log('❌ Missing required consent parameters');
-            context.res = {
+            return {
                 status: 400,
                 headers: corsHeaders,
-                body: JSON.stringify({ 
+                jsonBody: { 
                     error: 'Missing required consent parameters',
                     details: 'Either admin_consent or authorization code must be present'
-                })
+                }
             };
-            return;
         }
 
         // Extract customer identifier from state parameter
         if (!params.state) {
             context.log('❌ Missing state parameter');
-            context.res = {
+            return {
                 status: 400,
                 headers: corsHeaders,
-                body: JSON.stringify({ 
+                jsonBody: { 
                     error: 'Missing state parameter',
                     details: 'State parameter is required to identify the customer'
-                })
+                }
             };
-            return;
         }
 
         // Parse state parameter (format: "customer:{customerId}")
         const stateMatch = params.state.match(/^customer:(.+)$/);
         if (!stateMatch) {
             context.log('❌ Invalid state parameter format:', params.state);
-            context.res = {
+            return {
                 status: 400,
                 headers: corsHeaders,
-                body: JSON.stringify({ 
+                jsonBody: { 
                     error: 'Invalid state parameter format',
                     details: 'State must be in format: customer:{customerId}'
-                })
+                }
             };
-            return;
         }
 
         const customerId = stateMatch[1];
@@ -130,15 +125,14 @@ export default async function (context: any, req: any): Promise<void> {
             const customer = await dbService.getCustomer(customerId);
             if (!customer) {
                 context.log('❌ Customer not found:', customerId);
-                context.res = {
+                return {
                     status: 404,
                     headers: corsHeaders,
-                    body: JSON.stringify({ 
+                    jsonBody: { 
                         error: 'Customer not found',
                         details: `Customer with ID ${customerId} does not exist`
-                    })
+                    }
                 };
-                return;
             }
 
             context.log('✅ Customer found:', customer.tenantName);
@@ -147,15 +141,14 @@ export default async function (context: any, req: any): Promise<void> {
             const tenantId = params.tenant;
             if (!tenantId) {
                 context.log('❌ Missing tenant ID');
-                context.res = {
+                return {
                     status: 400,
                     headers: corsHeaders,
-                    body: JSON.stringify({ 
+                    jsonBody: { 
                         error: 'Missing tenant ID',
                         details: 'Tenant ID is required for app registration'
-                    })
+                    }
                 };
-                return;
             }
 
             context.log('🏢 Processing for tenant:', tenantId);
@@ -316,7 +309,7 @@ export default async function (context: any, req: any): Promise<void> {
 </body>
 </html>`;
 
-            context.res = {
+            return {
                 status: 200,
                 headers: {
                     'Content-Type': 'text/html',
@@ -327,7 +320,7 @@ export default async function (context: any, req: any): Promise<void> {
 
         } catch (dbError: any) {
             context.log('❌ Database error:', dbError);
-            context.res = {
+            return {
                 status: 500,
                 headers: {
                     'Content-Type': 'text/html',
@@ -358,7 +351,7 @@ export default async function (context: any, req: any): Promise<void> {
     } catch (error: any) {
         context.log('❌ Unexpected error in consent callback:', error);
         
-        context.res = {
+        return {
             status: 500,
             headers: {
                 'Content-Type': 'text/html',
