@@ -5,6 +5,7 @@
 **Name:** M365 Security Assessment Framework  
 **Type:** Full-stack web application with Azure Static Web Apps deployment  
 **Purpose:** Enterprise Microsoft 365 security assessment tool with OAuth admin consent workflow  
+**URL ENDPOINT** https://victorious-pond-069956e03.6.azurestaticapps.net/
 
 ## 🏗️ ARCHITECTURE & DEPLOYMENT
 
