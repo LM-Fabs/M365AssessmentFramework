@@ -1,31 +1,35 @@
-// v3 compatible imports
+import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { corsHeaders, initializeDataService, dataService } from "../shared/utils";
 import { Customer } from "../shared/types";
 
-const httpTrigger = async function (context: any, req: any): Promise<void> {
-    context.log(`Processing ${req.method} request for customers`);
-
-    // Handle preflight OPTIONS request immediately
-    if (req.method === 'OPTIONS') {
-        context.res = {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
-
-    // Handle HEAD request for API warmup
-    if (req.method === 'HEAD') {
-        context.res = {
-            status: 200,
-            headers: corsHeaders
-        };
-    }
+/**
+ * Azure Functions v4 - Customers endpoint
+ * Converted from v3 to v4 programming model for Azure Static Web Apps compatibility
+ */
+export default async function (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    context.log(`Processing ${request.method} request for customers`);
 
     try {
+        // Handle preflight OPTIONS request immediately
+        if (request.method === 'OPTIONS') {
+            return {
+                status: 200,
+                headers: corsHeaders
+            };
+        }
+
+        // Handle HEAD request for API warmup
+        if (request.method === 'HEAD') {
+            return {
+                status: 200,
+                headers: corsHeaders
+            };
+        }
+
         // Initialize data service
         await initializeDataService(context);
 
-        if (req.method === 'GET') {
+        if (request.method === 'GET') {
             context.log('Getting all customers from data service');
             
             const result = await dataService.getCustomers({
@@ -38,7 +42,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             // Transform customers to match frontend interface
             const transformedCustomers = result.customers.map((customer: any) => {
                 const appReg = customer.appRegistration || {};
-                context.res = {
+                return {
                     id: customer.id,
                     tenantId: customer.tenantId || '',
                     tenantName: customer.tenantName,
@@ -56,7 +60,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
                 };
             });
             
-            context.res = {
+            return {
                 status: 200,
                 headers: corsHeaders,
                 jsonBody: {
@@ -69,14 +73,15 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             };
         }
 
-        if (req.method === 'POST') {
+        if (request.method === 'POST') {
             let customerData: any = {};
             
             try {
-                customerData = await req.json();
+                const body = await request.text();
+                customerData = JSON.parse(body);
             } catch (error) {
                 context.log('Invalid JSON in request body');
-                context.res = {
+                return {
                     status: 400,
                     headers: corsHeaders,
                     jsonBody: {
@@ -90,7 +95,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
 
             // Validate required fields
             if (!customerData.tenantName || !customerData.tenantDomain) {
-                context.res = {
+                return {
                     status: 400,
                     headers: corsHeaders,
                     jsonBody: {
@@ -104,7 +109,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             if (customerData.tenantDomain) {
                 const existingCustomer = await dataService.getCustomerByDomain(customerData.tenantDomain);
                 if (existingCustomer) {
-                    context.res = {
+                    return {
                         status: 409,
                         headers: corsHeaders,
                         jsonBody: {
@@ -125,7 +130,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             }
 
             if (!targetTenantId) {
-                context.res = {
+                return {
                     status: 400,
                     headers: corsHeaders,
                     jsonBody: {
@@ -167,7 +172,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
                 notes: result.notes
             };
 
-            context.res = {
+            return {
                 status: 201,
                 headers: corsHeaders,
                 jsonBody: {
@@ -180,7 +185,8 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             };
         }
 
-        context.res = {
+        // Method not allowed
+        return {
             status: 405,
             headers: corsHeaders,
             jsonBody: {
@@ -192,7 +198,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
     } catch (error) {
         context.error('Error in customers handler:', error);
         
-        context.res = {
+        return {
             status: 500,
             headers: corsHeaders,
             jsonBody: {
@@ -202,6 +208,4 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             }
         };
     }
-};
-
-export default httpTrigger;
+}

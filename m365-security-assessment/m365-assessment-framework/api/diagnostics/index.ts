@@ -1,6 +1,10 @@
-// v3 compatible imports
+import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
-const httpTrigger = async function (context: any, req: any): Promise<void> {
+/**
+ * Azure Functions v4 - Diagnostics endpoint
+ * Converted from v3 to v4 programming model for Azure Static Web Apps compatibility
+ */
+export default async function (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('Processing diagnostics request');
 
     // CORS headers
@@ -13,16 +17,16 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
         'Cache-Control': 'public, max-age=60, s-maxage=60'
     };
 
-    if (req.method === 'OPTIONS') {
-        context.res = {
+    if (request.method === 'OPTIONS') {
+        return {
             status: 200,
             headers: corsHeaders
         };
     }
 
     // Handle HEAD request for API warmup
-    if (req.method === 'HEAD') {
-        context.res = {
+    if (request.method === 'HEAD') {
+        return {
             status: 200,
             headers: corsHeaders
         };
@@ -45,7 +49,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             version: '1.0.12'
         };
 
-        context.res = {
+        return {
             status: 200,
             headers: corsHeaders,
             jsonBody: {
@@ -56,7 +60,7 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
     } catch (error) {
         context.error('Error in diagnostics handler:', error);
         
-        context.res = {
+        return {
             status: 500,
             headers: corsHeaders,
             jsonBody: {
@@ -66,6 +70,4 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
             }
         };
     }
-};
-
-export default httpTrigger;
+}
