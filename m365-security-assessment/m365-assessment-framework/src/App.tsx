@@ -20,9 +20,7 @@ function App() {
   useEffect(() => {
     try {
       const warmupService = ApiWarmupService.getInstance();
-      warmupService.startBackgroundWarmup().catch(error => {
-        console.warn('API warmup failed but app continues:', error);
-      });
+      warmupService.startBackgroundWarmup();
     } catch (error) {
       console.warn('Failed to start API warmup, but app continues:', error);
     }
