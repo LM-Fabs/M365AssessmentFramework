@@ -1,4 +1,3 @@
-import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { GraphApiService } from "../shared/graphApiService";
 import { PostgreSQLService } from "../shared/postgresqlService";
 
@@ -12,48 +11,48 @@ const corsHeaders = {
 };
 
 /**
+ * Azure Functions v3 - Consent callback handler
  * Handles OAuth consent callback and creates enterprise app registration
- * This endpoint is called after customer admin grants consent
  */
-export async function consentCallback(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+module.exports = async function (context: any, req: any) {
     context.log('🔗 Consent callback received');
 
     try {
         // Handle preflight OPTIONS request
-        if (request.method === 'OPTIONS') {
-            return {
+        if (req.method === 'OPTIONS') {
+            context.res = {
                 status: 200,
                 headers: corsHeaders
             };
+            return;
         }
 
-        if (request.method !== 'GET' && request.method !== 'POST') {
-            return {
+        if (req.method !== 'GET' && req.method !== 'POST') {
+            context.res = {
                 status: 405,
                 headers: corsHeaders,
-                jsonBody: { error: 'Method not allowed' }
+                body: JSON.stringify({ error: 'Method not allowed' })
             };
+            return;
         }
 
         // Extract parameters from query string (GET) or body (POST)
         let params: any = {};
         
-        if (request.method === 'GET') {
-            // Parse query parameters using URLSearchParams from request.url
-            const url = new URL(request.url);
+        if (req.method === 'GET') {
+            // Use req.query for GET parameters in v3
             params = {
-                code: url.searchParams.get('code'),
-                state: url.searchParams.get('state'),
-                tenant: url.searchParams.get('tenant'),
-                admin_consent: url.searchParams.get('admin_consent'),
-                error: url.searchParams.get('error'),
-                error_description: url.searchParams.get('error_description')
+                code: req.query.code,
+                state: req.query.state,
+                tenant: req.query.tenant,
+                admin_consent: req.query.admin_consent,
+                error: req.query.error,
+                error_description: req.query.error_description
             };
-        } else if (request.method === 'POST') {
+        } else if (req.method === 'POST') {
             // Parse POST body
             try {
-                const body = await request.text();
-                params = body ? JSON.parse(body) : {};
+                params = req.body ? (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) : {};
             } catch (e) {
                 context.log('Failed to parse POST body as JSON');
                 params = {};
@@ -65,54 +64,58 @@ export async function consentCallback(request: HttpRequest, context: InvocationC
         // Check for consent error
         if (params.error) {
             context.log('❌ Consent error:', params.error);
-            return {
+            context.res = {
                 status: 400,
                 headers: corsHeaders,
-                jsonBody: { 
+                body: JSON.stringify({ 
                     error: 'Consent was denied or failed',
                     details: params.error_description || params.error 
-                }
+                })
             };
+            return;
         }
 
         // Validate required parameters
         if (!params.admin_consent && !params.code) {
             context.log('❌ Missing required consent parameters');
-            return {
+            context.res = {
                 status: 400,
                 headers: corsHeaders,
-                jsonBody: { 
+                body: JSON.stringify({ 
                     error: 'Missing required consent parameters',
                     details: 'Either admin_consent or authorization code must be present'
-                }
+                })
             };
+            return;
         }
 
         // Extract customer identifier from state parameter
         if (!params.state) {
             context.log('❌ Missing state parameter');
-            return {
+            context.res = {
                 status: 400,
                 headers: corsHeaders,
-                jsonBody: { 
+                body: JSON.stringify({ 
                     error: 'Missing state parameter',
                     details: 'State parameter is required to identify the customer'
-                }
+                })
             };
+            return;
         }
 
         // Parse state parameter (format: "customer:{customerId}")
         const stateMatch = params.state.match(/^customer:(.+)$/);
         if (!stateMatch) {
             context.log('❌ Invalid state parameter format:', params.state);
-            return {
+            context.res = {
                 status: 400,
                 headers: corsHeaders,
-                jsonBody: { 
+                body: JSON.stringify({ 
                     error: 'Invalid state parameter format',
                     details: 'State must be in format: customer:{customerId}'
-                }
+                })
             };
+            return;
         }
 
         const customerId = stateMatch[1];
@@ -125,14 +128,15 @@ export async function consentCallback(request: HttpRequest, context: InvocationC
             const customer = await dbService.getCustomer(customerId);
             if (!customer) {
                 context.log('❌ Customer not found:', customerId);
-                return {
+                context.res = {
                     status: 404,
                     headers: corsHeaders,
-                    jsonBody: { 
+                    body: JSON.stringify({ 
                         error: 'Customer not found',
                         details: `Customer with ID ${customerId} does not exist`
-                    }
+                    })
                 };
+                return;
             }
 
             context.log('✅ Customer found:', customer.tenantName);
@@ -141,14 +145,15 @@ export async function consentCallback(request: HttpRequest, context: InvocationC
             const tenantId = params.tenant;
             if (!tenantId) {
                 context.log('❌ Missing tenant ID');
-                return {
+                context.res = {
                     status: 400,
                     headers: corsHeaders,
-                    jsonBody: { 
+                    body: JSON.stringify({ 
                         error: 'Missing tenant ID',
                         details: 'Tenant ID is required for app registration'
-                    }
+                    })
                 };
+                return;
             }
 
             context.log('🏢 Processing for tenant:', tenantId);
@@ -309,7 +314,7 @@ export async function consentCallback(request: HttpRequest, context: InvocationC
 </body>
 </html>`;
 
-            return {
+            context.res = {
                 status: 200,
                 headers: {
                     'Content-Type': 'text/html',
@@ -318,9 +323,9 @@ export async function consentCallback(request: HttpRequest, context: InvocationC
                 body: successHtml
             };
 
-        } catch (dbError: any) {
+        } catch (dbError) {
             context.log('❌ Database error:', dbError);
-            return {
+            context.res = {
                 status: 500,
                 headers: {
                     'Content-Type': 'text/html',
@@ -348,10 +353,10 @@ export async function consentCallback(request: HttpRequest, context: InvocationC
             };
         }
 
-    } catch (error: any) {
+    } catch (error) {
         context.log('❌ Unexpected error in consent callback:', error);
         
-        return {
+        context.res = {
             status: 500,
             headers: {
                 'Content-Type': 'text/html',
@@ -379,4 +384,4 @@ export async function consentCallback(request: HttpRequest, context: InvocationC
 </html>`
         };
     }
-}
+};
