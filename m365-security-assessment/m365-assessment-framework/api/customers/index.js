@@ -23,8 +23,31 @@ async function default_1(request, context) {
                 headers: utils_1.corsHeaders
             };
         }
-        // Initialize data service
-        await (0, utils_1.initializeDataService)(context);
+        // Initialize data service with better error handling
+        try {
+            await (0, utils_1.initializeDataService)(context);
+        }
+        catch (initError) {
+            context.error('Data service initialization failed:', initError);
+            // Return helpful error information for database connectivity issues
+            return {
+                status: 503, // Service Unavailable
+                headers: utils_1.corsHeaders,
+                jsonBody: {
+                    success: false,
+                    error: "Database service unavailable",
+                    details: initError instanceof Error ? initError.message : "Unknown database error",
+                    helpfulInfo: {
+                        message: "This is likely a database connectivity issue. Check environment variables.",
+                        requiredVars: ["POSTGRES_HOST", "POSTGRES_DATABASE", "POSTGRES_USER", "POSTGRES_PASSWORD"],
+                        hasPostgresHost: !!process.env.POSTGRES_HOST,
+                        hasPostgresDatabase: !!process.env.POSTGRES_DATABASE,
+                        hasPostgresUser: !!process.env.POSTGRES_USER,
+                        hasPostgresPassword: !!process.env.POSTGRES_PASSWORD
+                    }
+                }
+            };
+        }
         if (request.method === 'GET') {
             context.log('Getting all customers from data service');
             const result = await utils_1.dataService.getCustomers({
