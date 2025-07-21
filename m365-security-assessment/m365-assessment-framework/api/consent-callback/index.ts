@@ -1,6 +1,7 @@
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
-import { GraphApiService } from "../shared/graphApiService";
-import { PostgreSQLService } from "../shared/postgresqlService";
+// Temporarily commented out service imports for deployment troubleshooting
+// import { GraphApiService } from "../shared/graphApiService";
+// import { PostgreSQLService } from "../shared/postgresqlService";
 
 // CORS headers for frontend communication
 const corsHeaders = {
@@ -14,6 +15,9 @@ const corsHeaders = {
 /**
  * Azure Static Web Apps - Consent callback handler
  * Uses Azure Functions v4 types with default export pattern for SWA compatibility
+ * 
+ * DEPLOYMENT TROUBLESHOOTING MODE:
+ * Service dependencies temporarily commented out to isolate deployment issues
  */
 export default async function (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('🔗 Consent callback received');
@@ -58,9 +62,9 @@ export default async function (request: HttpRequest, context: InvocationContext)
                 };
             }
 
-            // Initialize services
-            const graphService = new GraphApiService();
-            const postgresService = new PostgreSQLService();
+            // Initialize services - temporarily commented out for deployment troubleshooting
+            // const graphService = new GraphApiService();
+            // const postgresService = new PostgreSQLService();
 
             try {
                 // Use state parameter as customer ID, fallback to customerId parameter
