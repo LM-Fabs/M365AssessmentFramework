@@ -188,7 +188,14 @@ async function consentCallbackHandler(request: HttpRequest, context: InvocationC
                 // For manual trigger, generate consent URL
                 const tenantId = customerId;
                 const clientId = process.env.AZURE_CLIENT_ID || 'd1cc9e16-9194-4892-92c5-473c9f65dcb3';
-                const redirectUri = encodeURIComponent(`${process.env.REACT_APP_API_URL || ''}/api/consent-callback`);
+                
+                // Construct proper redirect URI
+                const baseUrl = process.env.REACT_APP_API_URL || 
+                              process.env.API_BASE_URL || 
+                              'https://victorious-pond-069956e03.6.azurestaticapps.net';
+                const redirectUri = encodeURIComponent(`${baseUrl}/api/consent-callback`);
+                
+                context.log(`🔗 Generating consent URL with redirect: ${baseUrl}/api/consent-callback`);
                 
                 const consentUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?` +
                     `client_id=${clientId}&` +
@@ -205,7 +212,13 @@ async function consentCallbackHandler(request: HttpRequest, context: InvocationC
                     body: JSON.stringify({ 
                         success: true,
                         consentUrl,
-                        message: 'Admin consent URL generated. Please visit the URL to complete consent.'
+                        message: 'Admin consent URL generated. Please visit the URL to complete consent.',
+                        debug: {
+                            tenantId,
+                            clientId,
+                            redirectUri: `${baseUrl}/api/consent-callback`,
+                            urlLength: consentUrl.length
+                        }
                     })
                 };
 
