@@ -52,14 +52,54 @@ async function consentCallbackHandler(request, context) {
             const code = url.searchParams.get('code');
             const state = url.searchParams.get('state');
             const customerId = url.searchParams.get('customer_id');
-            context.log(`OAuth consent received - Code: ${code ? 'present' : 'missing'}, State: ${state}, Customer ID: ${customerId}`);
+            const error = url.searchParams.get('error');
+            const errorDescription = url.searchParams.get('error_description');
+            // Enhanced logging for debugging OAuth callback
+            context.log(`🔗 OAuth consent callback received:`);
+            context.log(`  - Full URL: ${request.url}`);
+            context.log(`  - Code: ${code ? 'present (' + code.substring(0, 20) + '...)' : 'missing'}`);
+            context.log(`  - State: ${state || 'not provided'}`);
+            context.log(`  - Customer ID: ${customerId || 'not provided'}`);
+            context.log(`  - Error: ${error || 'none'}`);
+            context.log(`  - Error Description: ${errorDescription || 'none'}`);
+            // Log all query parameters for debugging
+            const allParams = {};
+            url.searchParams.forEach((value, key) => {
+                allParams[key] = value;
+            });
+            context.log(`  - All query parameters:`, JSON.stringify(allParams, null, 2));
+            // Handle OAuth error responses first
+            if (error) {
+                context.log(`❌ OAuth error received: ${error} - ${errorDescription}`);
+                return {
+                    status: 400,
+                    headers: corsHeaders,
+                    body: JSON.stringify({
+                        error: `OAuth error: ${error}`,
+                        message: errorDescription || 'OAuth consent failed',
+                        debug: {
+                            error,
+                            errorDescription,
+                            state,
+                            customerId
+                        }
+                    })
+                };
+            }
+            // Check for authorization code
             if (!code) {
+                context.log(`❌ Authorization code missing from OAuth callback`);
                 return {
                     status: 400,
                     headers: corsHeaders,
                     body: JSON.stringify({
                         error: 'Authorization code missing',
-                        message: 'OAuth consent failed or was denied'
+                        message: 'OAuth consent failed or was denied',
+                        debug: {
+                            receivedParams: allParams,
+                            expectedParam: 'code',
+                            hint: 'Check if Azure AD is configured to send authorization code in callback URL'
+                        }
                     })
                 };
             }
@@ -68,14 +108,19 @@ async function consentCallbackHandler(request, context) {
             // const postgresService = new PostgreSQLService();
             try {
                 // Use state parameter as customer ID, fallback to customerId parameter
-                const tenantId = state || customerId;
+                const tenantId = state || customerId || 'unknown';
                 context.log(`✅ Processing consent callback for tenant: ${tenantId}`);
+                context.log(`   Authorization code received (first 20 chars): ${code.substring(0, 20)}...`);
                 // For now, return a simple success response
-                // TODO: Implement proper Graph API service integration
-                context.log(`✅ Consent processed for customer ${tenantId}`);
-                // Return success response with redirect to frontend
-                const frontendUrl = process.env.REACT_APP_FRONTEND_URL || '';
-                const successRedirect = `${frontendUrl}/admin-consent-success?customer_id=${tenantId}&code=${code}`;
+                // TODO: Implement proper Graph API service integration when services are uncommented
+                context.log(`✅ Consent successfully processed for customer ${tenantId}`);
+                // Determine frontend URL - try multiple environment variables
+                const frontendUrl = process.env.REACT_APP_FRONTEND_URL ||
+                    process.env.FRONTEND_URL ||
+                    process.env.STATIC_WEB_APP_URL ||
+                    'https://victorious-pond-069956e03.6.azurestaticapps.net';
+                const successRedirect = `${frontendUrl}/admin-consent-success?customer_id=${tenantId}&status=success`;
+                context.log(`🔄 Redirecting to: ${successRedirect}`);
                 return {
                     status: 302,
                     headers: {
@@ -85,9 +130,12 @@ async function consentCallbackHandler(request, context) {
                 };
             }
             catch (appError) {
-                context.log('Error processing consent callback:', appError);
-                const frontendUrl = process.env.REACT_APP_FRONTEND_URL || '';
-                const errorRedirect = `${frontendUrl}/admin-consent-error?error=${encodeURIComponent(appError.message)}`;
+                context.log('❌ Error processing consent callback:', appError);
+                const frontendUrl = process.env.REACT_APP_FRONTEND_URL ||
+                    process.env.FRONTEND_URL ||
+                    process.env.STATIC_WEB_APP_URL ||
+                    'https://victorious-pond-069956e03.6.azurestaticapps.net';
+                const errorRedirect = `${frontendUrl}/admin-consent-error?error=${encodeURIComponent(appError.message)}&tenant_id=${state || customerId || 'unknown'}`;
                 return {
                     status: 302,
                     headers: {
