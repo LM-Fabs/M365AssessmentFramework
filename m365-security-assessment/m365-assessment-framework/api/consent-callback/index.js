@@ -47,9 +47,11 @@ async function consentCallbackHandler(request, context) {
             };
         }
         if (request.method === 'GET') {
-            // Handle OAuth consent redirect with authorization code
+            // Handle OAuth consent redirect - supports both authorization code and admin consent flows
             const url = new URL(request.url);
             const code = url.searchParams.get('code');
+            const adminConsent = url.searchParams.get('admin_consent');
+            const tenant = url.searchParams.get('tenant');
             const state = url.searchParams.get('state');
             const customerId = url.searchParams.get('customer_id');
             const error = url.searchParams.get('error');
@@ -58,6 +60,8 @@ async function consentCallbackHandler(request, context) {
             context.log(`🔗 OAuth consent callback received:`);
             context.log(`  - Full URL: ${request.url}`);
             context.log(`  - Code: ${code ? 'present (' + code.substring(0, 20) + '...)' : 'missing'}`);
+            context.log(`  - Admin Consent: ${adminConsent || 'not provided'}`);
+            context.log(`  - Tenant: ${tenant || 'not provided'}`);
             context.log(`  - State: ${state || 'not provided'}`);
             context.log(`  - Customer ID: ${customerId || 'not provided'}`);
             context.log(`  - Error: ${error || 'none'}`);
@@ -81,24 +85,28 @@ async function consentCallbackHandler(request, context) {
                             error,
                             errorDescription,
                             state,
-                            customerId
+                            customerId,
+                            tenant
                         }
                     })
                 };
             }
-            // Check for authorization code
-            if (!code) {
-                context.log(`❌ Authorization code missing from OAuth callback`);
+            // Check for successful admin consent OR authorization code
+            const hasAdminConsent = adminConsent && adminConsent.toLowerCase() === 'true';
+            const hasAuthCode = code && code.length > 0;
+            if (!hasAdminConsent && !hasAuthCode) {
+                context.log(`❌ Neither admin consent nor authorization code received`);
                 return {
                     status: 400,
                     headers: corsHeaders,
                     body: JSON.stringify({
-                        error: 'Authorization code missing',
-                        message: 'OAuth consent failed or was denied',
+                        error: 'Authorization missing',
+                        message: 'Neither admin consent nor authorization code was received',
                         debug: {
                             receivedParams: allParams,
-                            expectedParam: 'code',
-                            hint: 'Check if Azure AD is configured to send authorization code in callback URL'
+                            expectedParams: ['admin_consent=True', 'OR', 'code=...'],
+                            hint: 'Check OAuth flow type and Azure AD app registration configuration',
+                            flowType: hasAdminConsent ? 'admin-consent' : (hasAuthCode ? 'auth-code' : 'unknown')
                         }
                     })
                 };
@@ -107,10 +115,32 @@ async function consentCallbackHandler(request, context) {
             // const graphService = new GraphApiService();
             // const postgresService = new PostgreSQLService();
             try {
-                // Use state parameter as customer ID, fallback to customerId parameter
-                const tenantId = state || customerId || 'unknown';
+                // Parse state parameter if it's JSON-encoded
+                let parsedState = null;
+                let tenantId = tenant; // Use tenant parameter first
+                if (state) {
+                    try {
+                        // URL decode the state parameter
+                        const decodedState = decodeURIComponent(state);
+                        parsedState = JSON.parse(decodedState);
+                        tenantId = parsedState.customerId || parsedState.customerTenant || tenantId;
+                    }
+                    catch (stateParseError) {
+                        context.log(`⚠️ Could not parse state as JSON, using as plain text: ${state}`);
+                        tenantId = state || tenantId;
+                    }
+                }
+                // Fallback to customerId parameter
+                tenantId = tenantId || customerId || 'unknown';
                 context.log(`✅ Processing consent callback for tenant: ${tenantId}`);
-                context.log(`   Authorization code received (first 20 chars): ${code.substring(0, 20)}...`);
+                if (hasAdminConsent) {
+                    context.log(`   ✅ Admin consent granted successfully`);
+                    context.log(`   Flow type: Admin Consent`);
+                }
+                else if (hasAuthCode) {
+                    context.log(`   ✅ Authorization code received (first 20 chars): ${code.substring(0, 20)}...`);
+                    context.log(`   Flow type: Authorization Code`);
+                }
                 // For now, return a simple success response
                 // TODO: Implement proper Graph API service integration when services are uncommented
                 context.log(`✅ Consent successfully processed for customer ${tenantId}`);
@@ -119,7 +149,7 @@ async function consentCallbackHandler(request, context) {
                     process.env.FRONTEND_URL ||
                     process.env.STATIC_WEB_APP_URL ||
                     'https://victorious-pond-069956e03.6.azurestaticapps.net';
-                const successRedirect = `${frontendUrl}/admin-consent-success?customer_id=${tenantId}&status=success`;
+                const successRedirect = `${frontendUrl}/admin-consent-success?customer_id=${tenantId}&status=success&consent_type=${hasAdminConsent ? 'admin' : 'auth_code'}`;
                 context.log(`🔄 Redirecting to: ${successRedirect}`);
                 return {
                     status: 302,
@@ -131,11 +161,24 @@ async function consentCallbackHandler(request, context) {
             }
             catch (appError) {
                 context.log('❌ Error processing consent callback:', appError);
+                // Parse tenant ID from available sources
+                let tenantId = tenant;
+                if (state) {
+                    try {
+                        const decodedState = decodeURIComponent(state);
+                        const parsedState = JSON.parse(decodedState);
+                        tenantId = parsedState.customerId || parsedState.customerTenant || tenantId;
+                    }
+                    catch {
+                        tenantId = state || tenantId;
+                    }
+                }
+                tenantId = tenantId || customerId || 'unknown';
                 const frontendUrl = process.env.REACT_APP_FRONTEND_URL ||
                     process.env.FRONTEND_URL ||
                     process.env.STATIC_WEB_APP_URL ||
                     'https://victorious-pond-069956e03.6.azurestaticapps.net';
-                const errorRedirect = `${frontendUrl}/admin-consent-error?error=${encodeURIComponent(appError.message)}&tenant_id=${state || customerId || 'unknown'}`;
+                const errorRedirect = `${frontendUrl}/admin-consent-error?error=${encodeURIComponent(appError.message)}&tenant_id=${tenantId}`;
                 return {
                     status: 302,
                     headers: {
