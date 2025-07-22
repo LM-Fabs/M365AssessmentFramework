@@ -1,12 +1,19 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = default_1;
+const functions_1 = require("@azure/functions");
 const utils_1 = require("../shared/utils");
+// Azure Functions v4 - Individual function self-registration for Static Web Apps
+functions_1.app.http('diagnostics', {
+    methods: ['GET', 'HEAD', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'diagnostics',
+    handler: diagnosticsHandler
+});
 /**
  * Azure Functions v4 - Diagnostics endpoint
- * Provides runtime diagnostics without database dependencies
+ * Individual self-registration for Azure Static Web Apps compatibility
  */
-async function default_1(request, context) {
+async function diagnosticsHandler(request, context) {
     context.log(`🔍 Diagnostics function called - ${request.method} ${request.url}`);
     try {
         // Handle preflight OPTIONS request

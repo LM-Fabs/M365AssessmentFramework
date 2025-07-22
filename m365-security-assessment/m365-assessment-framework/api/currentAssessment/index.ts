@@ -1,8 +1,16 @@
 // v4 compatible imports
-import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { corsHeaders, initializeDataService, dataService } from "../shared/utils";
 
-export default async function currentAssessment(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+// Azure Functions v4 - Individual function self-registration for Static Web Apps
+app.http('currentAssessment', {
+    methods: ['GET', 'HEAD', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'currentAssessment',
+    handler: currentAssessmentHandler
+});
+
+async function currentAssessmentHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('Processing current assessment request');
 
     // Handle preflight OPTIONS request immediately

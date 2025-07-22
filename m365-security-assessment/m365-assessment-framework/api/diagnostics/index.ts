@@ -1,11 +1,19 @@
-import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { corsHeaders } from "../shared/utils";
+
+// Azure Functions v4 - Individual function self-registration for Static Web Apps
+app.http('diagnostics', {
+    methods: ['GET', 'HEAD', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'diagnostics',
+    handler: diagnosticsHandler
+});
 
 /**
  * Azure Functions v4 - Diagnostics endpoint
- * Provides runtime diagnostics without database dependencies
+ * Individual self-registration for Azure Static Web Apps compatibility
  */
-export default async function (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function diagnosticsHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log(`🔍 Diagnostics function called - ${request.method} ${request.url}`);
 
     try {

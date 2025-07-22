@@ -1,7 +1,15 @@
-import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 // Temporarily commented out service imports for deployment troubleshooting
 // import { GraphApiService } from "../shared/graphApiService";
 // import { PostgreSQLService } from "../shared/postgresqlService";
+
+// Azure Functions v4 - Individual function self-registration for Static Web Apps
+app.http('consent-callback', {
+    methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'consent-callback',
+    handler: consentCallbackHandler
+});
 
 // CORS headers for frontend communication
 const corsHeaders = {
@@ -14,12 +22,12 @@ const corsHeaders = {
 
 /**
  * Azure Static Web Apps - Consent callback handler
- * Uses Azure Functions v4 types with default export pattern for SWA compatibility
+ * Individual self-registration for Azure Static Web Apps compatibility
  * 
  * DEPLOYMENT TROUBLESHOOTING MODE:
  * Service dependencies temporarily commented out to isolate deployment issues
  */
-export default async function (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function consentCallbackHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('🔗 Consent callback received');
 
     try {

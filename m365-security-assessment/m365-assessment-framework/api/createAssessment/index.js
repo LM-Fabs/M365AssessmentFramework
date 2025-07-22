@@ -1,8 +1,16 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = createAssessment;
+// v4 compatible imports
+const functions_1 = require("@azure/functions");
 const utils_1 = require("../shared/utils");
-async function createAssessment(request, context) {
+// Azure Functions v4 - Individual function self-registration for Static Web Apps
+functions_1.app.http('createAssessment', {
+    methods: ['POST', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'createAssessment',
+    handler: createAssessmentHandler
+});
+async function createAssessmentHandler(request, context) {
     context.log('Processing create assessment request');
     // Handle preflight OPTIONS request immediately
     if (request.method === 'OPTIONS') {

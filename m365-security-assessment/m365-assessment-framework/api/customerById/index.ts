@@ -1,11 +1,19 @@
-import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { corsHeaders, initializeDataService, dataService } from "../shared/utils";
+
+// Azure Functions v4 - Individual function self-registration for Static Web Apps
+app.http('customerById', {
+    methods: ['GET', 'HEAD', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'customerById/{id}',
+    handler: customerByIdHandler
+});
 
 /**
  * Azure Functions v4 - Customer by ID endpoint
- * Converted from v3 to v4 programming model for Azure Static Web Apps compatibility
+ * Individual self-registration for Azure Static Web Apps compatibility
  */
-export default async function (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function customerByIdHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log(`Processing ${request.method} request for customer by ID`);
 
     try {

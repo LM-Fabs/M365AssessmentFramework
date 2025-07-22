@@ -1,11 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = default_1;
+const functions_1 = require("@azure/functions");
+// Azure Functions v4 - Individual function self-registration for Static Web Apps
+functions_1.app.http('assessments', {
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'assessments',
+    handler: assessmentsHandler
+});
 /**
  * Azure Functions v4 - Assessments endpoint
- * Converted from v3 to v4 programming model for Azure Static Web Apps compatibility
+ * Individual self-registration for Azure Static Web Apps compatibility
  */
-async function default_1(request, context) {
+async function assessmentsHandler(request, context) {
     context.log('Processing assessments request');
     // CORS headers
     const corsHeaders = {

@@ -1,9 +1,16 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = default_1;
+const functions_1 = require("@azure/functions");
 // Temporarily commented out service imports for deployment troubleshooting
 // import { GraphApiService } from "../shared/graphApiService";
 // import { PostgreSQLService } from "../shared/postgresqlService";
+// Azure Functions v4 - Individual function self-registration for Static Web Apps
+functions_1.app.http('consent-callback', {
+    methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'consent-callback',
+    handler: consentCallbackHandler
+});
 // CORS headers for frontend communication
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -14,12 +21,12 @@ const corsHeaders = {
 };
 /**
  * Azure Static Web Apps - Consent callback handler
- * Uses Azure Functions v4 types with default export pattern for SWA compatibility
+ * Individual self-registration for Azure Static Web Apps compatibility
  *
  * DEPLOYMENT TROUBLESHOOTING MODE:
  * Service dependencies temporarily commented out to isolate deployment issues
  */
-async function default_1(request, context) {
+async function consentCallbackHandler(request, context) {
     context.log('🔗 Consent callback received');
     try {
         // Handle preflight OPTIONS request

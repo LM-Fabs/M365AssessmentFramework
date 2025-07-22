@@ -1,12 +1,19 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = default_1;
+const functions_1 = require("@azure/functions");
 const utils_1 = require("../shared/utils");
+// Azure Functions v4 - Individual function self-registration for Static Web Apps
+functions_1.app.http('customers', {
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'customers',
+    handler: customersHandler
+});
 /**
  * Azure Functions v4 - Customers endpoint
- * Converted from v3 to v4 programming model for Azure Static Web Apps compatibility
+ * Individual self-registration for Azure Static Web Apps compatibility
  */
-async function default_1(request, context) {
+async function customersHandler(request, context) {
     context.log(`Processing ${request.method} request for customers`);
     try {
         // Handle preflight OPTIONS request immediately
