@@ -1,12 +1,19 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = default_1;
+const functions_1 = require("@azure/functions");
 const utils_1 = require("../shared/utils");
+// Azure Functions v4 - Individual function self-registration
+functions_1.app.http('test-simple', {
+    methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'test-simple',
+    handler: testSimpleHandler
+});
 /**
  * Azure Functions v4 - Simple test endpoint
  * No dependencies, should always work if Functions runtime is operational
  */
-async function default_1(request, context) {
+async function testSimpleHandler(request, context) {
     context.log('🧪 test-simple function called');
     try {
         // Handle preflight OPTIONS request
@@ -29,12 +36,15 @@ async function default_1(request, context) {
             method: request.method,
             url: request.url,
             timestamp: new Date().toISOString(),
-            functionVersion: process.env.FUNCTIONS_EXTENSION_VERSION || 'unknown'
+            version: "v4-individual-registration"
         };
         context.log('✅ test-simple completed successfully');
         return {
             status: 200,
-            headers: utils_1.corsHeaders,
+            headers: {
+                ...utils_1.corsHeaders,
+                'Content-Type': 'application/json'
+            },
             jsonBody: response
         };
     }

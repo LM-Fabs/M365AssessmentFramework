@@ -2,7 +2,7 @@
   "name": "m365-assessment-api",
   "version": "1.0.0",
   "description": "M365 Security Assessment API",
-  "main": "index-progressive.js",
+  "main": "{simple-test,test-simple,customers,diagnostics}/index.js",
   "scripts": {
     "build": "tsc",
     "build:production": "tsc --project tsconfig.json",

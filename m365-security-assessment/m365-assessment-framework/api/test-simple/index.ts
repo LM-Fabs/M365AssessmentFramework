@@ -1,11 +1,19 @@
-import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { corsHeaders } from "../shared/utils";
+
+// Azure Functions v4 - Individual function self-registration
+app.http('test-simple', {
+    methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'test-simple',
+    handler: testSimpleHandler
+});
 
 /**
  * Azure Functions v4 - Simple test endpoint
  * No dependencies, should always work if Functions runtime is operational
  */
-export default async function (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function testSimpleHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('🧪 test-simple function called');
     
     try {
@@ -31,14 +39,17 @@ export default async function (request: HttpRequest, context: InvocationContext)
             method: request.method,
             url: request.url,
             timestamp: new Date().toISOString(),
-            functionVersion: process.env.FUNCTIONS_EXTENSION_VERSION || 'unknown'
+            version: "v4-individual-registration"
         };
 
         context.log('✅ test-simple completed successfully');
         
         return {
             status: 200,
-            headers: corsHeaders,
+            headers: {
+                ...corsHeaders,
+                'Content-Type': 'application/json'
+            },
             jsonBody: response
         };
 

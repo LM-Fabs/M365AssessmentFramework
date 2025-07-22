@@ -1,7 +1,15 @@
-import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+
+// Azure Functions v4 - Individual function self-registration for Static Web Apps
+app.http('simple-test', {
+    methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'simple-test',
+    handler: simpleTestHandler
+});
 
 // Simple individual function for Azure Static Web Apps compatibility test
-export default async function (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function simpleTestHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('🧪 Simple individual function test');
     
     // Handle preflight OPTIONS request
@@ -24,7 +32,7 @@ export default async function (request: HttpRequest, context: InvocationContext)
         },
         jsonBody: {
             success: true,
-            message: "Individual function works!",
+            message: "Individual self-registered function works!",
             timestamp: new Date().toISOString(),
             method: request.method,
             url: request.url

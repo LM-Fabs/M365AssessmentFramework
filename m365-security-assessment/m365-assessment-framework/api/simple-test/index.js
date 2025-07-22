@@ -1,8 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = default_1;
+const functions_1 = require("@azure/functions");
+// Azure Functions v4 - Individual function self-registration for Static Web Apps
+functions_1.app.http('simple-test', {
+    methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
+    authLevel: 'anonymous',
+    route: 'simple-test',
+    handler: simpleTestHandler
+});
 // Simple individual function for Azure Static Web Apps compatibility test
-async function default_1(request, context) {
+async function simpleTestHandler(request, context) {
     context.log('🧪 Simple individual function test');
     // Handle preflight OPTIONS request
     if (request.method === 'OPTIONS') {
@@ -23,7 +30,7 @@ async function default_1(request, context) {
         },
         jsonBody: {
             success: true,
-            message: "Individual function works!",
+            message: "Individual self-registered function works!",
             timestamp: new Date().toISOString(),
             method: request.method,
             url: request.url
