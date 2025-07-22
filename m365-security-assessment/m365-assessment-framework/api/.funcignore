@@ -1,22 +1,14 @@
+# Only exclude what's absolutely necessary for Azure Functions v4
 *.js.map
-*.ts
 .git*
 .vscode
 local.settings.json
-getting_started.md
 node_modules/
-tsconfig.json
-dist/
 # Exclude specific backup and development files
 diagnostic.ts
 test-domain-resolution.ts
 validateKeyVaultLocal.ts
 migrate-app-registrations.js
-# Exclude TypeScript source files but keep compiled JS
-*/index.ts
-# Exclude backup folders
-backup*/
-*backup*
 # Exclude backup folders
 backup*/
 *backup*
