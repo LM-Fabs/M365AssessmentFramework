@@ -803,7 +803,14 @@
 
 .customer-name {
   font-weight: 500;
-  color: #1e293b;
+  color: #1e293b !important;
+  background-color: #f8fafc !important;
+  background: #f8fafc !important;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  display: inline-block;
+  border: 1px solid #e2e8f0;
+  box-shadow: none !important;
 }
 
 .customer-email {

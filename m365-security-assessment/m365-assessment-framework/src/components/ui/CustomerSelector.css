@@ -51,8 +51,11 @@
 
 .customer-name {
   font-weight: 500;
-  color: #111827;
+  color: #111827 !important;
   font-size: 0.875rem;
+  background-color: transparent !important;
+  background: none !important;
+  box-shadow: none !important;
 }
 
 .customer-domain {

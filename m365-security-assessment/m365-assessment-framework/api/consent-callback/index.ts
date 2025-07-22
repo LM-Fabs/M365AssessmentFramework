@@ -1,7 +1,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
-// Temporarily commented out service imports for deployment troubleshooting
-// import { GraphApiService } from "../shared/graphApiService";
-// import { PostgreSQLService } from "../shared/postgresqlService";
+// Service imports - now enabled for full OAuth functionality
+import { GraphApiService } from "../shared/graphApiService";
+import { PostgreSQLService } from "../shared/postgresqlService";
 
 // Azure Functions v4 - Individual function self-registration for Static Web Apps
 app.http('consent-callback', {
@@ -24,8 +24,8 @@ const corsHeaders = {
  * Azure Static Web Apps - Consent callback handler
  * Individual self-registration for Azure Static Web Apps compatibility
  * 
- * DEPLOYMENT TROUBLESHOOTING MODE:
- * Service dependencies temporarily commented out to isolate deployment issues
+ * FULL OAUTH INTEGRATION MODE:
+ * Creates app registrations and updates database after successful consent
  */
 async function consentCallbackHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('🔗 Consent callback received');
@@ -155,8 +155,88 @@ async function consentCallbackHandler(request: HttpRequest, context: InvocationC
                     context.log(`   Flow type: Authorization Code`);
                 }
 
-                // For now, return a simple success response
-                // TODO: Implement proper Graph API service integration when services are uncommented
+                // Initialize services for app registration creation
+                const graphService = new GraphApiService();
+                const postgresService = new PostgreSQLService();
+
+                try {
+                    // Get customer information from database
+                    context.log(`🔍 Looking up customer information for tenant: ${tenantId}`);
+                    
+                    // Query customer by tenant ID using service method
+                    const customer = await postgresService.getCustomerByTenantId(tenantId);
+                    
+                    if (!customer) {
+                        context.log(`⚠️ Customer not found in database for tenant: ${tenantId}`);
+                        throw new Error(`Customer not found for tenant: ${tenantId}`);
+                    }
+                    
+                    context.log(`✅ Found customer: ${customer.tenantName} (${customer.tenantDomain})`);
+                    
+                    // Check if app registration already exists
+                    if (customer.appRegistration?.clientId && customer.appRegistration?.applicationId) {
+                        context.log(`ℹ️ App registration already exists for customer: ${customer.appRegistration.clientId}`);
+                        
+                        // Update last assessment date using service method
+                        await postgresService.updateCustomer(customer.id, {
+                            lastAssessmentDate: new Date(),
+                            status: 'active'
+                        });
+                        
+                        context.log(`✅ Updated customer status and last assessment date`);
+                    } else {
+                        context.log(`🚀 Creating new app registration for customer: ${customer.tenantName}`);
+                        
+                        // Create app registration using Graph API
+                        const appRegistration = await graphService.createMultiTenantAppRegistration({
+                            tenantName: customer.tenantName || 'Unknown',
+                            tenantDomain: customer.tenantDomain || 'unknown.onmicrosoft.com',
+                            targetTenantId: customer.tenantId,
+                            contactEmail: customer.contactEmail,
+                            requiredPermissions: [
+                                'Organization.Read.All',
+                                'Directory.Read.All',
+                                'AuditLog.Read.All',
+                                'SecurityEvents.Read.All'
+                            ]
+                        });
+                        
+                        context.log(`✅ App registration created successfully:`);
+                        context.log(`   - Application ID: ${appRegistration.applicationId}`);
+                        context.log(`   - Client ID: ${appRegistration.clientId}`);
+                        context.log(`   - Service Principal ID: ${appRegistration.servicePrincipalId}`);
+                        
+                        // Update customer record with app registration details using service method
+                        await postgresService.updateCustomer(customer.id, {
+                            appRegistration: {
+                                applicationId: appRegistration.applicationId,
+                                clientId: appRegistration.clientId,
+                                servicePrincipalId: appRegistration.servicePrincipalId,
+                                permissions: [
+                                    'Organization.Read.All',
+                                    'Directory.Read.All',
+                                    'AuditLog.Read.All',
+                                    'SecurityEvents.Read.All'
+                                ],
+                                consentUrl: appRegistration.consentUrl,
+                                redirectUri: appRegistration.redirectUri,
+                                isReal: true,
+                                setupStatus: 'completed',
+                                createdDate: new Date().toISOString()
+                            },
+                            lastAssessmentDate: new Date(),
+                            status: 'active'
+                        });
+                        
+                        context.log(`✅ Customer record updated with app registration details`);
+                    }
+                    
+                    context.log(`✅ Consent and app registration process completed successfully for ${customer.tenantName}`);
+
+                } catch (serviceError) {
+                    context.log(`❌ Error during app registration creation:`, serviceError);
+                    throw serviceError; // Re-throw to be handled by outer catch block
+                }
                 
                 context.log(`✅ Consent successfully processed for customer ${tenantId}`);
 
