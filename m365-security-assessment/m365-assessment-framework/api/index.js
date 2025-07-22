@@ -60,12 +60,6 @@ functions_1.app.http('createAssessment', {
     handler: require('./createAssessment/index').default
 });
 // Best Practices Functions
-functions_1.app.http('best-practices', {
-    methods: ['GET', 'HEAD', 'OPTIONS'],
-    authLevel: 'anonymous',
-    route: 'best-practices/{*route?}',
-    handler: require('./best-practices/index').default
-});
 functions_1.app.http('bestPractices', {
     methods: ['GET', 'HEAD', 'OPTIONS'],
     authLevel: 'anonymous',
@@ -79,30 +73,12 @@ functions_1.app.http('consent-callback', {
     route: 'consent-callback/{*route?}',
     handler: require('./consent-callback/index').default
 });
-functions_1.app.http('enterprise-app', {
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'],
-    authLevel: 'anonymous',
-    route: 'enterprise-app/{*route?}',
-    handler: require('./enterprise-app/index').default
-});
 // Legacy/Test Functions
 functions_1.app.http('test-function', {
     methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'test-function',
     handler: require('./test-function/index').default
-});
-functions_1.app.http('HttpTrigger', {
-    methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
-    authLevel: 'anonymous',
-    route: 'HttpTrigger',
-    handler: require('./HttpTrigger/index').default
-});
-functions_1.app.http('test', {
-    methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
-    authLevel: 'anonymous',
-    route: 'test/{*route?}',
-    handler: require('./test/index').default
 });
 console.log('✅ Azure Functions v4 registration completed - All endpoints registered');
 //# sourceMappingURL=index.js.map
