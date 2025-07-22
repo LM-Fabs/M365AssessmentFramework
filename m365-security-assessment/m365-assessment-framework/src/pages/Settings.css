@@ -801,16 +801,34 @@
   gap: 0.25rem;
 }
 
-.customer-name {
-  font-weight: 500;
+/* Higher specificity customer name styling to override any conflicting styles */
+.customer-list-items .customer-list-item .customer-info .customer-name {
+  font-weight: 500 !important;
   color: #1e293b !important;
-  background-color: #f8fafc !important;
-  background: #f8fafc !important;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.375rem;
-  display: inline-block;
-  border: 1px solid #e2e8f0;
-  box-shadow: none !important;
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  padding: 0.375rem 0.75rem !important;
+  border-radius: 0.5rem !important;
+  display: inline-block !important;
+  border: 2px solid #3b82f6 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  min-width: 80px !important;
+  text-align: center !important;
+}
+
+/* Fallback with lower specificity for other customer-name instances */
+.customer-name {
+  font-weight: 500 !important;
+  color: #1e293b !important;
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  padding: 0.375rem 0.75rem !important;
+  border-radius: 0.5rem !important;
+  display: inline-block !important;
+  border: 2px solid #3b82f6 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  min-width: 80px !important;
+  text-align: center !important;
 }
 
 .customer-email {

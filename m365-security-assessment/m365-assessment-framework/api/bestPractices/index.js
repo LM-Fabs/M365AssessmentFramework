@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = default_1;
 const utils_1 = require("../shared/utils");
 /**
  * Azure Functions v4 - Best Practices endpoint
@@ -133,4 +132,5 @@ async function default_1(request, context) {
         };
     }
 }
+exports.default = default_1;
 //# sourceMappingURL=index.js.map

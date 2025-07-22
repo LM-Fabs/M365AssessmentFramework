@@ -38,7 +38,7 @@ async function customersHandler(request, context) {
             context.error('Data service initialization failed:', initError);
             // Return helpful error information for database connectivity issues
             return {
-                status: 503, // Service Unavailable
+                status: 503,
                 headers: utils_1.corsHeaders,
                 jsonBody: {
                     success: false,

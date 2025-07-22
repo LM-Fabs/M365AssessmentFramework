@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = customerAssessments;
 const utils_1 = require("../shared/utils");
 async function customerAssessments(request, context) {
     context.log(`Processing ${request.method} request for customer assessments`);
@@ -79,4 +78,5 @@ async function customerAssessments(request, context) {
         };
     }
 }
+exports.default = customerAssessments;
 //# sourceMappingURL=index.js.map

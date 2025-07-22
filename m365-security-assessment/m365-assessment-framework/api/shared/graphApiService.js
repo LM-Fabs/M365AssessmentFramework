@@ -15,26 +15,15 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GraphApiService = void 0;
-exports.getGraphApiService = getGraphApiService;
+exports.getGraphApiService = exports.GraphApiService = void 0;
 const microsoft_graph_client_1 = require("@microsoft/microsoft-graph-client");
 const identity_1 = require("@azure/identity");
 const https = __importStar(require("https"));
@@ -183,7 +172,7 @@ class GraphApiService {
             const applicationRequest = {
                 displayName: appName,
                 description: `M365 Security Assessment Application for ${customerData.tenantName} (${customerData.tenantDomain})`,
-                signInAudience: "AzureADMultipleOrgs", // Multi-tenant application
+                signInAudience: "AzureADMultipleOrgs",
                 web: {
                     redirectUris: redirectUris,
                     implicitGrantSettings: {
@@ -193,7 +182,7 @@ class GraphApiService {
                 },
                 requiredResourceAccess: [
                     {
-                        resourceAppId: "00000003-0000-0000-c000-000000000000", // Microsoft Graph
+                        resourceAppId: "00000003-0000-0000-c000-000000000000",
                         resourceAccess: permissions
                             .map(permission => {
                             try {
@@ -398,12 +387,12 @@ class GraphApiService {
             console.log(`🎉 GraphApiService: Pagination complete. Retrieved ${allControlProfiles.length} total control profiles in ${pageCount} page(s).`);
             // Optimize control scores data for storage - keep essential information with PostgreSQL's unlimited storage
             const controlScores = allControlProfiles.map((control) => ({
-                controlName: (control.title || control.controlName || 'Unknown Control').substring(0, 150), // Increased length for better descriptions
-                category: (control.controlCategory || 'General').substring(0, 80), // Increased length for better categorization
+                controlName: (control.title || control.controlName || 'Unknown Control').substring(0, 150),
+                category: (control.controlCategory || 'General').substring(0, 80),
                 currentScore: control.score || 0,
                 maxScore: control.maxScore || 0,
-                implementationStatus: (control.implementationStatus || 'Not Implemented').substring(0, 50), // Increased length for better status
-                actionType: (control.actionType || 'Other').substring(0, 50), // Add action type with increased length
+                implementationStatus: (control.implementationStatus || 'Not Implemented').substring(0, 50),
+                actionType: (control.actionType || 'Other').substring(0, 50),
                 remediation: (control.remediation || 'No remediation information available').substring(0, 400) // Increased length for better remediation info
             })) || []; // Remove artificial limit to show all controls with PostgreSQL
             // Extract recommended actions from control profiles for the recommendations section
@@ -423,9 +412,9 @@ class GraphApiService {
                 maxScore: latestScore.maxScore || 0,
                 percentage: Math.round(((latestScore.currentScore || 0) / (latestScore.maxScore || 1)) * 100),
                 controlScores,
-                recommendedActions, // Add recommended actions to the result
+                recommendedActions,
                 lastUpdated: new Date(latestScore.createdDateTime),
-                totalControlsFound: allControlProfiles.length, // Keep track of total number
+                totalControlsFound: allControlProfiles.length,
                 controlsStoredCount: controlScores.length // Track how many we actually stored
             };
             console.log('✅ GraphApiService: Secure score retrieved successfully');
@@ -575,7 +564,7 @@ class GraphApiService {
             const updateRequest = {
                 requiredResourceAccess: [
                     {
-                        resourceAppId: "00000003-0000-0000-c000-000000000000", // Microsoft Graph
+                        resourceAppId: "00000003-0000-0000-c000-000000000000",
                         resourceAccess
                     }
                 ]
@@ -699,7 +688,7 @@ class GraphApiService {
                 // Add tags for identification and management
                 tags: [
                     'WindowsAzureActiveDirectoryIntegratedApp',
-                    'HideApp', // Hide from user app launcher
+                    'HideApp',
                     'M365AssessmentFramework'
                 ],
                 // Configure app role assignment required for security
@@ -754,7 +743,7 @@ class GraphApiService {
             // This would require additional permissions and user/group information
             return {
                 id: servicePrincipal.id,
-                objectId: servicePrincipal.id, // In Microsoft Graph, id and objectId are the same
+                objectId: servicePrincipal.id,
                 appId: servicePrincipal.appId || config.clientId,
                 displayName: servicePrincipal.displayName || config.displayName,
                 servicePrincipalType: servicePrincipal.servicePrincipalType || 'Application',
@@ -1038,4 +1027,5 @@ function getGraphApiService() {
     }
     return graphApiServiceInstance;
 }
+exports.getGraphApiService = getGraphApiService;
 //# sourceMappingURL=graphApiService.js.map

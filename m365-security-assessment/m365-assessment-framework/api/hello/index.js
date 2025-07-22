@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = hello;
 async function hello(request, context) {
     context.log('Simple hello function triggered');
     return {
@@ -18,4 +17,5 @@ async function hello(request, context) {
         }
     };
 }
+exports.default = hello;
 //# sourceMappingURL=index.js.map
