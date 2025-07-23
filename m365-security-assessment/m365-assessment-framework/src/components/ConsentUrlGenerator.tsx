@@ -119,13 +119,14 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
     try {
       console.log('🔄 DIRECT CONSENT: Generating direct Microsoft admin consent URL');
       
-      // Generate direct Microsoft admin consent URL
+      // Generate direct Microsoft admin consent URL using the correct v2.0 endpoint format
       const baseUrl = window.location.origin;
       const redirectUri = `${baseUrl}/admin-consent-success`;
       const permissions = formData.permissions.join(' ');
       
-      // Use the main app's client ID and generate a direct admin consent URL
-      const consentUrl = `https://login.microsoftonline.com/common/adminconsent` +
+      // Use the proper admin consent endpoint format from Microsoft docs
+      // https://login.microsoftonline.com/{tenant}/v2.0/adminconsent
+      const consentUrl = `https://login.microsoftonline.com/${encodeURIComponent(formData.tenantId)}/v2.0/adminconsent` +
         `?client_id=${encodeURIComponent(formData.clientId)}` +
         `&redirect_uri=${encodeURIComponent(redirectUri)}` +
         `&scope=${encodeURIComponent(permissions)}` +
@@ -135,7 +136,7 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
           timestamp: Date.now()
         }))}`;
       
-      console.log('✅ Generated DIRECT consent URL:', consentUrl);
+      console.log('✅ Generated DIRECT consent URL with tenant-specific endpoint:', consentUrl);
       setGeneratedUrl(consentUrl);
       
     } catch (error) {
@@ -259,16 +260,18 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
 
   return (
     <div className="consent-url-generator">
-      <div className="consent-header">
-        <h2>Generate Admin Consent URL</h2>
-        {onClose && (
+      <div className="consent-modal">
+        <div className="consent-header">
+          <div>
+            <h2>Admin Consent URL Generator</h2>
+            <p className="subtitle">Generate Microsoft admin consent URLs for your M365 Assessment Framework</p>
+          </div>
           <button onClick={onClose} className="close-button" aria-label="Close">
-            ✕
+            ×
           </button>
-        )}
-      </div>
+        </div>
 
-      <div className="consent-form">
+        <div className="consent-form">
         {/* Customer Selection */}
         <div className="form-group">
           <label htmlFor="customer-select">Select Customer:</label>
@@ -356,7 +359,7 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
                 <button onClick={copyToClipboard} className="copy-button">
                   {copied ? 'Copied!' : 'Copy URL'}
                 </button>
-                <button onClick={openInPopup} className="popup-button">
+                <button onClick={openInPopup} className="open-popup-button">
                   Open in Popup
                 </button>
               </div>
@@ -380,8 +383,22 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
 
         {/* Instructions */}
         <div className="instructions">
-          <h3>Instructions:</h3>
+          <h3>⚠️ IMPORTANT: Azure App Registration Setup Required</h3>
+          <div className="alert-box">
+            <strong>Before using this consent URL, you MUST add the redirect URI to your Azure app registration:</strong>
+            <ol>
+              <li>Go to <a href="https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" rel="noopener noreferrer">Azure Portal → App Registrations</a></li>
+              <li>Find your app: <code>{formData.clientId}</code></li>
+              <li>Go to <strong>Authentication</strong> → <strong>Platform configurations</strong></li>
+              <li>Add redirect URI: <code>{window.location.origin}/admin-consent-success</code></li>
+              <li>Set platform type to <strong>Web</strong></li>
+              <li>Click <strong>Save</strong></li>
+            </ol>
+          </div>
+          
+          <h3>Usage Instructions:</h3>
           <ol>
+            <li>Complete the Azure app registration setup above</li>
             <li>Select the customer you want to generate consent for</li>
             <li>Enter or auto-detect the target tenant ID</li>
             <li>Review the required permissions</li>
@@ -390,6 +407,7 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
           </ol>
         </div>
       </div>
+    </div>
     </div>
   );
 };
