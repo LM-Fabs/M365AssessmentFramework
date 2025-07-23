@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
-import { CustomerService, Customer, CreateCustomerRequest } from '../../services/customerService';
-import { ApiWarmupService } from '../../services/apiWarmupService';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { Customer, CustomerService, CreateCustomerRequest } from '../../services/customerService';
 import './CustomerSelector.css';
 
 interface CustomerSelectorProps {
@@ -66,16 +65,6 @@ const CustomerSelector = forwardRef<CustomerSelectorRef, CustomerSelectorProps>(
       setError(null);
       
       const startTime = Date.now();
-      const warmupService = ApiWarmupService.getInstance();
-      
-      // Check if API is warmed up
-      if (!warmupService.isWarmupCompleted()) {
-        console.log('🔥 CustomerSelector: API not warmed up yet, triggering warmup...');
-        // Trigger warmup if not already done
-        warmupService.warmupApi();
-      } else {
-        console.log('✅ CustomerSelector: API already warmed up');
-      }
       
       console.log('🔄 CustomerSelector: Starting to load customers...');
       
@@ -231,12 +220,7 @@ const CustomerSelector = forwardRef<CustomerSelectorRef, CustomerSelectorProps>(
                   <div className="loading-spinner"></div>
                   <div className="loading-text">
                     <div>Loading customers...</div>
-                    <small>
-                      {ApiWarmupService.getInstance().isWarmupCompleted() 
-                        ? 'This should be quick since the API is warmed up' 
-                        : 'First load may take up to 45 seconds (API cold start)'
-                      }
-                    </small>
+                    <small>Loading customer data from your tenant</small>
                   </div>
                 </div>
               ) : error && !showCreateForm ? (
