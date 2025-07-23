@@ -127,10 +127,9 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
   }, [formData.tenantId, formData.redirectUri, formData.permissions, formData.customer, formData.clientId]);
 
   const generateConsentUrl = async () => {
-    console.log('🔍 generateConsentUrl called:', {
+    console.log('� NEW WORKFLOW: generateConsentUrl called with customer:', {
       customer: formData.customer,
-      tenantId: formData.tenantId,
-      clientId: M365_ASSESSMENT_CONFIG.clientId
+      customerId: formData.customer?.id
     });
 
     if (!formData.customer?.id) {
@@ -140,55 +139,18 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
     }
 
     try {
-      const adminConsentService = AdminConsentService.getInstance();
+      console.log('🔄 NEW TWO-PHASE WORKFLOW: Creating consent URL that will trigger app registration creation');
       
-      // Always use YOUR app's client ID (not customer's)
-      const clientId = M365_ASSESSMENT_CONFIG.clientId;
-      console.log('📋 Using client ID:', clientId);
+      // PHASE 1: Generate URL that calls consent callback to create app registration first
+      // This will create a customer-specific app registration and redirect to consent URL for that new app
+      const baseUrl = window.location.origin;
+      const phase1Url = `${baseUrl}/api/consent-callback?tenant=${formData.customer.id}&customer_id=${formData.customer.id}`;
       
-      // If no tenant ID is provided, try to auto-detect it
-      let tenantId = formData.tenantId;
-      if (!tenantId) {
-        console.log('🔄 No tenant ID provided, trying auto-detection...');
-        const autoDetectResult = await adminConsentService.generateConsentUrlWithAutoTenant(
-          clientId, // YOUR app's client ID
-          formData.redirectUri,
-          formData.customer.id,
-          formData.permissions.join(' ')
-        );
-        
-        if (autoDetectResult.url) {
-          console.log('✅ Auto-detection successful:', autoDetectResult);
-          setGeneratedUrl(autoDetectResult.url);
-          // Update the form with the detected tenant ID
-          if (autoDetectResult.tenantId) {
-            setFormData(prev => ({ ...prev, tenantId: autoDetectResult.tenantId! }));
-          }
-          return;
-        } else {
-          console.log('❌ Auto-detection failed:', autoDetectResult);
-        }
-      }
-
-      // Fallback to manual tenant ID if provided
-      if (tenantId) {
-        console.log('🎯 Using manual tenant ID:', tenantId);
-        const consentUrl = adminConsentService.generateCustomerConsentUrl({
-          clientId: clientId, // YOUR app's client ID
-          redirectUri: formData.redirectUri,
-          customerId: formData.customer.id,
-          customerTenantId: tenantId, // Customer's tenant ID
-          scope: formData.permissions.join(' ')
-        });
-        
-        console.log('✅ Generated consent URL:', consentUrl);
-        setGeneratedUrl(consentUrl);
-      } else {
-        console.log('❌ No tenant ID available, clearing URL');
-        setGeneratedUrl('');
-      }
+      console.log('✅ Generated PHASE 1 URL (creates app registration first):', phase1Url);
+      setGeneratedUrl(phase1Url);
+      
     } catch (error) {
-      console.error('Error generating consent URL:', error);
+      console.error('Error in new consent workflow:', error);
       setGeneratedUrl('');
     }
   };
