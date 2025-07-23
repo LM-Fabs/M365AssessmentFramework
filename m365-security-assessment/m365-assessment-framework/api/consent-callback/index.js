@@ -231,24 +231,21 @@ async function consentCallbackHandler(request, context) {
                                 status: 'active'
                             });
                             context.log(`✅ Customer record updated with app registration details`);
-                            // Now redirect to consent URL for the NEWLY CREATED app
-                            // Use our consent callback as the redirect URI for the new app's consent flow
+                            // Now redirect to ADMIN CONSENT URL for the NEWLY CREATED app
+                            // Use the dedicated admin consent endpoint, not OAuth2 authorize
                             const baseUrl = process.env.REACT_APP_API_URL ||
                                 process.env.API_BASE_URL ||
                                 'https://victorious-pond-069956e03.6.azurestaticapps.net';
                             const consentRedirectUri = `${baseUrl}/api/consent-callback`;
-                            const newAppConsentUrl = `https://login.microsoftonline.com/${customer.tenantId}/oauth2/v2.0/authorize?` +
+                            // ✅ FIX: Use the dedicated admin consent endpoint
+                            const newAppConsentUrl = `https://login.microsoftonline.com/common/adminconsent?` +
                                 `client_id=${appRegistration.clientId}&` +
-                                `response_type=code&` +
                                 `redirect_uri=${encodeURIComponent(consentRedirectUri)}&` +
-                                `scope=https://graph.microsoft.com/.default&` +
-                                `state=${encodeURIComponent(JSON.stringify({ customerId: customer.id, phase: 'consent-confirmation' }))}&` +
-                                `response_mode=query&` +
-                                `prompt=admin_consent`;
-                            context.log(`🔄 PHASE 1 Complete: Redirecting to consent URL for NEW app:`);
+                                `state=${encodeURIComponent(JSON.stringify({ customerId: customer.id, phase: 'consent-confirmation' }))}`;
+                            context.log(`🔄 PHASE 1 Complete: Redirecting to ADMIN CONSENT URL for NEW app:`);
                             context.log(`   - New App Client ID: ${appRegistration.clientId}`);
                             context.log(`   - Customer Tenant ID: ${customer.tenantId}`);
-                            context.log(`   - Consent URL: ${newAppConsentUrl}`);
+                            context.log(`   - Admin Consent URL: ${newAppConsentUrl}`);
                             return {
                                 status: 302,
                                 headers: {
@@ -290,6 +287,24 @@ async function consentCallbackHandler(request, context) {
                                 status: 'active'
                             });
                             context.log(`✅ PHASE 2 Complete: Consent confirmed and customer record updated`);
+                            // Return success page for admin consent confirmation
+                            if (hasAdminConsent) {
+                                context.log(`✅ Admin consent confirmed for tenant: ${tenant}`);
+                                // Determine frontend URL for redirect to success page
+                                const frontendUrl = process.env.REACT_APP_FRONTEND_URL ||
+                                    process.env.FRONTEND_URL ||
+                                    process.env.STATIC_WEB_APP_URL ||
+                                    'https://victorious-pond-069956e03.6.azurestaticapps.net';
+                                const successRedirect = `${frontendUrl}/admin-consent-success?customer_id=${customer.id}&status=success&consent_type=admin&tenant=${tenant || ''}&timestamp=${Date.now()}`;
+                                context.log(`🔄 PHASE 2 Complete: Redirecting to success page: ${successRedirect}`);
+                                return {
+                                    status: 302,
+                                    headers: {
+                                        ...corsHeaders,
+                                        'Location': successRedirect
+                                    }
+                                };
+                            }
                         }
                         else {
                             context.log(`✅ App registration exists but no consent confirmation received`);
