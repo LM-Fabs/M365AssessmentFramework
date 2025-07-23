@@ -111,9 +111,6 @@ async function consentCallbackHandler(request, context) {
                     })
                 };
             }
-            // Initialize services - temporarily commented out for deployment troubleshooting
-            // const graphService = new GraphApiService();
-            // const postgresService = new PostgreSQLService();
             try {
                 // Parse state parameter if it's JSON-encoded
                 let parsedState = null;
@@ -244,7 +241,7 @@ async function consentCallbackHandler(request, context) {
                     process.env.FRONTEND_URL ||
                     process.env.STATIC_WEB_APP_URL ||
                     'https://victorious-pond-069956e03.6.azurestaticapps.net';
-                const successRedirect = `${frontendUrl}/admin-consent-success?customer_id=${tenantId}&status=success&consent_type=${hasAdminConsent ? 'admin' : 'auth_code'}`;
+                const successRedirect = `${frontendUrl}/admin-consent-success?customer_id=${tenantId}&status=success&consent_type=${hasAdminConsent ? 'admin' : 'auth_code'}&tenant=${tenant || ''}&timestamp=${Date.now()}`;
                 context.log(`🔄 Redirecting to: ${successRedirect}`);
                 return {
                     status: 302,
