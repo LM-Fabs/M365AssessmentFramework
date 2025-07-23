@@ -138,8 +138,15 @@ async function consentCallbackHandler(request, context) {
                     context.log(`   ✅ Authorization code received (first 20 chars): ${code.substring(0, 20)}...`);
                     context.log(`   Flow type: Authorization Code`);
                 }
+                // 🔄 CORRECT WORKFLOW: Check if this is initial setup or consent confirmation
+                // 
+                // PHASE 1: Initial setup request - create app registration first
+                // PHASE 2: Consent confirmation - user granted consent to the new app
+                const isInitialSetup = !hasAdminConsent && !hasAuthCode; // No OAuth response yet
+                const isConsentConfirmation = hasAdminConsent || hasAuthCode; // OAuth response received
+                context.log(`🔍 Flow detection: Initial=${isInitialSetup}, Confirmation=${isConsentConfirmation}`);
                 // Initialize services for app registration creation
-                context.log(`🚀 PRODUCTION MODE: Creating actual app registration`);
+                context.log(`🚀 PRODUCTION MODE: Processing customer app registration workflow`);
                 const graphService = new graphApiService_1.GraphApiService();
                 const postgresService = new postgresqlService_1.PostgreSQLService();
                 try {
@@ -177,18 +184,9 @@ async function consentCallbackHandler(request, context) {
                         context.log(`❌ Customer not found with any identifier: ${tenantId}`);
                         throw new Error(`Customer not found for any identifier: ${tenantId}`);
                     }
-                    // Check if app registration already exists
-                    if (customer.appRegistration?.clientId && customer.appRegistration?.applicationId) {
-                        context.log(`ℹ️ App registration already exists for customer: ${customer.appRegistration.clientId}`);
-                        // Update last assessment date using service method
-                        await postgresService.updateCustomer(customer.id, {
-                            lastAssessmentDate: new Date(),
-                            status: 'active'
-                        });
-                        context.log(`✅ Updated customer status and last assessment date`);
-                    }
-                    else {
-                        context.log(`🚀 Creating new app registration for customer: ${customer.tenantName}`);
+                    // PHASE 1: If no app registration exists, create it first and redirect to consent
+                    if (!customer.appRegistration?.clientId || !customer.appRegistration?.applicationId) {
+                        context.log(`🚀 PHASE 1: Creating new app registration for customer: ${customer.tenantName}`);
                         // Create app registration using Graph API
                         const appRegistration = await graphService.createMultiTenantAppRegistration({
                             tenantName: customer.tenantName || 'Unknown',
@@ -206,7 +204,7 @@ async function consentCallbackHandler(request, context) {
                         context.log(`   - Application ID: ${appRegistration.applicationId}`);
                         context.log(`   - Client ID: ${appRegistration.clientId}`);
                         context.log(`   - Service Principal ID: ${appRegistration.servicePrincipalId}`);
-                        // Update customer record with app registration details using service method
+                        // Update customer record with app registration details
                         await postgresService.updateCustomer(customer.id, {
                             appRegistration: {
                                 applicationId: appRegistration.applicationId,
@@ -221,18 +219,55 @@ async function consentCallbackHandler(request, context) {
                                 consentUrl: appRegistration.consentUrl,
                                 redirectUri: appRegistration.redirectUri,
                                 isReal: true,
-                                setupStatus: 'completed',
+                                setupStatus: 'awaiting-consent',
                                 createdDate: new Date().toISOString()
                             },
-                            lastAssessmentDate: new Date(),
                             status: 'active'
                         });
                         context.log(`✅ Customer record updated with app registration details`);
+                        // Now redirect to consent URL for the NEWLY CREATED app
+                        const newAppConsentUrl = `https://login.microsoftonline.com/${customer.tenantId}/oauth2/v2.0/authorize?` +
+                            `client_id=${appRegistration.clientId}&` +
+                            `response_type=code&` +
+                            `redirect_uri=${encodeURIComponent(appRegistration.redirectUri)}&` +
+                            `scope=https://graph.microsoft.com/.default&` +
+                            `state=${encodeURIComponent(JSON.stringify({ customerId: customer.id, phase: 'consent-confirmation' }))}&` +
+                            `response_mode=query&` +
+                            `prompt=admin_consent`;
+                        context.log(`🔄 PHASE 1 Complete: Redirecting to consent URL for NEW app: ${newAppConsentUrl}`);
+                        return {
+                            status: 302,
+                            headers: {
+                                ...corsHeaders,
+                                'Location': newAppConsentUrl
+                            }
+                        };
+                    }
+                    else {
+                        // PHASE 2: App registration exists, this should be consent confirmation
+                        context.log(`ℹ️ PHASE 2: App registration exists, processing consent confirmation`);
+                        context.log(`   - Existing Client ID: ${customer.appRegistration.clientId}`);
+                        if (isConsentConfirmation) {
+                            // Update customer record to mark consent as completed
+                            await postgresService.updateCustomer(customer.id, {
+                                appRegistration: {
+                                    ...customer.appRegistration,
+                                    setupStatus: 'completed',
+                                    consentGrantedDate: new Date().toISOString()
+                                },
+                                lastAssessmentDate: new Date(),
+                                status: 'active'
+                            });
+                            context.log(`✅ PHASE 2 Complete: Consent confirmed and customer record updated`);
+                        }
+                        else {
+                            context.log(`✅ App registration exists but no consent confirmation received`);
+                        }
                     }
                     context.log(`✅ Consent and app registration process completed successfully for ${customer.tenantName}`);
                 }
                 catch (serviceError) {
-                    context.log(`❌ Error during app registration creation:`, serviceError);
+                    context.log(`❌ Error during app registration workflow:`, serviceError);
                     throw serviceError; // Re-throw to be handled by outer catch block
                 }
                 context.log(`✅ Consent successfully processed for customer ${tenantId}`);
