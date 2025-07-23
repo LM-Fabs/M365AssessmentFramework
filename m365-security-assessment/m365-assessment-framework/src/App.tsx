@@ -37,6 +37,12 @@ function App() {
 function AppContent() {
   const { isAuthenticated, loading, user, logout } = useAuth();
 
+  // Check if we're on the admin consent success page - bypass ALL auth logic
+  const currentPath = window.location.pathname;
+  if (currentPath === '/admin-consent-success') {
+    return <AdminConsentSuccess />;
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -45,10 +51,9 @@ function AppContent() {
     );
   }
 
-  // Always allow access to AdminConsentSuccess regardless of auth state (for popups)
+  // Regular routing for all other pages
   return (
     <Routes>
-      <Route path="/admin-consent-success" element={<AdminConsentSuccess />} />
       {!isAuthenticated ? (
         <>
           <Route path="/login" element={<Login />} />

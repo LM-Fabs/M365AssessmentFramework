@@ -49,74 +49,52 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
   // Listen for messages from popup window
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // Verify origin for security
-      if (event.origin !== window.location.origin) {
-        console.warn('🚨 Received message from untrusted origin:', event.origin);
-        return;
-      }
-
+      console.log('🎯 ConsentUrlGenerator received message:', event.data);
+      
       if (event.data.type === 'ADMIN_CONSENT_RESULT') {
-        console.log('🔗 ConsentUrlGenerator: Received consent result:', event.data);
+        const { data, success } = event.data;
         
-        if (event.data.success) {
-          setConsentStatus({
-            status: 'success',
-            message: `Admin consent granted successfully for customer ${event.data.data.customerId}`,
-            customerId: event.data.data.customerId
-          });
-        } else {
-          setConsentStatus({
-            status: 'error',
-            message: event.data.data.error || 'Admin consent failed',
-            customerId: event.data.data.customerId
-          });
-        }
+        setConsentStatus({
+          status: success ? 'success' : 'error',
+          message: success ? 'Admin consent granted successfully!' : (data.error || 'Consent failed'),
+          customerId: data.customerId
+        });
 
-        // Close popup tracking
-        setPopupWindow(null);
-        
-        // Auto-hide status after 10 seconds
-        setTimeout(() => {
-          setConsentStatus({ status: 'idle' });
-        }, 10000);
+        // Close popup after receiving result
+        if (popupWindow && !popupWindow.closed) {
+          popupWindow.close();
+          setPopupWindow(null);
+        }
       }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [popupWindow]);
 
-  // Check if popup is still open
+  // Check if popup was closed manually
   useEffect(() => {
-    if (popupWindow) {
-      const checkClosed = setInterval(() => {
-        if (popupWindow.closed) {
-          console.log('🔗 ConsentUrlGenerator: Popup window closed');
-          setPopupWindow(null);
-          if (consentStatus.status === 'pending') {
-            setConsentStatus({
-              status: 'error',
-              message: 'Consent window was closed before completion'
-            });
-          }
-          clearInterval(checkClosed);
-        }
-      }, 1000);
+    if (!popupWindow) return;
 
-      return () => clearInterval(checkClosed);
-    }
+    const checkClosed = setInterval(() => {
+      if (popupWindow.closed) {
+        setPopupWindow(null);
+        if (consentStatus.status === 'pending') {
+          setConsentStatus({
+            status: 'error',
+            message: 'Consent popup was closed before completion'
+          });
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(checkClosed);
   }, [popupWindow, consentStatus.status]);
 
-  // Auto-populate fields when customer is selected
+  // Auto-select customer if there's only one
   useEffect(() => {
-    if (formData.customer) {
-      setFormData(prev => ({
-        ...prev,
-        // NOTE: We do NOT use customer's clientId - we use OUR app's clientId
-        // The customer's tenant ID is what we need for targeting the consent
-        tenantId: formData.customer?.tenantId || ''
-      }));
-      // Trigger URL generation immediately when customer changes
+    if (customers.length === 1 && !formData.customer) {
+      setFormData(prev => ({ ...prev, customer: customers[0] }));
       generateConsentUrl();
     }
   }, [formData.customer]);
@@ -127,30 +105,41 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
   }, [formData.tenantId, formData.redirectUri, formData.permissions, formData.customer, formData.clientId]);
 
   const generateConsentUrl = async () => {
-    console.log('� NEW WORKFLOW: generateConsentUrl called with customer:', {
+    console.log('🎯 SIMPLIFIED: generateConsentUrl called with customer:', {
       customer: formData.customer,
       customerId: formData.customer?.id
     });
 
-    if (!formData.customer?.id) {
-      console.log('❌ No customer selected, clearing URL');
+    if (!formData.customer?.id || !formData.tenantId) {
+      console.log('❌ Missing customer or tenant ID, clearing URL');
       setGeneratedUrl('');
       return;
     }
 
     try {
-      console.log('🔄 NEW TWO-PHASE WORKFLOW: Creating consent URL that will trigger app registration creation');
+      console.log('🔄 DIRECT CONSENT: Generating direct Microsoft admin consent URL');
       
-      // PHASE 1: Generate URL that calls consent callback to create app registration first
-      // This will create a customer-specific app registration and redirect to consent URL for that new app
+      // Generate direct Microsoft admin consent URL
       const baseUrl = window.location.origin;
-      const phase1Url = `${baseUrl}/api/consent-callback?tenant=${formData.customer.id}&customer_id=${formData.customer.id}`;
+      const redirectUri = `${baseUrl}/admin-consent-success`;
+      const permissions = formData.permissions.join(' ');
       
-      console.log('✅ Generated PHASE 1 URL (creates app registration first):', phase1Url);
-      setGeneratedUrl(phase1Url);
+      // Use the main app's client ID and generate a direct admin consent URL
+      const consentUrl = `https://login.microsoftonline.com/common/adminconsent` +
+        `?client_id=${encodeURIComponent(formData.clientId)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&scope=${encodeURIComponent(permissions)}` +
+        `&state=${encodeURIComponent(JSON.stringify({ 
+          customer_id: formData.customer.id, 
+          tenant: formData.tenantId,
+          timestamp: Date.now()
+        }))}`;
+      
+      console.log('✅ Generated DIRECT consent URL:', consentUrl);
+      setGeneratedUrl(consentUrl);
       
     } catch (error) {
-      console.error('Error in new consent workflow:', error);
+      console.error('Error generating consent URL:', error);
       setGeneratedUrl('');
     }
   };
@@ -199,294 +188,190 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
 
   const copyToClipboard = async () => {
     if (!generatedUrl) return;
-
+    
     try {
       await navigator.clipboard.writeText(generatedUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       console.error('Failed to copy URL:', error);
-      // Fallback for browsers that don't support clipboard API
+      // Fallback for older browsers
       const textArea = document.createElement('textarea');
       textArea.value = generatedUrl;
       document.body.appendChild(textArea);
       textArea.select();
-      document.execCommand('copy');
+      try {
+        document.execCommand('copy');
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (fallbackError) {
+        console.error('Fallback copy also failed:', fallbackError);
+      }
       document.body.removeChild(textArea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     }
   };
 
-  const openConsentUrl = () => {
+  const openInPopup = () => {
     if (!generatedUrl) return;
-    
-    // Set status to pending
-    setConsentStatus({
-      status: 'pending',
-      message: 'Waiting for admin consent...',
-      customerId: formData.customer?.id
-    });
 
-    // Open popup and track it
+    setConsentStatus({ status: 'pending', message: 'Waiting for admin consent...' });
+
     const popup = window.open(
-      generatedUrl, 
-      'admin-consent', 
-      'width=600,height=800,scrollbars=yes,resizable=yes,centerscreen=yes'
+      generatedUrl,
+      'admin-consent',
+      'width=600,height=700,scrollbars=yes,resizable=yes,status=yes,location=yes,menubar=no,toolbar=no'
     );
-    
+
     if (popup) {
       setPopupWindow(popup);
-      // Focus the popup
       popup.focus();
-      console.log('🔗 ConsentUrlGenerator: Opened consent popup window');
     } else {
       setConsentStatus({
         status: 'error',
-        message: 'Failed to open consent window. Please check your popup blocker settings.'
+        message: 'Failed to open popup. Please check if popups are blocked.'
       });
     }
   };
 
-  const availablePermissions = [
-    { name: 'Organization.Read.All', description: 'Read organization and license information' },
-    { name: 'SecurityEvents.Read.All', description: 'Read security events and secure score' },
-    { name: 'Reports.Read.All', description: 'Read usage and activity reports' },
-    { name: 'Directory.Read.All', description: 'Read directory data (users, groups, etc.)' },
-    { name: 'Policy.Read.All', description: 'Read conditional access and compliance policies' },
-    { name: 'IdentityRiskyUser.Read.All', description: 'Read identity protection data' },
-    { name: 'AuditLog.Read.All', description: 'Read audit logs and sign-in logs' },
-    { name: 'DeviceManagementManagedDevices.Read.All', description: 'Read managed device information' },
-    { name: 'ThreatIndicators.Read.All', description: 'Read threat indicators and security alerts' }
-  ];
+  const resetConsentStatus = () => {
+    setConsentStatus({ status: 'idle' });
+  };
 
   return (
     <div className="consent-url-generator">
-      <div className="generator-header">
-        <h3>🔗 Admin Consent URL Generator</h3>
-        <p>Generate admin consent URLs for customer app registrations</p>
+      <div className="consent-header">
+        <h2>Generate Admin Consent URL</h2>
         {onClose && (
-          <button type="button" className="close-button" onClick={onClose}>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
+          <button onClick={onClose} className="close-button" aria-label="Close">
+            ✕
           </button>
         )}
       </div>
 
-      {/* Consent Status Display */}
-      {consentStatus.status !== 'idle' && (
-        <div className={`consent-status consent-status-${consentStatus.status}`}>
-          <div className="status-icon">
-            {consentStatus.status === 'pending' && (
-              <div className="spinner"></div>
-            )}
-            {consentStatus.status === 'success' && (
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 12l2 2 4-4"></path>
-                <circle cx="12" cy="12" r="10"></circle>
-              </svg>
-            )}
-            {consentStatus.status === 'error' && (
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="15" y1="9" x2="9" y2="15"></line>
-                <line x1="9" y1="9" x2="15" y2="15"></line>
-              </svg>
-            )}
-          </div>
-          <div className="status-content">
-            <p className="status-message">{consentStatus.message}</p>
-            {consentStatus.customerId && (
-              <p className="status-customer">Customer: {consentStatus.customerId}</p>
-            )}
-            {consentStatus.status === 'pending' && popupWindow && (
-              <p className="status-hint">Complete the consent process in the popup window</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      <div className="generator-form">
+      <div className="consent-form">
         {/* Customer Selection */}
-        <div className="form-section">
-          <h4>Customer & App Registration</h4>
-          
-          <div className="form-field">
-            <label htmlFor="customerSelect">Select Customer (Optional)</label>
-            <select
-              id="customerSelect"
-              value={formData.customer?.id || ''}
-              onChange={(e) => handleCustomerSelect(e.target.value)}
-              className="form-input"
-            >
-              <option value="">Manual entry</option>
-              {customers.map(customer => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.tenantName || customer.tenantDomain || customer.id} 
-                  {customer.tenantDomain && customer.tenantName !== customer.tenantDomain ? ` (${customer.tenantDomain})` : ''}
-                </option>
-              ))}
-            </select>
-            <small className="form-help">
-              Select a customer to auto-populate fields, or enter manually below
-            </small>
-          </div>
+        <div className="form-group">
+          <label htmlFor="customer-select">Select Customer:</label>
+          <select
+            id="customer-select"
+            value={formData.customer?.id || ''}
+            onChange={(e) => handleCustomerSelect(e.target.value)}
+            className="form-select"
+          >
+            <option value="">-- Select a Customer --</option>
+            {customers.map(customer => (
+              <option key={customer.id} value={customer.id}>
+                {customer.tenantName}
+              </option>
+            ))}
+          </select>
+        </div>
 
-          <div className="form-row">
-            <div className="form-field">
-              <label htmlFor="clientId">Application (Client) ID (Auto-configured)</label>
-              <input
-                type="text"
-                id="clientId"
-                value={M365_ASSESSMENT_CONFIG.clientId}
-                readOnly
-                className="form-input readonly"
-                title="This is YOUR app's client ID - same for all customers"
-              />
-              <small className="form-help">
-                ✅ Auto-configured from your M365 Assessment Framework app registration
-              </small>
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="tenantId">Customer Tenant ID/Domain *</label>
-              <div className="input-with-button">
-                <input
-                  type="text"
-                  id="tenantId"
-                  value={formData.tenantId}
-                  onChange={(e) => handleInputChange('tenantId', e.target.value)}
-                  placeholder="customer.onmicrosoft.com or tenant ID"
-                  className="form-input"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={handleAutoDetectTenant}
-                  disabled={isAutoDetecting}
-                  className="auto-detect-button"
-                  title="Auto-detect from current user session"
-                >
-                  {isAutoDetecting ? '🔄' : '🔍'}
-                </button>
-              </div>
-              <small className="form-help">
-                Customer's tenant ID or domain. Click 🔍 to auto-detect from your current session.
-              </small>
-            </div>
-          </div>
-
-          <div className="form-field">
-            <label htmlFor="redirectUri">Redirect URI</label>
+        {/* Tenant ID */}
+        <div className="form-group">
+          <label htmlFor="tenant-id">Target Tenant ID:</label>
+          <div className="input-with-button">
             <input
-              type="url"
-              id="redirectUri"
-              value={formData.redirectUri}
-              onChange={(e) => handleInputChange('redirectUri', e.target.value)}
+              id="tenant-id"
+              type="text"
+              value={formData.tenantId}
+              onChange={(e) => handleInputChange('tenantId', e.target.value)}
+              placeholder="Enter tenant ID (GUID)"
               className="form-input"
             />
-            <small className="form-help">
-              Where to redirect after consent (default: Azure Portal)
-            </small>
+            <button
+              onClick={handleAutoDetectTenant}
+              disabled={isAutoDetecting}
+              className="auto-detect-button"
+              title="Auto-detect your tenant ID"
+            >
+              {isAutoDetecting ? '...' : 'Auto'}
+            </button>
           </div>
         </div>
 
-        {/* Permissions Selection */}
-        <div className="form-section">
-          <h4>Required Permissions</h4>
-          <p className="section-description">
-            Select the Microsoft Graph permissions needed for security assessments
-          </p>
-          
-          <div className="permissions-grid">
-            {availablePermissions.map(permission => (
-              <div key={permission.name} className="permission-item">
-                <label className="permission-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={formData.permissions.includes(permission.name)}
-                    onChange={() => handlePermissionToggle(permission.name)}
-                  />
-                  <span className="permission-name">{permission.name}</span>
-                </label>
-                <small className="permission-description">{permission.description}</small>
-              </div>
+        {/* Client ID (Read-only) */}
+        <div className="form-group">
+          <label htmlFor="client-id">Client ID (Your App):</label>
+          <input
+            id="client-id"
+            type="text"
+            value={formData.clientId}
+            readOnly
+            className="form-input readonly"
+            title="This is your main app's Client ID"
+          />
+        </div>
+
+        {/* Permissions */}
+        <div className="form-group">
+          <label>Required Permissions:</label>
+          <div className="permissions-list">
+            {M365_ASSESSMENT_CONFIG.requiredPermissions.map(permission => (
+              <label key={permission} className="permission-item">
+                <input
+                  type="checkbox"
+                  checked={formData.permissions.includes(permission)}
+                  onChange={() => handlePermissionToggle(permission)}
+                />
+                <span className="permission-name">{permission}</span>
+              </label>
             ))}
           </div>
         </div>
 
         {/* Generated URL */}
-        <div className="form-section">
-          <h4>Generated Admin Consent URL</h4>
-          
-          {generatedUrl ? (
-            <div className="url-output">
-              <div className="url-display">
-                <textarea
-                  value={generatedUrl}
-                  readOnly
-                  className="url-textarea"
-                  rows={3}
-                />
-              </div>
-              
-              <div className="url-actions">
-                <button
-                  type="button"
-                  onClick={copyToClipboard}
-                  className="btn-secondary"
-                  disabled={!generatedUrl}
-                >
-                  {copied ? (
-                    <>
-                      <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-                        <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-                      </svg>
-                      Copy URL
-                    </>
-                  )}
+        {generatedUrl && (
+          <div className="form-group">
+            <label htmlFor="generated-url">Generated Consent URL:</label>
+            <div className="url-display">
+              <textarea
+                id="generated-url"
+                value={generatedUrl}
+                readOnly
+                rows={3}
+                className="url-textarea"
+              />
+              <div className="url-buttons">
+                <button onClick={copyToClipboard} className="copy-button">
+                  {copied ? 'Copied!' : 'Copy URL'}
                 </button>
-                
-                <button
-                  type="button"
-                  onClick={openConsentUrl}
-                  className="btn-primary"
-                  disabled={!generatedUrl}
-                >
-                  <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 11-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 010-2h4a1 1 0 011 1v4a1 1 0 01-2 0V6.414l-2.293 2.293a1 1 0 11-1.414-1.414L13.586 5H12z" clipRule="evenodd" />
-                  </svg>
-                  Open Consent Page
+                <button onClick={openInPopup} className="popup-button">
+                  Open in Popup
                 </button>
               </div>
+            </div>
+          </div>
+        )}
 
-              <div className="consent-instructions">
-                <h5>📋 Instructions for Customer Admin</h5>
-                <ol>
-                  <li>Send this URL to the customer's <strong>Global Administrator</strong></li>
-                  <li>Admin clicks the URL and signs in with their admin account</li>
-                  <li>Admin reviews the requested permissions</li>
-                  <li>Admin clicks <strong>"Accept"</strong> to grant organization-wide consent</li>
-                  <li>App registration is now ready for security assessments</li>
-                </ol>
-              </div>
+        {/* Consent Status */}
+        {consentStatus.status !== 'idle' && (
+          <div className={`consent-status ${consentStatus.status}`}>
+            <div className="status-content">
+              <span className="status-message">{consentStatus.message}</span>
+              {consentStatus.status !== 'pending' && (
+                <button onClick={resetConsentStatus} className="reset-button">
+                  ✕
+                </button>
+              )}
             </div>
-          ) : (
-            <div className="url-placeholder">
-              <p>Enter Client ID and Tenant ID to generate consent URL</p>
-            </div>
-          )}
+          </div>
+        )}
+
+        {/* Instructions */}
+        <div className="instructions">
+          <h3>Instructions:</h3>
+          <ol>
+            <li>Select the customer you want to generate consent for</li>
+            <li>Enter or auto-detect the target tenant ID</li>
+            <li>Review the required permissions</li>
+            <li>Either copy the URL or open it directly in a popup</li>
+            <li>Complete the admin consent process in Microsoft</li>
+          </ol>
         </div>
       </div>
     </div>
   );
 };
+
+export default ConsentUrlGenerator;
