@@ -156,7 +156,9 @@ async function consentCallbackHandler(request: HttpRequest, context: InvocationC
                 }
 
                 // Initialize services for app registration creation
-                const graphService = new GraphApiService();
+                // TEMPORARY: Disable app registration creation to debug timeout issue
+                console.log(`🚧 DEBUG MODE: Skipping app registration creation for debugging`);
+                
                 const postgresService = new PostgreSQLService();
 
                 try {
@@ -173,68 +175,36 @@ async function consentCallbackHandler(request: HttpRequest, context: InvocationC
                     
                     context.log(`✅ Found customer: ${customer.tenantName} (${customer.tenantDomain})`);
                     
-                    // Check if app registration already exists
-                    if (customer.appRegistration?.clientId && customer.appRegistration?.applicationId) {
-                        context.log(`ℹ️ App registration already exists for customer: ${customer.appRegistration.clientId}`);
-                        
-                        // Update last assessment date using service method
-                        await postgresService.updateCustomer(customer.id, {
-                            lastAssessmentDate: new Date(),
-                            status: 'active'
-                        });
-                        
-                        context.log(`✅ Updated customer status and last assessment date`);
-                    } else {
-                        context.log(`🚀 Creating new app registration for customer: ${customer.tenantName}`);
-                        
-                        // Create app registration using Graph API
-                        const appRegistration = await graphService.createMultiTenantAppRegistration({
-                            tenantName: customer.tenantName || 'Unknown',
-                            tenantDomain: customer.tenantDomain || 'unknown.onmicrosoft.com',
-                            targetTenantId: customer.tenantId,
-                            contactEmail: customer.contactEmail,
-                            requiredPermissions: [
+                    // TEMPORARY: Skip app registration creation and just update status
+                    context.log(`🚧 DEBUG: Simulating app registration creation...`);
+                    
+                    // Update customer record with simulated app registration
+                    await postgresService.updateCustomer(customer.id, {
+                        appRegistration: {
+                            applicationId: 'debug-app-id-' + Date.now(),
+                            clientId: 'debug-client-id-' + Date.now(),
+                            servicePrincipalId: 'debug-sp-id-' + Date.now(),
+                            permissions: [
                                 'Organization.Read.All',
                                 'Directory.Read.All',
                                 'AuditLog.Read.All',
                                 'SecurityEvents.Read.All'
-                            ]
-                        });
-                        
-                        context.log(`✅ App registration created successfully:`);
-                        context.log(`   - Application ID: ${appRegistration.applicationId}`);
-                        context.log(`   - Client ID: ${appRegistration.clientId}`);
-                        context.log(`   - Service Principal ID: ${appRegistration.servicePrincipalId}`);
-                        
-                        // Update customer record with app registration details using service method
-                        await postgresService.updateCustomer(customer.id, {
-                            appRegistration: {
-                                applicationId: appRegistration.applicationId,
-                                clientId: appRegistration.clientId,
-                                servicePrincipalId: appRegistration.servicePrincipalId,
-                                permissions: [
-                                    'Organization.Read.All',
-                                    'Directory.Read.All',
-                                    'AuditLog.Read.All',
-                                    'SecurityEvents.Read.All'
-                                ],
-                                consentUrl: appRegistration.consentUrl,
-                                redirectUri: appRegistration.redirectUri,
-                                isReal: true,
-                                setupStatus: 'completed',
-                                createdDate: new Date().toISOString()
-                            },
-                            lastAssessmentDate: new Date(),
-                            status: 'active'
-                        });
-                        
-                        context.log(`✅ Customer record updated with app registration details`);
-                    }
+                            ],
+                            consentUrl: 'https://debug-consent-url.com',
+                            redirectUri: 'https://debug-redirect.com',
+                            isReal: false, // Mark as debug/simulated
+                            setupStatus: 'debug-completed',
+                            createdDate: new Date().toISOString()
+                        },
+                        lastAssessmentDate: new Date(),
+                        status: 'active'
+                    });
                     
-                    context.log(`✅ Consent and app registration process completed successfully for ${customer.tenantName}`);
+                    context.log(`✅ Customer record updated with DEBUG app registration details`);
+                    context.log(`✅ Consent process completed successfully for ${customer.tenantName} (DEBUG MODE)`);
 
                 } catch (serviceError) {
-                    context.log(`❌ Error during app registration creation:`, serviceError);
+                    context.log(`❌ Error during DEBUG consent processing:`, serviceError);
                     throw serviceError; // Re-throw to be handled by outer catch block
                 }
                 
