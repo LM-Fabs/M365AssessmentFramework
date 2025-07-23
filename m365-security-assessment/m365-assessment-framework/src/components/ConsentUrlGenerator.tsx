@@ -148,6 +148,7 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
     setIsAutoDetecting(true);
     
     try {
+      // Try to get tenant ID from AdminConsentService first
       const adminConsentService = AdminConsentService.getInstance();
       const userTenantInfo = await adminConsentService.getCurrentUserTenantInfo();
       
@@ -155,14 +156,28 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
         setFormData(prev => ({ 
           ...prev, 
           tenantId: userTenantInfo.tenantId!
-          // Note: clientId is always M365_ASSESSMENT_CONFIG.clientId - not customer specific
+        }));
+      } else if (user?.tenantId) {
+        // Fallback to user's tenant ID from auth context
+        setFormData(prev => ({ 
+          ...prev, 
+          tenantId: user.tenantId!
         }));
       } else {
         alert('Could not automatically detect your tenant ID. Please enter it manually.');
       }
     } catch (error) {
       console.error('Error auto-detecting tenant:', error);
-      alert('Failed to auto-detect tenant ID. Please enter it manually.');
+      
+      // Fallback to user's tenant ID from auth context
+      if (user?.tenantId) {
+        setFormData(prev => ({ 
+          ...prev, 
+          tenantId: user.tenantId!
+        }));
+      } else {
+        alert('Failed to auto-detect tenant ID. Please enter it manually.');
+      }
     } finally {
       setIsAutoDetecting(false);
     }
@@ -170,7 +185,12 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
 
   const handleCustomerSelect = (customerId: string) => {
     const selectedCustomer = customers.find(c => c.id === customerId) || null;
-    setFormData(prev => ({ ...prev, customer: selectedCustomer }));
+    setFormData(prev => ({ 
+      ...prev, 
+      customer: selectedCustomer,
+      // Auto-populate tenant ID from selected customer
+      tenantId: selectedCustomer ? selectedCustomer.tenantId : prev.tenantId
+    }));
   };
 
   const handleInputChange = (field: keyof ConsentUrlData, value: string) => {
