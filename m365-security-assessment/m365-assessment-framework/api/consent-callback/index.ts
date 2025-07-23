@@ -214,67 +214,97 @@ async function consentCallbackHandler(request: HttpRequest, context: InvocationC
                     if (!customer.appRegistration?.clientId || !customer.appRegistration?.applicationId) {
                         context.log(`🚀 PHASE 1: Creating new app registration for customer: ${customer.tenantName}`);
                         
-                        // Create app registration using Graph API
-                        const appRegistration = await graphService.createMultiTenantAppRegistration({
-                            tenantName: customer.tenantName || 'Unknown',
-                            tenantDomain: customer.tenantDomain || 'unknown.onmicrosoft.com',
-                            targetTenantId: customer.tenantId,
-                            contactEmail: customer.contactEmail,
-                            requiredPermissions: [
-                                'Organization.Read.All',
-                                'Directory.Read.All',
-                                'AuditLog.Read.All',
-                                'SecurityEvents.Read.All'
-                            ]
-                        });
-                        
-                        context.log(`✅ App registration created successfully:`);
-                        context.log(`   - Application ID: ${appRegistration.applicationId}`);
-                        context.log(`   - Client ID: ${appRegistration.clientId}`);
-                        context.log(`   - Service Principal ID: ${appRegistration.servicePrincipalId}`);
-                        
-                        // Update customer record with app registration details
-                        await postgresService.updateCustomer(customer.id, {
-                            appRegistration: {
-                                applicationId: appRegistration.applicationId,
-                                clientId: appRegistration.clientId,
-                                servicePrincipalId: appRegistration.servicePrincipalId,
-                                permissions: [
+                        try {
+                            // Create app registration using Graph API
+                            const appRegistration = await graphService.createMultiTenantAppRegistration({
+                                tenantName: customer.tenantName || 'Unknown',
+                                tenantDomain: customer.tenantDomain || 'unknown.onmicrosoft.com',
+                                targetTenantId: customer.tenantId,
+                                contactEmail: customer.contactEmail,
+                                requiredPermissions: [
                                     'Organization.Read.All',
                                     'Directory.Read.All',
                                     'AuditLog.Read.All',
                                     'SecurityEvents.Read.All'
-                                ],
-                                consentUrl: appRegistration.consentUrl,
-                                redirectUri: appRegistration.redirectUri,
-                                isReal: true,
-                                setupStatus: 'awaiting-consent',
-                                createdDate: new Date().toISOString()
-                            },
-                            status: 'active'
-                        });
-                        
-                        context.log(`✅ Customer record updated with app registration details`);
-                        
-                        // Now redirect to consent URL for the NEWLY CREATED app
-                        const newAppConsentUrl = `https://login.microsoftonline.com/${customer.tenantId}/oauth2/v2.0/authorize?` +
-                            `client_id=${appRegistration.clientId}&` +
-                            `response_type=code&` +
-                            `redirect_uri=${encodeURIComponent(appRegistration.redirectUri)}&` +
-                            `scope=https://graph.microsoft.com/.default&` +
-                            `state=${encodeURIComponent(JSON.stringify({ customerId: customer.id, phase: 'consent-confirmation' }))}&` +
-                            `response_mode=query&` +
-                            `prompt=admin_consent`;
+                                ]
+                            });
                             
-                        context.log(`🔄 PHASE 1 Complete: Redirecting to consent URL for NEW app: ${newAppConsentUrl}`);
-                        
-                        return {
-                            status: 302,
-                            headers: {
-                                ...corsHeaders,
-                                'Location': newAppConsentUrl
-                            }
-                        };
+                            context.log(`✅ App registration created successfully:`);
+                            context.log(`   - Application ID: ${appRegistration.applicationId}`);
+                            context.log(`   - Client ID: ${appRegistration.clientId}`);
+                            context.log(`   - Service Principal ID: ${appRegistration.servicePrincipalId}`);
+                            
+                            // Update customer record with app registration details
+                            await postgresService.updateCustomer(customer.id, {
+                                appRegistration: {
+                                    applicationId: appRegistration.applicationId,
+                                    clientId: appRegistration.clientId,
+                                    servicePrincipalId: appRegistration.servicePrincipalId,
+                                    permissions: [
+                                        'Organization.Read.All',
+                                        'Directory.Read.All',
+                                        'AuditLog.Read.All',
+                                        'SecurityEvents.Read.All'
+                                    ],
+                                    consentUrl: appRegistration.consentUrl,
+                                    redirectUri: appRegistration.redirectUri,
+                                    isReal: true,
+                                    setupStatus: 'awaiting-consent',
+                                    createdDate: new Date().toISOString()
+                                },
+                                status: 'active'
+                            });
+                            
+                            context.log(`✅ Customer record updated with app registration details`);
+                            
+                            // Now redirect to consent URL for the NEWLY CREATED app
+                            // Use our consent callback as the redirect URI for the new app's consent flow
+                            const baseUrl = process.env.REACT_APP_API_URL || 
+                                          process.env.API_BASE_URL || 
+                                          'https://victorious-pond-069956e03.6.azurestaticapps.net';
+                            const consentRedirectUri = `${baseUrl}/api/consent-callback`;
+                            
+                            const newAppConsentUrl = `https://login.microsoftonline.com/${customer.tenantId}/oauth2/v2.0/authorize?` +
+                                `client_id=${appRegistration.clientId}&` +
+                                `response_type=code&` +
+                                `redirect_uri=${encodeURIComponent(consentRedirectUri)}&` +
+                                `scope=https://graph.microsoft.com/.default&` +
+                                `state=${encodeURIComponent(JSON.stringify({ customerId: customer.id, phase: 'consent-confirmation' }))}&` +
+                                `response_mode=query&` +
+                                `prompt=admin_consent`;
+                                
+                            context.log(`🔄 PHASE 1 Complete: Redirecting to consent URL for NEW app:`);
+                            context.log(`   - New App Client ID: ${appRegistration.clientId}`);
+                            context.log(`   - Customer Tenant ID: ${customer.tenantId}`);
+                            context.log(`   - Consent URL: ${newAppConsentUrl}`);
+                            
+                            return {
+                                status: 302,
+                                headers: {
+                                    ...corsHeaders,
+                                    'Location': newAppConsentUrl
+                                }
+                            };
+                            
+                        } catch (appCreationError) {
+                            context.log(`❌ Failed to create app registration:`, appCreationError);
+                            
+                            // If app registration creation fails, redirect to error page
+                            const frontendUrl = process.env.REACT_APP_FRONTEND_URL || 
+                                              process.env.FRONTEND_URL || 
+                                              process.env.STATIC_WEB_APP_URL ||
+                                              'https://victorious-pond-069956e03.6.azurestaticapps.net';
+                            
+                            const errorRedirect = `${frontendUrl}/admin-consent-error?error=${encodeURIComponent('Failed to create app registration: ' + appCreationError.message)}&customer_id=${customer.id}`;
+                            
+                            return {
+                                status: 302,
+                                headers: {
+                                    ...corsHeaders,
+                                    'Location': errorRedirect
+                                }
+                            };
+                        }
                         
                     } else {
                         // PHASE 2: App registration exists, this should be consent confirmation
