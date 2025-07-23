@@ -162,46 +162,54 @@ async function consentCallbackHandler(request: HttpRequest, context: InvocationC
                 const postgresService = new PostgreSQLService();
 
                 try {
-                    // Get customer information from database
-                    context.log(`🔍 Looking up customer information for tenant: ${tenantId}`);
+                    // DEBUG: Log all the identifiers we have
+                    context.log(`🔍 DEBUG: Looking up customer with these identifiers:`);
+                    context.log(`   - tenant parameter: ${tenant}`);
+                    context.log(`   - tenantId variable: ${tenantId}`);
+                    context.log(`   - customerId parameter: ${customerId}`);
                     
-                    // Query customer by tenant ID using service method
-                    const customer = await postgresService.getCustomerByTenantId(tenantId);
+                    // First try to get customer by ID (the primary key)
+                    let customer = null;
                     
-                    if (!customer) {
-                        context.log(`⚠️ Customer not found in database for tenant: ${tenantId}`);
-                        throw new Error(`Customer not found for tenant: ${tenantId}`);
+                    try {
+                        // Try by customer ID first (primary key)
+                        customer = await postgresService.getCustomer(tenantId);
+                        if (customer) {
+                            context.log(`✅ Found customer by ID: ${customer.tenantName} (${customer.tenantDomain})`);
+                        }
+                    } catch (idError) {
+                        context.log(`⚠️ Could not find customer by ID: ${idError.message}`);
                     }
                     
-                    context.log(`✅ Found customer: ${customer.tenantName} (${customer.tenantDomain})`);
+                    if (!customer) {
+                        try {
+                            // Try by tenant ID (the Microsoft tenant identifier)
+                            customer = await postgresService.getCustomerByTenantId(tenantId);
+                            if (customer) {
+                                context.log(`✅ Found customer by tenant ID: ${customer.tenantName} (${customer.tenantDomain})`);
+                            }
+                        } catch (tenantError) {
+                            context.log(`⚠️ Could not find customer by tenant ID: ${tenantError.message}`);
+                        }
+                    }
                     
-                    // TEMPORARY: Skip app registration creation and just update status
-                    context.log(`🚧 DEBUG: Simulating app registration creation...`);
+                    if (!customer) {
+                        context.log(`❌ Customer not found with any identifier: ${tenantId}`);
+                        
+                        // DEBUG: List all customers to see what we have
+                        const allCustomers = await postgresService.getCustomers();
+                        context.log(`🔍 DEBUG: Available customers:`, allCustomers.customers.map(c => ({
+                            id: c.id,
+                            tenantId: c.tenantId,
+                            tenantName: c.tenantName,
+                            tenantDomain: c.tenantDomain
+                        })));
+                        
+                        throw new Error(`Customer not found for any identifier: ${tenantId}`);
+                    }
                     
-                    // Update customer record with simulated app registration
-                    await postgresService.updateCustomer(customer.id, {
-                        appRegistration: {
-                            applicationId: 'debug-app-id-' + Date.now(),
-                            clientId: 'debug-client-id-' + Date.now(),
-                            servicePrincipalId: 'debug-sp-id-' + Date.now(),
-                            permissions: [
-                                'Organization.Read.All',
-                                'Directory.Read.All',
-                                'AuditLog.Read.All',
-                                'SecurityEvents.Read.All'
-                            ],
-                            consentUrl: 'https://debug-consent-url.com',
-                            redirectUri: 'https://debug-redirect.com',
-                            isReal: false, // Mark as debug/simulated
-                            setupStatus: 'debug-completed',
-                            createdDate: new Date().toISOString()
-                        },
-                        lastAssessmentDate: new Date(),
-                        status: 'active'
-                    });
-                    
-                    context.log(`✅ Customer record updated with DEBUG app registration details`);
-                    context.log(`✅ Consent process completed successfully for ${customer.tenantName} (DEBUG MODE)`);
+                    // TEMPORARY: Skip app registration creation and just log success
+                    context.log(`✅ DEBUG: Customer found, simulating consent success for ${customer.tenantName}`);
 
                 } catch (serviceError) {
                     context.log(`❌ Error during DEBUG consent processing:`, serviceError);
