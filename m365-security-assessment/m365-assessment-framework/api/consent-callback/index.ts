@@ -99,23 +99,24 @@ async function consentCallbackHandler(request: HttpRequest, context: InvocationC
                 };
             }
 
-            // Check for successful admin consent OR authorization code
+            // Check for successful admin consent OR authorization code OR initial setup request
             const hasAdminConsent = adminConsent && adminConsent.toLowerCase() === 'true';
             const hasAuthCode = code && code.length > 0;
+            const isInitialSetupRequest = !hasAdminConsent && !hasAuthCode && (tenant || customerId); // Has customer info but no OAuth response
             
-            if (!hasAdminConsent && !hasAuthCode) {
-                context.log(`❌ Neither admin consent nor authorization code received`);
+            if (!hasAdminConsent && !hasAuthCode && !isInitialSetupRequest) {
+                context.log(`❌ Neither admin consent, authorization code, nor valid setup request received`);
                 return {
                     status: 400,
                     headers: corsHeaders,
                     body: JSON.stringify({ 
                         error: 'Authorization missing',
-                        message: 'Neither admin consent nor authorization code was received',
+                        message: 'Neither admin consent, authorization code, nor customer setup info was received',
                         debug: {
                             receivedParams: allParams,
-                            expectedParams: ['admin_consent=True', 'OR', 'code=...'],
+                            expectedParams: ['admin_consent=True', 'OR', 'code=...', 'OR', 'tenant/customer_id for setup'],
                             hint: 'Check OAuth flow type and Azure AD app registration configuration',
-                            flowType: hasAdminConsent ? 'admin-consent' : (hasAuthCode ? 'auth-code' : 'unknown')
+                            flowType: hasAdminConsent ? 'admin-consent' : (hasAuthCode ? 'auth-code' : (isInitialSetupRequest ? 'initial-setup' : 'unknown'))
                         }
                     })
                 };
@@ -156,10 +157,14 @@ async function consentCallbackHandler(request: HttpRequest, context: InvocationC
                 // PHASE 1: Initial setup request - create app registration first
                 // PHASE 2: Consent confirmation - user granted consent to the new app
                 
-                const isInitialSetup = !hasAdminConsent && !hasAuthCode; // No OAuth response yet
+                const isInitialSetup = !hasAdminConsent && !hasAuthCode && (tenant || customerId); // Has customer info but no OAuth response
                 const isConsentConfirmation = hasAdminConsent || hasAuthCode; // OAuth response received
                 
-                context.log(`🔍 Flow detection: Initial=${isInitialSetup}, Confirmation=${isConsentConfirmation}`);
+                context.log(`🔍 Flow detection:`);
+                context.log(`   - Initial Setup: ${isInitialSetup}`);
+                context.log(`   - Consent Confirmation: ${isConsentConfirmation}`);
+                context.log(`   - Has Admin Consent: ${hasAdminConsent}`);
+                context.log(`   - Has Auth Code: ${hasAuthCode}`);
 
                 // Initialize services for app registration creation
                 context.log(`🚀 PRODUCTION MODE: Processing customer app registration workflow`);
