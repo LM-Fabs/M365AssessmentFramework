@@ -45,41 +45,104 @@ function AppContent() {
     );
   }
 
-  // For non-authenticated routes, render without navigation
-  if (!isAuthenticated) {
-    return (
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/consent-result" element={<ConsentResult />} />
-        <Route path="/admin-consent-success" element={<AdminConsentSuccess />} />
-        <Route path="*" element={<Navigate to="/login" />} />
-      </Routes>
-    );
-  }
-
-  // For authenticated routes, render with navigation
+  // Always allow access to AdminConsentSuccess regardless of auth state (for popups)
   return (
-    <CustomerProvider>
-      <div className="app-layout">
-        <Navigation userName={user?.email} onLogout={logout} />
-        <main className="main-content">
-          <Routes>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/best-practices" element={<BestPractices />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/history" element={<History />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/consent-result" element={<ConsentResult />} />
-            <Route path="/admin-consent-success" element={<AdminConsentSuccess />} />
-            <Route path="/assessment-results/:assessmentId" element={<AssessmentResults />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="*" element={<Navigate to="/dashboard" />} />
-          </Routes>
-        </main>
-      </div>
-    </CustomerProvider>
+    <Routes>
+      <Route path="/admin-consent-success" element={<AdminConsentSuccess />} />
+      {!isAuthenticated ? (
+        <>
+          <Route path="/login" element={<Login />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/consent-result" element={<ConsentResult />} />
+          <Route path="*" element={<Navigate to="/login" />} />
+        </>
+      ) : (
+        <>
+          <Route path="/dashboard" element={
+            <CustomerProvider>
+              <div className="app-layout">
+                <Navigation userName={user?.email} onLogout={logout} />
+                <main className="main-content">
+                  <Dashboard />
+                </main>
+              </div>
+            </CustomerProvider>
+          } />
+          <Route path="/" element={
+            <CustomerProvider>
+              <div className="app-layout">
+                <Navigation userName={user?.email} onLogout={logout} />
+                <main className="main-content">
+                  <Dashboard />
+                </main>
+              </div>
+            </CustomerProvider>
+          } />
+          <Route path="/best-practices" element={
+            <CustomerProvider>
+              <div className="app-layout">
+                <Navigation userName={user?.email} onLogout={logout} />
+                <main className="main-content">
+                  <BestPractices />
+                </main>
+              </div>
+            </CustomerProvider>
+          } />
+          <Route path="/reports" element={
+            <CustomerProvider>
+              <div className="app-layout">
+                <Navigation userName={user?.email} onLogout={logout} />
+                <main className="main-content">
+                  <Reports />
+                </main>
+              </div>
+            </CustomerProvider>
+          } />
+          <Route path="/history" element={
+            <CustomerProvider>
+              <div className="app-layout">
+                <Navigation userName={user?.email} onLogout={logout} />
+                <main className="main-content">
+                  <History />
+                </main>
+              </div>
+            </CustomerProvider>
+          } />
+          <Route path="/settings" element={
+            <CustomerProvider>
+              <div className="app-layout">
+                <Navigation userName={user?.email} onLogout={logout} />
+                <main className="main-content">
+                  <Settings />
+                </main>
+              </div>
+            </CustomerProvider>
+          } />
+          <Route path="/consent-result" element={
+            <CustomerProvider>
+              <div className="app-layout">
+                <Navigation userName={user?.email} onLogout={logout} />
+                <main className="main-content">
+                  <ConsentResult />
+                </main>
+              </div>
+            </CustomerProvider>
+          } />
+          <Route path="/assessment-results/:assessmentId" element={
+            <CustomerProvider>
+              <div className="app-layout">
+                <Navigation userName={user?.email} onLogout={logout} />
+                <main className="main-content">
+                  <AssessmentResults />
+                </main>
+              </div>
+            </CustomerProvider>
+          } />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="*" element={<Navigate to="/dashboard" />} />
+        </>
+      )}
+    </Routes>
   );
 }
 
