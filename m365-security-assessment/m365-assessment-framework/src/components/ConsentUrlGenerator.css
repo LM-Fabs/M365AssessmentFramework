@@ -48,6 +48,84 @@
   padding: 1.5rem;
 }
 
+/* Consent Status Display */
+.consent-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e1e5e9;
+  margin: 0;
+}
+
+.consent-status-pending {
+  background-color: #eff6ff;
+  border-left: 4px solid #3b82f6;
+}
+
+.consent-status-success {
+  background-color: #f0fdf4;
+  border-left: 4px solid #10b981;
+}
+
+.consent-status-error {
+  background-color: #fef2f2;
+  border-left: 4px solid #ef4444;
+}
+
+.status-icon {
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.consent-status-pending .status-icon {
+  color: #3b82f6;
+}
+
+.consent-status-success .status-icon {
+  color: #10b981;
+}
+
+.consent-status-error .status-icon {
+  color: #ef4444;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(59, 130, 246, 0.3);
+  border-radius: 50%;
+  border-top-color: #3b82f6;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.status-content {
+  flex: 1;
+}
+
+.status-message {
+  margin: 0 0 0.5rem 0;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.status-customer {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.status-hint {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
 .input-with-button {
   display: flex;
   gap: 0.5rem;

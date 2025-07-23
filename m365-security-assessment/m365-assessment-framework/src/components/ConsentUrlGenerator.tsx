@@ -39,6 +39,73 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
   const [generatedUrl, setGeneratedUrl] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
   const [isAutoDetecting, setIsAutoDetecting] = useState<boolean>(false);
+  const [popupWindow, setPopupWindow] = useState<Window | null>(null);
+  const [consentStatus, setConsentStatus] = useState<{
+    status: 'idle' | 'pending' | 'success' | 'error';
+    message?: string;
+    customerId?: string;
+  }>({ status: 'idle' });
+
+  // Listen for messages from popup window
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Verify origin for security
+      if (event.origin !== window.location.origin) {
+        console.warn('🚨 Received message from untrusted origin:', event.origin);
+        return;
+      }
+
+      if (event.data.type === 'ADMIN_CONSENT_RESULT') {
+        console.log('🔗 ConsentUrlGenerator: Received consent result:', event.data);
+        
+        if (event.data.success) {
+          setConsentStatus({
+            status: 'success',
+            message: `Admin consent granted successfully for customer ${event.data.data.customerId}`,
+            customerId: event.data.data.customerId
+          });
+        } else {
+          setConsentStatus({
+            status: 'error',
+            message: event.data.data.error || 'Admin consent failed',
+            customerId: event.data.data.customerId
+          });
+        }
+
+        // Close popup tracking
+        setPopupWindow(null);
+        
+        // Auto-hide status after 10 seconds
+        setTimeout(() => {
+          setConsentStatus({ status: 'idle' });
+        }, 10000);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Check if popup is still open
+  useEffect(() => {
+    if (popupWindow) {
+      const checkClosed = setInterval(() => {
+        if (popupWindow.closed) {
+          console.log('🔗 ConsentUrlGenerator: Popup window closed');
+          setPopupWindow(null);
+          if (consentStatus.status === 'pending') {
+            setConsentStatus({
+              status: 'error',
+              message: 'Consent window was closed before completion'
+            });
+          }
+          clearInterval(checkClosed);
+        }
+      }, 1000);
+
+      return () => clearInterval(checkClosed);
+    }
+  }, [popupWindow, consentStatus.status]);
 
   // Auto-populate fields when customer is selected
   useEffect(() => {
@@ -192,7 +259,31 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
   const openConsentUrl = () => {
     if (!generatedUrl) return;
     
-    window.open(generatedUrl, 'admin-consent', 'width=600,height=800,scrollbars=yes,resizable=yes');
+    // Set status to pending
+    setConsentStatus({
+      status: 'pending',
+      message: 'Waiting for admin consent...',
+      customerId: formData.customer?.id
+    });
+
+    // Open popup and track it
+    const popup = window.open(
+      generatedUrl, 
+      'admin-consent', 
+      'width=600,height=800,scrollbars=yes,resizable=yes,centerscreen=yes'
+    );
+    
+    if (popup) {
+      setPopupWindow(popup);
+      // Focus the popup
+      popup.focus();
+      console.log('🔗 ConsentUrlGenerator: Opened consent popup window');
+    } else {
+      setConsentStatus({
+        status: 'error',
+        message: 'Failed to open consent window. Please check your popup blocker settings.'
+      });
+    }
   };
 
   const availablePermissions = [
@@ -220,6 +311,39 @@ export const ConsentUrlGenerator: React.FC<ConsentUrlGeneratorProps> = ({ custom
           </button>
         )}
       </div>
+
+      {/* Consent Status Display */}
+      {consentStatus.status !== 'idle' && (
+        <div className={`consent-status consent-status-${consentStatus.status}`}>
+          <div className="status-icon">
+            {consentStatus.status === 'pending' && (
+              <div className="spinner"></div>
+            )}
+            {consentStatus.status === 'success' && (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 12l2 2 4-4"></path>
+                <circle cx="12" cy="12" r="10"></circle>
+              </svg>
+            )}
+            {consentStatus.status === 'error' && (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="15" y1="9" x2="9" y2="15"></line>
+                <line x1="9" y1="9" x2="15" y2="15"></line>
+              </svg>
+            )}
+          </div>
+          <div className="status-content">
+            <p className="status-message">{consentStatus.message}</p>
+            {consentStatus.customerId && (
+              <p className="status-customer">Customer: {consentStatus.customerId}</p>
+            )}
+            {consentStatus.status === 'pending' && popupWindow && (
+              <p className="status-hint">Complete the consent process in the popup window</p>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="generator-form">
         {/* Customer Selection */}
