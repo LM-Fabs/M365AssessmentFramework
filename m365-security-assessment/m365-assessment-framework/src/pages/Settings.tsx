@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { AssessmentService } from '../services/assessmentService';
 import { Customer, CustomerService } from '../services/customerService';
 import CustomerSelector, { CustomerSelectorRef } from '../components/ui/CustomerSelector';
-import { ConsentUrlGenerator } from '../components/ConsentUrlGenerator';
+import { ConsentUrlGeneratorEmbedded } from '../components/ConsentUrlGeneratorEmbedded';
 import { SECURITY_CATEGORIES } from '../shared/constants';
 import './Settings.css';
 
@@ -257,11 +257,17 @@ const Settings = () => {
         })
       });
 
-      const result = await response.json();
-      
       if (!response.ok) {
-        throw new Error(result.error || `HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
+
+      // Check if response has content
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Server returned non-JSON response. Please check the API endpoint.');
+      }
+
+      const result = await response.json();
 
       if (result.success && result.data) {
         const appData = result.data;
@@ -345,15 +351,19 @@ const Settings = () => {
       
       let errorMessage = 'Failed to create app registration';
       
-      if (error.message?.includes('App registration failed:')) {
+      if (error.message?.includes('unexpected end of json input')) {
+        errorMessage = 'API endpoint not responding correctly. The enterprise-app API may not be deployed.';
+      } else if (error.message?.includes('Server returned non-JSON response')) {
+        errorMessage = 'API endpoint configuration error. Please check the deployment.';
+      } else if (error.message?.includes('App registration failed:')) {
         // This is an error from the backend indicating app registration creation failed
         errorMessage = error.message;
       } else if (error.message?.includes('authentication') || error.message?.includes('token')) {
         errorMessage = 'Authentication failed. Please check the service configuration.';
       } else if (error.message?.includes('permissions') || error.message?.includes('403')) {
         errorMessage = 'Insufficient permissions. Please contact your administrator to grant Application.ReadWrite.All permission to the service principal.';
-      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
-        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.message?.includes('network') || error.message?.includes('fetch') || error.message?.includes('Failed to fetch')) {
+        errorMessage = 'Network error or API endpoint not available. Please check your connection and API deployment.';
       } else if (error.message?.includes('Missing required environment variables')) {
         errorMessage = 'Service configuration error. Missing Azure credentials. Please contact your administrator.';
       } else if (error.message) {
@@ -904,7 +914,7 @@ const Settings = () => {
           
           {showConsentUrlGenerator && (
             <div className="consent-url-generator-section">
-              <ConsentUrlGenerator customers={customers} />
+              <ConsentUrlGeneratorEmbedded customers={customers} />
             </div>
           )}
         </div>
