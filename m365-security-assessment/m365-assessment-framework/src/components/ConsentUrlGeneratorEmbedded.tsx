@@ -168,22 +168,8 @@ export const ConsentUrlGeneratorEmbedded: React.FC<ConsentUrlGeneratorEmbeddedPr
 
         {/* Instructions */}
         <div className="instructions">
-          <h3>⚠️ IMPORTANT: Azure App Registration Setup Required</h3>
-          <div className="alert-box">
-            <strong>Before using this consent URL, you MUST add the redirect URI to your Azure app registration:</strong>
-            <ol>
-              <li>Go to <a href="https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" rel="noopener noreferrer">Azure Portal → App Registrations</a></li>
-              <li>Find your app: <code>{M365_ASSESSMENT_CONFIG.clientId}</code></li>
-              <li>Go to <strong>Authentication</strong> → <strong>Platform configurations</strong></li>
-              <li>Add redirect URI: <code>{window.location.origin}/admin-consent-success</code></li>
-              <li>Set platform type to <strong>Web</strong></li>
-              <li>Click <strong>Save</strong></li>
-            </ol>
-          </div>
-          
           <h3>Usage Instructions:</h3>
           <ol>
-            <li>Complete the Azure app registration setup above</li>
             <li>Select the customer you want to generate consent for</li>
             <li>Enter or auto-detect the target tenant ID</li>
             <li>Review the required permissions</li>

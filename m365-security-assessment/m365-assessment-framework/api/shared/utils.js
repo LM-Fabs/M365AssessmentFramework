@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.keyVaultService = exports.graphApiService = exports.dataService = exports.initializeDataService = exports.corsHeaders = void 0;
+exports.keyVaultService = exports.graphApiService = exports.dataService = exports.corsHeaders = void 0;
+exports.initializeDataService = initializeDataService;
 // v3 compatible imports
 const postgresqlService_1 = require("../shared/postgresqlService");
 const graphApiService_1 = require("../shared/graphApiService");
@@ -10,7 +11,7 @@ exports.corsHeaders = process.env.NODE_ENV === 'development' ? {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Warmup, Cache-Control',
-    'Access-Control-Max-Age': '86400',
+    'Access-Control-Max-Age': '86400', // Cache preflight for 24 hours
     'Content-Type': 'application/json',
     'Cache-Control': 'public, max-age=60, s-maxage=60' // Cache responses for 1 minute
 } : {
@@ -28,7 +29,6 @@ exports.graphApiService = graphApiService;
 let keyVaultService = null;
 exports.keyVaultService = keyVaultService;
 let dataService;
-exports.dataService = dataService;
 let isDataServiceInitialized = false;
 let initializationPromise = null;
 // Optimized data service initialization with singleton pattern
@@ -97,5 +97,4 @@ async function initializeDataService(context) {
     })();
     return initializationPromise;
 }
-exports.initializeDataService = initializeDataService;
 //# sourceMappingURL=utils.js.map

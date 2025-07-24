@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getCosmosDbService = exports.CosmosDbService = void 0;
+exports.CosmosDbService = void 0;
+exports.getCosmosDbService = getCosmosDbService;
 const cosmos_1 = require("@azure/cosmos");
 const identity_1 = require("@azure/identity");
 const keyVaultService_1 = require("./keyVaultService");
@@ -48,7 +49,7 @@ class CosmosDbService {
             // Create customers container with proper partitioning
             await this.database.containers.createIfNotExists({
                 id: this.customersContainer.id,
-                partitionKey: "/tenantDomain",
+                partitionKey: "/tenantDomain", // Partition by tenant domain for optimal distribution
                 indexingPolicy: {
                     indexingMode: "consistent",
                     automatic: true,
@@ -64,7 +65,7 @@ class CosmosDbService {
             // Create assessments container with proper partitioning
             await this.database.containers.createIfNotExists({
                 id: this.assessmentsContainer.id,
-                partitionKey: "/customerId",
+                partitionKey: "/customerId", // Partition by customer for optimal query performance
                 indexingPolicy: {
                     indexingMode: "consistent",
                     automatic: true,
@@ -80,7 +81,7 @@ class CosmosDbService {
             // Create assessment history container with proper partitioning
             await this.database.containers.createIfNotExists({
                 id: this.assessmentHistoryContainer.id,
-                partitionKey: "/tenantId",
+                partitionKey: "/tenantId", // Partition by tenant for optimal query performance
                 indexingPolicy: {
                     indexingMode: "consistent",
                     automatic: true,
@@ -109,7 +110,7 @@ class CosmosDbService {
             const customerId = `customer-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
             const customer = {
                 id: customerId,
-                tenantId: '',
+                tenantId: '', // Will be populated during first assessment
                 tenantName: customerData.tenantName,
                 tenantDomain: customerData.tenantDomain,
                 createdDate: new Date(),
@@ -522,5 +523,4 @@ function getCosmosDbService() {
     }
     return cosmosDbServiceInstance;
 }
-exports.getCosmosDbService = getCosmosDbService;
 //# sourceMappingURL=cosmosDbService.js.map

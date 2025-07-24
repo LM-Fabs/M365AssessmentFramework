@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getKeyVaultService = exports.KeyVaultService = void 0;
+exports.KeyVaultService = void 0;
+exports.getKeyVaultService = getKeyVaultService;
 const keyvault_secrets_1 = require("@azure/keyvault-secrets");
 const identity_1 = require("@azure/identity");
 /**
@@ -259,5 +260,4 @@ function getKeyVaultService() {
     }
     return keyVaultServiceInstance;
 }
-exports.getKeyVaultService = getKeyVaultService;
 //# sourceMappingURL=keyVaultService.js.map

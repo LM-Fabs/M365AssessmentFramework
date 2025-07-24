@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = default_1;
 /**
  * Minimal test function for Azure Static Web Apps compatibility
  */
@@ -86,5 +87,4 @@ async function default_1(request, context) {
         };
     }
 }
-exports.default = default_1;
 //# sourceMappingURL=index.js.map

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getFirewallManager = exports.PostgreSQLFirewallManager = void 0;
+exports.PostgreSQLFirewallManager = void 0;
+exports.getFirewallManager = getFirewallManager;
 const identity_1 = require("@azure/identity");
 const child_process_1 = require("child_process");
 const util_1 = require("util");
@@ -146,6 +147,5 @@ function getFirewallManager() {
     }
     return firewallManager;
 }
-exports.getFirewallManager = getFirewallManager;
 exports.default = PostgreSQLFirewallManager;
 //# sourceMappingURL=firewallManager.js.map
