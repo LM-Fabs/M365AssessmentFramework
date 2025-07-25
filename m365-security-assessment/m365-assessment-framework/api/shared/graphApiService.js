@@ -131,6 +131,15 @@ class GraphApiService {
         });
     }
     /**
+     * Get singleton instance of GraphApiService
+     */
+    static getInstance() {
+        if (!GraphApiService.instance) {
+            GraphApiService.instance = new GraphApiService();
+        }
+        return GraphApiService.instance;
+    }
+    /**
      * Create multi-tenant Azure AD App Registration for customer tenant authentication
      * Creates app in our tenant that can be consented to by customer tenants
      *

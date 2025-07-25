@@ -52,6 +52,7 @@ function httpsRequest(url: string, timeout: number = 10000): Promise<any> {
 }
 
 export class GraphApiService {
+    private static instance: GraphApiService;
     private graphClient: Client;
     private isInitialized = false;
 
@@ -111,6 +112,16 @@ export class GraphApiService {
                 }
             }
         });
+    }
+
+    /**
+     * Get singleton instance of GraphApiService
+     */
+    public static getInstance(): GraphApiService {
+        if (!GraphApiService.instance) {
+            GraphApiService.instance = new GraphApiService();
+        }
+        return GraphApiService.instance;
     }
 
     /**

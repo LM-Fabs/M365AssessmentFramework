@@ -14,7 +14,7 @@ index-centralized.*
 index-minimal.*
 index-progressive.*
 *.backup
-# Exclude placeholder/incomplete function directories
+# Exclude placeholder/incomplete function directories (NOT enterpriseapp - it's now active)
 enterprise-app/
 enterprise-app-test/
 hello/

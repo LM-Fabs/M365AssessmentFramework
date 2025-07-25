@@ -108,26 +108,11 @@ export const ConsentUrlGeneratorEmbedded: React.FC<ConsentUrlGeneratorEmbeddedPr
   const handleAutoDetectTenant = async () => {
     setIsAutoDetecting(true);
     
-    if (!formData.customer?.tenantDomain) {
-      setIsAutoDetecting(false);
-      return;
-    }
-
-    try {
-      const adminConsentService = new AdminConsentService();
-      const tenantId = await adminConsentService.resolveDomainToTenantId(formData.customer.tenantDomain);
-      
-      if (tenantId) {
-        setFormData(prev => ({
-          ...prev,
-          tenantId
-        }));
-      }
-    } catch (error) {
-      console.error('Auto-detection failed:', error);
-    } finally {
-      setIsAutoDetecting(false);
-    }
+    // For now, this feature is not implemented
+    // TODO: Implement domain to tenant ID resolution
+    console.log('Auto-detect feature not yet implemented');
+    
+    setIsAutoDetecting(false);
   };
 
   const createAppRegistration = async () => {
@@ -147,7 +132,7 @@ export const ConsentUrlGeneratorEmbedded: React.FC<ConsentUrlGeneratorEmbeddedPr
           targetTenantId: formData.tenantId,
           targetTenantDomain: formData.customer.tenantDomain,
           tenantName: formData.customer.tenantName,
-          contactEmail: formData.customer.primaryContact,
+          contactEmail: formData.customer.contactEmail,
           assessmentName: `M365 Security Assessment - ${formData.customer.tenantName}`,
           requiredPermissions: formData.permissions
         })
