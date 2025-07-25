@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { AssessmentService } from '../services/assessmentService';
 import { Customer, CustomerService } from '../services/customerService';
 import CustomerSelector, { CustomerSelectorRef } from '../components/ui/CustomerSelector';
-import { ConsentUrlGenerator } from '../components/ConsentUrlGenerator';
+import { ConsentUrlGeneratorEmbedded } from '../components/ConsentUrlGeneratorEmbedded';
 import { SECURITY_CATEGORIES } from '../shared/constants';
 import './Settings.css';
 
@@ -898,13 +898,13 @@ const Settings = () => {
               className="toggle-button"
               onClick={() => setShowConsentUrlGenerator(!showConsentUrlGenerator)}
             >
-              {showConsentUrlGenerator ? 'Hide' : 'Generate Consent URLs'}
+              {showConsentUrlGenerator ? 'Hide' : 'Show'} Consent URL Generator
             </button>
           </div>
           
           {showConsentUrlGenerator && (
             <div className="consent-url-generator-section">
-              <ConsentUrlGenerator customers={customers} />
+              <ConsentUrlGeneratorEmbedded customers={customers} />
             </div>
           )}
         </div>

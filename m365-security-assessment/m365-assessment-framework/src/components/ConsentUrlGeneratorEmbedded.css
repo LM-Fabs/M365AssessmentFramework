@@ -1,0 +1,264 @@
+.consent-url-generator-embedded {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.consent-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 0.95rem;
+}
+
+.form-select,
+.form-input {
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-select:focus,
+.form-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-input.readonly {
+  background-color: #f9fafb;
+  color: #6b7280;
+}
+
+.input-with-button {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.input-with-button .form-input {
+  flex: 1;
+}
+
+.detect-button {
+  padding: 0.75rem 1rem;
+  background-color: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  white-space: nowrap;
+}
+
+.detect-button:hover:not(:disabled) {
+  background-color: #5856eb;
+}
+
+.detect-button:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.app-registration-section {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+  background-color: #f9fafb;
+}
+
+.app-reg-explanation {
+  margin: 0 0 1rem 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.create-app-button {
+  padding: 0.75rem 1.5rem;
+  background-color: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.create-app-button:hover:not(:disabled) {
+  background-color: #059669;
+}
+
+.create-app-button:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.app-reg-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #6b7280;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e5e7eb;
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.app-reg-success {
+  color: #065f46;
+}
+
+.app-reg-success h4 {
+  margin: 0 0 0.75rem 0;
+  color: #065f46;
+}
+
+.app-details {
+  background-color: white;
+  padding: 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #d1fae5;
+}
+
+.app-details p {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+  font-family: 'Courier New', monospace;
+}
+
+.app-reg-error {
+  color: #dc2626;
+}
+
+.app-reg-error h4 {
+  margin: 0 0 0.75rem 0;
+  color: #dc2626;
+}
+
+.retry-button {
+  padding: 0.5rem 1rem;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin-top: 0.5rem;
+}
+
+.retry-button:hover {
+  background-color: #dc2626;
+}
+
+.permissions-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.permission-tag {
+  background-color: #ede9fe;
+  color: #6d28d9;
+  padding: 0.375rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid #c4b5fd;
+}
+
+.url-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.url-textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  resize: vertical;
+  min-height: 80px;
+  background-color: #f9fafb;
+}
+
+.url-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.copy-button,
+.open-button {
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.copy-button {
+  background-color: #6366f1;
+  color: white;
+}
+
+.copy-button:hover {
+  background-color: #5856eb;
+}
+
+.open-button {
+  background-color: #10b981;
+  color: white;
+}
+
+.open-button:hover {
+  background-color: #059669;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .consent-url-generator-embedded {
+    padding: 0 1rem;
+  }
+  
+  .input-with-button {
+    flex-direction: column;
+  }
+  
+  .url-buttons {
+    flex-direction: column;
+  }
+  
+  .permissions-list {
+    justify-content: flex-start;
+  }
+}
