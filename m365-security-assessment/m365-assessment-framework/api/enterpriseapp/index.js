@@ -66,11 +66,10 @@ async function handleCreateMultiTenantApp(request, context) {
         const graphService = GraphApiService.getInstance();
         // Create multi-tenant app registration
         const result = await graphService.createMultiTenantAppRegistration({
-            tenantId: targetTenantId,
-            tenantDomain: targetTenantDomain,
             tenantName: tenantName,
+            tenantDomain: targetTenantDomain,
+            targetTenantId: targetTenantId,
             contactEmail: contactEmail,
-            assessmentName: assessmentName || `M365 Security Assessment - ${tenantName}`,
             requiredPermissions: requiredPermissions || [
                 'Organization.Read.All',
                 'SecurityEvents.Read.All'

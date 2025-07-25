@@ -1,4 +1,4 @@
-// v4 compatible imports
+// v4 compatible import
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { corsHeaders, initializeDataService, dataService } from "../shared/utils";
 
@@ -12,6 +12,14 @@ app.http('currentAssessment', {
 
 async function currentAssessmentHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('Processing current assessment request');
+
+    // Handle OPTIONS request for CORS
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: corsHeaders
+        };
+    }
 
     // Handle preflight OPTIONS request immediately
     if (request.method === 'OPTIONS') {

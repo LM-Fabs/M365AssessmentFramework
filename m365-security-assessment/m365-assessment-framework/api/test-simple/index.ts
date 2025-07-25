@@ -10,14 +10,13 @@ app.http('test-simple', {
 });
 
 /**
- * Azure Functions v4 - Simple test endpoint
- * No dependencies, should always work if Functions runtime is operational
+ * Simple test handler for Azure Functions v4
  */
 async function testSimpleHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log('🧪 test-simple function called');
-    
+    context.log(`Processing ${request.method} request for test-simple`);
+
     try {
-        // Handle preflight OPTIONS request
+        // Handle OPTIONS request for CORS
         if (request.method === 'OPTIONS') {
             return {
                 status: 200,
@@ -25,32 +24,38 @@ async function testSimpleHandler(request: HttpRequest, context: InvocationContex
             };
         }
 
-        // Handle HEAD request for API warmup
-        if (request.method === 'HEAD') {
+        // Handle GET request with environment info
+        if (request.method === 'GET') {
+            const response = {
+                success: true,
+                message: "Simple test works! Functions v4 is operational",
+                method: request.method,
+                url: request.url,
+                timestamp: new Date().toISOString(),
+                version: "v4-individual-registration"
+            };
+
+            context.log('✅ test-simple completed successfully');
+            
             return {
                 status: 200,
-                headers: corsHeaders
+                headers: {
+                    ...corsHeaders,
+                    'Content-Type': 'application/json'
+                },
+                jsonBody: response
             };
         }
-        
-        const response = {
-            success: true,
-            message: "Simple test works! Functions v4 is operational",
-            method: request.method,
-            url: request.url,
-            timestamp: new Date().toISOString(),
-            version: "v4-individual-registration"
-        };
 
-        context.log('✅ test-simple completed successfully');
-        
+        // Method not supported
         return {
-            status: 200,
-            headers: {
-                ...corsHeaders,
-                'Content-Type': 'application/json'
-            },
-            jsonBody: response
+            status: 405,
+            headers: corsHeaders,
+            jsonBody: {
+                success: false,
+                error: `Method ${request.method} not supported`,
+                timestamp: new Date().toISOString()
+            }
         };
 
     } catch (error) {

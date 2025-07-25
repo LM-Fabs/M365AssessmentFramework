@@ -7,14 +7,14 @@ import { getKeyVaultService, KeyVaultService } from "../shared/keyVaultService";
 export const corsHeaders = process.env.NODE_ENV === 'development' ? {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Warmup, Cache-Control',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cache-Control',
     'Access-Control-Max-Age': '86400', // Cache preflight for 24 hours
     'Content-Type': 'application/json',
     'Cache-Control': 'public, max-age=60, s-maxage=60' // Cache responses for 1 minute
 } : {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Warmup, Cache-Control',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cache-Control',
     'Access-Control-Max-Age': '86400',
     'Content-Type': 'application/json',
     'Cache-Control': 'public, max-age=60, s-maxage=60' // Cache responses for 1 minute

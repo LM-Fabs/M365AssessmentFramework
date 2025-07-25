@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-// v4 compatible imports
+// v4 compatible import
 const functions_1 = require("@azure/functions");
 const utils_1 = require("../shared/utils");
 // Azure Functions v4 - Individual function self-registration for Static Web Apps
@@ -12,6 +12,13 @@ functions_1.app.http('currentAssessment', {
 });
 async function currentAssessmentHandler(request, context) {
     context.log('Processing current assessment request');
+    // Handle OPTIONS request for CORS
+    if (request.method === 'OPTIONS') {
+        return {
+            status: 200,
+            headers: utils_1.corsHeaders
+        };
+    }
     // Handle preflight OPTIONS request immediately
     if (request.method === 'OPTIONS') {
         return {

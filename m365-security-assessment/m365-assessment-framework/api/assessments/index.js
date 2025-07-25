@@ -18,7 +18,7 @@ async function assessmentsHandler(request, context) {
     const corsHeaders = {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Warmup, Cache-Control',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cache-Control',
         'Access-Control-Max-Age': '86400',
         'Content-Type': 'application/json',
         'Cache-Control': 'public, max-age=60, s-maxage=60'

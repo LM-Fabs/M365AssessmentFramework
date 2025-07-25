@@ -47,16 +47,6 @@ export const ConsentUrlGeneratorEmbedded: React.FC<ConsentUrlGeneratorEmbeddedPr
   const [isAutoDetecting, setIsAutoDetecting] = useState<boolean>(false);
   const [appRegistrationStatus, setAppRegistrationStatus] = useState<AppRegistrationStatus>({ status: 'idle' });
 
-  // Auto-populate tenant ID when customer is selected
-  useEffect(() => {
-    if (formData.customer?.tenantId) {
-      setFormData(prev => ({
-        ...prev,
-        tenantId: formData.customer?.tenantId || ''
-      }));
-    }
-  }, [formData.customer]);
-
   // Generate consent URL whenever relevant fields change
   useEffect(() => {
     generateConsentUrl();
@@ -96,9 +86,13 @@ export const ConsentUrlGeneratorEmbedded: React.FC<ConsentUrlGeneratorEmbeddedPr
 
   const handleCustomerSelect = (customerId: string) => {
     const customer = customers.find(c => c.id === customerId) || null;
+    console.log('🔍 Customer selected:', customer);
+    console.log('🔍 Customer tenantId:', customer?.tenantId);
+    
     setFormData(prev => ({
       ...prev,
-      customer
+      customer,
+      tenantId: customer?.tenantId || ''
     }));
     
     // Reset app registration status when changing customers
@@ -121,6 +115,13 @@ export const ConsentUrlGeneratorEmbedded: React.FC<ConsentUrlGeneratorEmbeddedPr
     }
 
     setAppRegistrationStatus({ status: 'creating', message: 'Creating app registration in customer tenant...' });
+
+    console.log('🚀 About to create app registration with:', {
+      targetTenantId: formData.tenantId,
+      targetTenantDomain: formData.customer?.tenantDomain,
+      tenantName: formData.customer?.tenantName,
+      formData: formData
+    });
 
     try {
       const response = await fetch('/api/enterprise-app/multi-tenant', {

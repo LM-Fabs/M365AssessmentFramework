@@ -17,14 +17,6 @@ export default async function (request: HttpRequest, context: InvocationContext)
             };
         }
 
-        // Handle HEAD request for API warmup
-        if (request.method === 'HEAD') {
-            return {
-                status: 200,
-                headers: corsHeaders
-            };
-        }
-
         if (request.method === 'GET') {
             // Return comprehensive M365 security best practices
             const bestPractices = [

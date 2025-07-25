@@ -36,7 +36,6 @@ export interface CustomerAssessmentSummary {
 export class CustomerService {
   private static instance: CustomerService;
   private baseUrl: string;
-  private isWarmed = false;
 
   // Cache for prefetched data
   private customersCache: Customer[] | null = null;
@@ -65,47 +64,6 @@ export class CustomerService {
       CustomerService.instance = new CustomerService();
     }
     return CustomerService.instance;
-  }
-
-  /**
-   * Warm up the API to reduce cold start latency
-   */
-  private async warmUpAPI(): Promise<void> {
-    if (this.isWarmed) return;
-    
-    try {
-      console.log('🔥 CustomerService: Warming up API...');
-      // Use GET instead of HEAD for better compatibility with Azure Static Web Apps
-      const response = await axios.get(`${this.baseUrl}/customers`, {
-        timeout: 8000,
-        headers: { 
-          'X-Warmup': 'true',
-          'Cache-Control': 'no-cache'
-        },
-        params: {
-          warmup: 'true',
-          limit: 1 // Minimal response for warmup
-        }
-      });
-      
-      if (response.status === 200) {
-        this.isWarmed = true;
-        console.log('✅ CustomerService: API warmed up successfully');
-      } else {
-        console.log(`⚠️ CustomerService: API warmup returned status ${response.status}`);
-      }
-    } catch (error: any) {
-      // Log detailed error information for debugging
-      console.log('🔥 CustomerService: API warmup failed (expected for cold start)');
-      if (error.response) {
-        console.log('Response status:', error.response.status);
-        console.log('Response data:', error.response.data);
-      } else if (error.request) {
-        console.log('No response received:', error.message);
-      } else {
-        console.log('Request setup error:', error.message);
-      }
-    }
   }
 
   /**
@@ -251,15 +209,6 @@ export class CustomerService {
       try {
         console.log(`🔄 CustomerService: API attempt ${attempt}/${maxRetries}`);
         
-        // For Azure Static Web Apps, first attempt might be slow due to cold start
-        if (attempt === 1 && isFirstCall) {
-          console.log('🧊 CustomerService: First call detected - allowing extra time for potential cold start');
-          // Try to warm up the API first if it's not warmed up
-          if (!this.isWarmed) {
-            await this.warmUpAPI();
-          }
-        }
-        
         return await apiCall();
       } catch (error: any) {
         lastError = error;
@@ -271,8 +220,6 @@ export class CustomerService {
           error.message?.includes('Request timeout')
         )) {
           console.warn('❄️ CustomerService: First request timed out (likely cold start), retrying...');
-          // Reset warm-up flag so we can try again
-          this.isWarmed = false;
         }
         
         // Don't retry on client errors (4xx) except for 408 (timeout) and 429 (rate limit)

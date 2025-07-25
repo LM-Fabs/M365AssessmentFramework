@@ -55,7 +55,6 @@ interface BasicAssessmentData {
 export class AssessmentService {
   private static instance: AssessmentService;
   private baseUrl: string;
-  private isWarmed = false;
 
   private constructor() {
     // Use Azure Static Web Apps integrated API for production
@@ -67,11 +66,6 @@ export class AssessmentService {
     }
     console.log('🔧 AssessmentService: Using API base URL:', this.baseUrl);
     console.log('🌍 AssessmentService: Environment:', process.env.NODE_ENV);
-    
-    // Warm up the API in production to reduce cold start impact
-    if (process.env.NODE_ENV === 'production') {
-      this.warmUpAPI();
-    }
   }
 
   public static getInstance(): AssessmentService {
@@ -79,25 +73,6 @@ export class AssessmentService {
       AssessmentService.instance = new AssessmentService();
     }
     return AssessmentService.instance;
-  }
-
-  /**
-   * Warm up the API to reduce cold start latency
-   */
-  private async warmUpAPI(): Promise<void> {
-    if (this.isWarmed) return;
-    
-    try {
-      console.log('🔥 AssessmentService: Warming up API...');
-      await axios.head(`${this.baseUrl}/assessment/status`, {
-        timeout: 5000,
-        headers: { 'X-Warmup': 'true' }
-      });
-      this.isWarmed = true;
-      console.log('✅ AssessmentService: API warmed up successfully');
-    } catch (error) {
-      console.log('🔥 AssessmentService: API warmup failed (expected for cold start)');
-    }
   }
 
   /**
@@ -288,10 +263,6 @@ export class AssessmentService {
       try {
         console.log(`🔄 AssessmentService: API attempt ${attempt}/${maxRetries}`);
         
-        if (attempt === 1 && isFirstCall && !this.isWarmed) {
-          await this.warmUpAPI();
-        }
-        
         return await apiCall();
       } catch (error: any) {
         lastError = error;
@@ -386,16 +357,16 @@ export class AssessmentService {
     try {
       // First try to access the test endpoint to verify API connectivity
       try {
-        await axios.get(`${this.baseUrl}/assessment/test`);
+        await axios.get(`${this.baseUrl}/test-simple`);
       } catch (testError) {
         console.error('API test endpoint check failed, API connection might be down:', testError);
         // Continue with the creation attempt even if test fails
       }
 
-      console.log('Attempting to create assessment with URL:', `${this.baseUrl}/assessment/create`);
+      console.log('Attempting to create assessment with URL:', `${this.baseUrl}/assessments`);
       console.log('Data being sent:', JSON.stringify(data, null, 2));
       
-      const response = await axios.post(`${this.baseUrl}/assessment/create`, data);
+      const response = await axios.post(`${this.baseUrl}/assessments`, data);
       console.log('Create assessment response:', response.status, response.statusText);
       return response.data;
     } catch (error: any) {
@@ -494,10 +465,10 @@ export class AssessmentService {
     scheduleFrequency: string;
   }): Promise<Assessment> {
     try {
-      console.log('Creating assessment for customer with URL:', `${this.baseUrl}/assessment/create`);
+      console.log('Creating assessment for customer with URL:', `${this.baseUrl}/assessments`);
       console.log('Data being sent:', JSON.stringify(data, null, 2));
       
-      const response = await axios.post(`${this.baseUrl}/assessment/create`, data);
+      const response = await axios.post(`${this.baseUrl}/assessments`, data);
       console.log('Create customer assessment response:', response.status, response.statusText);
       
       const assessment = response.data;
