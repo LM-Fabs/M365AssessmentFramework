@@ -9,6 +9,18 @@ diagnostic.ts
 test-domain-resolution.ts
 validateKeyVaultLocal.ts
 migrate-app-registrations.js
+# Exclude centralized index files that conflict with individual registration
+index-centralized.*
+index-minimal.*
+index-progressive.*
+*.backup
+# Exclude placeholder/incomplete function directories
+enterprise-app/
+enterprise-app-test/
+hello/
+test/
+test-function/
+HttpTrigger/
 # Exclude backup folders
 backup*/
 *backup*
