@@ -10,25 +10,9 @@ interface ConsentUrlGeneratorEmbeddedProps {
 
 interface ConsentUrlData {
   customer: Customer | null;
-  clientId: string;
   tenantId: string;
   redirectUri: string;
   permissions: string[];
-}
-
-interface AppRegistrationStatus {
-  status: 'idle' | 'creating' | 'success' | 'error';
-  message?: string;
-  appData?: {
-    applicationId: string;
-    clientId: string;
-    servicePrincipalId: string;
-    clientSecret: string;
-    consentUrl: string;
-    redirectUri: string;
-    permissions: string[];
-    resolvedTenantId: string;
-  };
 }
 
 export const ConsentUrlGeneratorEmbedded: React.FC<ConsentUrlGeneratorEmbeddedProps> = ({ customers }) => {
@@ -36,7 +20,6 @@ export const ConsentUrlGeneratorEmbedded: React.FC<ConsentUrlGeneratorEmbeddedPr
   
   const [formData, setFormData] = useState<ConsentUrlData>({
     customer: null,
-    clientId: M365_ASSESSMENT_CONFIG.clientId,
     tenantId: user?.tenantId || '',
     redirectUri: M365_ASSESSMENT_CONFIG.defaultRedirectUri,
     permissions: [...M365_ASSESSMENT_CONFIG.requiredPermissions]
@@ -45,12 +28,11 @@ export const ConsentUrlGeneratorEmbedded: React.FC<ConsentUrlGeneratorEmbeddedPr
   const [generatedUrl, setGeneratedUrl] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
   const [isAutoDetecting, setIsAutoDetecting] = useState<boolean>(false);
-  const [appRegistrationStatus, setAppRegistrationStatus] = useState<AppRegistrationStatus>({ status: 'idle' });
 
   // Generate consent URL whenever relevant fields change
   useEffect(() => {
     generateConsentUrl();
-  }, [formData.tenantId, formData.redirectUri, formData.permissions, formData.customer, formData.clientId]);
+  }, [formData.tenantId, formData.redirectUri, formData.permissions, formData.customer]);
 
   const generateConsentUrl = async () => {
     if (!formData.customer?.id || !formData.tenantId) {
@@ -59,22 +41,35 @@ export const ConsentUrlGeneratorEmbedded: React.FC<ConsentUrlGeneratorEmbeddedPr
     }
 
     try {
-      // Use app registration data if available, otherwise use default client ID
-      const clientId = appRegistrationStatus.appData?.clientId || formData.clientId;
+      // CORRECT MULTI-TENANT APPROACH: Always use YOUR app's client ID
+      // The customer admin consents to YOUR multi-tenant app in THEIR tenant
+      const clientId = M365_ASSESSMENT_CONFIG.clientId;
       
-      const baseUrl = window.location.origin;
-      const redirectUri = `${baseUrl}/auth/callback`;
-      const permissions = formData.permissions.join(' ');
+      // Microsoft Documentation: Use customer's tenant ID in the consent URL
+      // This allows the admin to consent in THEIR tenant to YOUR app
+      const customerTenantId = formData.tenantId;
       
-      const consentUrl = `https://login.microsoftonline.com/${encodeURIComponent(formData.tenantId)}/v2.0/adminconsent` +
+      // Use your app's configured redirect URI
+      const redirectUri = M365_ASSESSMENT_CONFIG.defaultRedirectUri;
+      
+      // Format: https://login.microsoftonline.com/{customer-tenant-id}/adminconsent
+      // NOT /v2.0/adminconsent - that's for regular OAuth, not admin consent
+      const consentUrl = `https://login.microsoftonline.com/${encodeURIComponent(customerTenantId)}/adminconsent` +
         `?client_id=${encodeURIComponent(clientId)}` +
         `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        `&scope=${encodeURIComponent(permissions)}` +
         `&state=${encodeURIComponent(JSON.stringify({ 
           customer_id: formData.customer.id, 
-          tenant: formData.tenantId,
-          timestamp: Date.now()
+          tenant: customerTenantId,
+          timestamp: Date.now(),
+          workflow: 'multi-tenant-consent'
         }))}`;
+      
+      console.log('🔗 Generated multi-tenant admin consent URL:', {
+        customerTenantId,
+        clientId: clientId.substring(0, 8) + '...',
+        redirectUri,
+        consentUrl: consentUrl.substring(0, 100) + '...'
+      });
       
       setGeneratedUrl(consentUrl);
       
@@ -94,9 +89,6 @@ export const ConsentUrlGeneratorEmbedded: React.FC<ConsentUrlGeneratorEmbeddedPr
       customer,
       tenantId: customer?.tenantId || ''
     }));
-    
-    // Reset app registration status when changing customers
-    setAppRegistrationStatus({ status: 'idle' });
   };
 
   const handleAutoDetectTenant = async () => {
@@ -107,68 +99,6 @@ export const ConsentUrlGeneratorEmbedded: React.FC<ConsentUrlGeneratorEmbeddedPr
     console.log('Auto-detect feature not yet implemented');
     
     setIsAutoDetecting(false);
-  };
-
-  const createAppRegistration = async () => {
-    if (!formData.customer) {
-      return;
-    }
-
-    setAppRegistrationStatus({ status: 'creating', message: 'Creating app registration in customer tenant...' });
-
-    console.log('🚀 About to create app registration with:', {
-      targetTenantId: formData.tenantId,
-      targetTenantDomain: formData.customer?.tenantDomain,
-      tenantName: formData.customer?.tenantName,
-      formData: formData
-    });
-
-    try {
-      const response = await fetch('/api/enterprise-app/multi-tenant', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          targetTenantId: formData.tenantId,
-          targetTenantDomain: formData.customer.tenantDomain,
-          tenantName: formData.customer.tenantName,
-          contactEmail: formData.customer.contactEmail,
-          assessmentName: `M365 Security Assessment - ${formData.customer.tenantName}`,
-          requiredPermissions: formData.permissions
-        })
-      });
-
-      console.log('🌐 API Response status:', response.status);
-      console.log('🌐 API Response headers:', Object.fromEntries(response.headers.entries()));
-      
-      const result = await response.json();
-      console.log('🌐 API Response body:', result);
-
-      if (result.success) {
-        setAppRegistrationStatus({
-          status: 'success',
-          message: 'App registration created successfully!',
-          appData: result.data
-        });
-        
-        // Update form data with new client ID
-        setFormData(prev => ({
-          ...prev,
-          clientId: result.data.clientId
-        }));
-      } else {
-        setAppRegistrationStatus({
-          status: 'error',
-          message: result.error || 'Failed to create app registration'
-        });
-      }
-    } catch (error: any) {
-      setAppRegistrationStatus({
-        status: 'error',
-        message: `Error creating app registration: ${error.message}`
-      });
-    }
   };
 
   const copyToClipboard = async () => {
@@ -235,71 +165,41 @@ export const ConsentUrlGeneratorEmbedded: React.FC<ConsentUrlGeneratorEmbeddedPr
               </div>
             </div>
 
-            {/* App Registration Section */}
+            {/* Multi-Tenant App Information */}
             <div className="form-group">
-              <label>App Registration:</label>
-              <div className="app-registration-section">
-                {appRegistrationStatus.status === 'idle' && (
-                  <div className="app-reg-idle">
-                    <p className="app-reg-explanation">
-                      Create a new app registration in the customer's tenant for this assessment.
-                      This will generate a dedicated client ID and configure the proper permissions.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={createAppRegistration}
-                      disabled={!formData.tenantId}
-                      className="create-app-button"
-                    >
-                      Create App Registration
-                    </button>
-                  </div>
-                )}
-
-                {appRegistrationStatus.status === 'creating' && (
-                  <div className="app-reg-loading">
-                    <div className="loading-spinner"></div>
-                    <p>{appRegistrationStatus.message}</p>
-                  </div>
-                )}
-
-                {appRegistrationStatus.status === 'success' && (
-                  <div className="app-reg-success">
-                    <h4>✅ App Registration Created</h4>
-                    <div className="app-details">
-                      <p><strong>Application ID:</strong> {appRegistrationStatus.appData?.applicationId}</p>
-                      <p><strong>Client ID:</strong> {appRegistrationStatus.appData?.clientId}</p>
-                      <p><strong>Service Principal ID:</strong> {appRegistrationStatus.appData?.servicePrincipalId}</p>
-                    </div>
-                  </div>
-                )}
-
-                {appRegistrationStatus.status === 'error' && (
-                  <div className="app-reg-error">
-                    <h4>❌ App Registration Failed</h4>
-                    <p>{appRegistrationStatus.message}</p>
-                    <button
-                      type="button"
-                      onClick={createAppRegistration}
-                      className="retry-button"
-                    >
-                      Retry
-                    </button>
-                  </div>
-                )}
+              <label>Multi-Tenant App Registration:</label>
+              <div className="multi-tenant-info">
+                <div className="info-box">
+                  <h4>📋 How Multi-Tenant Consent Works:</h4>
+                  <ol>
+                    <li>You have <strong>ONE</strong> multi-tenant app registered in your Azure tenant</li>
+                    <li>Customer tenant admin clicks the consent URL below</li>
+                    <li>Customer admin consents to <strong>your existing app</strong> in their tenant</li>
+                    <li>Your app appears as an "Enterprise Application" in their tenant</li>
+                    <li>You can then access their tenant using the same client ID</li>
+                  </ol>
+                  <p className="note">
+                    <strong>Note:</strong> No new app registration is created in the customer tenant. 
+                    They consent to your existing multi-tenant app.
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* Client ID Display */}
+            {/* Multi-Tenant App Client ID */}
             <div className="form-group">
-              <label htmlFor="client-id">Client ID:</label>
+              <label htmlFor="client-id">Your Multi-Tenant App Client ID:</label>
               <input
                 id="client-id"
                 type="text"
-                value={formData.clientId}
+                value={M365_ASSESSMENT_CONFIG.clientId}
                 readOnly
                 className="form-input readonly"
               />
+              <p className="field-note">
+                This is your master app registration that customers will consent to.
+                The same client ID is used for all customers.
+              </p>
             </div>
 
             {/* Permissions */}

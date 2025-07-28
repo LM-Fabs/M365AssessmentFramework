@@ -16,8 +16,10 @@
     "AZURE_CLIENT_SECRET": "your-service-principal-client-secret",
     "AZURE_TENANT_ID": "your-azure-tenant-id",
     
-    "_comment2": "Set to 'true' to create individual app registrations for each customer",
-    "CREATE_INDIVIDUAL_APPS": "true"
+    "_comment2": "IMPORTANT: Set to 'false' to use correct multi-tenant approach (recommended)",
+    "_comment3": "Multi-tenant approach: ONE app in YOUR tenant, customers consent via admin consent URL",
+    "_comment4": "Individual approach: Creates separate apps per customer (not recommended for multi-tenant)",
+    "CREATE_INDIVIDUAL_APPS": "false"
   },
   "Host": {
     "CORS": "*"
