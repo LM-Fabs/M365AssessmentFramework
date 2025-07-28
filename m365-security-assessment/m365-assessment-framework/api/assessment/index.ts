@@ -1,5 +1,5 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
-import { corsHeaders } from "../shared/utils";
+import { corsHeaders, initializeDataService, dataService } from "../shared/utils";
 
 // Azure Functions v4 - Individual Assessment endpoint (by ID)
 app.http('assessment', {
@@ -13,6 +13,9 @@ async function assessmentHandler(request: HttpRequest, context: InvocationContex
     context.log('📊 Assessment API called (individual assessment by ID)');
 
     try {
+        // Initialize data service (PostgreSQL)
+        await initializeDataService(context);
+
         // Handle preflight OPTIONS request
         if (request.method === 'OPTIONS') {
             return {
@@ -65,14 +68,13 @@ async function assessmentHandler(request: HttpRequest, context: InvocationContex
 }
 
 async function getAssessmentById(assessmentId: string, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log(`📖 Getting assessment by ID: ${assessmentId}`);
+    context.log(`📖 Getting assessment by ID: ${assessmentId} from PostgreSQL`);
     
     try {
-        // TODO: Implement actual retrieval from storage/database
-        // For now, return a mock assessment to prevent blocking the UI
+        // Get assessment from PostgreSQL
+        const assessment = await dataService.getAssessmentById(assessmentId);
         
-        // Check if it looks like a valid assessment ID
-        if (!assessmentId || assessmentId.length < 10) {
+        if (!assessment) {
             return {
                 status: 404,
                 headers: corsHeaders,
@@ -84,61 +86,15 @@ async function getAssessmentById(assessmentId: string, context: InvocationContex
             };
         }
 
-        // Create a mock assessment structure
-        const mockAssessment = {
-            id: assessmentId,
-            tenantId: "mock-tenant-id",
-            customerName: "Mock Customer",
-            assessmentDate: new Date().toISOString(),
-            status: "completed",
-            metrics: {
-                score: {
-                    overall: 75,
-                    license: 80,
-                    secureScore: 70
-                },
-                details: {
-                    license: {
-                        totalLicenses: 100,
-                        assignedLicenses: 85,
-                        utilizationRate: 85
-                    },
-                    secureScore: {
-                        currentScore: 350,
-                        maxScore: 500,
-                        percentage: 70
-                    }
-                }
-            },
-            categories: ["license", "secureScore"],
-            results: {
-                license: {
-                    score: 80,
-                    recommendations: [
-                        "Optimize unused licenses",
-                        "Review license assignments"
-                    ]
-                },
-                secureScore: {
-                    score: 70,
-                    recommendations: [
-                        "Enable MFA for all users",
-                        "Configure conditional access policies"
-                    ]
-                }
-            }
-        };
-        
-        context.log(`✅ Returning mock assessment for ID: ${assessmentId}`);
+        context.log(`✅ Retrieved assessment: ${assessmentId}`);
         
         return {
             status: 200,
             headers: corsHeaders,
             body: JSON.stringify({
                 success: true,
-                data: mockAssessment,
-                message: 'Assessment retrieved successfully (mock data)',
-                note: 'This is mock data - implement actual storage retrieval'
+                data: assessment,
+                message: 'Assessment retrieved successfully'
             })
         };
 

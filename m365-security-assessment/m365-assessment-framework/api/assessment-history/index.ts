@@ -1,5 +1,5 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
-import { corsHeaders } from "../shared/utils";
+import { corsHeaders, initializeDataService, dataService } from "../shared/utils";
 
 // Azure Functions v4 - Assessment History endpoint
 app.http('assessment-history', {
@@ -18,13 +18,16 @@ interface AssessmentHistory {
         license: number;
         secureScore: number;
     };
-    metrics: any;
+    metrics?: any;
 }
 
 async function assessmentHistoryHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('📊 Assessment History API called');
 
     try {
+        // Initialize data service (PostgreSQL)
+        await initializeDataService(context);
+
         // Handle preflight OPTIONS request
         if (request.method === 'OPTIONS') {
             return {
@@ -67,7 +70,7 @@ async function assessmentHistoryHandler(request: HttpRequest, context: Invocatio
 }
 
 async function storeAssessmentHistory(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log('💾 Storing assessment history');
+    context.log('💾 Storing assessment history to PostgreSQL');
     
     try {
         const historyEntry = await request.json() as AssessmentHistory;
@@ -78,9 +81,6 @@ async function storeAssessmentHistory(request: HttpRequest, context: InvocationC
             overallScore: historyEntry.overallScore
         });
 
-        // TODO: Implement actual storage (database, Azure Table Storage, etc.)
-        // For now, we'll just log and return success to prevent blocking assessments
-        
         // Validate required fields
         if (!historyEntry.assessmentId || !historyEntry.tenantId) {
             return {
@@ -93,8 +93,17 @@ async function storeAssessmentHistory(request: HttpRequest, context: InvocationC
             };
         }
 
-        // Simulate successful storage
-        context.log('✅ Assessment history stored successfully (mock implementation)');
+        // Store in PostgreSQL using the existing service
+        await dataService.storeAssessmentHistory({
+            assessmentId: historyEntry.assessmentId,
+            tenantId: historyEntry.tenantId,
+            customerId: '', // Will be populated by the service if needed
+            date: new Date(historyEntry.date),
+            overallScore: historyEntry.overallScore,
+            categoryScores: historyEntry.categoryScores
+        });
+        
+        context.log('✅ Assessment history stored successfully in PostgreSQL');
         
         return {
             status: 200,
@@ -125,15 +134,13 @@ async function storeAssessmentHistory(request: HttpRequest, context: InvocationC
 }
 
 async function getAssessmentHistory(request: HttpRequest, context: InvocationContext, tenantId: string): Promise<HttpResponseInit> {
-    context.log(`📖 Getting assessment history for tenant: ${tenantId}`);
+    context.log(`📖 Getting assessment history for tenant: ${tenantId} from PostgreSQL`);
     
     try {
-        // TODO: Implement actual retrieval from storage
-        // For now, return empty history to prevent blocking
+        // Get assessment history from PostgreSQL
+        const history = await dataService.getAssessmentHistory({ tenantId });
         
-        const mockHistory: AssessmentHistory[] = [];
-        
-        context.log(`✅ Retrieved ${mockHistory.length} history entries for tenant ${tenantId}`);
+        context.log(`✅ Retrieved ${history.length} history entries for tenant ${tenantId}`);
         
         return {
             status: 200,
@@ -141,8 +148,8 @@ async function getAssessmentHistory(request: HttpRequest, context: InvocationCon
             body: JSON.stringify({
                 success: true,
                 tenantId: tenantId,
-                history: mockHistory,
-                count: mockHistory.length
+                history: history,
+                count: history.length
             })
         };
 
