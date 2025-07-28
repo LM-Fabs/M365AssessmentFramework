@@ -250,7 +250,11 @@ class GraphApiService {
             'SecurityEvents.Read.All': 'bf394140-e372-4bf9-a898-299cfc7564e5',
             'IdentityRiskyUser.Read.All': 'dc5007c0-2d7d-4c42-879c-2dab87571379',
             'DeviceManagementManagedDevices.Read.All': '2f51be20-0bb4-4fed-bf7b-db946066c75e',
-            'AuditLog.Read.All': 'b0afded3-3588-46d8-8b3d-9842eff778da'
+            'AuditLog.Read.All': 'b0afded3-3588-46d8-8b3d-9842eff778da',
+            'User.Read.All': 'df021288-bdef-4463-88db-98f22de89214',
+            'IdentityRiskEvent.Read.All': '6e472fd1-ad78-48da-a0f0-97ab2c6b769e',
+            'Agreement.Read.All': 'ef4b5d93-3104-4867-9b0b-5cd61b5ffb6f',
+            'RoleManagement.Read.Directory': '483bed4a-2ad3-4361-a73b-c83ccdbdc53c'
         };
         const permissionId = permissionMap[permissionName];
         if (!permissionId) {
@@ -552,6 +556,64 @@ class GraphApiService {
         }
         catch (error) {
             console.error('❌ GraphApiService: Failed to create individual app:', error);
+            // Check if it's a permissions error
+            if (error.message && error.message.includes('Insufficient privileges')) {
+                console.log('⚠️ GraphApiService: Insufficient privileges to create apps. Your service principal needs "Application.ReadWrite.All" permission.');
+                console.log('🔄 GraphApiService: Falling back to shared multi-tenant app approach...');
+                // Fall back to the shared app approach
+                const existingClientId = process.env.AZURE_CLIENT_ID;
+                if (existingClientId) {
+                    try {
+                        // Get the existing application details
+                        const existingApp = await this.graphClient.api(`/applications`).filter(`appId eq '${existingClientId}'`).get();
+                        if (existingApp.value && existingApp.value.length > 0) {
+                            const app = existingApp.value[0];
+                            // Get the service principal for the existing app
+                            const spResponse = await this.graphClient.api('/servicePrincipals').filter(`appId eq '${existingClientId}'`).get();
+                            let servicePrincipal;
+                            if (!spResponse.value || spResponse.value.length === 0) {
+                                servicePrincipal = await this.graphClient.api('/servicePrincipals').post({
+                                    appId: existingClientId
+                                });
+                            }
+                            else {
+                                servicePrincipal = spResponse.value[0];
+                            }
+                            const baseUrl = process.env.REDIRECT_URI || "https://portal.azure.com/";
+                            const scope = permissions.join(' ');
+                            const consentUrl = `https://login.microsoftonline.com/${customerData.targetTenantId}/v2.0/adminconsent` +
+                                `?client_id=${encodeURIComponent(existingClientId)}` +
+                                `&redirect_uri=${encodeURIComponent(baseUrl)}` +
+                                `&scope=${encodeURIComponent(scope)}` +
+                                `&state=${encodeURIComponent(JSON.stringify({
+                                    customer_tenant: customerData.targetTenantId,
+                                    customer_name: customerData.tenantName,
+                                    customer_domain: customerData.tenantDomain,
+                                    timestamp: Date.now(),
+                                    fallback_reason: 'insufficient_privileges'
+                                }))}`;
+                            console.log('✅ GraphApiService: Using existing shared app as fallback');
+                            return {
+                                applicationId: app.id,
+                                clientId: existingClientId,
+                                appId: existingClientId,
+                                servicePrincipalId: servicePrincipal.id,
+                                objectId: servicePrincipal.id,
+                                clientSecret: "*** Use existing client secret from environment ***",
+                                consentUrl: consentUrl,
+                                redirectUri: baseUrl,
+                                permissions: permissions,
+                                resolvedTenantId: customerData.targetTenantId,
+                                isNewApp: false
+                            };
+                        }
+                    }
+                    catch (fallbackError) {
+                        console.error('❌ GraphApiService: Fallback also failed:', fallbackError);
+                    }
+                }
+                throw new Error(`Cannot create individual apps: Your Azure service principal needs "Application.ReadWrite.All" permission to create app registrations. Please grant this permission in Azure AD or use the shared multi-tenant app approach.`);
+            }
             throw new Error(`Failed to create individual app: ${error.message || error}`);
         }
     }
