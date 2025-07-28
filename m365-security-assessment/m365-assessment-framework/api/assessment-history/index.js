@@ -1,111 +1,88 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
-import { corsHeaders, initializeDataService, dataService } from "../shared/utils";
-
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const functions_1 = require("@azure/functions");
+const utils_1 = require("../shared/utils");
 // Azure Functions v4 - Assessment History endpoint
-app.http('assessment-history', {
+functions_1.app.http('assessment-history', {
     methods: ['GET', 'POST', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'assessment-history',
     handler: assessmentHistoryHandler
 });
-
-interface AssessmentHistory {
-    assessmentId: string;
-    tenantId: string;
-    date: Date;
-    overallScore: number;
-    categoryScores: {
-        license: number;
-        secureScore: number;
-    };
-    metrics?: any;
-}
-
-async function assessmentHistoryHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function assessmentHistoryHandler(request, context) {
     context.log('📊 Assessment History API called');
-
     try {
         // Initialize data service (PostgreSQL)
-        await initializeDataService(context);
-
+        await (0, utils_1.initializeDataService)(context);
         // Handle preflight OPTIONS request
         if (request.method === 'OPTIONS') {
             return {
                 status: 200,
-                headers: corsHeaders
+                headers: utils_1.corsHeaders
             };
         }
-
         const tenantId = request.params.tenantId || request.query.get('tenantId');
         context.log(`🎯 Tenant ID: ${tenantId || 'none'}`);
-
         if (request.method === 'POST') {
             return await storeAssessmentHistory(request, context);
         }
-
         if (request.method === 'GET' && tenantId) {
             return await getAssessmentHistory(request, context, tenantId);
         }
-
         if (request.method === 'GET' && !tenantId) {
             return {
                 status: 400,
-                headers: corsHeaders,
-                body: JSON.stringify({ 
+                headers: utils_1.corsHeaders,
+                body: JSON.stringify({
                     error: 'Bad request',
-                    message: 'Tenant ID is required for GET request (use ?tenantId=...)' 
+                    message: 'Tenant ID is required for GET request (use ?tenantId=...)'
                 })
             };
         }
-
         return {
             status: 400,
-            headers: corsHeaders,
-            body: JSON.stringify({ 
+            headers: utils_1.corsHeaders,
+            body: JSON.stringify({
                 error: 'Bad request',
-                message: 'Invalid method or missing tenant ID for GET request' 
+                message: 'Invalid method or missing tenant ID for GET request'
             })
         };
-
-    } catch (error: any) {
+    }
+    catch (error) {
         context.log('❌ Assessment History API error:', error);
         return {
             status: 500,
-            headers: corsHeaders,
-            body: JSON.stringify({ 
+            headers: utils_1.corsHeaders,
+            body: JSON.stringify({
                 error: 'Internal server error',
-                message: error.message 
+                message: error.message
             })
         };
     }
 }
-
-async function storeAssessmentHistory(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function storeAssessmentHistory(request, context) {
     context.log('💾 Storing assessment history to PostgreSQL');
-    
     try {
-        const historyEntry = await request.json() as AssessmentHistory;
+        const historyEntry = await request.json();
         context.log('📋 History entry:', {
             assessmentId: historyEntry.assessmentId,
             tenantId: historyEntry.tenantId,
             date: historyEntry.date,
             overallScore: historyEntry.overallScore
         });
-
         // Validate required fields
         if (!historyEntry.assessmentId || !historyEntry.tenantId) {
             return {
                 status: 400,
-                headers: corsHeaders,
+                headers: utils_1.corsHeaders,
                 body: JSON.stringify({
                     error: 'Missing required fields',
                     message: 'assessmentId and tenantId are required'
                 })
             };
         }
-
         // Store in PostgreSQL using the existing service
-        await dataService.storeAssessmentHistory({
+        await utils_1.dataService.storeAssessmentHistory({
             assessmentId: historyEntry.assessmentId,
             tenantId: historyEntry.tenantId,
             customerId: '', // Will be populated by the service if needed
@@ -113,12 +90,10 @@ async function storeAssessmentHistory(request: HttpRequest, context: InvocationC
             overallScore: historyEntry.overallScore,
             categoryScores: historyEntry.categoryScores
         });
-        
         context.log('✅ Assessment history stored successfully in PostgreSQL');
-        
         return {
             status: 200,
-            headers: corsHeaders,
+            headers: utils_1.corsHeaders,
             body: JSON.stringify({
                 success: true,
                 message: 'Assessment history stored successfully',
@@ -129,13 +104,12 @@ async function storeAssessmentHistory(request: HttpRequest, context: InvocationC
                 }
             })
         };
-
-    } catch (error: any) {
+    }
+    catch (error) {
         context.log('❌ Error storing assessment history:', error);
-        
         return {
             status: 500,
-            headers: corsHeaders,
+            headers: utils_1.corsHeaders,
             body: JSON.stringify({
                 error: 'Failed to store assessment history',
                 message: error.message
@@ -143,19 +117,15 @@ async function storeAssessmentHistory(request: HttpRequest, context: InvocationC
         };
     }
 }
-
-async function getAssessmentHistory(request: HttpRequest, context: InvocationContext, tenantId: string): Promise<HttpResponseInit> {
+async function getAssessmentHistory(request, context, tenantId) {
     context.log(`📖 Getting assessment history for tenant: ${tenantId} from PostgreSQL`);
-    
     try {
         // Get assessment history from PostgreSQL
-        const history = await dataService.getAssessmentHistory({ tenantId });
-        
+        const history = await utils_1.dataService.getAssessmentHistory({ tenantId });
         context.log(`✅ Retrieved ${history.length} history entries for tenant ${tenantId}`);
-        
         return {
             status: 200,
-            headers: corsHeaders,
+            headers: utils_1.corsHeaders,
             body: JSON.stringify({
                 success: true,
                 tenantId: tenantId,
@@ -163,13 +133,12 @@ async function getAssessmentHistory(request: HttpRequest, context: InvocationCon
                 count: history.length
             })
         };
-
-    } catch (error: any) {
+    }
+    catch (error) {
         context.log('❌ Error retrieving assessment history:', error);
-        
         return {
             status: 500,
-            headers: corsHeaders,
+            headers: utils_1.corsHeaders,
             body: JSON.stringify({
                 error: 'Failed to retrieve assessment history',
                 message: error.message
@@ -177,3 +146,4 @@ async function getAssessmentHistory(request: HttpRequest, context: InvocationCon
         };
     }
 }
+//# sourceMappingURL=index.js.map

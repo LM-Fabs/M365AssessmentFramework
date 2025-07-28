@@ -194,6 +194,62 @@ async function customersHandler(request, context) {
                 }
             };
         }
+        if (request.method === 'DELETE') {
+            context.log('Deleting customer');
+            // Get customer ID from query parameters
+            const customerId = request.query.get('id');
+            if (!customerId) {
+                return {
+                    status: 400,
+                    headers: utils_1.corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: "Customer ID is required",
+                        message: "Please provide customer ID in the 'id' query parameter"
+                    }
+                };
+            }
+            context.log(`Deleting customer with ID: ${customerId}`);
+            try {
+                // Check if customer exists first
+                const existingCustomer = await utils_1.dataService.getCustomer(customerId);
+                if (!existingCustomer) {
+                    return {
+                        status: 404,
+                        headers: utils_1.corsHeaders,
+                        jsonBody: {
+                            success: false,
+                            error: 'Customer not found',
+                            message: `Customer with ID '${customerId}' does not exist`
+                        }
+                    };
+                }
+                // Delete customer from PostgreSQL
+                await utils_1.dataService.deleteCustomer(customerId);
+                context.log(`✅ Deleted customer: ${customerId}`);
+                return {
+                    status: 200,
+                    headers: utils_1.corsHeaders,
+                    jsonBody: {
+                        success: true,
+                        message: 'Customer deleted successfully',
+                        deletedCustomerId: customerId
+                    }
+                };
+            }
+            catch (deleteError) {
+                context.error('Error deleting customer:', deleteError);
+                return {
+                    status: 500,
+                    headers: utils_1.corsHeaders,
+                    jsonBody: {
+                        success: false,
+                        error: 'Failed to delete customer',
+                        message: deleteError instanceof Error ? deleteError.message : "Unknown error"
+                    }
+                };
+            }
+        }
         // Method not allowed
         return {
             status: 405,

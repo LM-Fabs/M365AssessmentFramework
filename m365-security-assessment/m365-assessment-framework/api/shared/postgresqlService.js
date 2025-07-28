@@ -1227,6 +1227,46 @@ class PostgreSQLService {
         }
     }
     /**
+     * Get a single assessment by ID
+     */
+    async getAssessmentById(assessmentId) {
+        await this.initialize();
+        const client = await this.pool.connect();
+        try {
+            const query = `
+                SELECT 
+                    id,
+                    customer_id,
+                    tenant_id,
+                    date,
+                    status,
+                    score,
+                    metrics,
+                    recommendations
+                FROM assessments
+                WHERE id = $1
+            `;
+            const result = await client.query(query, [assessmentId]);
+            if (result.rows.length === 0) {
+                return null;
+            }
+            const row = result.rows[0];
+            return {
+                id: row.id,
+                customerId: row.customer_id,
+                tenantId: row.tenant_id,
+                date: row.date,
+                status: row.status,
+                score: row.score,
+                metrics: row.metrics,
+                recommendations: row.recommendations
+            };
+        }
+        finally {
+            client.release();
+        }
+    }
+    /**
      * Browse table data for debugging/monitoring
      */
     async browseTable(tableName, limit = 10) {
