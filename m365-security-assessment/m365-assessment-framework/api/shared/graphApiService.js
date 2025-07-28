@@ -156,7 +156,13 @@ class GraphApiService {
                 'AuditLog.Read.All',
                 'SecurityEvents.Read.All'
             ];
-            // Use the existing app from environment variables (recommended)
+            // Check if we should create individual apps per customer
+            const createIndividualApps = process.env.CREATE_INDIVIDUAL_APPS === 'true';
+            if (createIndividualApps) {
+                console.log('🏗️ GraphApiService: Creating individual app for customer:', customerData.tenantName);
+                return await this.createIndividualAppInOurTenant(customerData, permissions);
+            }
+            // Use the existing app from environment variables (recommended for multi-tenant)
             const existingClientId = process.env.AZURE_CLIENT_ID;
             if (existingClientId) {
                 console.log('✅ GraphApiService: Using existing multi-tenant app from environment');
@@ -248,6 +254,18 @@ class GraphApiService {
             throw new Error(`Unknown permission: ${permissionName}`);
         }
         return permissionId;
+    }
+    /**
+     * Map permission names to required resource access format for app registration
+     */
+    mapPermissionsToResourceAccess(permissions) {
+        return [{
+                resourceAppId: '00000003-0000-0000-c000-000000000000', // Microsoft Graph
+                resourceAccess: permissions.map(permission => ({
+                    id: this.getPermissionId(permission),
+                    type: 'Role' // Application permissions
+                }))
+            }];
     }
     /**
      * Get organization information
@@ -435,6 +453,296 @@ class GraphApiService {
                 success: false,
                 error: error.message
             };
+        }
+    }
+    /**
+     * Create a new app registration in OUR tenant for each customer
+     * This is more practical than creating apps in customer tenants
+     */
+    async createIndividualAppInOurTenant(customerData, permissions) {
+        try {
+            console.log('🏗️ GraphApiService: Creating new app registration in our tenant for customer:', customerData.tenantName);
+            // Create the app registration in our tenant
+            const appDisplayName = `M365 Assessment - ${customerData.tenantName} (${customerData.tenantDomain})`;
+            const appRegistration = {
+                displayName: appDisplayName,
+                description: `Dedicated security assessment application for ${customerData.tenantName}`,
+                signInAudience: 'AzureADMultipleOrgs', // Multi-tenant so customer can consent
+                requiredResourceAccess: this.mapPermissionsToResourceAccess(permissions),
+                web: {
+                    redirectUris: [
+                        `${process.env.REDIRECT_URI || "https://portal.azure.com/"}`,
+                        `${process.env.REDIRECT_URI || "https://portal.azure.com/"}/auth/callback`
+                    ],
+                    implicitGrantSettings: {
+                        enableAccessTokenIssuance: false,
+                        enableIdTokenIssuance: false
+                    }
+                },
+                api: {
+                    acceptMappedClaims: true,
+                    knownClientApplications: [],
+                    requestedAccessTokenVersion: 2
+                },
+                tags: [
+                    'M365Assessment',
+                    `Customer:${customerData.tenantName}`,
+                    `TenantId:${customerData.targetTenantId}`,
+                    `Domain:${customerData.tenantDomain}`
+                ]
+            };
+            console.log('📝 GraphApiService: Creating app registration in our tenant...');
+            const createdApp = await this.graphClient.api('/applications').post(appRegistration);
+            console.log('✅ GraphApiService: App registration created:', createdApp.appId);
+            // Create client secret for the app
+            const secretRequest = {
+                passwordCredential: {
+                    displayName: `${customerData.tenantName} Assessment Key - ${new Date().toISOString().split('T')[0]}`,
+                    endDateTime: new Date(Date.now() + (365 * 24 * 60 * 60 * 1000)).toISOString() // 1 year
+                }
+            };
+            const secretResponse = await this.graphClient.api(`/applications/${createdApp.id}/addPassword`).post(secretRequest);
+            console.log('🔑 GraphApiService: Client secret created');
+            // Create service principal for the app
+            const servicePrincipalRequest = {
+                appId: createdApp.appId,
+                accountEnabled: true,
+                displayName: appDisplayName,
+                servicePrincipalType: 'Application',
+                tags: [
+                    'M365Assessment',
+                    `Customer:${customerData.tenantName}`,
+                    `TenantId:${customerData.targetTenantId}`
+                ]
+            };
+            const servicePrincipal = await this.graphClient.api('/servicePrincipals').post(servicePrincipalRequest);
+            console.log('👤 GraphApiService: Service principal created:', servicePrincipal.id);
+            const baseUrl = process.env.REDIRECT_URI || "https://portal.azure.com/";
+            // Create admin consent URL for the customer to consent to this new app
+            const scope = permissions.join(' ');
+            const consentUrl = `https://login.microsoftonline.com/${customerData.targetTenantId}/v2.0/adminconsent` +
+                `?client_id=${encodeURIComponent(createdApp.appId)}` +
+                `&redirect_uri=${encodeURIComponent(baseUrl)}` +
+                `&scope=${encodeURIComponent(scope)}` +
+                `&state=${encodeURIComponent(JSON.stringify({
+                    customer_tenant: customerData.targetTenantId,
+                    customer_name: customerData.tenantName,
+                    customer_domain: customerData.tenantDomain,
+                    timestamp: Date.now(),
+                    app_type: 'individual',
+                    app_id: createdApp.appId
+                }))}`;
+            console.log('✅ GraphApiService: Individual app created successfully for', customerData.tenantName);
+            return {
+                applicationId: createdApp.id,
+                clientId: createdApp.appId,
+                appId: createdApp.appId,
+                servicePrincipalId: servicePrincipal.id,
+                objectId: servicePrincipal.id,
+                clientSecret: secretResponse.secretText,
+                consentUrl: consentUrl,
+                redirectUri: baseUrl,
+                permissions: permissions,
+                resolvedTenantId: customerData.targetTenantId,
+                isNewApp: true
+            };
+        }
+        catch (error) {
+            console.error('❌ GraphApiService: Failed to create individual app:', error);
+            throw new Error(`Failed to create individual app: ${error.message || error}`);
+        }
+    }
+    /**
+     * Create a new app registration in the customer's tenant
+     * This requires admin consent and cross-tenant permissions
+     */
+    async createIndividualAppForCustomer(customerData, permissions) {
+        try {
+            console.log('🏗️ GraphApiService: Creating new app registration in customer tenant:', customerData.tenantName);
+            // First, we need to get an access token for the customer's tenant
+            // This requires the customer to have already consented to our management app
+            const customerGraphClient = await this.getCustomerTenantGraphClient(customerData.targetTenantId);
+            // Create the app registration in the customer's tenant
+            const appDisplayName = `M365 Security Assessment - ${customerData.tenantName}`;
+            const appRegistration = {
+                displayName: appDisplayName,
+                description: `Security assessment application for ${customerData.tenantName}`,
+                signInAudience: 'AzureADMyOrg', // Single tenant (customer's tenant only)
+                requiredResourceAccess: this.mapPermissionsToResourceAccess(permissions),
+                web: {
+                    redirectUris: [
+                        `${process.env.REDIRECT_URI || "https://portal.azure.com/"}`,
+                        `${process.env.REDIRECT_URI || "https://portal.azure.com/"}/auth/callback`
+                    ],
+                    implicitGrantSettings: {
+                        enableAccessTokenIssuance: false,
+                        enableIdTokenIssuance: false
+                    }
+                },
+                api: {
+                    acceptMappedClaims: true,
+                    knownClientApplications: [],
+                    requestedAccessTokenVersion: 2
+                }
+            };
+            console.log('📝 GraphApiService: Creating app registration...');
+            const createdApp = await customerGraphClient.api('/applications').post(appRegistration);
+            console.log('✅ GraphApiService: App registration created:', createdApp.appId);
+            // Create client secret for the app
+            const secretRequest = {
+                passwordCredential: {
+                    displayName: `Assessment Key - ${new Date().toISOString().split('T')[0]}`,
+                    endDateTime: new Date(Date.now() + (365 * 24 * 60 * 60 * 1000)).toISOString() // 1 year
+                }
+            };
+            const secretResponse = await customerGraphClient.api(`/applications/${createdApp.id}/addPassword`).post(secretRequest);
+            console.log('🔑 GraphApiService: Client secret created');
+            // Create service principal for the app
+            const servicePrincipalRequest = {
+                appId: createdApp.appId,
+                accountEnabled: true,
+                displayName: appDisplayName,
+                servicePrincipalType: 'Application'
+            };
+            const servicePrincipal = await customerGraphClient.api('/servicePrincipals').post(servicePrincipalRequest);
+            console.log('👤 GraphApiService: Service principal created:', servicePrincipal.id);
+            // Grant admin consent for the required permissions
+            try {
+                await this.grantAdminConsentForApp(customerGraphClient, servicePrincipal.id, permissions);
+                console.log('✅ GraphApiService: Admin consent granted');
+            }
+            catch (consentError) {
+                console.warn('⚠️ GraphApiService: Could not auto-grant admin consent, manual consent may be required:', consentError);
+            }
+            const baseUrl = process.env.REDIRECT_URI || "https://portal.azure.com/";
+            // Create a consent URL (though app is already created, this can be used for re-consent if needed)
+            const scope = permissions.join(' ');
+            const consentUrl = `https://login.microsoftonline.com/${customerData.targetTenantId}/v2.0/adminconsent` +
+                `?client_id=${encodeURIComponent(createdApp.appId)}` +
+                `&redirect_uri=${encodeURIComponent(baseUrl)}` +
+                `&scope=${encodeURIComponent(scope)}` +
+                `&state=${encodeURIComponent(JSON.stringify({
+                    customer_tenant: customerData.targetTenantId,
+                    customer_name: customerData.tenantName,
+                    customer_domain: customerData.tenantDomain,
+                    timestamp: Date.now(),
+                    app_type: 'individual'
+                }))}`;
+            return {
+                applicationId: createdApp.id,
+                clientId: createdApp.appId,
+                appId: createdApp.appId,
+                servicePrincipalId: servicePrincipal.id,
+                objectId: servicePrincipal.id,
+                clientSecret: secretResponse.secretText,
+                consentUrl: consentUrl,
+                redirectUri: baseUrl,
+                permissions: permissions,
+                resolvedTenantId: customerData.targetTenantId,
+                isNewApp: true
+            };
+        }
+        catch (error) {
+            console.error('❌ GraphApiService: Failed to create app in customer tenant:', error);
+            throw new Error(`Failed to create app in customer tenant: ${error.message || error}`);
+        }
+    }
+    /**
+     * Get a Graph client for the customer's tenant
+     * This requires appropriate cross-tenant permissions
+     */
+    async getCustomerTenantGraphClient(targetTenantId) {
+        try {
+            // Use your app's credentials to get access to the customer's tenant
+            // This requires the customer to have previously consented to your management app
+            const credential = new identity_1.DefaultAzureCredential();
+            // Get token for the specific customer tenant
+            const tokenResponse = await credential.getToken([
+                `https://graph.microsoft.com/.default`
+            ], {
+                tenantId: targetTenantId
+            });
+            const customerGraphClient = microsoft_graph_client_1.Client.init({
+                authProvider: async () => {
+                    return tokenResponse.token;
+                }
+            });
+            return customerGraphClient;
+        }
+        catch (error) {
+            console.error('❌ GraphApiService: Failed to get customer tenant access:', error);
+            throw new Error(`Cannot access customer tenant. Customer may need to grant cross-tenant permissions first: ${error.message}`);
+        }
+    }
+    /**
+     * Grant admin consent for app permissions
+     */
+    async grantAdminConsentForApp(graphClient, servicePrincipalId, permissions) {
+        try {
+            // Get Microsoft Graph service principal ID
+            const graphServicePrincipal = await graphClient.api('/servicePrincipals')
+                .filter("appId eq '00000003-0000-0000-c000-000000000000'")
+                .get();
+            if (!graphServicePrincipal.value || graphServicePrincipal.value.length === 0) {
+                throw new Error('Microsoft Graph service principal not found');
+            }
+            const graphSpId = graphServicePrincipal.value[0].id;
+            // Map permissions to their IDs and grant them
+            const permissionMappings = await this.getPermissionIds(graphClient, graphSpId, permissions);
+            for (const permission of permissionMappings) {
+                const grantRequest = {
+                    clientId: servicePrincipalId,
+                    consentType: 'AllPrincipals',
+                    resourceId: graphSpId,
+                    scope: permission.value
+                };
+                try {
+                    await graphClient.api('/oauth2PermissionGrants').post(grantRequest);
+                    console.log(`✅ Granted permission: ${permission.value}`);
+                }
+                catch (grantError) {
+                    console.warn(`⚠️ Could not grant permission ${permission.value}:`, grantError);
+                }
+            }
+        }
+        catch (error) {
+            console.error('❌ Failed to grant admin consent:', error);
+            throw error;
+        }
+    }
+    /**
+     * Get permission IDs for the given permission names
+     */
+    async getPermissionIds(graphClient, resourceId, permissionNames) {
+        try {
+            const servicePrincipal = await graphClient.api(`/servicePrincipals/${resourceId}`).get();
+            const oauth2Permissions = servicePrincipal.oauth2PermissionScopes || [];
+            const appRoles = servicePrincipal.appRoles || [];
+            const mappedPermissions = [];
+            for (const permissionName of permissionNames) {
+                // Look in OAuth2 permissions (delegated permissions)
+                const oauth2Permission = oauth2Permissions.find((p) => p.value === permissionName);
+                if (oauth2Permission) {
+                    mappedPermissions.push({
+                        value: oauth2Permission.value,
+                        id: oauth2Permission.id
+                    });
+                    continue;
+                }
+                // Look in app roles (application permissions)
+                const appRole = appRoles.find((p) => p.value === permissionName);
+                if (appRole) {
+                    mappedPermissions.push({
+                        value: appRole.value,
+                        id: appRole.id
+                    });
+                }
+            }
+            return mappedPermissions;
+        }
+        catch (error) {
+            console.error('❌ Failed to get permission IDs:', error);
+            return permissionNames.map(name => ({ value: name, id: name }));
         }
     }
 }
