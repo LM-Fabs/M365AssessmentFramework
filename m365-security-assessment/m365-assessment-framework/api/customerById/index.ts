@@ -3,9 +3,9 @@ import { corsHeaders, initializeDataService, dataService } from "../shared/utils
 
 // Azure Functions v4 - Individual function self-registration for Static Web Apps
 app.http('customerById', {
-    methods: ['GET', 'HEAD', 'OPTIONS'],
+    methods: ['GET', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'],
     authLevel: 'anonymous',
-    route: 'customerById/{id}',
+    route: 'customers/{id}',
     handler: customerByIdHandler
 });
 

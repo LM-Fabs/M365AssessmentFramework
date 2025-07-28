@@ -4,9 +4,9 @@ const functions_1 = require("@azure/functions");
 const utils_1 = require("../shared/utils");
 // Azure Functions v4 - Individual function self-registration for Static Web Apps
 functions_1.app.http('customerById', {
-    methods: ['GET', 'HEAD', 'OPTIONS'],
+    methods: ['GET', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'],
     authLevel: 'anonymous',
-    route: 'customerById/{id}',
+    route: 'customers/{id}',
     handler: customerByIdHandler
 });
 /**

@@ -157,7 +157,10 @@ class GraphApiService {
                 'SecurityEvents.Read.All'
             ];
             // Check if we should create individual apps per customer
-            const createIndividualApps = process.env.CREATE_INDIVIDUAL_APPS === 'true';
+            // Default to true for individual app creation (better security)
+            const createIndividualApps = process.env.CREATE_INDIVIDUAL_APPS !== 'false';
+            console.log('🔧 GraphApiService: CREATE_INDIVIDUAL_APPS environment variable:', process.env.CREATE_INDIVIDUAL_APPS);
+            console.log('🔧 GraphApiService: Will create individual apps:', createIndividualApps);
             if (createIndividualApps) {
                 console.log('🏗️ GraphApiService: Creating individual app for customer:', customerData.tenantName);
                 return await this.createIndividualAppInOurTenant(customerData, permissions);
