@@ -897,22 +897,29 @@ export class PostgreSQLService {
                     id,
                     customer_id,
                     tenant_id,
+                    date,
                     status,
                     score,
                     metrics,
-                    recommendations
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    recommendations,
+                    created_at,
+                    updated_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 RETURNING *
             `;
             
+            const now = new Date();
             const values = [
                 assessmentId,
                 assessmentData.customerId,
                 assessmentData.tenantId,
+                now,
                 'completed',
                 assessmentData.score || 0,
                 JSON.stringify(assessmentData.metrics || {}),
-                JSON.stringify(assessmentData.recommendations || [])
+                JSON.stringify(assessmentData.recommendations || []),
+                now,
+                now
             ];
             
             const result = await client.query(query, values);
