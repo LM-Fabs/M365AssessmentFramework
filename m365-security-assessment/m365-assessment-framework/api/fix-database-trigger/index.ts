@@ -37,27 +37,49 @@ async function fixDatabaseTriggerHandler(request: HttpRequest, context: Invocati
 
         context.log(`Found ${beforeCleanup.rows.length} triggers before cleanup:`, beforeCleanup.rows);
 
-        // Drop the problematic trigger first
-        await postgresqlService.query(`DROP TRIGGER IF EXISTS update_assessments_updated_at ON assessments;`);
-        context.log('✅ Dropped trigger: update_assessments_updated_at');
-
-        // Drop the problematic function with CASCADE to handle dependencies
-        await postgresqlService.query(`DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;`);
-        context.log('✅ Dropped function: update_updated_at_column with CASCADE');
-
-        // Drop other potential problematic triggers and functions
-        await postgresqlService.query(`
-            DROP TRIGGER IF EXISTS update_assessments_timestamp ON assessments;
-            DROP TRIGGER IF EXISTS update_updated_at_trigger ON assessments;
-            DROP TRIGGER IF EXISTS assessments_update_trigger ON assessments;
-            DROP TRIGGER IF EXISTS tr_assessments_updated_at ON assessments;
+        // Check what functions exist
+        const functionsQuery = await postgresqlService.query(`
+            SELECT routine_name, routine_type 
+            FROM information_schema.routines 
+            WHERE routine_name LIKE '%updated_at%' 
+            AND routine_schema = 'public';
         `);
+        context.log('Found functions with updated_at:', functionsQuery.rows);
 
-        await postgresqlService.query(`
-            DROP FUNCTION IF EXISTS update_updated_at() CASCADE;
-            DROP FUNCTION IF EXISTS update_timestamp() CASCADE;
-            DROP FUNCTION IF EXISTS set_updated_at() CASCADE;
-        `);
+        // Drop all triggers first (order matters)
+        const triggerDropCommands = [
+            'DROP TRIGGER IF EXISTS update_assessments_updated_at ON assessments;',
+            'DROP TRIGGER IF EXISTS update_assessments_timestamp ON assessments;',
+            'DROP TRIGGER IF EXISTS update_updated_at_trigger ON assessments;',
+            'DROP TRIGGER IF EXISTS assessments_update_trigger ON assessments;',
+            'DROP TRIGGER IF EXISTS tr_assessments_updated_at ON assessments;'
+        ];
+
+        for (const command of triggerDropCommands) {
+            try {
+                await postgresqlService.query(command);
+                context.log(`✅ Executed: ${command}`);
+            } catch (error) {
+                context.log(`⚠️ Failed: ${command} - ${error}`);
+            }
+        }
+
+        // Now try to drop functions with CASCADE
+        const functionDropCommands = [
+            'DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;',
+            'DROP FUNCTION IF EXISTS update_updated_at() CASCADE;',
+            'DROP FUNCTION IF EXISTS update_timestamp() CASCADE;',
+            'DROP FUNCTION IF EXISTS set_updated_at() CASCADE;'
+        ];
+
+        for (const command of functionDropCommands) {
+            try {
+                await postgresqlService.query(command);
+                context.log(`✅ Executed: ${command}`);
+            } catch (error) {
+                context.log(`⚠️ Failed: ${command} - ${error}`);
+            }
+        }
 
         // Check what triggers exist after cleanup
         const afterCleanup = await postgresqlService.query(`
