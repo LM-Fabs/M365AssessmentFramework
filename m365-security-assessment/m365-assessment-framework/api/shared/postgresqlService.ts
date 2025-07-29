@@ -107,19 +107,29 @@ export class PostgreSQLService {
             // Initialize connection pool with proper authentication
             await this.initializePoolAsync();
             
-            console.log('🔧 PostgreSQL: Initializing database schema...');
+            // Skip heavy schema creation in production to speed up cold starts
+            const isProduction = process.env.NODE_ENV === 'production' || 
+                               process.env.AZURE_CLIENT_ID !== undefined ||
+                               process.env.WEBSITE_SITE_NAME !== undefined;
             
-            const client = await this.pool.connect();
-            
-            try {
-                // Create tables with proper indexes and constraints
-                await this.createTables(client);
+            if (!isProduction) {
+                console.log('🔧 PostgreSQL: Initializing database schema...');
                 
-                console.log('✅ PostgreSQL: Database schema initialized successfully');
-                this.initialized = true;
-            } finally {
-                client.release();
+                const client = await this.pool.connect();
+                
+                try {
+                    // Create tables with proper indexes and constraints
+                    await this.createTables(client);
+                    
+                    console.log('✅ PostgreSQL: Database schema initialized successfully');
+                } finally {
+                    client.release();
+                }
+            } else {
+                console.log('⚡ PostgreSQL: Skipping schema creation in production for faster startup');
             }
+            
+            this.initialized = true;
         } catch (error) {
             console.error('❌ PostgreSQL: Schema initialization failed:', error);
             throw new Error(`Database initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -136,17 +146,17 @@ export class PostgreSQLService {
             database: process.env.POSTGRES_DATABASE || 'm365_assessment',
             ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
             
-            // Connection pool settings for optimal performance
-            max: 20, // Maximum number of connections
-            min: 5,  // Minimum connections to maintain
-            idleTimeoutMillis: 30000, // Close idle connections after 30s
-            connectionTimeoutMillis: 10000, // Connection timeout
+            // Optimized connection pool settings for Azure Functions
+            max: 3, // Reduced for faster startup
+            min: 1, // Minimal connections 
+            idleTimeoutMillis: 10000, // Faster cleanup
+            connectionTimeoutMillis: 5000, // Faster timeout
             
             // Performance optimizations
-            statement_timeout: 30000, // 30 second query timeout
-            query_timeout: 30000,
+            statement_timeout: 15000, // Reduced timeout
+            query_timeout: 15000,
             keepAlive: true,
-            keepAliveInitialDelayMillis: 10000,
+            keepAliveInitialDelayMillis: 5000, // Faster keepalive
         };
 
         // Use password authentication as primary method (most reliable for current setup)
@@ -156,7 +166,7 @@ export class PostgreSQLService {
                            process.env.WEBSITE_SITE_NAME !== undefined;
         
         if (isProduction && process.env.POSTGRES_USER && process.env.POSTGRES_PASSWORD) {
-            console.log('🔐 PostgreSQL: Using secure password authentication');
+            console.log('🔐 PostgreSQL: Using secure password authentication (fast path)');
             
             // Use configured credentials for reliable connection
             config.user = process.env.POSTGRES_USER;
@@ -169,7 +179,7 @@ export class PostgreSQLService {
             
             console.log('✅ PostgreSQL: Password authentication configured successfully');
         } else if (isProduction) {
-            console.log('🔐 PostgreSQL: Attempting Azure AD authentication');
+            console.log('🔐 PostgreSQL: Falling back to Azure AD authentication (slower)');
             
             try {
                 // Set the service principal application ID as the username
