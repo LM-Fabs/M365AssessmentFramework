@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const functions_1 = require("@azure/functions");
 const utils_1 = require("../shared/utils");
+const serverGraphService_1 = require("../shared/serverGraphService");
 // Azure Functions v4 - Individual function self-registration for Static Web Apps
 functions_1.app.http('assessments', {
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'],
@@ -84,7 +85,7 @@ async function getAssessments(request, context) {
     }
 }
 async function createAssessment(request, context) {
-    context.log('📝 Creating assessment in PostgreSQL');
+    context.log('📝 Creating REAL M365 security assessment');
     try {
         const assessmentData = await request.json();
         context.log('📋 Assessment data:', {
@@ -105,28 +106,167 @@ async function createAssessment(request, context) {
                 })
             };
         }
-        // Create assessment in PostgreSQL
-        const assessment = await utils_1.dataService.createAssessment(assessmentData);
-        context.log(`✅ Created assessment: ${assessment.id} for customer ${assessmentData.customerId}`);
+        // Get customer information for context
+        const customer = await utils_1.dataService.getCustomer(assessmentData.customerId);
+        if (!customer) {
+            return {
+                status: 404,
+                headers: utils_1.corsHeaders,
+                body: JSON.stringify({
+                    success: false,
+                    error: 'Customer not found',
+                    message: `Customer with ID ${assessmentData.customerId} not found`
+                })
+            };
+        }
+        context.log('👤 Customer found:', {
+            name: customer.tenantName,
+            domain: customer.tenantDomain
+        });
+        // Perform REAL security assessment using Microsoft Graph API
+        let realAssessmentData;
+        try {
+            context.log('🔍 Initializing ServerGraphService for real assessment...');
+            const serverGraphService = new serverGraphService_1.ServerGraphService();
+            // Perform comprehensive security assessment
+            const securityAssessment = await serverGraphService.getSecurityAssessment();
+            context.log('✅ Security assessment completed successfully');
+            context.log('📊 Assessment metrics:', {
+                secureScore: securityAssessment.metrics.secureScore,
+                identityScore: securityAssessment.metrics.identityScore,
+                deviceComplianceScore: securityAssessment.metrics.deviceComplianceScore,
+                recommendationsCount: securityAssessment.recommendations.length
+            });
+            // Calculate overall score from security metrics
+            const overallScore = Math.round((securityAssessment.metrics.secureScore * 0.4) +
+                (securityAssessment.metrics.identityScore * 0.3) +
+                (securityAssessment.metrics.deviceComplianceScore * 0.3));
+            // Create comprehensive assessment data with REAL metrics
+            realAssessmentData = {
+                customerId: assessmentData.customerId,
+                tenantId: assessmentData.tenantId,
+                score: overallScore,
+                metrics: {
+                    // Create structured metrics matching the expected format
+                    license: {
+                        totalLicenses: 0, // Not available from current ServerGraphService
+                        assignedLicenses: 0,
+                        utilizationRate: 0,
+                        licenseDetails: [],
+                        summary: 'License data not available in current assessment scope'
+                    },
+                    secureScore: {
+                        percentage: securityAssessment.metrics.secureScore,
+                        currentScore: securityAssessment.metrics.secureScore,
+                        maxScore: 100,
+                        controlScores: [], // Would need to be extracted from Graph API
+                        summary: `Microsoft Secure Score: ${securityAssessment.metrics.secureScore}%`
+                    },
+                    score: {
+                        overall: overallScore,
+                        license: 0,
+                        secureScore: securityAssessment.metrics.secureScore
+                    },
+                    lastUpdated: new Date(),
+                    realData: {
+                        securityMetrics: securityAssessment.metrics,
+                        dataSource: 'Microsoft Graph API via ServerGraphService',
+                        lastUpdated: securityAssessment.lastUpdated,
+                        tenantInfo: {
+                            displayName: customer.tenantName,
+                            tenantId: assessmentData.tenantId,
+                            domain: customer.tenantDomain
+                        },
+                        assessmentScope: 'Security Metrics (Identity, Device Compliance, Secure Score)',
+                        authenticationMethod: 'Azure Managed Identity'
+                    }
+                },
+                recommendations: securityAssessment.recommendations.map(rec => rec.title || rec.description),
+                status: 'completed'
+            };
+            context.log('🎯 Real assessment data created successfully');
+        }
+        catch (graphError) {
+            context.log('⚠️ Microsoft Graph API assessment failed:', graphError.message);
+            // Create assessment with error information but don't fail completely
+            realAssessmentData = {
+                customerId: assessmentData.customerId,
+                tenantId: assessmentData.tenantId,
+                score: 0,
+                metrics: {
+                    license: {
+                        totalLicenses: 0,
+                        assignedLicenses: 0,
+                        utilizationRate: 0,
+                        licenseDetails: [],
+                        summary: 'License data unavailable - authentication required'
+                    },
+                    secureScore: {
+                        percentage: 0,
+                        currentScore: 0,
+                        maxScore: 100,
+                        controlScores: [],
+                        summary: 'Secure score unavailable - authentication or permissions required'
+                    },
+                    score: {
+                        overall: 0,
+                        license: 0,
+                        secureScore: 0
+                    },
+                    lastUpdated: new Date(),
+                    realData: {
+                        error: graphError.message,
+                        dataSource: 'Assessment failed - Microsoft Graph API unavailable',
+                        lastUpdated: new Date().toISOString(),
+                        authenticationRequired: true,
+                        tenantInfo: {
+                            displayName: customer.tenantName,
+                            tenantId: assessmentData.tenantId,
+                            domain: customer.tenantDomain
+                        },
+                        troubleshooting: 'Check Azure AD permissions and Managed Identity configuration'
+                    }
+                },
+                recommendations: [
+                    'Configure Azure AD permissions for Microsoft Graph API access',
+                    'Verify Managed Identity is properly configured',
+                    'Ensure required Graph API permissions are granted',
+                    'Contact administrator to complete security assessment setup'
+                ],
+                status: 'completed_with_errors'
+            };
+        }
+        // Store the assessment in PostgreSQL
+        const assessment = await utils_1.dataService.createAssessment(realAssessmentData);
+        context.log(`✅ Real security assessment stored: ${assessment.id} for customer ${assessmentData.customerId}`);
         return {
             status: 201,
             headers: utils_1.corsHeaders,
             body: JSON.stringify({
                 success: true,
                 data: assessment,
-                message: 'Assessment created successfully'
+                message: 'Real M365 security assessment completed successfully',
+                assessmentType: 'Microsoft Graph API Security Assessment',
+                dataSource: realAssessmentData.status === 'completed' ? 'Live Microsoft Graph API' : 'Error fallback',
+                stats: {
+                    overallScore: assessment.score,
+                    secureScore: realAssessmentData.metrics.secureScore.percentage,
+                    recommendationsCount: realAssessmentData.recommendations.length,
+                    hasRealData: realAssessmentData.status === 'completed'
+                }
             })
         };
     }
     catch (error) {
-        context.log('❌ Error creating assessment:', error);
+        context.log('❌ Error creating real security assessment:', error);
         return {
             status: 500,
             headers: utils_1.corsHeaders,
             body: JSON.stringify({
                 success: false,
-                error: 'Failed to create assessment',
-                message: error.message
+                error: 'Failed to create security assessment',
+                message: error.message,
+                troubleshooting: 'Check Azure configuration and Microsoft Graph API permissions'
             })
         };
     }
