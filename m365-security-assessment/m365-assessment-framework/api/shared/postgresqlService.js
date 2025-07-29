@@ -301,6 +301,16 @@ class PostgreSQLService {
                 CREATE INDEX IF NOT EXISTS idx_history_tenant_date ON assessment_history(tenant_id, date DESC);
                 CREATE INDEX IF NOT EXISTS idx_history_customer_date ON assessment_history(customer_id, date DESC);
             `);
+            // Add missing columns to existing tables (migrations)
+            try {
+                await client.query(`
+                    ALTER TABLE assessments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
+                `);
+                console.log('✅ PostgreSQL: Added updated_at column to assessments table');
+            }
+            catch (error) {
+                console.log('ℹ️ PostgreSQL: updated_at column may already exist or add failed:', error);
+            }
             // Create updated_at trigger for assessments
             await client.query(`
             CREATE OR REPLACE FUNCTION update_updated_at_column()
