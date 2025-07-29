@@ -922,9 +922,8 @@ export class PostgreSQLService {
                     score,
                     metrics,
                     recommendations,
-                    created_at,
-                    updated_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                    created_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 RETURNING *
             `;
             
@@ -938,7 +937,6 @@ export class PostgreSQLService {
                 assessmentData.score || 0,
                 JSON.stringify(assessmentData.metrics || {}),
                 JSON.stringify(assessmentData.recommendations || []),
-                now,
                 now
             ];
             
