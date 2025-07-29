@@ -2,7 +2,7 @@
   "name": "m365-assessment-api",
   "version": "1.0.0",
   "description": "M365 Security Assessment API",
-  "main": "{simple-test,test-simple,customers,diagnostics,assessments,createAssessment,customerById,currentAssessment,consent-callback,enterpriseapp,assessment-history,assessment,customer-assessments,customer-by-id}/index.js",
+  "main": "{simple-test,test-simple,customers,diagnostics,assessments,createAssessment,customerById,currentAssessment,consent-callback,enterpriseapp,assessment-history,assessment,customer-assessments,customer-by-id,database-schema}/index.js",
   "scripts": {
     "build": "tsc",
     "build:production": "tsc --project tsconfig.json",

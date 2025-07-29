@@ -1291,6 +1291,23 @@ class PostgreSQLService {
             client.release();
         }
     }
+    /**
+     * Execute a generic SQL query for debugging/schema inspection
+     */
+    async query(sql, params = []) {
+        await this.initialize();
+        const client = await this.pool.connect();
+        try {
+            const result = await client.query(sql, params);
+            return {
+                rows: result.rows,
+                rowCount: result.rowCount || 0
+            };
+        }
+        finally {
+            client.release();
+        }
+    }
 }
 exports.PostgreSQLService = PostgreSQLService;
 // Export singleton instance
