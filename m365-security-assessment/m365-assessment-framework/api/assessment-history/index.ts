@@ -104,11 +104,26 @@ async function storeAssessmentHistory(request: HttpRequest, context: InvocationC
             };
         }
 
+        // Try to get customer ID from the request, or look it up by tenant ID
+        let customerId = (historyEntry as any).customerId;
+        if (!customerId) {
+            // Try to find customer by tenant ID if not provided
+            try {
+                const result = await dataService.getCustomers();
+                const customer = result.customers.find(c => c.tenantId === historyEntry.tenantId);
+                customerId = customer?.id || null;
+                context.log(`🔍 Found customer ID: ${customerId} for tenant: ${historyEntry.tenantId}`);
+            } catch (error) {
+                context.log('⚠️ Could not look up customer ID, using null');
+                customerId = null;
+            }
+        }
+
         // Store in PostgreSQL using the existing service
         await dataService.storeAssessmentHistory({
             assessmentId: historyEntry.assessmentId,
             tenantId: historyEntry.tenantId,
-            customerId: '', // Will be populated by the service if needed
+            customerId: customerId || null,
             date: new Date(historyEntry.date),
             overallScore: historyEntry.overallScore,
             categoryScores: historyEntry.categoryScores
