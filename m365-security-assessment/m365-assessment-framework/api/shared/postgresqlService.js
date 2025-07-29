@@ -341,11 +341,23 @@ class PostgreSQLService {
             */
             // Drop any existing problematic triggers for now
             try {
+                console.log('🧹 PostgreSQL: Cleaning up all existing triggers...');
+                // Drop all triggers on assessments table 
                 await client.query(`
                 DROP TRIGGER IF EXISTS update_assessments_updated_at ON assessments;
-                DROP FUNCTION IF EXISTS update_updated_at_column();
+                DROP TRIGGER IF EXISTS update_assessments_timestamp ON assessments;
+                DROP TRIGGER IF EXISTS update_updated_at_trigger ON assessments;
+                DROP TRIGGER IF EXISTS assessments_update_trigger ON assessments;
+                DROP TRIGGER IF EXISTS tr_assessments_updated_at ON assessments;
             `);
-                console.log('✅ PostgreSQL: Cleaned up existing triggers');
+                // Drop all related functions
+                await client.query(`
+                DROP FUNCTION IF EXISTS update_updated_at_column();
+                DROP FUNCTION IF EXISTS update_updated_at();
+                DROP FUNCTION IF EXISTS update_timestamp();
+                DROP FUNCTION IF EXISTS set_updated_at();
+            `);
+                console.log('✅ PostgreSQL: Cleaned up all existing triggers and functions');
             }
             catch (error) {
                 console.warn('⚠️ PostgreSQL: Error cleaning triggers:', error);
@@ -828,8 +840,9 @@ class PostgreSQLService {
                     score,
                     metrics,
                     recommendations,
-                    created_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    created_at,
+                    updated_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 RETURNING *
             `;
             const now = new Date();
@@ -842,7 +855,8 @@ class PostgreSQLService {
                 assessmentData.score || 0,
                 JSON.stringify(assessmentData.metrics || {}),
                 JSON.stringify(assessmentData.recommendations || []),
-                now
+                now,
+                now // Add updated_at value
             ];
             const result = await client.query(query, values);
             // Update customer's assessment count
