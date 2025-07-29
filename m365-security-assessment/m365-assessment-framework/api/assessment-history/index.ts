@@ -84,22 +84,53 @@ async function storeAssessmentHistory(request: HttpRequest, context: InvocationC
     context.log('💾 Storing assessment history to PostgreSQL');
     
     try {
-        const historyEntry = await request.json() as AssessmentHistory;
-        context.log('📋 History entry:', {
+        const rawData = await request.json() as any;
+        context.log('📋 Raw assessment history data received:', JSON.stringify(rawData, null, 2));
+
+        // Flexible data extraction to handle different frontend data structures
+        let historyEntry: AssessmentHistory;
+        
+        // Check if this is a full assessment object or already formatted history data
+        if (rawData.id && rawData.customerId && rawData.score !== undefined) {
+            // This appears to be a full assessment object from the assessments endpoint
+            historyEntry = {
+                assessmentId: rawData.id,
+                tenantId: rawData.tenantId,
+                date: rawData.createdAt ? new Date(rawData.createdAt) : new Date(),
+                overallScore: rawData.score || 0,
+                categoryScores: {
+                    license: rawData.metrics?.score?.license || rawData.metrics?.license?.utilizationRate || 0,
+                    secureScore: rawData.metrics?.score?.secureScore || rawData.metrics?.secureScore?.percentage || 0
+                },
+                metrics: rawData.metrics
+            };
+            context.log('✅ Converted full assessment object to history format');
+        } else {
+            // Assume it's already in the expected format
+            historyEntry = rawData as AssessmentHistory;
+        }
+
+        context.log('� Processed history entry:', {
             assessmentId: historyEntry.assessmentId,
             tenantId: historyEntry.tenantId,
             date: historyEntry.date,
-            overallScore: historyEntry.overallScore
+            overallScore: historyEntry.overallScore,
+            categoryScores: historyEntry.categoryScores
         });
 
         // Validate required fields
         if (!historyEntry.assessmentId || !historyEntry.tenantId) {
+            context.log('❌ Validation failed - missing required fields');
             return {
                 status: 400,
                 headers: corsHeaders,
                 body: JSON.stringify({
                     error: 'Missing required fields',
-                    message: 'assessmentId and tenantId are required'
+                    message: 'assessmentId and tenantId are required',
+                    received: {
+                        assessmentId: historyEntry.assessmentId || 'missing',
+                        tenantId: historyEntry.tenantId || 'missing'
+                    }
                 })
             };
         }

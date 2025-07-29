@@ -169,6 +169,31 @@ async function createAssessment(request, context) {
                     },
                     lastUpdated: new Date(),
                     realData: {
+                        // Structure data the way Reports.tsx expects it
+                        secureScore: {
+                            currentScore: securityAssessment.metrics.secureScore,
+                            maxScore: 100,
+                            percentage: securityAssessment.metrics.secureScore,
+                            controlScores: [], // Empty for now - would need Graph API Secure Score details
+                            summary: `Microsoft Secure Score: ${securityAssessment.metrics.secureScore}%`,
+                            lastUpdated: securityAssessment.lastUpdated,
+                            unavailable: false
+                        },
+                        identityMetrics: {
+                            totalUsers: 0, // Not available from current ServerGraphService
+                            mfaEnabledUsers: 0,
+                            mfaCoverage: 0,
+                            adminUsers: 0,
+                            guestUsers: 0,
+                            conditionalAccessPolicies: 0
+                        },
+                        licenseInfo: {
+                            totalLicenses: 0,
+                            assignedLicenses: 0,
+                            utilization: 0,
+                            licenses: [],
+                            summary: 'License data not available in current assessment scope'
+                        },
                         securityMetrics: securityAssessment.metrics,
                         dataSource: 'Microsoft Graph API via ServerGraphService',
                         lastUpdated: securityAssessment.lastUpdated,
@@ -215,6 +240,31 @@ async function createAssessment(request, context) {
                     },
                     lastUpdated: new Date(),
                     realData: {
+                        // Structure data the way Reports.tsx expects it, even for failed assessments
+                        secureScore: {
+                            currentScore: 0,
+                            maxScore: 100,
+                            percentage: 0,
+                            controlScores: [],
+                            summary: 'Secure score unavailable - authentication or permissions required',
+                            lastUpdated: new Date().toISOString(),
+                            unavailable: true
+                        },
+                        identityMetrics: {
+                            totalUsers: 0,
+                            mfaEnabledUsers: 0,
+                            mfaCoverage: 0,
+                            adminUsers: 0,
+                            guestUsers: 0,
+                            conditionalAccessPolicies: 0
+                        },
+                        licenseInfo: {
+                            totalLicenses: 0,
+                            assignedLicenses: 0,
+                            utilization: 0,
+                            licenses: [],
+                            summary: 'License data unavailable - authentication required'
+                        },
                         error: graphError.message,
                         dataSource: 'Assessment failed - Microsoft Graph API unavailable',
                         lastUpdated: new Date().toISOString(),
