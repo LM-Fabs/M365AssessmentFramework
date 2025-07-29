@@ -56,10 +56,13 @@ export class AssessmentHistoryService {
       const metrics = assessment.metrics || {};
       const score = metrics.score || {};
       
+      // Check both possible date field names (backend uses 'date', frontend model uses 'assessmentDate')
+      const assessmentDate = (assessment as any).date || assessment.assessmentDate || new Date();
+      
       const historyEntry: AssessmentHistory = {
         assessmentId: assessment.id,
         tenantId: assessment.tenantId,
-        date: assessment.assessmentDate,
+        date: assessmentDate,
         overallScore: score.overall || 0,
         categoryScores: {
           license: score.license || 0,
