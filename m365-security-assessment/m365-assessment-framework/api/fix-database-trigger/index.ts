@@ -37,13 +37,13 @@ async function fixDatabaseTriggerHandler(request: HttpRequest, context: Invocati
 
         context.log(`Found ${beforeCleanup.rows.length} triggers before cleanup:`, beforeCleanup.rows);
 
-        // Drop the problematic trigger
+        // Drop the problematic trigger first
         await postgresqlService.query(`DROP TRIGGER IF EXISTS update_assessments_updated_at ON assessments;`);
         context.log('✅ Dropped trigger: update_assessments_updated_at');
 
-        // Drop the problematic function
-        await postgresqlService.query(`DROP FUNCTION IF EXISTS update_updated_at_column();`);
-        context.log('✅ Dropped function: update_updated_at_column');
+        // Drop the problematic function with CASCADE to handle dependencies
+        await postgresqlService.query(`DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;`);
+        context.log('✅ Dropped function: update_updated_at_column with CASCADE');
 
         // Drop other potential problematic triggers and functions
         await postgresqlService.query(`
@@ -54,9 +54,9 @@ async function fixDatabaseTriggerHandler(request: HttpRequest, context: Invocati
         `);
 
         await postgresqlService.query(`
-            DROP FUNCTION IF EXISTS update_updated_at();
-            DROP FUNCTION IF EXISTS update_timestamp();
-            DROP FUNCTION IF EXISTS set_updated_at();
+            DROP FUNCTION IF EXISTS update_updated_at() CASCADE;
+            DROP FUNCTION IF EXISTS update_timestamp() CASCADE;
+            DROP FUNCTION IF EXISTS set_updated_at() CASCADE;
         `);
 
         // Check what triggers exist after cleanup
