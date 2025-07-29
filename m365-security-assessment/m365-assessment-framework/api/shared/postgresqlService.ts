@@ -349,7 +349,9 @@ export class PostgreSQLService {
                 console.log('ℹ️ PostgreSQL: updated_at column may already exist or add failed:', error);
             }
 
-        // Create updated_at trigger for assessments
+        // Create updated_at trigger for assessments - temporarily disabled due to schema issues
+        // TODO: Re-enable after fixing trigger schema mismatch
+        /*
         await client.query(`
             CREATE OR REPLACE FUNCTION update_updated_at_column()
             RETURNS TRIGGER AS $$
@@ -365,6 +367,18 @@ export class PostgreSQLService {
                 FOR EACH ROW
                 EXECUTE FUNCTION update_updated_at_column();
         `);
+        */
+        
+        // Drop any existing problematic triggers for now
+        try {
+            await client.query(`
+                DROP TRIGGER IF EXISTS update_assessments_updated_at ON assessments;
+                DROP FUNCTION IF EXISTS update_updated_at_column();
+            `);
+            console.log('✅ PostgreSQL: Cleaned up existing triggers');
+        } catch (error) {
+            console.warn('⚠️ PostgreSQL: Error cleaning triggers:', error);
+        }
 
         console.log('📊 PostgreSQL: All tables created successfully');
         
