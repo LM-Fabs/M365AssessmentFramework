@@ -1,6 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { corsHeaders, initializeDataService, dataService } from "../shared/utils";
-import { GraphApiService } from "../shared/graphApiService";
+import { MultiTenantGraphService } from "../shared/multiTenantGraphService";
 
 // Azure Functions v4 - Individual function self-registration for Static Web Apps
 app.http('assessments', {
@@ -140,11 +140,11 @@ async function createAssessment(request: HttpRequest, context: InvocationContext
             domain: customer.tenantDomain
         });
 
-        // Perform REAL security assessment using Microsoft Graph API with proper enterprise app authentication
+        // Perform REAL security assessment using Microsoft Graph API with proper multi-tenant authentication
         let realAssessmentData;
         try {
-            context.log('🔍 Initializing GraphApiService for real assessment with enterprise app authentication...');
-            const graphService = new GraphApiService();
+            context.log('🔍 Initializing MultiTenantGraphService for customer tenant:', assessmentData.tenantId);
+            const graphService = new MultiTenantGraphService(assessmentData.tenantId);
             
             // Fetch real data from Microsoft Graph API using the configured enterprise app
             context.log('📊 Fetching organization profile...');
@@ -272,7 +272,7 @@ async function createAssessment(request: HttpRequest, context: InvocationContext
                             recommendationsCount: 0,
                             deviceComplianceScore: 100
                         },
-                        authenticationMethod: "Azure Enterprise App (Service Principal)"
+                        authenticationMethod: "Azure Multi-Tenant App (Customer Tenant Access)"
                     }
                 }
             };

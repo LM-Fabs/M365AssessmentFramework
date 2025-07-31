@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const functions_1 = require("@azure/functions");
 const utils_1 = require("../shared/utils");
-const graphApiService_1 = require("../shared/graphApiService");
+const multiTenantGraphService_1 = require("../shared/multiTenantGraphService");
 // Azure Functions v4 - Individual function self-registration for Static Web Apps
 functions_1.app.http('assessments', {
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'],
@@ -123,11 +123,11 @@ async function createAssessment(request, context) {
             name: customer.tenantName,
             domain: customer.tenantDomain
         });
-        // Perform REAL security assessment using Microsoft Graph API with proper enterprise app authentication
+        // Perform REAL security assessment using Microsoft Graph API with proper multi-tenant authentication
         let realAssessmentData;
         try {
-            context.log('🔍 Initializing GraphApiService for real assessment with enterprise app authentication...');
-            const graphService = new graphApiService_1.GraphApiService();
+            context.log('🔍 Initializing MultiTenantGraphService for customer tenant:', assessmentData.tenantId);
+            const graphService = new multiTenantGraphService_1.MultiTenantGraphService(assessmentData.tenantId);
             // Fetch real data from Microsoft Graph API using the configured enterprise app
             context.log('📊 Fetching organization profile...');
             const orgProfile = await graphService.getOrganization();
@@ -246,7 +246,7 @@ async function createAssessment(request, context) {
                             recommendationsCount: 0,
                             deviceComplianceScore: 100
                         },
-                        authenticationMethod: "Azure Enterprise App (Service Principal)"
+                        authenticationMethod: "Azure Multi-Tenant App (Customer Tenant Access)"
                     }
                 }
             };
