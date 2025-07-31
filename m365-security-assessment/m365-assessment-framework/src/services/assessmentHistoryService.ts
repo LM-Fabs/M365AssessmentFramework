@@ -52,12 +52,18 @@ export class AssessmentHistoryService {
    */
   public async storeAssessmentHistory(assessment: Assessment): Promise<void> {
     try {
+      console.log('📋 Storing assessment history for assessment:', assessment);
+      
       // Handle cases where assessment might not have metrics or score structure yet
       const metrics = assessment.metrics || {};
       const score = metrics.score || {};
       
       // Check both possible date field names (backend uses 'date', frontend model uses 'assessmentDate')
       const assessmentDate = (assessment as any).date || assessment.assessmentDate || new Date();
+      
+      console.log('📅 Assessment date extracted:', assessmentDate);
+      console.log('📊 Assessment metrics:', metrics);
+      console.log('🎯 Assessment score:', score);
       
       const historyEntry: AssessmentHistory = {
         assessmentId: assessment.id,
@@ -70,6 +76,8 @@ export class AssessmentHistoryService {
         },
         metrics: metrics
       };
+
+      console.log('📋 Prepared history entry:', historyEntry);
 
       const response = await fetch(`${this.baseUrl}/assessment-history`, {
         method: 'POST',

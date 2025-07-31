@@ -368,7 +368,7 @@ export class AssessmentService {
       
       const response = await axios.post(`${this.baseUrl}/assessments`, data);
       console.log('Create assessment response:', response.status, response.statusText);
-      return response.data;
+      return response.data?.data || response.data;
     } catch (error: any) {
       console.error('Error creating assessment:', error);
       if (axios.isAxiosError(error)) {
@@ -409,7 +409,8 @@ export class AssessmentService {
         throw new Error(`Failed to save assessment: ${response.statusText}`);
       }
 
-      const savedAssessment = await response.json();
+      const responseData = await response.json();
+      const savedAssessment = responseData?.data || responseData;
 
       // Store in assessment history for future comparisons
       try {
@@ -471,7 +472,8 @@ export class AssessmentService {
       const response = await axios.post(`${this.baseUrl}/assessments`, data);
       console.log('Create customer assessment response:', response.status, response.statusText);
       
-      const assessment = response.data;
+      // Extract the actual assessment object from the API response
+      const assessment = response.data?.data || response.data;
 
       // Store in assessment history for future comparisons
       try {
