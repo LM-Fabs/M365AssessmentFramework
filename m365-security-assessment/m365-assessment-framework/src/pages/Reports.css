@@ -324,6 +324,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+  table-layout: fixed; /* Ensure consistent column widths */
 }
 
 .license-table thead {
@@ -347,6 +348,10 @@
 .license-table th:not(:first-child) {
   text-align: center;
   width: 9%;
+}
+
+.license-table th:nth-child(5) { /* Utilization column */
+  width: 10%;
 }
 
 .license-table th:nth-child(6) { /* Cost/User/Month column */
@@ -415,24 +420,24 @@
 .utilization-cell {
   text-align: center;
   vertical-align: middle;
-  padding: 0.75rem;
+  width: 100px; /* Fixed width to maintain column alignment */
 }
 
 .utilization-bar-container {
   position: relative;
   background: #e9ecef;
-  height: 24px;
-  border-radius: 12px;
+  height: 20px; /* Slightly reduced height for better alignment */
+  border-radius: 10px;
   overflow: hidden;
-  min-width: 80px;
-  max-width: 100px;
+  width: 80px; /* Fixed width instead of min/max */
   margin: 0 auto;
   border: 1px solid #dee2e6;
+  display: block; /* Ensure it's a block element */
 }
 
 .utilization-bar-fill {
   height: 100%;
-  border-radius: 11px;
+  border-radius: 9px; /* Adjusted to match container radius */
   transition: width 0.3s ease;
   position: relative;
 }
@@ -442,12 +447,13 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 0.75rem;
+  font-size: 0.7rem; /* Slightly smaller for better fit */
   font-weight: 600;
   color: #2c3e50;
   text-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
   z-index: 10;
   pointer-events: none;
+  white-space: nowrap; /* Prevent text wrapping */
 }
 
 /* License Table Cost Column Styles */
@@ -573,6 +579,46 @@
     width: 50px;
     font-size: 0.8rem;
   }
+}
+
+/* Sortable Table Header Styles */
+.sortable-header {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  transition: all 0.2s ease;
+  background-color: #f8f9fa;
+}
+
+.sortable-header:hover {
+  background-color: #e9ecef !important;
+  color: #495057;
+}
+
+.sortable-header:active {
+  background-color: #dee2e6 !important;
+}
+
+.sortable-header:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 1px;
+}
+
+/* Sort icon styling */
+.sortable-header::after {
+  content: "";
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.6;
+  font-size: 0.8rem;
+}
+
+/* Override for both license and secure score tables */
+.license-table .sortable-header,
+.secure-score-table .sortable-header {
+  padding-right: 2.5rem; /* Make room for sort icon */
 }
 
 /* Secure Score Table Styles */

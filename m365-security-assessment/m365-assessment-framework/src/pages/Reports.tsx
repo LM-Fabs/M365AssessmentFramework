@@ -125,6 +125,17 @@ const Reports: React.FC = () => {
   const [createAssessmentResult, setCreateAssessmentResult] = useState<string | null>(null);
   const [customLicenseCosts, setCustomLicenseCosts] = useState<{ [licenseName: string]: number }>({});
 
+  // Sorting state for tables
+  const [licenseSortConfig, setLicenseSortConfig] = useState<{
+    key: string;
+    direction: 'asc' | 'desc';
+  } | null>(null);
+  
+  const [secureScoreSortConfig, setSecureScoreSortConfig] = useState<{
+    key: string;
+    direction: 'asc' | 'desc';
+  } | null>(null);
+
   // Function to get effective license cost (custom or estimated)
   const getEffectiveLicenseCost = (licenseName: string): number => {
     const formattedName = formatLicenseName(licenseName);
@@ -155,6 +166,142 @@ const Reports: React.FC = () => {
       delete newCosts[formattedName];
       return newCosts;
     });
+  };
+
+  // Sorting functions
+  const handleLicenseSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    
+    if (licenseSortConfig && licenseSortConfig.key === key && licenseSortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    
+    setLicenseSortConfig({ key, direction });
+  };
+
+  const handleSecureScoreSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    
+    if (secureScoreSortConfig && secureScoreSortConfig.key === key && secureScoreSortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    
+    setSecureScoreSortConfig({ key, direction });
+  };
+
+  const sortLicenseData = (data: any[]) => {
+    if (!licenseSortConfig) return data;
+
+    return [...data].sort((a, b) => {
+      const { key, direction } = licenseSortConfig;
+      let aValue, bValue;
+
+      switch (key) {
+        case 'name':
+          aValue = formatLicenseName(a.name).toLowerCase();
+          bValue = formatLicenseName(b.name).toLowerCase();
+          break;
+        case 'assigned':
+          aValue = a.assigned;
+          bValue = b.assigned;
+          break;
+        case 'free':
+          aValue = a.total - a.assigned;
+          bValue = b.total - b.assigned;
+          break;
+        case 'total':
+          aValue = a.total;
+          bValue = b.total;
+          break;
+        case 'utilization':
+          aValue = a.total > 0 ? (a.assigned / a.total) * 100 : 0;
+          bValue = b.total > 0 ? (b.assigned / b.total) * 100 : 0;
+          break;
+        case 'cost':
+          aValue = getEffectiveLicenseCost(a.name);
+          bValue = getEffectiveLicenseCost(b.name);
+          break;
+        case 'usedCost':
+          aValue = getEffectiveLicenseCost(a.name) * a.assigned;
+          bValue = getEffectiveLicenseCost(b.name) * b.assigned;
+          break;
+        case 'totalCost':
+          aValue = getEffectiveLicenseCost(a.name) * a.total;
+          bValue = getEffectiveLicenseCost(b.name) * b.total;
+          break;
+        case 'waste':
+          aValue = getEffectiveLicenseCost(a.name) * (a.total - a.assigned);
+          bValue = getEffectiveLicenseCost(b.name) * (b.total - b.assigned);
+          break;
+        default:
+          return 0;
+      }
+
+      if (typeof aValue === 'string') {
+        return direction === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+
+      return direction === 'asc' ? aValue - bValue : bValue - aValue;
+    });
+  };
+
+  const sortSecureScoreData = (data: any[]) => {
+    if (!secureScoreSortConfig) return data;
+
+    return [...data].sort((a, b) => {
+      const { key, direction } = secureScoreSortConfig;
+      let aValue, bValue;
+
+      switch (key) {
+        case 'controlName':
+          aValue = a.controlName.toLowerCase();
+          bValue = b.controlName.toLowerCase();
+          break;
+        case 'category':
+          aValue = a.category.toLowerCase();
+          bValue = b.category.toLowerCase();
+          break;
+        case 'currentScore':
+          aValue = a.currentScore;
+          bValue = b.currentScore;
+          break;
+        case 'maxScore':
+          aValue = a.maxScore;
+          bValue = b.maxScore;
+          break;
+        case 'scoreGap':
+          aValue = a.scoreGap;
+          bValue = b.scoreGap;
+          break;
+        case 'status':
+          aValue = a.implementationStatus.toLowerCase();
+          bValue = b.implementationStatus.toLowerCase();
+          break;
+        case 'actionType':
+          aValue = (a.actionType || 'Other').toLowerCase();
+          bValue = (b.actionType || 'Other').toLowerCase();
+          break;
+        default:
+          return 0;
+      }
+
+      if (typeof aValue === 'string') {
+        return direction === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+
+      return direction === 'asc' ? aValue - bValue : bValue - aValue;
+    });
+  };
+
+  const getSortIcon = (columnKey: string, sortConfig: any) => {
+    if (!sortConfig || sortConfig.key !== columnKey) {
+      return '↕️'; // Unsorted
+    }
+    return sortConfig.direction === 'asc' ? '↑' : '↓';
   };
   
   // Function to format license names for better readability
@@ -1438,6 +1585,9 @@ const Reports: React.FC = () => {
       );
     }
 
+    // Sort the license data based on current sort configuration
+    const sortedLicenseTypes = sortLicenseData(licenseTypes);
+
     return (
       <div className="license-table-container">
         <h4>License Details</h4>
@@ -1445,20 +1595,74 @@ const Reports: React.FC = () => {
           <table className="license-table">
             <thead>
               <tr>
-                <th>License Type</th>
-                <th>Used</th>
-                <th>Free</th>
-                <th>Total</th>
-                <th>Utilization</th>
-                <th>Cost/User/Month</th>
-                <th>Used Cost/Month</th>
-                <th>Total Cost/Month</th>
-                <th>Waste/Month</th>
+                <th 
+                  className="sortable-header" 
+                  onClick={() => handleLicenseSort('name')}
+                  title="Click to sort by License Type"
+                >
+                  License Type {getSortIcon('name', licenseSortConfig)}
+                </th>
+                <th 
+                  className="sortable-header" 
+                  onClick={() => handleLicenseSort('assigned')}
+                  title="Click to sort by Used licenses"
+                >
+                  Used {getSortIcon('assigned', licenseSortConfig)}
+                </th>
+                <th 
+                  className="sortable-header" 
+                  onClick={() => handleLicenseSort('free')}
+                  title="Click to sort by Free licenses"
+                >
+                  Free {getSortIcon('free', licenseSortConfig)}
+                </th>
+                <th 
+                  className="sortable-header" 
+                  onClick={() => handleLicenseSort('total')}
+                  title="Click to sort by Total licenses"
+                >
+                  Total {getSortIcon('total', licenseSortConfig)}
+                </th>
+                <th 
+                  className="sortable-header" 
+                  onClick={() => handleLicenseSort('utilization')}
+                  title="Click to sort by Utilization percentage"
+                >
+                  Utilization {getSortIcon('utilization', licenseSortConfig)}
+                </th>
+                <th 
+                  className="sortable-header" 
+                  onClick={() => handleLicenseSort('cost')}
+                  title="Click to sort by Cost per user"
+                >
+                  Cost/User/Month {getSortIcon('cost', licenseSortConfig)}
+                </th>
+                <th 
+                  className="sortable-header" 
+                  onClick={() => handleLicenseSort('usedCost')}
+                  title="Click to sort by Used cost"
+                >
+                  Used Cost/Month {getSortIcon('usedCost', licenseSortConfig)}
+                </th>
+                <th 
+                  className="sortable-header" 
+                  onClick={() => handleLicenseSort('totalCost')}
+                  title="Click to sort by Total cost"
+                >
+                  Total Cost/Month {getSortIcon('totalCost', licenseSortConfig)}
+                </th>
+                <th 
+                  className="sortable-header" 
+                  onClick={() => handleLicenseSort('waste')}
+                  title="Click to sort by Waste amount"
+                >
+                  Waste/Month {getSortIcon('waste', licenseSortConfig)}
+                </th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {licenseTypes.map((license, index) => {
+              {sortedLicenseTypes.map((license, index) => {
                 const free = license.total - license.assigned;
                 const utilization = license.total > 0 ? Math.round((license.assigned / license.total) * 100) : 0;
                 const formattedLicenseName = formatLicenseName(license.name);
@@ -1660,18 +1864,60 @@ const Reports: React.FC = () => {
               <table className="secure-score-table">
                 <thead>
                   <tr>
-                    <th>Control Name</th>
-                    <th>Category</th>
-                    <th>Current Score</th>
-                    <th>Max Score</th>
-                    <th>Gap</th>
-                    <th>Status</th>
-                    <th>Action Type</th>
+                    <th 
+                      className="sortable-header" 
+                      onClick={() => handleSecureScoreSort('controlName')}
+                      title="Click to sort by Control Name"
+                    >
+                      Control Name {getSortIcon('controlName', secureScoreSortConfig)}
+                    </th>
+                    <th 
+                      className="sortable-header" 
+                      onClick={() => handleSecureScoreSort('category')}
+                      title="Click to sort by Category"
+                    >
+                      Category {getSortIcon('category', secureScoreSortConfig)}
+                    </th>
+                    <th 
+                      className="sortable-header" 
+                      onClick={() => handleSecureScoreSort('currentScore')}
+                      title="Click to sort by Current Score"
+                    >
+                      Current Score {getSortIcon('currentScore', secureScoreSortConfig)}
+                    </th>
+                    <th 
+                      className="sortable-header" 
+                      onClick={() => handleSecureScoreSort('maxScore')}
+                      title="Click to sort by Max Score"
+                    >
+                      Max Score {getSortIcon('maxScore', secureScoreSortConfig)}
+                    </th>
+                    <th 
+                      className="sortable-header" 
+                      onClick={() => handleSecureScoreSort('scoreGap')}
+                      title="Click to sort by Score Gap"
+                    >
+                      Gap {getSortIcon('scoreGap', secureScoreSortConfig)}
+                    </th>
+                    <th 
+                      className="sortable-header" 
+                      onClick={() => handleSecureScoreSort('status')}
+                      title="Click to sort by Implementation Status"
+                    >
+                      Status {getSortIcon('status', secureScoreSortConfig)}
+                    </th>
+                    <th 
+                      className="sortable-header" 
+                      onClick={() => handleSecureScoreSort('actionType')}
+                      title="Click to sort by Action Type"
+                    >
+                      Action Type {getSortIcon('actionType', secureScoreSortConfig)}
+                    </th>
                     <th>Recommended Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {controlScores.map((control: any, index: number) => (
+                  {sortSecureScoreData(controlScores).map((control: any, index: number) => (
                     <tr key={index} className={control.implementationStatus === 'Not Implemented' ? 'not-implemented' : 'implemented'}>
                       <td className="control-name-cell">
                         <div className="control-name">{control.controlName}</div>
