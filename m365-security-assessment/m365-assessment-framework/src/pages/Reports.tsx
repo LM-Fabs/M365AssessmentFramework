@@ -1780,37 +1780,6 @@ const Reports: React.FC = () => {
 
     return (
       <div className="secure-score-container">
-        {/* Score Overview */}
-        <div className="score-overview">
-          <h4>Security Score Overview</h4>
-          <div className="score-metrics">
-            <div className="score-metric">
-              <span className="metric-label">Current Score</span>
-              <span className="metric-value">{metrics.currentScore || 0}</span>
-            </div>
-            <div className="score-metric">
-              <span className="metric-label">Maximum Score</span>
-              <span className="metric-value">{metrics.maxScore || 100}</span>
-            </div>
-            <div className="score-metric">
-              <span className="metric-label">Percentage</span>
-              <span className="metric-value">{metrics.percentage || 0}%</span>
-            </div>
-            <div className="score-metric">
-              <span className="metric-label">Controls Implemented</span>
-              <span className="metric-value">{metrics.controlsImplemented || 0}</span>
-            </div>
-            <div className="score-metric">
-              <span className="metric-label">Total Controls</span>
-              <span className="metric-value">{metrics.totalControls || 0}</span>
-            </div>
-            <div className="score-metric">
-              <span className="metric-label">Potential Increase</span>
-              <span className="metric-value">+{metrics.potentialScoreIncrease || 0}</span>
-            </div>
-          </div>
-        </div>
-
         {/* Security Controls Table */}
         <div className="security-controls-table">
           <h4>Security Controls Breakdown</h4>
@@ -2278,6 +2247,9 @@ const Reports: React.FC = () => {
                           ) : key === 'utilizationRate' ? (
                             // Add % sign to utilization rate
                             `${typeof value === 'number' ? value.toLocaleString() : String(value)}%`
+                          ) : key === 'lastUpdated' ? (
+                            // Format date properly
+                            typeof value === 'string' ? new Date(value).toLocaleDateString() : String(value)
                           ) : (
                             typeof value === 'number' ? value.toLocaleString() : 
                             typeof value === 'object' && value !== null ? 

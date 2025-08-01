@@ -214,6 +214,7 @@ async function createAssessment(request: HttpRequest, context: InvocationContext
                 unavailable: true,
                 currentScore: 0,
                 controlScores: [],
+                totalControlsFound: 0,
                 error: secureScore.error
             } : {
                 summary: `Microsoft Secure Score: ${secureScore?.currentScore || 0} / ${secureScore?.maxScore || 100}`,
@@ -222,10 +223,11 @@ async function createAssessment(request: HttpRequest, context: InvocationContext
                 percentage: secureScore?.percentage || 
                           (secureScore?.maxScore > 0 ? 
                            Math.round((secureScore?.currentScore || 0) / secureScore.maxScore * 100) : 0),
-                lastUpdated: new Date().toISOString(),
+                lastUpdated: secureScore?.lastUpdated || new Date().toISOString(),
                 unavailable: false,
                 currentScore: secureScore?.currentScore || 0,
-                controlScores: secureScore?.controlScores || []
+                controlScores: secureScore?.controlScores || [],
+                totalControlsFound: (secureScore?.controlScores || []).length
             };
 
             // Calculate overall assessment score from available data
