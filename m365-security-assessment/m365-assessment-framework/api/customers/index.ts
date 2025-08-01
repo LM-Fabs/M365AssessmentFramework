@@ -65,7 +65,7 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
             
             const result = await dataService.getCustomers({
                 status: 'active',
-                limit: 100
+                limit: 50 // Reduced from 100 to 50 for faster loading
             });
             
             context.log('Retrieved customers from data service:', result.customers.length);
@@ -93,7 +93,12 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
             
             return {
                 status: 200,
-                headers: corsHeaders,
+                headers: {
+                    ...corsHeaders,
+                    'Cache-Control': 'public, max-age=60, s-maxage=60', // Cache for 1 minute
+                    'ETag': `"customers-${transformedCustomers.length}-${Date.now()}"`,
+                    'Content-Type': 'application/json'
+                },
                 jsonBody: {
                     success: true,
                     data: transformedCustomers,

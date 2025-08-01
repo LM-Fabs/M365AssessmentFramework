@@ -59,7 +59,7 @@ async function customersHandler(request, context) {
             context.log('Getting all customers from data service');
             const result = await utils_1.dataService.getCustomers({
                 status: 'active',
-                limit: 100
+                limit: 50 // Reduced from 100 to 50 for faster loading
             });
             context.log('Retrieved customers from data service:', result.customers.length);
             // Transform customers to match frontend interface
@@ -84,7 +84,12 @@ async function customersHandler(request, context) {
             });
             return {
                 status: 200,
-                headers: utils_1.corsHeaders,
+                headers: {
+                    ...utils_1.corsHeaders,
+                    'Cache-Control': 'public, max-age=60, s-maxage=60', // Cache for 1 minute
+                    'ETag': `"customers-${transformedCustomers.length}-${Date.now()}"`,
+                    'Content-Type': 'application/json'
+                },
                 jsonBody: {
                     success: true,
                     data: transformedCustomers,

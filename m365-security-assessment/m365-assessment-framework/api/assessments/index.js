@@ -158,8 +158,22 @@ async function createAssessment(request, context) {
                 summary: `${licenseDetails.length} license types found`,
                 licenses: licenseDetails,
                 utilization: 0, // Will be calculated from license data
-                totalLicenses: licenseDetails.reduce((sum, license) => sum + (license.totalUnits || 0), 0),
-                assignedLicenses: licenseDetails.reduce((sum, license) => sum + (license.assignedUnits || license.consumedUnits || 0), 0),
+                totalLicenses: licenseDetails.reduce((sum, license) => {
+                    // Handle Microsoft Graph API license structure
+                    const totalUnits = license.totalUnits ||
+                        license.prepaidUnits?.enabled ||
+                        license.prepaidUnits?.total ||
+                        0;
+                    return sum + totalUnits;
+                }, 0),
+                assignedLicenses: licenseDetails.reduce((sum, license) => {
+                    // Handle Microsoft Graph API license structure  
+                    const assignedUnits = license.assignedUnits ||
+                        license.consumedUnits ||
+                        license.prepaidUnits?.consumed ||
+                        0;
+                    return sum + assignedUnits;
+                }, 0),
                 licenseDetails: licenseDetails
             } : {
                 summary: "License data not available in current assessment scope",

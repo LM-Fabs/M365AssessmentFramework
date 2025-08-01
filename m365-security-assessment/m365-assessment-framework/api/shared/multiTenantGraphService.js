@@ -93,14 +93,132 @@ class MultiTenantGraphService {
     async getSecureScore() {
         try {
             console.log('🔒 MultiTenantGraphService: Fetching secure score for tenant:', this.targetTenantId);
-            const response = await this.graphClient.api('/security/secureScores').top(1).get();
-            console.log('✅ MultiTenantGraphService: Secure score retrieved successfully');
-            return response.value && response.value.length > 0 ? response.value[0] : null;
+            // Fetch both secure score and control profiles for complete data
+            const [secureScoreResponse, controlProfilesResponse] = await Promise.all([
+                this.graphClient.api('/security/secureScores').top(1).get(),
+                this.getSecureScoreControlProfiles()
+            ]);
+            const secureScore = secureScoreResponse.value && secureScoreResponse.value.length > 0 ?
+                secureScoreResponse.value[0] : null;
+            if (!secureScore) {
+                console.log('⚠️ MultiTenantGraphService: No secure score data available');
+                return null;
+            }
+            // Enhance control scores with profile data (max scores, detailed descriptions)
+            if (secureScore.controlScores && controlProfilesResponse) {
+                secureScore.controlScores = this.enhanceControlScores(secureScore.controlScores, controlProfilesResponse);
+            }
+            console.log('✅ MultiTenantGraphService: Secure score retrieved and enhanced successfully');
+            return secureScore;
         }
         catch (error) {
             console.error('❌ MultiTenantGraphService: Failed to get secure score:', error);
             throw new Error(`Failed to get secure score: ${error.message}`);
         }
+    }
+    /**
+     * Get secure score control profiles for detailed control information
+     */
+    async getSecureScoreControlProfiles() {
+        try {
+            console.log('🔒 MultiTenantGraphService: Fetching secure score control profiles for tenant:', this.targetTenantId);
+            const response = await this.graphClient.api('/security/secureScoreControlProfiles').get();
+            console.log('✅ MultiTenantGraphService: Control profiles retrieved successfully');
+            return response.value || [];
+        }
+        catch (error) {
+            console.error('❌ MultiTenantGraphService: Failed to get control profiles:', error);
+            // Don't throw here - we can still work with basic secure score data
+            return [];
+        }
+    }
+    /**
+     * Enhance control scores with data from control profiles
+     */
+    enhanceControlScores(controlScores, controlProfiles) {
+        return controlScores.map(control => {
+            // Find matching profile by control name
+            const profile = controlProfiles.find(p => p.controlName === control.controlName ||
+                p.id === control.controlName ||
+                p.title === control.controlName);
+            // Calculate max score - use profile data if available, otherwise estimate
+            let maxScore = 0;
+            if (profile && profile.maxScore) {
+                maxScore = profile.maxScore;
+            }
+            else if (profile && profile.rank) {
+                // Estimate based on rank (higher rank = higher max score)
+                maxScore = Math.max(5, Math.ceil(10 - (profile.rank / 10)));
+            }
+            else {
+                // Fallback calculation based on current score
+                maxScore = control.score > 0 ? Math.ceil(control.score / 0.8) : 5;
+            }
+            // Enhanced control object with better formatting
+            return {
+                controlName: control.controlName || 'Unknown Control',
+                category: control.controlCategory || 'General',
+                currentScore: Math.round(control.score || 0),
+                maxScore: maxScore,
+                description: profile?.description || control.description || 'No description available',
+                implementationStatus: this.determineImplementationStatus(control.score, maxScore),
+                actionType: profile?.actionType || this.determineActionType(control.controlName),
+                remediation: profile?.remediationImpact || this.generateRemediationText(control.controlName, control.description),
+                scoreGap: Math.max(0, maxScore - (control.score || 0)),
+                rank: profile?.rank || 999,
+                userImpact: profile?.userImpact || 'Medium',
+                implementationCost: profile?.implementationCost || 'Medium',
+                threats: profile?.threats || []
+            };
+        });
+    }
+    /**
+     * Determine implementation status based on score vs max score
+     */
+    determineImplementationStatus(currentScore, maxScore) {
+        if (!currentScore || !maxScore)
+            return 'Not Implemented';
+        const percentage = (currentScore / maxScore) * 100;
+        if (percentage >= 90)
+            return 'Implemented';
+        if (percentage >= 60)
+            return 'Partial';
+        return 'Not Implemented';
+    }
+    /**
+     * Determine action type from control name
+     */
+    determineActionType(controlName) {
+        if (!controlName)
+            return 'Other';
+        const name = controlName.toLowerCase();
+        if (name.includes('policy') || name.includes('rule'))
+            return 'Policy';
+        if (name.includes('enable') || name.includes('configure'))
+            return 'Configuration';
+        if (name.includes('review') || name.includes('monitor'))
+            return 'Review';
+        if (name.includes('training') || name.includes('awareness'))
+            return 'Training';
+        return 'Other';
+    }
+    /**
+     * Generate remediation text based on control name and description
+     */
+    generateRemediationText(controlName, description) {
+        if (!controlName)
+            return 'Review and implement this security control';
+        const name = controlName.toLowerCase();
+        if (name.includes('mfa')) {
+            return 'Configure Multi-Factor Authentication for all users through Azure AD';
+        }
+        if (name.includes('conditional')) {
+            return 'Set up Conditional Access policies to control access based on risk factors';
+        }
+        if (name.includes('admin') || name.includes('privileged')) {
+            return 'Review and limit administrative privileges using Privileged Identity Management';
+        }
+        return description || 'Implement this security control as recommended by Microsoft Secure Score';
     }
     /**
      * Get license information from the customer tenant

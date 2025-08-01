@@ -238,11 +238,16 @@ class PostgreSQLService {
             // Create indexes (safe to run multiple times)
             try {
                 await client.query(`
-                CREATE INDEX IF NOT EXISTS idx_customers_tenant_id ON customers(tenant_id);
-                CREATE INDEX IF NOT EXISTS idx_customers_status ON customers(status);
-                CREATE INDEX IF NOT EXISTS idx_customers_created_date ON customers(created_date);
-                CREATE INDEX IF NOT EXISTS idx_customers_domain ON customers(tenant_domain);
-                CREATE INDEX IF NOT EXISTS idx_customers_app_registration ON customers USING gin(app_registration);
+                -- Performance indexes for customers table (optimized for loading speed)
+                CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_customers_status_created_date ON customers(status, created_date DESC);
+                CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_customers_tenant_id ON customers(tenant_id);
+                CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_customers_domain ON customers(tenant_domain);
+                CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_customers_app_registration ON customers USING gin(app_registration);
+                
+                -- Covering index for frequent customer queries (includes all commonly accessed columns)
+                CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_customers_covering 
+                ON customers(status, created_date DESC) 
+                INCLUDE (tenant_name, tenant_domain, total_assessments, last_assessment_date);
             `);
                 console.log('✅ PostgreSQL: Created indexes');
             }
@@ -376,6 +381,16 @@ class PostgreSQLService {
         await this.initialize();
         const client = await this.pool.connect();
         try {
+            // Optimized single query with window function for count and data
+            const params = [];
+            const conditions = [];
+            if (options?.status) {
+                conditions.push(`status = $${params.length + 1}`);
+                params.push(options.status);
+            }
+            // Build WHERE clause
+            const whereClause = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';
+            // Single optimized query with count
             let query = `
                 SELECT 
                     id,
@@ -388,30 +403,17 @@ class PostgreSQLService {
                     created_date,
                     last_assessment_date,
                     total_assessments,
-                    app_registration
+                    app_registration,
+                    COUNT(*) OVER() as total_count
                 FROM customers
+                ${whereClause}
+                ORDER BY created_date DESC
             `;
-            const params = [];
-            const conditions = [];
-            if (options?.status) {
-                conditions.push(`status = $${params.length + 1}`);
-                params.push(options.status);
-            }
-            if (conditions.length > 0) {
-                query += ` WHERE ${conditions.join(' AND ')}`;
-            }
-            query += ` ORDER BY created_date DESC`;
             if (options?.limit) {
                 query += ` LIMIT $${params.length + 1}`;
                 params.push(options.limit);
             }
             const result = await client.query(query, params);
-            // Get total count
-            let countQuery = 'SELECT COUNT(*) FROM customers';
-            if (conditions.length > 0) {
-                countQuery += ` WHERE ${conditions.join(' AND ')}`;
-            }
-            const countResult = await client.query(countQuery, params.slice(0, -1)); // Remove limit param
             const customers = result.rows.map((row) => ({
                 id: row.id,
                 tenantId: row.tenant_id,
@@ -425,9 +427,10 @@ class PostgreSQLService {
                 totalAssessments: row.total_assessments || 0,
                 appRegistration: validateAppRegistration(row.app_registration)
             }));
+            const totalCount = result.rows.length > 0 ? parseInt(result.rows[0].total_count) : 0;
             return {
                 customers,
-                total: parseInt(countResult.rows[0].count)
+                total: totalCount
             };
         }
         finally {

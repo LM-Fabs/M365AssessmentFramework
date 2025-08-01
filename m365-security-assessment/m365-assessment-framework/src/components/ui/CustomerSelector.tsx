@@ -42,6 +42,11 @@ const CustomerSelector = forwardRef<CustomerSelectorRef, CustomerSelectorProps>(
 
   const customerService = CustomerService.getInstance();
 
+  // Start prefetching immediately when component mounts
+  useEffect(() => {
+    customerService.prefetchCustomers().catch(console.warn);
+  }, []);
+
   useEffect(() => {
     loadCustomers();
   }, [refreshTrigger]); // Add refreshTrigger as dependency

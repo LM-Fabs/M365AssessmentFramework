@@ -40,7 +40,8 @@ export class CustomerService {
   // Cache for prefetched data
   private customersCache: Customer[] | null = null;
   private cacheTimestamp: number = 0;
-  private readonly CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache (increased from 2 minutes)
+  private prefetchPromise: Promise<void> | null = null;
 
   private constructor() {
     // Azure Static Web Apps API routing:
@@ -73,6 +74,11 @@ export class CustomerService {
     // Check cache first
     const cachedCustomers = this.getCachedCustomers();
     if (cachedCustomers) {
+      // Start background prefetch if cache is getting stale (80% of cache duration)
+      const cacheAge = Date.now() - this.cacheTimestamp;
+      if (cacheAge > this.CACHE_DURATION * 0.8 && !this.prefetchPromise) {
+        this.prefetchPromise = this.backgroundPrefetch();
+      }
       return cachedCustomers;
     }
 
@@ -82,7 +88,7 @@ export class CustomerService {
       // Use retry API call for reliable cold start handling
       const response = await this.retryApiCall(() => 
         axios.get(`${this.baseUrl}/customers`, {
-          timeout: 45000, // 45 seconds for cold start
+          timeout: 30000, // Reduced from 45 seconds to 30 seconds
           headers: {
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache'
@@ -173,6 +179,34 @@ export class CustomerService {
       console.log(`✅ CustomerService: Prefetched ${customers.length} customers`);
     } catch (error) {
       console.warn('⚠️ CustomerService: Prefetch failed:', error);
+    }
+  }
+
+  /**
+   * Background prefetch to refresh cache before it expires
+   */
+  private async backgroundPrefetch(): Promise<void> {
+    try {
+      console.log('🔄 CustomerService: Background prefetch started...');
+      const response = await axios.get(`${this.baseUrl}/customers`, {
+        timeout: 15000, // Shorter timeout for background refresh
+      });
+
+      if (response.data.success && Array.isArray(response.data.data)) {
+        const customers = response.data.data.map((customer: any) => ({
+          ...customer,
+          createdDate: new Date(customer.createdDate),
+          lastAssessmentDate: customer.lastAssessmentDate ? new Date(customer.lastAssessmentDate) : undefined
+        }));
+        
+        this.customersCache = customers;
+        this.cacheTimestamp = Date.now();
+        console.log(`✅ CustomerService: Background prefetch completed (${customers.length} customers)`);
+      }
+    } catch (error) {
+      console.warn('⚠️ CustomerService: Background prefetch failed:', error);
+    } finally {
+      this.prefetchPromise = null;
     }
   }
 

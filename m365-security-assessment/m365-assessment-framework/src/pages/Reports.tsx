@@ -2,6 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useCustomer } from '../contexts/CustomerContext';
 import { Customer, CustomerService } from '../services/customerService';
 import { AssessmentService } from '../services/assessmentService';
+import { 
+  getReadableControlName, 
+  getStandardizedStatus, 
+  generateRemediationText, 
+  calculateMaxScore, 
+  determineActionType 
+} from '../utils/secureScoreFormatter';
 import './Reports.css';
 
 interface SecurityCategory {
@@ -1341,14 +1348,14 @@ const Reports: React.FC = () => {
       
       // Process control scores from the API response (not improvementActions)
       const controlScores = (secureScore.controlScores || []).map((control: any, index: number) => ({
-        controlName: control.controlName || `Security Control ${index + 1}`,
+        controlName: getReadableControlName(control.controlName, control.description),
         category: control.category || 'General',
         currentScore: Number(control.currentScore) || 0,
-        maxScore: Number(control.maxScore) || 0,
-        implementationStatus: control.implementationStatus || 'Not Implemented',
-        actionType: control.actionType || 'Other',
-        remediation: control.remediation || 'No remediation information available',
-        scoreGap: Number(control.maxScore || 0) - Number(control.currentScore || 0)
+        maxScore: Number(control.maxScore) || calculateMaxScore(Number(control.currentScore) || 0, control.controlName),
+        implementationStatus: getStandardizedStatus(control.implementationStatus || '').displayStatus,
+        actionType: control.actionType || determineActionType(control.controlName, control.description),
+        remediation: control.remediation || generateRemediationText(control.controlName, control.description || '', control.implementationStatus || ''),
+        scoreGap: Math.max(0, (Number(control.maxScore) || calculateMaxScore(Number(control.currentScore) || 0, control.controlName)) - (Number(control.currentScore) || 0))
       }));
       
       console.log('Processed control scores count:', controlScores.length);
@@ -1939,7 +1946,7 @@ const Reports: React.FC = () => {
                         </div>
                       </td>
                       <td className="status-cell">
-                        <span className={`status-badge ${control.implementationStatus.toLowerCase().replace(' ', '-')}`}>
+                        <span className={`status-badge ${getStandardizedStatus(control.implementationStatus || '').statusClass}`}>
                           {control.implementationStatus}
                         </span>
                       </td>
