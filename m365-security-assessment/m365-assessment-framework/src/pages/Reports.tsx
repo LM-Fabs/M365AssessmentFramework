@@ -947,24 +947,8 @@ const Reports: React.FC = () => {
           maxScore: secureScoreData.maxScore,
           percentage: secureScoreData.percentage,
           lastUpdated: secureScoreData.lastUpdated,
-          totalControlsFound: secureScoreData.totalControlsFound,
-          controlsStoredCount: secureScoreData.controlsStoredCount,
-          compressed: secureScoreData.compressed,
-          hasDataLimits: hasDataLimits,
-          dataLimitWarning: hasDataLimits ? `Assessment completed with size limits. Showing ${storedControlsCount} of ${actualTotalControls} total security controls.` : null,
-          summary: {
-            status: secureScoreData.percentage >= 80 ? 'Excellent' : 
-                   secureScoreData.percentage >= 60 ? 'Good' : 'Needs Improvement',
-            totalControls: actualTotalControls,
-            storedControls: storedControlsCount,
-            implementedControls: totalImplemented,
-            dataCompleteness: actualTotalControls > 0 ? Math.round((storedControlsCount / actualTotalControls) * 100) : 100,
-            recommendedActions: [
-              'Review and implement high-impact security controls',
-              'Enable multi-factor authentication where missing',
-              'Configure conditional access policies'
-            ]
-          }
+          totalControlsFound: secureScoreData.totalControlsFound
+          // Removed: controlsStoredCount, compressed, hasDataLimits, dataLimitWarning, summary
         },
         // Store ALL controlScores for the table (no limit)
         controlScores: controlScores,
@@ -1395,10 +1379,8 @@ const Reports: React.FC = () => {
           potentialScoreIncrease,
           averageControlScore: totalControls > 0 ? Math.round(controlScores.reduce((sum: number, control: any) => sum + control.currentScore, 0) / totalControls) : 0,
           implementationRate: totalControls > 0 ? Math.round((totalImplemented / totalControls) * 100) : 0,
-          // Add compression information if available
-          totalControlsFound: secureScore.totalControlsFound,
-          controlsStoredCount: secureScore.controlsStoredCount,
-          compressed: secureScore.compressed
+          // Only keep essential fields - removed: controlsStoredCount, compressed, summary, etc.
+          totalControlsFound: secureScore.totalControlsFound
         },
         // Store ALL controlScores for the table (no limit)
         controlScores: controlScores,
@@ -2262,7 +2244,23 @@ const Reports: React.FC = () => {
                 {/* Key Metrics */}
                 {Object.keys(currentTabData.metrics).length > 0 && (
                   <div className="metrics-grid">
-                    {Object.entries(currentTabData.metrics).map(([key, value]) => (
+                    {Object.entries(currentTabData.metrics)
+                      .filter(([key, value]) => {
+                        // For license tab, exclude licenseTypes and summary cards
+                        if (activeTab === 'license') {
+                          return key !== 'licenseTypes' && key !== 'summary';
+                        }
+                        // For secure score tab, exclude specific fields
+                        if (activeTab === 'secureScore') {
+                          return key !== 'controlsStoredCount' && 
+                                 key !== 'compressed' && 
+                                 key !== 'hasDataLimits' && 
+                                 key !== 'dataLimitWarning' && 
+                                 key !== 'summary';
+                        }
+                        return true;
+                      })
+                      .map(([key, value]) => (
                       <div key={key} className="metric-card">
                         <div className="metric-label">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</div>
                         <div className="metric-value">
@@ -2277,6 +2275,9 @@ const Reports: React.FC = () => {
                                 <div className="no-license-data">No license data available</div>
                               )}
                             </div>
+                          ) : key === 'utilizationRate' ? (
+                            // Add % sign to utilization rate
+                            `${typeof value === 'number' ? value.toLocaleString() : String(value)}%`
                           ) : (
                             typeof value === 'number' ? value.toLocaleString() : 
                             typeof value === 'object' && value !== null ? 

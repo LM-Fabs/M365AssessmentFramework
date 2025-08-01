@@ -216,9 +216,12 @@ async function createAssessment(request: HttpRequest, context: InvocationContext
                 controlScores: [],
                 error: secureScore.error
             } : {
-                summary: `Microsoft Secure Score: ${secureScore?.percentage || 0}%`,
+                summary: `Microsoft Secure Score: ${secureScore?.currentScore || 0} / ${secureScore?.maxScore || 100}`,
                 maxScore: secureScore?.maxScore || 100,
-                percentage: secureScore?.percentage || 0,
+                // Calculate percentage properly: if API doesn't provide it, calculate from currentScore/maxScore
+                percentage: secureScore?.percentage || 
+                          (secureScore?.maxScore > 0 ? 
+                           Math.round((secureScore?.currentScore || 0) / secureScore.maxScore * 100) : 0),
                 lastUpdated: new Date().toISOString(),
                 unavailable: false,
                 currentScore: secureScore?.currentScore || 0,
