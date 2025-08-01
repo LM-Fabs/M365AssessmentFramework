@@ -532,10 +532,22 @@ const Reports: React.FC = () => {
           
           licenseDetails.forEach((license: any) => {
             const skuName = license.skuPartNumber || license.skuDisplayName || license.servicePlanName || 'Unknown License';
-            const assignedUnits = Number(license.assignedUnits) || 0;
-            const totalUnits = Number(license.totalUnits) || 0;
+            
+            // Handle Microsoft Graph API license structure from /subscribedSkus endpoint
+            const assignedUnits = Number(license.assignedUnits) || 
+                                 Number(license.consumedUnits) || 
+                                 Number(license.prepaidUnits?.consumed) || 0;
+            
+            const totalUnits = Number(license.totalUnits) || 
+                             Number(license.prepaidUnits?.enabled) || 
+                             Number(license.prepaidUnits?.total) || 0;
             
             console.log(`Processing license: ${skuName}, assigned: ${assignedUnits}, total: ${totalUnits}`);
+            console.log(`License structure:`, {
+              skuPartNumber: license.skuPartNumber,
+              consumedUnits: license.consumedUnits,
+              prepaidUnits: license.prepaidUnits
+            });
             
             if (licenseTypeMap.has(skuName)) {
               const existing = licenseTypeMap.get(skuName)!;
@@ -552,9 +564,9 @@ const Reports: React.FC = () => {
             }
           });
 
-          // Convert to array and filter out licenses with 0 assigned
+          // Convert to array and show all licenses with any units (total > 0)
           const processedLicenseTypes = Array.from(licenseTypeMap.values())
-            .filter(license => license.assigned > 0)
+            .filter(license => license.total > 0) // Show all licenses with any units
             .sort((a, b) => b.assigned - a.assigned);
 
           console.log('Processed license types:', processedLicenseTypes);
@@ -1093,10 +1105,22 @@ const Reports: React.FC = () => {
         
         licenseDetails.forEach((license: any) => {
           const skuName = license.skuPartNumber || license.skuDisplayName || license.servicePlanName || 'Unknown License';
-          const assignedUnits = Number(license.assignedUnits) || 0;
-          const totalUnits = Number(license.totalUnits) || 0;
+          
+          // Handle Microsoft Graph API license structure from /subscribedSkus endpoint
+          const assignedUnits = Number(license.assignedUnits) || 
+                               Number(license.consumedUnits) || 
+                               Number(license.prepaidUnits?.consumed) || 0;
+          
+          const totalUnits = Number(license.totalUnits) || 
+                           Number(license.prepaidUnits?.enabled) || 
+                           Number(license.prepaidUnits?.total) || 0;
           
           console.log(`Processing license: ${skuName}, assigned: ${assignedUnits}, total: ${totalUnits}`);
+          console.log(`License structure:`, {
+            skuPartNumber: license.skuPartNumber,
+            consumedUnits: license.consumedUnits,
+            prepaidUnits: license.prepaidUnits
+          });
           
           if (licenseTypeMap.has(skuName)) {
             const existing = licenseTypeMap.get(skuName)!;
@@ -1113,11 +1137,11 @@ const Reports: React.FC = () => {
           }
         });
 
-        // Convert to array and filter out licenses with 0 assigned
+        // Convert to array and show all licenses with any units (total > 0)
         const processedLicenseTypes = Array.from(licenseTypeMap.values())
-          .filter(license => license.assigned > 0)
+          .filter(license => license.total > 0) // Show all licenses with any units
           .sort((a, b) => b.assigned - a.assigned)
-          .slice(0, 10); // Show top 10 license types
+          .slice(0, 20); // Show top 20 license types for better overview
 
         console.log('Processed license types:', processedLicenseTypes);
 
