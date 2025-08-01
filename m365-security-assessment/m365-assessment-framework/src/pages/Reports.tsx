@@ -1332,7 +1332,7 @@ const Reports: React.FC = () => {
       
       // Process control scores from the API response (not improvementActions)
       const controlScores = (secureScore.controlScores || []).map((control: any, index: number) => ({
-        controlName: getReadableControlName(control.controlName, control.description),
+        controlName: getReadableControlName(control.controlName, control.description, control.title),
         category: control.category || 'General',
         currentScore: Number(control.currentScore) || 0,
         maxScore: Number(control.maxScore) || calculateMaxScore(Number(control.currentScore) || 0, control.controlName),

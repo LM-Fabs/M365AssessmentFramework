@@ -178,6 +178,7 @@ export class MultiTenantGraphService {
             // Enhanced control object with better formatting
             return {
                 controlName: control.controlName || 'Unknown Control',
+                title: profile?.title || profile?.displayName || '', // Add title from control profile
                 category: control.controlCategory || 'General',
                 currentScore: Math.round(control.score || 0),
                 maxScore: maxScore,

@@ -7,10 +7,16 @@
  * Map of cryptic control names to human-readable titles
  */
 export const CONTROL_NAME_MAPPING: Record<string, string> = {
-  // Identity Controls
+  // Identity Controls - Enhanced with actual Microsoft Secure Score control names
   'mfa_for_all_users': 'Multi-Factor Authentication for All Users',
   'mfa_for_admin_users': 'Multi-Factor Authentication for Admin Users',
   'aad_limited_administrative_roles': 'Limit Administrative Roles in Azure AD',
+  'aad_admin_accounts_separate_unassigned_cloud_only': 'Separate Admin Accounts from Cloud-Only Users',
+  'aad_admin_consent_workflow': 'Configure Admin Consent Workflow',
+  'aad_custom_banned_passwords': 'Custom Banned Password Protection',
+  'aad_linkedin_connection_disables': 'Disable LinkedIn Account Connections',
+  'aad_password_protection': 'Azure AD Password Protection',
+  'aad_phishing_mfa_strength': 'Phishing-Resistant MFA Methods',
   'aad_risky_users': 'Monitor and Remediate Risky Users',
   'aad_risky_sign_ins': 'Monitor and Block Risky Sign-ins',
   'password_protection': 'Enable Azure AD Password Protection',
@@ -73,13 +79,18 @@ export const CONTROL_NAME_MAPPING: Record<string, string> = {
 /**
  * Get human-readable control name
  */
-export function getReadableControlName(controlName: string, description?: string): string {
-  // First try direct mapping
+export function getReadableControlName(controlName: string, description?: string, title?: string): string {
+  // First try the title from control profile (usually the best)
+  if (title && title.length > 5 && title !== controlName && !title.includes('Microsoft.')) {
+    return title;
+  }
+  
+  // Then try direct mapping
   if (CONTROL_NAME_MAPPING[controlName]) {
     return CONTROL_NAME_MAPPING[controlName];
   }
   
-  // Try to find partial matches
+  // Try to find partial matches for AAD controls
   const lowerName = controlName.toLowerCase();
   for (const [key, value] of Object.entries(CONTROL_NAME_MAPPING)) {
     if (lowerName.includes(key.toLowerCase()) || key.toLowerCase().includes(lowerName)) {
@@ -88,8 +99,12 @@ export function getReadableControlName(controlName: string, description?: string
   }
   
   // If description is available and looks better than control name, use it
-  if (description && description.length > 10 && !description.includes('Microsoft') && description !== controlName) {
-    return description;
+  if (description && description.length > 10 && !description.includes('Microsoft.') && description !== controlName) {
+    // Clean up description if it's too technical
+    const cleanDesc = description.replace(/^Microsoft\s+/i, '').replace(/\s+\(.*?\)$/, '');
+    if (cleanDesc.length > 5) {
+      return cleanDesc;
+    }
   }
   
   // Fall back to formatting the control name
@@ -102,16 +117,54 @@ export function getReadableControlName(controlName: string, description?: string
 function formatControlName(controlName: string): string {
   if (!controlName) return 'Unknown Control';
   
-  return controlName
-    // Replace underscores and hyphens with spaces
-    .replace(/[_-]/g, ' ')
-    // Split camelCase
-    .replace(/([a-z])([A-Z])/g, '$1 $2')
-    // Capitalize first letter of each word
-    .replace(/\b\w/g, l => l.toUpperCase())
-    // Clean up extra spaces
-    .replace(/\s+/g, ' ')
-    .trim();
+  let formatted = controlName;
+  
+  // Handle specific AAD prefixes
+  formatted = formatted.replace(/^aad_/, 'Azure AD: ');
+  formatted = formatted.replace(/^defender_/, 'Microsoft Defender: ');
+  formatted = formatted.replace(/^office365_/, 'Office 365: ');
+  formatted = formatted.replace(/^teams_/, 'Microsoft Teams: ');
+  formatted = formatted.replace(/^sharepoint_/, 'SharePoint: ');
+  formatted = formatted.replace(/^exchange_/, 'Exchange: ');
+  
+  // Replace underscores and hyphens with spaces
+  formatted = formatted.replace(/[_-]/g, ' ');
+  
+  // Split camelCase
+  formatted = formatted.replace(/([a-z])([A-Z])/g, '$1 $2');
+  
+  // Handle common abbreviations and technical terms
+  formatted = formatted.replace(/\bmfa\b/gi, 'MFA');
+  formatted = formatted.replace(/\bpim\b/gi, 'PIM');
+  formatted = formatted.replace(/\bdlp\b/gi, 'DLP');
+  formatted = formatted.replace(/\batp\b/gi, 'ATP');
+  formatted = formatted.replace(/\bapi\b/gi, 'API');
+  formatted = formatted.replace(/\bsso\b/gi, 'SSO');
+  formatted = formatted.replace(/\bvm\b/gi, 'VM');
+  formatted = formatted.replace(/\brad\b/gi, 'RAD');
+  formatted = formatted.replace(/\bunassigned\b/gi, 'Unassigned');
+  formatted = formatted.replace(/\bcloud only\b/gi, 'Cloud-Only');
+  formatted = formatted.replace(/\badmin\b/gi, 'Administrator');
+  formatted = formatted.replace(/\baccounts\b/gi, 'Accounts');
+  formatted = formatted.replace(/\bseparate\b/gi, 'Separate');
+  formatted = formatted.replace(/\bconsent\b/gi, 'Consent');
+  formatted = formatted.replace(/\bworkflow\b/gi, 'Workflow');
+  formatted = formatted.replace(/\bbanned\b/gi, 'Banned');
+  formatted = formatted.replace(/\bpasswords\b/gi, 'Passwords');
+  formatted = formatted.replace(/\blinkedin\b/gi, 'LinkedIn');
+  formatted = formatted.replace(/\bconnection\b/gi, 'Connection');
+  formatted = formatted.replace(/\bdisables\b/gi, 'Disable');
+  formatted = formatted.replace(/\bprotection\b/gi, 'Protection');
+  formatted = formatted.replace(/\bphishing\b/gi, 'Phishing');
+  formatted = formatted.replace(/\bstrength\b/gi, 'Strength');
+  
+  // Capitalize first letter of each word
+  formatted = formatted.replace(/\b\w/g, l => l.toUpperCase());
+  
+  // Clean up extra spaces
+  formatted = formatted.replace(/\s+/g, ' ').trim();
+  
+  return formatted;
 }
 
 /**
