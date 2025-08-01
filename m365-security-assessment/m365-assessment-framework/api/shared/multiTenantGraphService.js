@@ -136,11 +136,32 @@ class MultiTenantGraphService {
      * Enhance control scores with data from control profiles
      */
     enhanceControlScores(controlScores, controlProfiles) {
-        return controlScores.map(control => {
-            // Find matching profile by control name
+        console.log('🔧 Enhancing control scores with profiles...');
+        console.log(`📊 Control scores count: ${controlScores.length}`);
+        console.log(`📊 Control profiles count: ${controlProfiles.length}`);
+        // Log sample control and profile to understand the structure
+        if (controlScores.length > 0) {
+            console.log('📋 Sample control score:', JSON.stringify(controlScores[0], null, 2));
+        }
+        if (controlProfiles.length > 0) {
+            console.log('📋 Sample control profile:', JSON.stringify(controlProfiles[0], null, 2));
+        }
+        return controlScores.map((control, index) => {
+            // Find matching profile by control name - try multiple fields
             const profile = controlProfiles.find(p => p.controlName === control.controlName ||
                 p.id === control.controlName ||
-                p.title === control.controlName);
+                p.title === control.controlName ||
+                p.controlId === control.controlName ||
+                // Sometimes the control name might be in a different format
+                control.controlName?.includes(p.controlName) ||
+                p.controlName?.includes(control.controlName));
+            if (index < 3) { // Log first 3 matches for debugging
+                console.log(`🔍 Control ${index}: "${control.controlName}" -> Profile found: ${!!profile}`);
+                if (profile) {
+                    console.log(`   📝 Profile title: "${profile.title || profile.displayName || 'N/A'}"`);
+                    console.log(`   📝 Profile description: "${(profile.description || '').substring(0, 100)}..."`);
+                }
+            }
             // Calculate max score - use profile data if available, otherwise estimate
             let maxScore = 0;
             if (profile && profile.maxScore) {
@@ -155,22 +176,31 @@ class MultiTenantGraphService {
                 maxScore = control.score > 0 ? Math.ceil(control.score / 0.8) : 5;
             }
             // Enhanced control object with better formatting
-            return {
+            const enhancedControl = {
                 controlName: control.controlName || 'Unknown Control',
-                title: profile?.title || profile?.displayName || '', // Add title from control profile
-                category: control.controlCategory || 'General',
+                title: profile?.title || profile?.displayName || profile?.name || '', // Try multiple title fields
+                category: control.controlCategory || profile?.controlCategory || 'General',
                 currentScore: Math.round(control.score || 0),
                 maxScore: maxScore,
                 description: profile?.description || control.description || 'No description available',
                 implementationStatus: this.determineImplementationStatus(control.score, maxScore),
                 actionType: profile?.actionType || this.determineActionType(control.controlName),
-                remediation: profile?.remediationImpact || this.generateRemediationText(control.controlName, control.description),
+                remediation: profile?.remediationImpact || profile?.remediation || this.generateRemediationText(control.controlName, control.description),
                 scoreGap: Math.max(0, maxScore - (control.score || 0)),
                 rank: profile?.rank || 999,
                 userImpact: profile?.userImpact || 'Medium',
                 implementationCost: profile?.implementationCost || 'Medium',
                 threats: profile?.threats || []
             };
+            // Log the enhanced control for debugging (first 3 only)
+            if (index < 3) {
+                console.log(`✅ Enhanced control ${index}:`, {
+                    original: control.controlName,
+                    title: enhancedControl.title,
+                    hasProfile: !!profile
+                });
+            }
+            return enhancedControl;
         });
     }
     /**

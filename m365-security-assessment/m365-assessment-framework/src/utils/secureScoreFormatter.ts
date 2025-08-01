@@ -26,6 +26,39 @@ export const CONTROL_NAME_MAPPING: Record<string, string> = {
   'identity_protection': 'Enable Azure AD Identity Protection',
   'guest_user_access_review': 'Regular Guest User Access Reviews',
   'password_writeback': 'Enable Password Writeback',
+
+  // SCID Controls (Secure Score Control IDs)
+  'scid_16': 'Multi-Factor Authentication for Admin Users',
+  'scid_24': 'Block Legacy Authentication Protocols',
+  'scid_34': 'Enable Azure AD Identity Protection',
+  'scid_35': 'Configure Risk-Based Conditional Access',
+  'scid_36': 'Enable Security Defaults',
+  'scid_38': 'Configure Self-Service Password Reset',
+  'scid_41': 'Enable Privileged Identity Management',
+  'scid_42': 'Regular Access Reviews for Privileged Roles',
+  'scid_44': 'Monitor Risky Sign-in Activities',
+  'scid_58': 'Configure Conditional Access Policies',
+  'scid_74': 'Enable Multi-Factor Authentication for All Users',
+  'scid_89': 'Configure Azure AD Connect Health',
+  'scid_2060': 'Enable Advanced Threat Protection',
+  'scid_2080': 'Configure Cloud App Security',
+  'scid_2502': 'Enable Microsoft Defender for Office 365',
+  'scid_2511': 'Configure Safe Attachments Policy',
+  'scid_3001': 'Enable Endpoint Detection and Response',
+  'scid_3002': 'Configure Device Compliance Policies',
+  'scid_3003': 'Enable Mobile Application Management',
+
+  // AATP Controls (Azure Advanced Threat Protection / Microsoft Defender for Identity)
+  'AATP_ClearText': 'Eliminate Clear Text Password Exposure',
+  'AATP_DormantAccounts': 'Monitor and Disable Dormant Accounts',
+  'AATP_KerberosDelegations': 'Review Kerberos Delegation Settings',
+  'AATP_HoneyToken': 'Deploy Honey Token Accounts',
+  'AATP_PathRisk': 'Monitor Lateral Movement Paths',
+  'AATP_PrintSpooler': 'Secure Print Spooler Service',
+  'AATP_PwdLAPS': 'Implement Local Administrator Password Solution',
+  'AATP_SIDHistory': 'Review SID History Attributes',
+  'AATP_UnsecureAccount': 'Secure High-Privilege Account Settings',
+  'AATP_Vpn': 'Monitor VPN Connection Anomalies',
   
   // Data Protection Controls
   'information_protection_labels': 'Configure Information Protection Labels',
@@ -119,13 +152,29 @@ function formatControlName(controlName: string): string {
   
   let formatted = controlName;
   
-  // Handle specific AAD prefixes
-  formatted = formatted.replace(/^aad_/, 'Azure AD: ');
-  formatted = formatted.replace(/^defender_/, 'Microsoft Defender: ');
-  formatted = formatted.replace(/^office365_/, 'Office 365: ');
-  formatted = formatted.replace(/^teams_/, 'Microsoft Teams: ');
-  formatted = formatted.replace(/^sharepoint_/, 'SharePoint: ');
-  formatted = formatted.replace(/^exchange_/, 'Exchange: ');
+  // Handle specific control ID prefixes
+  if (formatted.startsWith('scid_')) {
+    // SCID (Secure Score Control ID) - try to make it more descriptive
+    const idNumber = formatted.replace('scid_', '');
+    return `Security Control ${idNumber}`;
+  }
+  
+  if (formatted.startsWith('AATP_')) {
+    // Azure Advanced Threat Protection / Microsoft Defender for Identity
+    formatted = formatted.replace('AATP_', 'Microsoft Defender for Identity: ');
+  } else if (formatted.startsWith('aad_')) {
+    formatted = formatted.replace('aad_', 'Azure AD: ');
+  } else if (formatted.startsWith('defender_')) {
+    formatted = formatted.replace('defender_', 'Microsoft Defender: ');
+  } else if (formatted.startsWith('office365_')) {
+    formatted = formatted.replace('office365_', 'Office 365: ');
+  } else if (formatted.startsWith('teams_')) {
+    formatted = formatted.replace('teams_', 'Microsoft Teams: ');
+  } else if (formatted.startsWith('sharepoint_')) {
+    formatted = formatted.replace('sharepoint_', 'SharePoint: ');
+  } else if (formatted.startsWith('exchange_')) {
+    formatted = formatted.replace('exchange_', 'Exchange: ');
+  }
   
   // Replace underscores and hyphens with spaces
   formatted = formatted.replace(/[_-]/g, ' ');
@@ -157,6 +206,17 @@ function formatControlName(controlName: string): string {
   formatted = formatted.replace(/\bprotection\b/gi, 'Protection');
   formatted = formatted.replace(/\bphishing\b/gi, 'Phishing');
   formatted = formatted.replace(/\bstrength\b/gi, 'Strength');
+  formatted = formatted.replace(/\bclear text\b/gi, 'Clear Text');
+  formatted = formatted.replace(/\bdormant\b/gi, 'Dormant');
+  formatted = formatted.replace(/\bkerberos\b/gi, 'Kerberos');
+  formatted = formatted.replace(/\bdelegations\b/gi, 'Delegations');
+  formatted = formatted.replace(/\bhoney token\b/gi, 'Honey Token');
+  formatted = formatted.replace(/\bpath risk\b/gi, 'Path Risk');
+  formatted = formatted.replace(/\bprint spooler\b/gi, 'Print Spooler');
+  formatted = formatted.replace(/\bpwd laps\b/gi, 'Password LAPS');
+  formatted = formatted.replace(/\bsid history\b/gi, 'SID History');
+  formatted = formatted.replace(/\bunsecure account\b/gi, 'Unsecure Account');
+  formatted = formatted.replace(/\bvpn\b/gi, 'VPN');
   
   // Capitalize first letter of each word
   formatted = formatted.replace(/\b\w/g, l => l.toUpperCase());
