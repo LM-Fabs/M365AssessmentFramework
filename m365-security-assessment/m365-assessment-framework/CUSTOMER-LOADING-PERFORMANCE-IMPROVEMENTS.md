@@ -1,7 +1,37 @@
 # Customer Loading Performance Improvements
 
 ## Overview
-Comprehensive performance optimizations to significantly reduce initial customer loading time from "ages" to under 3 seconds, with progressive enhancement for better user experience.
+Comprehensive performance optimizations to significantly reduce initial customer loading time from "ages" to under 3 seconds, with progressive enhancement for better user experience. **Updated with critical compression and decoding fixes.**
+
+## ⚠️ Critical Issue Resolution (Latest Update)
+
+### Content Decoding Error Fix
+**Issue**: `net::ERR_CONTENT_DECODING_FAILED` errors were preventing customer data from loading.
+
+**Root Cause**: 
+- Browser refused to set "Accept-Encoding" header (unsafe header)
+- API was claiming compression in headers but content wasn't properly compressed
+- Mismatch between client compression expectations and server response
+
+**Solution**:
+1. **Removed Manual Compression Headers**: Let browser handle `Accept-Encoding` automatically
+2. **Disabled API Compression Claims**: Removed `Content-Encoding: gzip` from API responses
+3. **Added Fallback Mechanism**: Simple request without headers if primary request fails
+4. **Enhanced Error Handling**: Specific handling for content decoding errors
+
+```typescript
+// Before (causing errors)
+headers: {
+  'Accept-Encoding': 'gzip, deflate', // Browser refuses this
+  'Content-Encoding': 'gzip'          // API claiming compression
+}
+
+// After (working)
+headers: {
+  'Accept': 'application/json'        // Let browser handle compression
+}
+// + Fallback request mechanism
+```
 
 ## Performance Improvements Summary
 
@@ -34,10 +64,11 @@ getCustomersQuick() -> minimal data (7 fields vs 15 fields)
 ```
 
 #### 4. Smart Request Optimization
-- **HTTP Compression**: Enabled gzip/deflate encoding
+- **Automatic Compression**: Browser handles compression automatically (safer than manual)
 - **Cache Headers**: Allow browser/CDN caching with `max-age=60`
 - **Minimal Logging**: Reduced verbose logging in production
-- **Connection Pooling**: Optimized axios configuration
+- **Fallback Requests**: Simple request without headers if primary fails
+- **Decompression Control**: Disabled axios decompression to avoid conflicts
 
 ### 🏃‍♂️ Backend Optimizations (API/customers/index.ts)
 
@@ -57,7 +88,7 @@ Full requests:  max-age=120 (2 minutes)
 #### 3. Efficient Data Processing
 - **Conditional Field Processing**: Skip complex fields for quick requests
 - **Optimized ETags**: More granular cache validation
-- **Response Compression**: Automatic gzip compression enabled
+- **Safe Response Headers**: Removed problematic compression headers to prevent decoding errors
 
 ### ⚡ Database Optimizations (Already Implemented)
 

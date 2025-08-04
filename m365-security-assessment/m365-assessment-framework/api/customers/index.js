@@ -110,8 +110,7 @@ async function customersHandler(request, context) {
                     'Cache-Control': `public, max-age=${cacheMaxAge}, s-maxage=${cacheMaxAge}`,
                     'ETag': etag,
                     'Content-Type': 'application/json',
-                    'Content-Encoding': 'gzip', // Enable compression
-                    'Vary': 'Accept-Encoding'
+                    // Remove compression headers - let Azure Static Web Apps handle compression
                 },
                 jsonBody: {
                     success: true,

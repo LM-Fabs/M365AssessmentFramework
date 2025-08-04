@@ -124,9 +124,11 @@ export class CustomerService {
           headers: {
             'Cache-Control': 'max-age=60', // Allow some caching
             'Accept': 'application/json',
-            'Accept-Encoding': 'gzip, deflate', // Enable compression
+            // Remove Accept-Encoding - browser handles this automatically
           },
           validateStatus: (status) => status < 500, // Accept all non-server errors
+          // Disable axios compression handling to avoid conflicts
+          decompress: false,
         }),
         2, // Reduce retries for faster response
         true // This is potentially the first call
@@ -154,6 +156,27 @@ export class CustomerService {
       
     } catch (error: any) {
       console.error('❌ CustomerService: Optimized fetch failed:', error);
+      
+      // Try a simple fallback request without any special headers
+      if (error.code === 'ERR_NETWORK' || error.message?.includes('decoding')) {
+        console.log('🔄 CustomerService: Trying fallback request...');
+        try {
+          const fallbackResponse = await axios.get(`${this.baseUrl}/customers`, {
+            timeout: 10000,
+            headers: { 'Accept': 'application/json' }
+          });
+          
+          let customers: Customer[] = [];
+          if (fallbackResponse.data?.success && Array.isArray(fallbackResponse.data.data)) {
+            customers = this.processCustomerData(fallbackResponse.data.data);
+            this.updateCaches(customers);
+            console.log(`✅ CustomerService: Fallback successful (${customers.length} customers)`);
+            return customers;
+          }
+        } catch (fallbackError) {
+          console.warn('⚠️ CustomerService: Fallback also failed:', fallbackError);
+        }
+      }
       
       // Fast error handling - don't log excessive details in production
       if (process.env.NODE_ENV === 'development') {
@@ -249,7 +272,7 @@ export class CustomerService {
         timeout: 8000, // Very short timeout for background refresh
         headers: {
           'Cache-Control': 'max-age=300', // Allow 5-minute cache
-          'Accept-Encoding': 'gzip, deflate',
+          // Remove Accept-Encoding - browser handles this automatically
         },
       });
 
@@ -315,6 +338,16 @@ export class CustomerService {
           if (status >= 400 && status < 500 && status !== 408 && status !== 429) {
             console.warn(`🚫 CustomerService: Client error ${status}, failing fast`);
             throw error;
+          }
+        }
+        
+        // Handle content decoding errors specifically
+        if (error.code === 'ERR_NETWORK' || error.message?.includes('ERR_CONTENT_DECODING_FAILED')) {
+          console.warn('🔧 CustomerService: Content decoding error, trying without compression headers');
+          // Don't retry decoding errors immediately - they usually won't resolve
+          if (attempt === 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            continue;
           }
         }
         
@@ -665,7 +698,7 @@ export class CustomerService {
         timeout: 8000,
         headers: {
           'Accept': 'application/json',
-          'Accept-Encoding': 'gzip, deflate',
+          // Remove Accept-Encoding - browser handles this automatically
         },
       });
       
