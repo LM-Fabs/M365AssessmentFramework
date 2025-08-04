@@ -254,6 +254,70 @@ Level 4: API Response Cache (2-5 minutes)
 4. Confirm background refresh transparency
 5. Check mobile performance impact
 
+## Troubleshooting Guide
+
+### Common Issues and Solutions
+
+#### Issue: `net::ERR_CONTENT_DECODING_FAILED`
+**Symptoms**: 
+- API returns 200 OK but data doesn't load
+- Browser console shows decoding errors
+- Retries fail with same error
+
+**Solution**: 
+- Remove manual `Accept-Encoding` headers
+- Let browser handle compression automatically
+- Remove `Content-Encoding` from API responses
+- Use fallback request mechanism
+
+#### Issue: "Refused to set unsafe header"
+**Symptoms**:
+- Browser console warnings about unsafe headers
+- Network requests may fail or behave unexpectedly
+
+**Solution**:
+- Remove manually set compression headers
+- Use only safe headers like `Accept: application/json`
+- Let browser manage compression negotiation
+
+#### Issue: Slow initial loading despite optimizations
+**Symptoms**:
+- First load still takes >10 seconds
+- Multiple retry attempts
+- High timeout values being reached
+
+**Checklist**:
+1. Check Azure Function cold start times
+2. Verify database connection pooling
+3. Review API response sizes
+4. Test with quick endpoint (`?quick=true`)
+5. Monitor network waterfall in DevTools
+
+#### Issue: Cache not working effectively
+**Symptoms**:
+- Every request hits the API
+- No "cache hit" messages in console
+- Background refresh too frequent
+
+**Solutions**:
+1. Check cache timestamps and duration
+2. Verify cache clearing logic
+3. Monitor cache hit ratios in logs
+4. Adjust cache duration if needed
+
+### Performance Monitoring Commands
+
+```bash
+# Check API response times
+curl -w "@curl-format.txt" -o /dev/null -s "https://your-swa.azurestaticapps.net/api/customers"
+
+# Test quick endpoint
+curl -w "@curl-format.txt" -o /dev/null -s "https://your-swa.azurestaticapps.net/api/customers?quick=true"
+
+# Monitor compression
+curl -H "Accept-Encoding: gzip" -v "https://your-swa.azurestaticapps.net/api/customers"
+```
+
 ---
 
 These optimizations should reduce initial customer loading time from "ages" to under 5 seconds for first load and under 1 second for subsequent loads, with a much smoother and more responsive user experience.

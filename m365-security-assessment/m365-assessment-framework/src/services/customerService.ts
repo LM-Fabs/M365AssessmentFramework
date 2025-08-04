@@ -51,6 +51,12 @@ export class CustomerService {
   // Fast initial load with minimal data
   private quickCache: Partial<Customer>[] | null = null;
   private quickCacheTimestamp: number = 0;
+  
+  // Assessment caching to avoid repeated API calls
+  private assessmentCache: Map<string, any[]> = new Map();
+  private assessmentCacheTimestamps: Map<string, number> = new Map();
+  private readonly ASSESSMENT_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes for assessments
+  private assessmentRequests: Map<string, Promise<any[]>> = new Map(); // Deduplication
 
   private constructor() {
     // Azure Static Web Apps API routing:
@@ -621,12 +627,53 @@ export class CustomerService {
   }
 
   /**
-   * Get customer assessment history
+   * Get customer assessment history with caching and deduplication
    */
   public async getCustomerAssessments(customerId: string, limit?: number): Promise<Assessment[]> {
+    const cacheKey = `${customerId}-${limit || 'all'}`;
+    
+    // Check cache first
+    const cached = this.assessmentCache.get(cacheKey);
+    const cacheTime = this.assessmentCacheTimestamps.get(cacheKey);
+    
+    if (cached && cacheTime && (Date.now() - cacheTime) < this.ASSESSMENT_CACHE_DURATION) {
+      console.log(`⚡ CustomerService: Returning cached assessments for ${customerId} (${cached.length} items)`);
+      return cached;
+    }
+    
+    // Check if request is already in progress (deduplication)
+    if (this.assessmentRequests.has(cacheKey)) {
+      console.log(`🔄 CustomerService: Waiting for existing assessment request for ${customerId}`);
+      return await this.assessmentRequests.get(cacheKey)!;
+    }
+    
+    // Start new request
+    const requestPromise = this.fetchCustomerAssessments(customerId, limit);
+    this.assessmentRequests.set(cacheKey, requestPromise);
+    
+    try {
+      const assessments = await requestPromise;
+      
+      // Cache the results
+      this.assessmentCache.set(cacheKey, assessments);
+      this.assessmentCacheTimestamps.set(cacheKey, Date.now());
+      
+      console.log(`✅ CustomerService: Cached ${assessments.length} assessments for ${customerId}`);
+      return assessments;
+    } finally {
+      // Clean up request tracking
+      this.assessmentRequests.delete(cacheKey);
+    }
+  }
+  
+  /**
+   * Internal method to fetch customer assessments
+   */
+  private async fetchCustomerAssessments(customerId: string, limit?: number): Promise<Assessment[]> {
     try {
       const response = await axios.get(`${this.baseUrl}/customers/${customerId}/assessments`, {
-        params: limit ? { limit } : undefined
+        params: limit ? { limit } : undefined,
+        timeout: 8000, // Shorter timeout for assessments
       });
       
       // Handle the structured API response format
@@ -645,7 +692,7 @@ export class CustomerService {
         lastModified: new Date(assessment.lastModified)
       }));
     } catch (error) {
-      console.error('Error fetching customer assessments:', error);
+      console.error('❌ CustomerService: Error fetching customer assessments:', error);
       throw new Error('Failed to fetch customer assessments');
     }
   }
@@ -660,6 +707,39 @@ export class CustomerService {
     this.quickCache = null;
     this.quickCacheTimestamp = 0;
     this.lazyCache.clear();
+    this.assessmentCache.clear();
+    this.assessmentCacheTimestamps.clear();
+    this.assessmentRequests.clear();
+  }
+
+  /**
+   * Clear assessment cache for a specific customer
+   */
+  public clearCustomerAssessmentCache(customerId: string): void {
+    console.log(`🗑️ CustomerService: Clearing assessment cache for customer ${customerId}`);
+    const keysToDelete: string[] = [];
+    this.assessmentCache.forEach((_, key) => {
+      if (key.startsWith(customerId)) {
+        keysToDelete.push(key);
+      }
+    });
+    
+    keysToDelete.forEach(key => {
+      this.assessmentCache.delete(key);
+      this.assessmentCacheTimestamps.delete(key);
+    });
+  }
+
+  /**
+   * Prefetch assessments for a customer in the background
+   */
+  public async prefetchCustomerAssessments(customerId: string): Promise<void> {
+    try {
+      console.log(`🚀 CustomerService: Prefetching assessments for ${customerId}...`);
+      await this.getCustomerAssessments(customerId, 10); // Get recent 10 assessments
+    } catch (error) {
+      console.warn(`⚠️ CustomerService: Assessment prefetch failed for ${customerId}:`, error);
+    }
   }
 
   /**

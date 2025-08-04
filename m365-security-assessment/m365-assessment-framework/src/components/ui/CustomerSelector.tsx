@@ -73,6 +73,44 @@ const CustomerSelector = forwardRef<CustomerSelectorRef, CustomerSelectorProps>(
       
       console.log('🔄 CustomerSelector: Starting to load customers...');
       
+      // Try quick load first for immediate UI feedback
+      try {
+        console.log('⚡ CustomerSelector: Attempting quick load...');
+        const quickCustomers = await customerService.getCustomersQuick();
+        if (quickCustomers.length > 0) {
+          // Convert partial customers to full customers for compatibility
+          const activeQuickCustomers = quickCustomers
+            .filter(c => c.status === 'active')
+            .map(c => ({
+              ...c,
+              // Provide defaults for missing fields
+              tenantId: c.id || '',
+              applicationId: '',
+              clientId: '',
+              servicePrincipalId: '',
+              permissions: [],
+              contactEmail: '',
+              notes: '',
+            })) as Customer[];
+          
+          setCustomers(activeQuickCustomers);
+          console.log(`⚡ CustomerSelector: Quick load completed (${activeQuickCustomers.length} customers)`);
+          
+          // Continue with full load in background for complete data
+          customerService.getCustomers().then(fullCustomers => {
+            const activeFullCustomers = fullCustomers.filter(c => c.status === 'active');
+            setCustomers(activeFullCustomers);
+            console.log(`✅ CustomerSelector: Full load completed (${activeFullCustomers.length} customers)`);
+          }).catch(console.warn);
+          
+          setLoading(false);
+          return;
+        }
+      } catch (quickError) {
+        console.warn('⚠️ CustomerSelector: Quick load failed, falling back to full load:', quickError);
+      }
+      
+      // Fallback to full load
       const customerList = await customerService.getCustomers();
       const activeCustomers = customerList.filter(c => c.status === 'active');
       setCustomers(activeCustomers);
@@ -99,9 +137,16 @@ const CustomerSelector = forwardRef<CustomerSelectorRef, CustomerSelectorProps>(
   );
 
   const handleCustomerSelect = (customer: Customer) => {
+    console.log(`⚡ CustomerSelector: Selecting customer ${customer.tenantName} instantly`);
+    
+    // Immediate UI update
     onCustomerSelect(customer);
     setIsDropdownOpen(false);
     setSearchQuery('');
+    
+    // Prefetch assessments in background for smoother experience
+    const customerService = CustomerService.getInstance();
+    customerService.prefetchCustomerAssessments(customer.id).catch(console.warn);
   };
 
   const handleCreateCustomer = async (e: React.FormEvent) => {
