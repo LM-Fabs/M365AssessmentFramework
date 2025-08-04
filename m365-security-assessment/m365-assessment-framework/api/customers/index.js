@@ -57,14 +57,32 @@ async function customersHandler(request, context) {
         }
         if (request.method === 'GET') {
             context.log('Getting all customers from data service');
+            // Check for quick/minimal data request
+            const url = new URL(request.url);
+            const isQuickRequest = url.searchParams.get('quick') === 'true';
+            const limitParam = url.searchParams.get('limit');
+            const limit = limitParam ? parseInt(limitParam) : (isQuickRequest ? 25 : 50);
             const result = await utils_1.dataService.getCustomers({
                 status: 'active',
-                limit: 50 // Reduced from 100 to 50 for faster loading
+                limit: limit // Dynamic limit based on request type
             });
-            context.log('Retrieved customers from data service:', result.customers.length);
-            // Transform customers to match frontend interface
+            context.log(`Retrieved ${result.customers.length} customers from data service`);
+            // Transform customers efficiently
             const transformedCustomers = result.customers.map((customer) => {
                 const appReg = customer.appRegistration || {};
+                // For quick requests, return minimal data
+                if (isQuickRequest) {
+                    return {
+                        id: customer.id,
+                        tenantName: customer.tenantName,
+                        tenantDomain: customer.tenantDomain,
+                        status: customer.status,
+                        totalAssessments: customer.totalAssessments || 0,
+                        createdDate: customer.createdDate,
+                        lastAssessmentDate: customer.lastAssessmentDate
+                    };
+                }
+                // Full customer data
                 return {
                     id: customer.id,
                     tenantId: customer.tenantId || '',
@@ -82,18 +100,25 @@ async function customersHandler(request, context) {
                     notes: customer.notes
                 };
             });
+            // Optimized caching headers
+            const cacheMaxAge = isQuickRequest ? 300 : 120; // 5 min for quick, 2 min for full
+            const etag = `"customers-${isQuickRequest ? 'quick' : 'full'}-${transformedCustomers.length}-${Math.floor(Date.now() / 60000)}"`;
             return {
                 status: 200,
                 headers: {
                     ...utils_1.corsHeaders,
-                    'Cache-Control': 'public, max-age=60, s-maxage=60', // Cache for 1 minute
-                    'ETag': `"customers-${transformedCustomers.length}-${Date.now()}"`,
-                    'Content-Type': 'application/json'
+                    'Cache-Control': `public, max-age=${cacheMaxAge}, s-maxage=${cacheMaxAge}`,
+                    'ETag': etag,
+                    'Content-Type': 'application/json',
+                    'Content-Encoding': 'gzip', // Enable compression
+                    'Vary': 'Accept-Encoding'
                 },
                 jsonBody: {
                     success: true,
                     data: transformedCustomers,
                     count: transformedCustomers.length,
+                    total: result.total,
+                    isQuickData: isQuickRequest,
                     timestamp: new Date().toISOString(),
                     continuationToken: 'continuationToken' in result ? result.continuationToken : undefined
                 }

@@ -63,16 +63,37 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
         if (request.method === 'GET') {
             context.log('Getting all customers from data service');
             
+            // Check for quick/minimal data request
+            const url = new URL(request.url);
+            const isQuickRequest = url.searchParams.get('quick') === 'true';
+            const limitParam = url.searchParams.get('limit');
+            const limit = limitParam ? parseInt(limitParam) : (isQuickRequest ? 25 : 50);
+            
             const result = await dataService.getCustomers({
                 status: 'active',
-                limit: 50 // Reduced from 100 to 50 for faster loading
+                limit: limit // Dynamic limit based on request type
             });
             
-            context.log('Retrieved customers from data service:', result.customers.length);
+            context.log(`Retrieved ${result.customers.length} customers from data service`);
             
-            // Transform customers to match frontend interface
+            // Transform customers efficiently
             const transformedCustomers = result.customers.map((customer: any) => {
                 const appReg = customer.appRegistration || {};
+                
+                // For quick requests, return minimal data
+                if (isQuickRequest) {
+                    return {
+                        id: customer.id,
+                        tenantName: customer.tenantName,
+                        tenantDomain: customer.tenantDomain,
+                        status: customer.status,
+                        totalAssessments: customer.totalAssessments || 0,
+                        createdDate: customer.createdDate,
+                        lastAssessmentDate: customer.lastAssessmentDate
+                    };
+                }
+                
+                // Full customer data
                 return {
                     id: customer.id,
                     tenantId: customer.tenantId || '',
@@ -91,18 +112,26 @@ async function customersHandler(request: HttpRequest, context: InvocationContext
                 };
             });
             
+            // Optimized caching headers
+            const cacheMaxAge = isQuickRequest ? 300 : 120; // 5 min for quick, 2 min for full
+            const etag = `"customers-${isQuickRequest ? 'quick' : 'full'}-${transformedCustomers.length}-${Math.floor(Date.now() / 60000)}"`;
+            
             return {
                 status: 200,
                 headers: {
                     ...corsHeaders,
-                    'Cache-Control': 'public, max-age=60, s-maxage=60', // Cache for 1 minute
-                    'ETag': `"customers-${transformedCustomers.length}-${Date.now()}"`,
-                    'Content-Type': 'application/json'
+                    'Cache-Control': `public, max-age=${cacheMaxAge}, s-maxage=${cacheMaxAge}`,
+                    'ETag': etag,
+                    'Content-Type': 'application/json',
+                    'Content-Encoding': 'gzip', // Enable compression
+                    'Vary': 'Accept-Encoding'
                 },
                 jsonBody: {
                     success: true,
                     data: transformedCustomers,
                     count: transformedCustomers.length,
+                    total: result.total,
+                    isQuickData: isQuickRequest,
                     timestamp: new Date().toISOString(),
                     continuationToken: 'continuationToken' in result ? result.continuationToken : undefined
                 }

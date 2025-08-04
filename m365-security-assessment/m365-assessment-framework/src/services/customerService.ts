@@ -37,11 +37,20 @@ export class CustomerService {
   private static instance: CustomerService;
   private baseUrl: string;
 
-  // Cache for prefetched data
+  // Enhanced cache for optimized performance
   private customersCache: Customer[] | null = null;
   private cacheTimestamp: number = 0;
-  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache (increased from 2 minutes)
+  private readonly CACHE_DURATION = 10 * 60 * 1000; // 10 minutes cache for better UX
   private prefetchPromise: Promise<void> | null = null;
+  
+  // Performance optimization: lazy loading with pagination
+  private lazyCache: Map<string, Customer> = new Map();
+  private isInitializing = false;
+  private initPromise: Promise<Customer[]> | null = null;
+  
+  // Fast initial load with minimal data
+  private quickCache: Partial<Customer>[] | null = null;
+  private quickCacheTimestamp: number = 0;
 
   private constructor() {
     // Azure Static Web Apps API routing:
@@ -68,143 +77,195 @@ export class CustomerService {
   }
 
   /**
-   * Get all registered customers with their Azure app registrations
+   * Get all registered customers with optimized performance
+   * Fast initial load with progressive enhancement
    */
   public async getCustomers(): Promise<Customer[]> {
-    // Check cache first
+    // Fast path: return cached data immediately if available
     const cachedCustomers = this.getCachedCustomers();
     if (cachedCustomers) {
-      // Start background prefetch if cache is getting stale (80% of cache duration)
+      // Start background refresh if cache is getting stale (50% of cache duration)
       const cacheAge = Date.now() - this.cacheTimestamp;
-      if (cacheAge > this.CACHE_DURATION * 0.8 && !this.prefetchPromise) {
+      if (cacheAge > this.CACHE_DURATION * 0.5 && !this.prefetchPromise) {
         this.prefetchPromise = this.backgroundPrefetch();
       }
       return cachedCustomers;
     }
 
+    // Prevent multiple simultaneous initialization calls
+    if (this.isInitializing && this.initPromise) {
+      console.log('� CustomerService: Waiting for existing initialization...');
+      return await this.initPromise;
+    }
+
+    this.isInitializing = true;
+    this.initPromise = this.fetchCustomersOptimized();
+    
     try {
-      console.log('🔍 CustomerService: Making API call to:', `${this.baseUrl}/customers`);
+      const customers = await this.initPromise;
+      return customers;
+    } finally {
+      this.isInitializing = false;
+      this.initPromise = null;
+    }
+  }
+
+  /**
+   * Optimized customer fetching with progressive loading
+   */
+  private async fetchCustomersOptimized(): Promise<Customer[]> {
+    try {
+      console.log('🚀 CustomerService: Starting optimized fetch...');
       
-      // Use retry API call for reliable cold start handling
+      // Use optimized retry settings for faster response
       const response = await this.retryApiCall(() => 
         axios.get(`${this.baseUrl}/customers`, {
-          timeout: 30000, // Reduced from 45 seconds to 30 seconds
+          timeout: 15000, // Reduced timeout for faster failures
           headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-          }
+            'Cache-Control': 'max-age=60', // Allow some caching
+            'Accept': 'application/json',
+            'Accept-Encoding': 'gzip, deflate', // Enable compression
+          },
+          validateStatus: (status) => status < 500, // Accept all non-server errors
         }),
-        3, // Max 3 retries
+        2, // Reduce retries for faster response
         true // This is potentially the first call
       );
       
-      console.log('📦 CustomerService: Raw API response:', response.data);
-      console.log('📊 CustomerService: Response status:', response.status);
+      console.log('� CustomerService: Response received, processing...');
       
-      // Handle the new API response format from GetCustomers function
-      if (response.data.success && Array.isArray(response.data.data)) {
-        const customers = response.data.data.map((customer: any) => ({
-          ...customer,
-          createdDate: new Date(customer.createdDate),
-          lastAssessmentDate: customer.lastAssessmentDate ? new Date(customer.lastAssessmentDate) : undefined
-        }));
-        
-        // Update cache
-        this.customersCache = customers;
-        this.cacheTimestamp = Date.now();
-        console.log(`✅ CustomerService: Cached ${customers.length} customers`);
-        
-        return customers;
+      // Handle API response efficiently
+      let customers: Customer[] = [];
+      
+      if (response.data?.success && Array.isArray(response.data.data)) {
+        customers = this.processCustomerData(response.data.data);
       } else if (Array.isArray(response.data)) {
-        // Legacy format - direct array response
-        const customers = response.data.map((customer: any) => ({
-          ...customer,
-          createdDate: new Date(customer.createdDate),
-          lastAssessmentDate: customer.lastAssessmentDate ? new Date(customer.lastAssessmentDate) : undefined
-        }));
-        
-        // Update cache
-        this.customersCache = customers;
-        this.cacheTimestamp = Date.now();
-        console.log(`✅ CustomerService: Cached ${customers.length} customers (legacy format)`);
-        
-        return customers;
+        customers = this.processCustomerData(response.data);
       } else {
-        console.warn('Unexpected API response format:', response.data);
+        console.warn('⚠️ CustomerService: Unexpected response format, returning empty array');
         return [];
       }
-    } catch (error: any) {
-      console.error('❌ CustomerService: Error fetching customers:', error);
       
-      // Detailed error logging for debugging
-      if (error.response) {
-        console.error('Response Error Details:');
-        console.error('- Status:', error.response.status);
-        console.error('- Status Text:', error.response.statusText);
-        console.error('- URL:', error.config?.url);
-        console.error('- Headers:', error.response.headers);
-        console.error('- Data:', error.response.data);
-        
-        if (error.response.status === 404) {
-          console.error('🚨 API Endpoint Not Found - Check deployment:');
-          console.error('1. Verify API function is deployed to Azure');
-          console.error('2. Check Azure Static Web Apps configuration');
-          console.error('3. Ensure /api/customers route is working');
-          console.error('4. Try browsing to', `${this.baseUrl}/customers`, 'manually');
-        }
-      } else if (error.request) {
-        console.error('Network Error:', error.message);
-        console.error('Request was made but no response received');
-        console.error('Check network connectivity and CORS settings');
-      } else {
-        console.error('Request Setup Error:', error.message);
+      // Update all caches efficiently
+      this.updateCaches(customers);
+      
+      console.log(`✅ CustomerService: Successfully loaded ${customers.length} customers`);
+      return customers;
+      
+    } catch (error: any) {
+      console.error('❌ CustomerService: Optimized fetch failed:', error);
+      
+      // Fast error handling - don't log excessive details in production
+      if (process.env.NODE_ENV === 'development') {
+        this.logDetailedError(error);
       }
       
-      // Always return empty array for customer list failures
-      // This allows the UI to show empty state instead of crashing
-      console.warn('⚠️ CustomerService: Returning empty array due to error');
+      // Return empty array for graceful degradation
       return [];
     }
   }
 
   /**
-   * Prefetch customers data in the background
+   * Process customer data efficiently
    */
-  public async prefetchCustomers(): Promise<void> {
-    try {
-      console.log('🚀 CustomerService: Prefetching customers in background...');
-      const customers = await this.getCustomers();
-      this.customersCache = customers;
-      this.cacheTimestamp = Date.now();
-      console.log(`✅ CustomerService: Prefetched ${customers.length} customers`);
-    } catch (error) {
-      console.warn('⚠️ CustomerService: Prefetch failed:', error);
+  private processCustomerData(rawData: any[]): Customer[] {
+    return rawData.map((customer: any) => ({
+      ...customer,
+      createdDate: new Date(customer.createdDate),
+      lastAssessmentDate: customer.lastAssessmentDate ? new Date(customer.lastAssessmentDate) : undefined
+    }));
+  }
+
+  /**
+   * Update all caches efficiently
+   */
+  private updateCaches(customers: Customer[]): void {
+    // Main cache
+    this.customersCache = customers;
+    this.cacheTimestamp = Date.now();
+    
+    // Lazy cache for individual lookups
+    this.lazyCache.clear();
+    customers.forEach(customer => {
+      this.lazyCache.set(customer.id, customer);
+    });
+    
+    // Quick cache for minimal data
+    this.quickCache = customers.map(c => ({
+      id: c.id,
+      tenantName: c.tenantName,
+      tenantDomain: c.tenantDomain,
+      status: c.status,
+      totalAssessments: c.totalAssessments
+    }));
+    this.quickCacheTimestamp = Date.now();
+  }
+
+  /**
+   * Detailed error logging for development
+   */
+  private logDetailedError(error: any): void {
+    if (error.response) {
+      console.error('Response Error:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        url: error.config?.url,
+        data: error.response.data
+      });
+    } else if (error.request) {
+      console.error('Network Error:', error.message);
+    } else {
+      console.error('Request Setup Error:', error.message);
     }
   }
 
   /**
-   * Background prefetch to refresh cache before it expires
+   * Fast prefetch customers data in the background
+   * Optimized for minimal impact on UI
+   */
+  public async prefetchCustomers(): Promise<void> {
+    if (this.customersCache && (Date.now() - this.cacheTimestamp) < this.CACHE_DURATION * 0.5) {
+      console.log('⚡ CustomerService: Skip prefetch - cache is fresh');
+      return;
+    }
+
+    try {
+      console.log('🚀 CustomerService: Starting background prefetch...');
+      const customers = await this.fetchCustomersOptimized();
+      console.log(`✅ CustomerService: Prefetched ${customers.length} customers`);
+    } catch (error) {
+      console.warn('⚠️ CustomerService: Background prefetch failed, will retry later:', error);
+    }
+  }
+
+  /**
+   * Optimized background prefetch with shorter timeout
    */
   private async backgroundPrefetch(): Promise<void> {
     try {
-      console.log('🔄 CustomerService: Background prefetch started...');
+      console.log('🔄 CustomerService: Background refresh started...');
+      
       const response = await axios.get(`${this.baseUrl}/customers`, {
-        timeout: 15000, // Shorter timeout for background refresh
+        timeout: 8000, // Very short timeout for background refresh
+        headers: {
+          'Cache-Control': 'max-age=300', // Allow 5-minute cache
+          'Accept-Encoding': 'gzip, deflate',
+        },
       });
 
-      if (response.data.success && Array.isArray(response.data.data)) {
-        const customers = response.data.data.map((customer: any) => ({
-          ...customer,
-          createdDate: new Date(customer.createdDate),
-          lastAssessmentDate: customer.lastAssessmentDate ? new Date(customer.lastAssessmentDate) : undefined
-        }));
-        
-        this.customersCache = customers;
-        this.cacheTimestamp = Date.now();
-        console.log(`✅ CustomerService: Background prefetch completed (${customers.length} customers)`);
+      let customers: Customer[] = [];
+      if (response.data?.success && Array.isArray(response.data.data)) {
+        customers = this.processCustomerData(response.data.data);
+      } else if (Array.isArray(response.data)) {
+        customers = this.processCustomerData(response.data);
+      }
+      
+      if (customers.length > 0) {
+        this.updateCaches(customers);
+        console.log(`✅ CustomerService: Background refresh completed (${customers.length} customers)`);
       }
     } catch (error) {
-      console.warn('⚠️ CustomerService: Background prefetch failed:', error);
+      console.warn('⚠️ CustomerService: Background refresh failed, will retry later:', error);
     } finally {
       this.prefetchPromise = null;
     }
@@ -229,8 +290,7 @@ export class CustomerService {
   }
 
   /**
-   * Retry API calls with exponential backoff for better reliability
-   * Enhanced for Azure Static Web Apps cold start scenarios
+   * Optimized retry API calls with faster failure detection
    */
   private async retryApiCall<T>(
     apiCall: () => Promise<T>, 
@@ -241,26 +301,19 @@ export class CustomerService {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`🔄 CustomerService: API attempt ${attempt}/${maxRetries}`);
+        if (attempt > 1) {
+          console.log(`🔄 CustomerService: Retry attempt ${attempt}/${maxRetries}`);
+        }
         
         return await apiCall();
       } catch (error: any) {
         lastError = error;
         
-        // Special handling for timeout errors on first attempt (likely cold start)
-        if (attempt === 1 && isFirstCall && (
-          error.code === 'ECONNABORTED' || 
-          error.message?.includes('timeout') ||
-          error.message?.includes('Request timeout')
-        )) {
-          console.warn('❄️ CustomerService: First request timed out (likely cold start), retrying...');
-        }
-        
-        // Don't retry on client errors (4xx) except for 408 (timeout) and 429 (rate limit)
+        // Fast failure for client errors - don't waste time retrying
         if (axios.isAxiosError(error) && error.response?.status) {
           const status = error.response.status;
           if (status >= 400 && status < 500 && status !== 408 && status !== 429) {
-            console.warn(`🚫 CustomerService: Client error ${status}, not retrying`);
+            console.warn(`🚫 CustomerService: Client error ${status}, failing fast`);
             throw error;
           }
         }
@@ -270,9 +323,15 @@ export class CustomerService {
           throw error;
         }
         
-        // Use shorter delay for cold start recovery, longer for other errors
-        const delay = isFirstCall && attempt === 1 ? 3000 : Math.pow(2, attempt - 1) * 1000;
-        console.log(`⏳ CustomerService: Waiting ${delay}ms before retry ${attempt + 1}`);
+        // Optimized delay strategy - much faster for better UX
+        let delay: number;
+        if (isFirstCall && attempt === 1) {
+          delay = 1500; // Shorter cold start delay
+        } else {
+          delay = Math.min(1000 * attempt, 3000); // Cap at 3s max
+        }
+        
+        console.log(`⏳ CustomerService: Retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
@@ -281,18 +340,41 @@ export class CustomerService {
   }
 
   /**
-   * Get a specific customer by ID
+   * Get a specific customer by ID with optimized caching
    */
   public async getCustomer(customerId: string): Promise<Customer> {
+    // Check lazy cache first for instant response
+    if (this.lazyCache.has(customerId)) {
+      console.log('⚡ CustomerService: Customer found in lazy cache');
+      return this.lazyCache.get(customerId)!;
+    }
+
+    // Check main cache
+    if (this.customersCache) {
+      const customer = this.customersCache.find(c => c.id === customerId);
+      if (customer) {
+        this.lazyCache.set(customerId, customer);
+        return customer;
+      }
+    }
+
+    // Fallback to API call
     try {
-      const response = await axios.get(`${this.baseUrl}/customers/${customerId}`);
-      return {
+      const response = await axios.get(`${this.baseUrl}/customers/${customerId}`, {
+        timeout: 10000, // Shorter timeout for individual customer
+      });
+      
+      const customer = {
         ...response.data,
         createdDate: new Date(response.data.createdDate),
         lastAssessmentDate: response.data.lastAssessmentDate ? new Date(response.data.lastAssessmentDate) : undefined
       };
+      
+      // Cache for future use
+      this.lazyCache.set(customerId, customer);
+      return customer;
     } catch (error) {
-      console.error('Error fetching customer:', error);
+      console.error('❌ CustomerService: Error fetching customer:', error);
       throw new Error('Failed to fetch customer details');
     }
   }
@@ -536,11 +618,85 @@ export class CustomerService {
   }
 
   /**
-   * Clear the customer cache (called when data changes)
+   * Clear all caches when data changes
    */
   private clearCache(): void {
-    console.log('🗑️ CustomerService: Clearing cache due to data change');
+    console.log('🗑️ CustomerService: Clearing all caches due to data change');
     this.customersCache = null;
     this.cacheTimestamp = 0;
+    this.quickCache = null;
+    this.quickCacheTimestamp = 0;
+    this.lazyCache.clear();
+  }
+
+  /**
+   * Get minimal customer data for fast initial display
+   * Returns only essential fields for quick loading
+   */
+  public async getCustomersQuick(): Promise<Partial<Customer>[]> {
+    // Check quick cache first
+    if (this.quickCache && (Date.now() - this.quickCacheTimestamp) < this.CACHE_DURATION) {
+      console.log('⚡ CustomerService: Returning quick cache data');
+      return this.quickCache;
+    }
+
+    // If main cache exists, use it
+    if (this.customersCache) {
+      const quickData = this.customersCache.map(c => ({
+        id: c.id,
+        tenantName: c.tenantName,
+        tenantDomain: c.tenantDomain,
+        status: c.status,
+        totalAssessments: c.totalAssessments,
+        createdDate: c.createdDate,
+        lastAssessmentDate: c.lastAssessmentDate
+      }));
+      
+      this.quickCache = quickData;
+      this.quickCacheTimestamp = Date.now();
+      return quickData;
+    }
+
+    // Use optimized quick API endpoint
+    try {
+      console.log('🚀 CustomerService: Making quick API call...');
+      
+      const response = await axios.get(`${this.baseUrl}/customers?quick=true&limit=25`, {
+        timeout: 8000,
+        headers: {
+          'Accept': 'application/json',
+          'Accept-Encoding': 'gzip, deflate',
+        },
+      });
+      
+      let quickData: Partial<Customer>[] = [];
+      if (response.data?.success && Array.isArray(response.data.data)) {
+        quickData = response.data.data.map((customer: any) => ({
+          ...customer,
+          createdDate: new Date(customer.createdDate),
+          lastAssessmentDate: customer.lastAssessmentDate ? new Date(customer.lastAssessmentDate) : undefined
+        }));
+      }
+      
+      this.quickCache = quickData;
+      this.quickCacheTimestamp = Date.now();
+      
+      console.log(`✅ CustomerService: Quick data loaded (${quickData.length} customers)`);
+      return quickData;
+      
+    } catch (error) {
+      console.warn('⚠️ CustomerService: Quick API failed, falling back to full fetch');
+      // Fallback to full fetch
+      const customers = await this.getCustomers();
+      return customers.map(c => ({
+        id: c.id,
+        tenantName: c.tenantName,
+        tenantDomain: c.tenantDomain,
+        status: c.status,
+        totalAssessments: c.totalAssessments,
+        createdDate: c.createdDate,
+        lastAssessmentDate: c.lastAssessmentDate
+      }));
+    }
   }
 }
