@@ -110,20 +110,67 @@ export const CONTROL_NAME_MAPPING: Record<string, string> = {
 };
 
 /**
- * Get human-readable control name
+ * Validates if a title from Microsoft Graph API is usable as a display name
+ */
+function isValidTitle(title: string, controlName: string): boolean {
+  return !!(title && 
+         title.length > 3 && 
+         title !== 'N/A' && 
+         title !== controlName &&
+         !title.includes('Microsoft.') &&
+         !title.startsWith('SCID_') &&
+         !title.includes('undefined') &&
+         title.trim().length > 0);
+}
+
+/**
+ * Validates if a description is usable as a display name
+ */
+function isValidDescription(description: string, controlName: string): boolean {
+  return !!(description && 
+         description.length > 10 && 
+         description.length < 200 && // Avoid overly long descriptions
+         description !== controlName &&
+         !description.includes('Microsoft.') &&
+         !description.includes('undefined') &&
+         description.trim().length > 0);
+}
+
+/**
+ * Cleans up description text to make it more readable
+ */
+function cleanDescription(description: string): string {
+  return description
+    .replace(/^Microsoft\s+/i, '') // Remove Microsoft prefix
+    .replace(/\s+\(.*?\)$/, '') // Remove parenthetical info at end
+    .replace(/\s+$/, '') // Remove trailing whitespace
+    .replace(/\.$/, '') // Remove trailing period
+    .trim();
+}
+
+/**
+ * Get human-readable control name with enhanced API-first approach
  */
 export function getReadableControlName(controlName: string, description?: string, title?: string): string {
-  // First try the title from control profile (usually the best)
-  if (title && title.length > 5 && title !== controlName && !title.includes('Microsoft.')) {
-    return title;
+  // Primary: Use official Microsoft Graph API title (most reliable)
+  if (isValidTitle(title || '', controlName)) {
+    return title!;
   }
   
-  // Then try direct mapping
+  // Secondary: Check static mapping (curated and tested)
   if (CONTROL_NAME_MAPPING[controlName]) {
     return CONTROL_NAME_MAPPING[controlName];
   }
   
-  // Try to find partial matches for AAD controls
+  // Tertiary: Use cleaned description if better than control name
+  if (isValidDescription(description || '', controlName)) {
+    const cleanDesc = cleanDescription(description!);
+    if (cleanDesc.length > 5) {
+      return cleanDesc;
+    }
+  }
+  
+  // Quaternary: Try partial matching for similar controls
   const lowerName = controlName.toLowerCase();
   for (const [key, value] of Object.entries(CONTROL_NAME_MAPPING)) {
     if (lowerName.includes(key.toLowerCase()) || key.toLowerCase().includes(lowerName)) {
@@ -131,16 +178,7 @@ export function getReadableControlName(controlName: string, description?: string
     }
   }
   
-  // If description is available and looks better than control name, use it
-  if (description && description.length > 10 && !description.includes('Microsoft.') && description !== controlName) {
-    // Clean up description if it's too technical
-    const cleanDesc = description.replace(/^Microsoft\s+/i, '').replace(/\s+\(.*?\)$/, '');
-    if (cleanDesc.length > 5) {
-      return cleanDesc;
-    }
-  }
-  
-  // Fall back to formatting the control name
+  // Fallback: Format the control name to be more readable
   return formatControlName(controlName);
 }
 
