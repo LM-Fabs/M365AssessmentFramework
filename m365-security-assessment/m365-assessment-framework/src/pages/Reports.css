@@ -2186,3 +2186,42 @@
   color: #28a745;
   font-weight: 500;
 }
+
+/* Identity & Access Report Container */
+.identity-access-report-container {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.identity-access-report-container .identity-access-report {
+  background: transparent;
+  min-height: auto;
+}
+
+.identity-access-report-container .content-container {
+  max-width: 100%;
+  padding: 0;
+}
+
+.identity-access-report-container .report-header {
+  margin-bottom: 20px;
+}
+
+/* Override tab content padding when showing identity report */
+.tab-content:has(.identity-access-report-container) {
+  padding: 0;
+  background: transparent;
+}
+
+/* Responsive adjustments for identity report in tab context */
+@media (max-width: 768px) {
+  .identity-access-report-container .report-header {
+    padding: 15px 20px;
+  }
+  
+  .identity-access-report-container .summary-stats {
+    margin-bottom: 20px;
+  }
+}

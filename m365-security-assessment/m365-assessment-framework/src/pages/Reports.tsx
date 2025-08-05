@@ -10,6 +10,7 @@ import {
   calculateMaxScore, 
   determineActionType 
 } from '../utils/secureScoreFormatter';
+import IdentityAccessReportComponent from '../components/IdentityAccessReport';
 import './Reports.css';
 
 interface SecurityCategory {
@@ -2352,9 +2353,12 @@ const Reports: React.FC = () => {
                     {renderSecureScoreTable(currentTabData.metrics, currentTabData.controlScores)}
                   </div>
                 ) : activeTab === 'identity' ? (
-                  // Always show identity table for identity tab
-                  <div className="charts-grid">
-                    {renderIdentityTable(currentTabData.metrics)}
+                  // Show the new Identity & Access Report component
+                  <div className="identity-access-report-container">
+                    <IdentityAccessReportComponent 
+                      customerId={selectedCustomer.id}
+                      assessmentId={selectedAssessmentId || undefined}
+                    />
                   </div>
                 ) : (
                   // Show charts for other tabs
