@@ -340,4 +340,109 @@ export class MultiTenantGraphService {
             throw new Error(`Failed to get conditional access policies: ${error.message}`);
         }
     }
+
+    /**
+     * Get user registration details for authentication methods
+     */
+    async getUserRegistrationDetails(): Promise<any[]> {
+        try {
+            console.log('🔐 MultiTenantGraphService: Fetching user registration details for tenant:', this.targetTenantId);
+            const response = await this.graphClient.api('/reports/authenticationMethods/userRegistrationDetails').get();
+            console.log('✅ MultiTenantGraphService: User registration details retrieved successfully');
+            return response.value || [];
+        } catch (error: any) {
+            console.error('❌ MultiTenantGraphService: Failed to get user registration details:', error);
+            throw new Error(`Failed to get user registration details: ${error.message}`);
+        }
+    }
+
+    /**
+     * Get authentication method policies
+     */
+    async getAuthenticationMethodPolicies(): Promise<any[]> {
+        try {
+            console.log('🔐 MultiTenantGraphService: Fetching authentication method policies for tenant:', this.targetTenantId);
+            const response = await this.graphClient.api('/policies/authenticationMethodsPolicy').get();
+            
+            const policies: any[] = [];
+            const config = response.authenticationMethodConfigurations || [];
+            
+            config.forEach((methodConfig: any) => {
+                policies.push({
+                    type: methodConfig['@odata.type'] || methodConfig.id || 'unknown',
+                    displayName: methodConfig.displayName || methodConfig.id || 'Unknown Method',
+                    state: methodConfig.state === 'enabled' ? 'Enabled' : 'Disabled',
+                    includeTargets: methodConfig.includeTargets?.map((target: any) => target.id) || []
+                });
+            });
+            
+            console.log('✅ MultiTenantGraphService: Authentication method policies retrieved successfully');
+            return policies;
+        } catch (error: any) {
+            console.error('❌ MultiTenantGraphService: Failed to get authentication method policies:', error);
+            throw new Error(`Failed to get authentication method policies: ${error.message}`);
+        }
+    }
+
+    /**
+     * Get privileged users (directory role members and PIM assignments)
+     */
+    async getPrivilegedUsers(): Promise<string[]> {
+        try {
+            console.log('👑 MultiTenantGraphService: Fetching privileged users for tenant:', this.targetTenantId);
+            const privilegedUsers: string[] = [];
+
+            try {
+                // Try PIM first (for P2 licenses)
+                const [eligiblePIM, assignedPIM] = await Promise.all([
+                    this.graphClient.api('/roleManagement/directory/roleEligibilitySchedules').expand('principal,roleDefinition').get(),
+                    this.graphClient.api('/roleManagement/directory/roleAssignmentSchedules').expand('principal,roleDefinition').get()
+                ]);
+
+                // Process eligible PIM roles
+                eligiblePIM.value?.forEach((assignment: any) => {
+                    const userPrincipalName = assignment.principal?.userPrincipalName;
+                    if (userPrincipalName && !privilegedUsers.includes(userPrincipalName)) {
+                        privilegedUsers.push(userPrincipalName);
+                    }
+                });
+
+                // Process active PIM roles
+                assignedPIM.value?.forEach((assignment: any) => {
+                    const userPrincipalName = assignment.principal?.userPrincipalName;
+                    if (userPrincipalName && !privilegedUsers.includes(userPrincipalName)) {
+                        privilegedUsers.push(userPrincipalName);
+                    }
+                });
+
+            } catch (pimError) {
+                console.log('⚠️ PIM API not available, falling back to directory roles');
+                
+                // Fallback to directory roles
+                const directoryRoles = await this.graphClient.api('/directoryRoles').get();
+                
+                if (directoryRoles.value) {
+                    for (const role of directoryRoles.value) {
+                        try {
+                            const members = await this.graphClient.api(`/directoryRoles/${role.id}/members`).get();
+                            members.value?.forEach((member: any) => {
+                                const userPrincipalName = member.userPrincipalName;
+                                if (userPrincipalName && !privilegedUsers.includes(userPrincipalName)) {
+                                    privilegedUsers.push(userPrincipalName);
+                                }
+                            });
+                        } catch (memberError) {
+                            console.log(`⚠️ Error fetching members for role ${role.displayName}:`, memberError);
+                        }
+                    }
+                }
+            }
+
+            console.log('✅ MultiTenantGraphService: Privileged users retrieved successfully');
+            return privilegedUsers;
+        } catch (error: any) {
+            console.error('❌ MultiTenantGraphService: Failed to get privileged users:', error);
+            throw new Error(`Failed to get privileged users: ${error.message}`);
+        }
+    }
 }

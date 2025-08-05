@@ -42,11 +42,16 @@ const IdentityAccessReportComponent: React.FC<IdentityAccessReportProps> = ({
     }, [customerId, assessmentId]);
 
     const generateReport = async () => {
+        if (!customerId) {
+            setError('Customer ID is required to generate the report');
+            return;
+        }
+
         setLoading(true);
         setError(null);
 
         try {
-            const reportData = await identityAccessService.generateIdentityAccessReport();
+            const reportData = await identityAccessService.generateIdentityAccessReport(customerId);
             setReport(reportData);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to generate identity & access report');

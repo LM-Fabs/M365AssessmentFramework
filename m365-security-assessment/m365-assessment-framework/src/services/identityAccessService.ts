@@ -135,121 +135,30 @@ class IdentityAccessService {
     }
 
     /**
-     * Get organization information
+     * Fetch complete identity & access data from API
      */
-    private async getOrganizationInfo(): Promise<{ displayName: string }> {
-        const cacheKey = 'organization_info';
+    private async fetchIdentityAccessData(customerId: string): Promise<any> {
+        const cacheKey = `identity_access_data_${customerId}`;
         const cached = this.getCacheEntry(cacheKey);
         if (cached) {
-            this.log('Returning cached organization info');
+            this.log('Returning cached identity access data');
             return cached;
         }
 
         try {
-            this.log('Fetching organization information from Microsoft Graph API');
+            this.log('Fetching identity access data from API');
             
-            // TODO: Replace with actual Microsoft Graph API call
-            // const response = await axios.get('/api/graph/organization');
-            
-            // Mock implementation for now
-            const orgInfo = {
-                displayName: 'Organization Name' // Will be replaced with actual API call
-            };
+            const response = await axios.get(`/api/customers/${customerId}/identity-access-report`);
+            if (!response.data?.success) {
+                throw new Error(response.data?.message || 'Failed to fetch identity access report');
+            }
 
-            this.setCacheEntry(cacheKey, orgInfo);
-            return orgInfo;
+            const data = response.data.data;
+            this.setCacheEntry(cacheKey, data);
+            return data;
         } catch (error) {
-            this.log('Error fetching organization info:', error);
-            throw new Error('Failed to fetch organization information');
-        }
-    }
-
-    /**
-     * Get user registration details from Microsoft Graph API
-     */
-    private async getUserRegistrationDetails(): Promise<UserRegistrationDetails[]> {
-        const cacheKey = 'user_registration_details';
-        const cached = this.getCacheEntry(cacheKey);
-        if (cached) {
-            this.log('Returning cached user registration details');
-            return cached;
-        }
-
-        try {
-            this.log('Fetching user registration details from Microsoft Graph API');
-            
-            // TODO: Replace with actual Microsoft Graph API call
-            // const response = await axios.get('/api/graph/reports/authenticationMethods/userRegistrationDetails?$top=20000&$orderby=userPrincipalName');
-            
-            // Mock implementation for now - will be replaced with actual API calls
-            const userRegistrations: UserRegistrationDetails[] = [];
-
-            this.setCacheEntry(cacheKey, userRegistrations);
-            return userRegistrations;
-        } catch (error) {
-            this.log('Error fetching user registration details:', error);
-            throw new Error('Failed to fetch user registration details');
-        }
-    }
-
-    /**
-     * Get authentication method policies
-     */
-    private async getAuthenticationMethodPolicies(): Promise<AuthenticationMethodPolicy[]> {
-        const cacheKey = 'auth_method_policies';
-        const cached = this.getCacheEntry(cacheKey);
-        if (cached) {
-            this.log('Returning cached authentication method policies');
-            return cached;
-        }
-
-        try {
-            this.log('Fetching authentication method policies from Microsoft Graph API');
-            
-            // TODO: Replace with actual Microsoft Graph API call
-            // const response = await axios.get('/api/graph/policies/authenticationmethodspolicy');
-            
-            // Mock implementation for now
-            const policies: AuthenticationMethodPolicy[] = [];
-
-            this.setCacheEntry(cacheKey, policies);
-            return policies;
-        } catch (error) {
-            this.log('Error fetching authentication method policies:', error);
-            throw new Error('Failed to fetch authentication method policies');
-        }
-    }
-
-    /**
-     * Get privileged users (directory role members)
-     */
-    private async getPrivilegedUsers(): Promise<string[]> {
-        const cacheKey = 'privileged_users';
-        const cached = this.getCacheEntry(cacheKey);
-        if (cached) {
-            this.log('Returning cached privileged users');
-            return cached;
-        }
-
-        try {
-            this.log('Fetching privileged users from Microsoft Graph API');
-            
-            // TODO: Replace with actual Microsoft Graph API calls
-            // For P2 licenses: Use PIM roles
-            // const eligiblePIM = await axios.get('/api/graph/roleManagement/directory/roleEligibilitySchedules?$expand=*');
-            // const assignedPIM = await axios.get('/api/graph/roleManagement/directory/roleAssignmentSchedules?$expand=*');
-            
-            // For other licenses: Use directory roles
-            // const directoryRoles = await axios.get('/api/graph/directoryRoles');
-            
-            // Mock implementation for now
-            const privilegedUsers: string[] = [];
-
-            this.setCacheEntry(cacheKey, privilegedUsers);
-            return privilegedUsers;
-        } catch (error) {
-            this.log('Error fetching privileged users:', error);
-            throw new Error('Failed to fetch privileged users');
+            this.log('Error fetching identity access data:', error);
+            throw new Error(`Failed to fetch identity access data: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
 
@@ -367,17 +276,28 @@ class IdentityAccessService {
     /**
      * Generate comprehensive identity & access report
      */
-    public async generateIdentityAccessReport(): Promise<IdentityAccessReport> {
+    public async generateIdentityAccessReport(customerId: string): Promise<IdentityAccessReport> {
         try {
-            this.log('Starting identity & access report generation');
+            this.log('Starting identity & access report generation for customer:', customerId);
 
-            // Fetch all required data
-            const [orgInfo, userRegistrations, policies, privilegedUsers] = await Promise.all([
-                this.getOrganizationInfo(),
-                this.getUserRegistrationDetails(),
-                this.getAuthenticationMethodPolicies(),
-                this.getPrivilegedUsers()
-            ]);
+            // Fetch all required data from the centralized API
+            const apiData = await this.fetchIdentityAccessData(customerId);
+
+            // Extract data components
+            const orgInfo = {
+                displayName: apiData.organization?.displayName || 'Organization'
+            };
+
+            const userRegistrations: UserRegistrationDetails[] = apiData.userRegistrationDetails?.map((user: any) => ({
+                userPrincipalName: user.userPrincipalName || '',
+                isMfaCapable: user.isMfaCapable || false,
+                isPasswordlessCapable: user.isPasswordlessCapable || false,
+                defaultMfaMethod: user.defaultMfaMethod || '',
+                methodsRegistered: user.methodsRegistered || []
+            })) || [];
+
+            const policies: AuthenticationMethodPolicy[] = apiData.authMethodPolicies || [];
+            const privilegedUsers: string[] = apiData.privilegedUsers || [];
 
             // Enhance user data with analysis
             const enhancedUsers = this.enhanceUserRegistrationDetails(userRegistrations, privilegedUsers);
