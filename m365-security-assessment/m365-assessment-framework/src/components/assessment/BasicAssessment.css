@@ -327,3 +327,84 @@
     flex-basis: 100%;
   }
 }
+
+/* Identity & Access Report Styles */
+.detailed-identity-section {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px 0;
+  border-left: 4px solid #8b5cf6;
+}
+
+.detailed-identity-section h3 {
+  margin: 0 0 20px 0;
+  color: #1e293b;
+  font-size: 1.4rem;
+}
+
+.identity-report-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.identity-stats {
+  display: flex;
+  gap: 30px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.stat-group {
+  min-width: 200px;
+}
+
+.stat-group h4 {
+  margin: 0 0 12px 0;
+  color: #475569;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.stat-group p {
+  margin: 6px 0;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.stat-group strong {
+  color: #1e293b;
+}
+
+.identity-actions {
+  flex-shrink: 0;
+}
+
+.identity-display {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.identity-display p {
+  margin: 4px 0;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .identity-report-summary {
+    flex-direction: column;
+  }
+  
+  .identity-stats {
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .stat-group {
+    min-width: auto;
+  }
+}

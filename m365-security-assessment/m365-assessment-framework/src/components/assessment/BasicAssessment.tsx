@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AssessmentService } from '../../services/assessmentService';
+import IdentityAccessService, { IdentityAccessReport, UserRegistrationDetails } from '../../services/identityAccessService';
 import { LicenseReport } from '../LicenseReport';
 import './BasicAssessment.css';
 
@@ -54,10 +55,17 @@ export const BasicAssessment: React.FC<BasicAssessmentProps> = ({
       title: 'Fetch License Information',
       description: 'Retrieving tenant license and subscription data',
       status: 'pending'
+    },
+    {
+      id: 'identity-access-report',
+      title: 'Generate Identity & Access Report',
+      description: 'Analyzing authentication methods and identity security',
+      status: 'pending'
     }
   ]);
 
   const assessmentService = AssessmentService.getInstance();
+  const identityAccessService = new IdentityAccessService();
 
   const updateStepStatus = (stepId: string, status: AssessmentStep['status'], result?: any) => {
     setSteps(prev => prev.map(step => 
@@ -110,12 +118,36 @@ export const BasicAssessment: React.FC<BasicAssessmentProps> = ({
       const licenseInfo = await assessmentService.getLicenseInfo(tenantId, appData.clientId);
       updateStepStatus('license-info', 'completed', licenseInfo);
 
+      // Step 5: Generate Identity & Access Report
+      updateStepStatus('identity-access-report', 'in-progress');
+      setCurrentStep(5);
+
+      let identityReport = null;
+      try {
+        if (customerId) {
+          identityReport = await identityAccessService.generateIdentityAccessReport(customerId);
+          updateStepStatus('identity-access-report', 'completed', identityReport);
+        } else {
+          // If no customerId, mark as completed but with a note that it requires customer ID
+          updateStepStatus('identity-access-report', 'completed', { 
+            message: 'Identity report requires customer ID. Complete after customer is saved.' 
+          });
+        }
+      } catch (identityError: any) {
+        console.error('Identity & Access Report failed:', identityError);
+        updateStepStatus('identity-access-report', 'error', { 
+          error: identityError.message || 'Failed to generate identity report' 
+        });
+        // Don't fail the entire assessment if identity report fails
+      }
+
       // Complete assessment
       const finalResult = {
         tenantId,
         appRegistration: appData,
         secureScore,
         licenseInfo,
+        identityReport,
         assessmentDate: new Date(),
         status: 'completed'
       };
@@ -293,6 +325,18 @@ export const BasicAssessment: React.FC<BasicAssessmentProps> = ({
                 <p><strong>Utilization:</strong> {((assessmentResult.licenseInfo.assignedLicenses / assessmentResult.licenseInfo.totalLicenses) * 100).toFixed(1)}%</p>
               </div>
             </div>
+
+            {assessmentResult.identityReport && (
+              <div className="result-card">
+                <h4>🔐 Identity & Access Summary</h4>
+                <div className="identity-display">
+                  <p><strong>Total Users:</strong> {assessmentResult.identityReport.users.length}</p>
+                  <p><strong>MFA Capable:</strong> {assessmentResult.identityReport.users.filter((u: UserRegistrationDetails) => u.isMfaCapable).length}</p>
+                  <p><strong>Passwordless Capable:</strong> {assessmentResult.identityReport.users.filter((u: UserRegistrationDetails) => u.isPasswordlessCapable).length}</p>
+                  <p><strong>Auth Methods:</strong> {assessmentResult.identityReport.authMethods.length} configured</p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Detailed License Report */}
@@ -303,6 +347,41 @@ export const BasicAssessment: React.FC<BasicAssessmentProps> = ({
                 tenantName={tenantDomain || tenantId}
                 assessmentDate={new Date().toISOString()}
               />
+            </div>
+          )}
+
+          {/* Detailed Identity & Access Report */}
+          {assessmentResult.identityReport && (
+            <div className="detailed-identity-section">
+              <h3>🔐 Identity & Access Report Details</h3>
+              <div className="identity-report-summary">
+                <div className="identity-stats">
+                  <div className="stat-group">
+                    <h4>User Statistics</h4>
+                    <p><strong>Total Users:</strong> {assessmentResult.identityReport.users.length}</p>
+                    <p><strong>MFA Capable:</strong> {assessmentResult.identityReport.users.filter((u: UserRegistrationDetails) => u.isMfaCapable).length}</p>
+                    <p><strong>Passwordless Capable:</strong> {assessmentResult.identityReport.users.filter((u: UserRegistrationDetails) => u.isPasswordlessCapable).length}</p>
+                    <p><strong>Privileged Users:</strong> {assessmentResult.identityReport.users.filter((u: UserRegistrationDetails) => u.isPrivileged).length}</p>
+                  </div>
+                  <div className="stat-group">
+                    <h4>Authentication Methods</h4>
+                    <p><strong>Configured Methods:</strong> {assessmentResult.identityReport.authMethods.length}</p>
+                    <p><strong>Strong Methods:</strong> {assessmentResult.identityReport.users.filter((u: UserRegistrationDetails) => u.hasStrongMethods).length}</p>
+                    <p><strong>Weak Methods:</strong> {assessmentResult.identityReport.users.filter((u: UserRegistrationDetails) => u.hasWeakMethods).length}</p>
+                  </div>
+                </div>
+                <div className="identity-actions">
+                  <button 
+                    className="btn-secondary"
+                    onClick={() => {
+                      // Navigate to full Identity & Access Report
+                      window.open('/reports?tab=identity', '_blank');
+                    }}
+                  >
+                    View Full Identity Report
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
