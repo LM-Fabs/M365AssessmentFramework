@@ -350,10 +350,13 @@
   width: 9%;
 }
 
+/* Utilization column header - fixed width for consistent alignment */
 .license-table th:nth-child(5) { /* Utilization column */
-  width: 120px; /* Fixed width to match utilization cell */
-  min-width: 120px;
-  max-width: 120px;
+  width: 130px !important; /* Increased width and forced with !important */
+  min-width: 130px !important;
+  max-width: 130px !important;
+  text-align: center !important;
+  padding: 1rem 0.5rem !important;
 }
 
 .license-table th:nth-child(6) { /* Cost/User/Month column */
@@ -392,12 +395,14 @@
   vertical-align: middle;
 }
 
-/* Ensure utilization td matches header width */
+/* Ensure utilization td matches header width with enhanced specificity */
 .license-table td:nth-child(5) { /* Utilization column data cells */
-  width: 120px;
-  min-width: 120px;
-  max-width: 120px;
-  padding: 0.75rem 0.5rem; /* Reduced horizontal padding */
+  width: 130px !important; /* Match header width exactly */
+  min-width: 130px !important;
+  max-width: 130px !important;
+  padding: 0.75rem 0.5rem !important;
+  text-align: center !important;
+  vertical-align: middle !important;
 }
 
 .license-name-cell {
@@ -428,31 +433,33 @@
 }
 
 .utilization-cell {
-  text-align: center;
-  vertical-align: middle;
-  width: 120px; /* Fixed width to match header column */
-  min-width: 120px;
-  max-width: 120px;
-  padding: 0.75rem 0.5rem; /* Reduced horizontal padding for better fit */
+  text-align: center !important;
+  vertical-align: middle !important;
+  width: 130px !important; /* Fixed width to match header column */
+  min-width: 130px !important;
+  max-width: 130px !important;
+  padding: 0.75rem 0.5rem !important; /* Consistent padding */
+  display: table-cell !important; /* Ensure proper table cell behavior */
 }
 
 .utilization-bar-container {
   position: relative;
   background: #e9ecef;
-  height: 20px; /* Slightly reduced height for better alignment */
-  border-radius: 10px;
+  height: 22px; /* Slightly increased height for better visibility */
+  border-radius: 11px;
   overflow: hidden;
-  width: 90px; /* Adjusted width to fit within the 120px cell with padding */
-  margin: 0 auto;
+  width: 100px !important; /* Adjusted width to fit within the 130px cell with padding */
+  margin: 0 auto !important; /* Center the bar within the cell */
   border: 1px solid #dee2e6;
-  display: block; /* Ensure it's a block element */
+  display: block !important; /* Ensure it's a block element */
 }
 
 .utilization-bar-fill {
   height: 100%;
-  border-radius: 9px; /* Adjusted to match container radius */
+  border-radius: 10px; /* Adjusted to match container radius */
   transition: width 0.3s ease;
   position: relative;
+  display: block !important;
 }
 
 .utilization-text {
@@ -460,13 +467,14 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 0.7rem; /* Slightly smaller for better fit */
+  font-size: 0.75rem !important; /* Slightly larger for better readability */
   font-weight: 600;
-  color: #2c3e50;
-  text-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
+  color: #2c3e50 !important;
+  text-shadow: 0 0 3px rgba(255, 255, 255, 0.9);
   z-index: 10;
   pointer-events: none;
   white-space: nowrap; /* Prevent text wrapping */
+  line-height: 1 !important;
 }
 
 /* License Table Cost Column Styles */
@@ -574,13 +582,14 @@
     padding: 0.5rem 0.4rem;
   }
   
-  /* Override utilization column width for mobile */
+  /* Override utilization column width for mobile with enhanced specificity */
   .license-table th:nth-child(5),
   .license-table td:nth-child(5) {
-    width: 100px;
-    min-width: 100px;
-    max-width: 100px;
-    padding: 0.5rem 0.25rem;
+    width: 110px !important; /* Slightly larger for mobile */
+    min-width: 110px !important;
+    max-width: 110px !important;
+    padding: 0.5rem 0.25rem !important;
+    text-align: center !important;
   }
   
   .license-name-text {
@@ -588,15 +597,14 @@
   }
   
   .utilization-bar-container {
-    width: 70px; /* Adjusted for mobile utilization column width */
-    height: 20px;
+    width: 80px !important; /* Adjusted for mobile utilization column width */
+    height: 20px !important;
+    margin: 0 auto !important;
   }
-  
+
   .utilization-text {
-    font-size: 0.7rem;
-  }
-  
-  .cost-input {
+    font-size: 0.7rem !important;
+  }  .cost-input {
     width: 50px;
     font-size: 0.8rem;
   }

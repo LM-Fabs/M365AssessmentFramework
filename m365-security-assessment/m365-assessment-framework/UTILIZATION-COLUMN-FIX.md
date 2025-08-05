@@ -1,35 +1,45 @@
-# License Utilization Column Padding Fix
+# License Utilization Column Alignment Fix - Enhanced
 
 ## Issue Identified
-The license utilization column in the Reports table had misaligned padding causing visual inconsistencies in the table layout.
+The license utilization column in the Reports table had persistent misalignment issues causing:
+- Malformed appearance of utilization bars
+- Inconsistent column widths between header and data cells
+- Poor responsive behavior on different screen sizes
+- CSS specificity conflicts overriding intended styles
 
 ## Root Cause Analysis
-- **Header Column Width**: Set to 10% (percentage-based)
-- **Data Cell Width**: Set to 100px (fixed pixel width)
-- **Utilization Bar Container**: Set to 80px width
-- **Mismatch**: Percentage vs fixed pixel widths caused alignment issues
+- **CSS Specificity Issues**: Some styles were being overridden by more specific selectors
+- **Inconsistent Width Values**: Mixed percentage and pixel-based widths
+- **Missing !important Declarations**: Critical layout styles weren't enforced
+- **Table Layout Dependencies**: Fixed table layout needed enhanced column constraints
 
-## Solution Implemented
+## Enhanced Solution Implemented
 
-### 1. Fixed Column Width Consistency
+### 1. Enforced Column Width Consistency with !important
 **Before:**
 ```css
 .license-table th:nth-child(5) { /* Utilization column */
-  width: 10%;
-}
-.utilization-cell {
-  width: 100px;
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
 }
 ```
 
 **After:**
 ```css
 .license-table th:nth-child(5) { /* Utilization column */
-  width: 120px;
-  min-width: 120px;
-  max-width: 120px;
+  width: 130px !important; /* Increased width and forced with !important */
+  min-width: 130px !important;
+  max-width: 130px !important;
+  text-align: center !important;
+  padding: 1rem 0.5rem !important;
 }
-.utilization-cell {
+```
+
+### 2. Enhanced Data Cell Alignment with Specificity
+**Before:**
+```css
+.license-table td:nth-child(5) {
   width: 120px;
   min-width: 120px;
   max-width: 120px;
@@ -37,14 +47,15 @@ The license utilization column in the Reports table had misaligned padding causi
 }
 ```
 
-### 2. Data Cell Alignment
-Added specific width constraints for table data cells:
+**After:**
 ```css
-.license-table td:nth-child(5) { /* Utilization column data cells */
-  width: 120px;
-  min-width: 120px;
-  max-width: 120px;
-  padding: 0.75rem 0.5rem;
+.license-table td:nth-child(5) {
+  width: 130px !important; /* Match header width exactly */
+  min-width: 130px !important;
+  max-width: 130px !important;
+  padding: 0.75rem 0.5rem !important;
+  text-align: center !important;
+  vertical-align: middle !important;
 }
 ```
 
