@@ -69,9 +69,10 @@ class SecureScoreControlService {
    * Get access token - implement based on your authentication strategy
    */
   private async getAccessToken(): Promise<string> {
-    // This should be implemented based on your authentication method
-    // Could be MSAL, service principal, or other auth mechanism
-    throw new Error('getAccessToken must be implemented');
+    // For now, return empty string to trigger graceful fallback
+    // TODO: Integrate with existing MSAL or authentication system
+    console.warn('SecureScoreControlService: Authentication not yet integrated, falling back to static mapping');
+    throw new Error('Authentication not yet integrated');
   }
 
   /**

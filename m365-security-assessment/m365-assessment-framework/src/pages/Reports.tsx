@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useCustomer } from '../contexts/CustomerContext';
 import { Customer, CustomerService } from '../services/customerService';
 import { AssessmentService } from '../services/assessmentService';
+import { secureScoreControlService } from '../utils/secureScoreControlService';
 import { 
   getReadableControlName, 
   getStandardizedStatus, 
@@ -621,6 +622,13 @@ const Reports: React.FC = () => {
 
   useEffect(() => {
     loadCustomers();
+    // Preload secure score control profiles for enhanced display names
+    secureScoreControlService.preloadControlProfiles().then(() => {
+      const stats = secureScoreControlService.getCacheStats();
+      console.log('Control service preload completed:', stats);
+    }).catch(error => {
+      console.warn('Failed to preload control profiles:', error);
+    });
   }, []);
 
   useEffect(() => {
@@ -640,19 +648,19 @@ const Reports: React.FC = () => {
   };
 
   // Function to handle assessment selection
-  const handleAssessmentSelection = (assessmentId: string) => {
+  const handleAssessmentSelection = async (assessmentId: string) => {
     setSelectedAssessmentId(assessmentId);
     // Find the selected assessment and set it as current
     const selectedAssessment = availableAssessments.find(a => a.id === assessmentId);
     if (selectedAssessment) {
       setCustomerAssessment(selectedAssessment);
       // Regenerate reports for the selected assessment
-      generateReportsForAssessment(selectedAssessment);
+      await generateReportsForAssessment(selectedAssessment);
     }
   };
 
   // Function to generate reports for a specific assessment
-  const generateReportsForAssessment = (assessment: any) => {
+  const generateReportsForAssessment = async (assessment: any) => {
     console.log('=== GENERATING REPORT DATA ===');
     console.log('Full assessment object:', assessment);
     console.log('Assessment metrics:', assessment.metrics);
@@ -1174,7 +1182,7 @@ const Reports: React.FC = () => {
       }
 
       setCustomerAssessment(latestAssessment);
-      generateReportsForAssessment(latestAssessment);
+      await generateReportsForAssessment(latestAssessment);
 
     } catch (error) {
       console.error('Error loading customer assessment:', error);
@@ -1330,17 +1338,32 @@ const Reports: React.FC = () => {
       
       console.log('Processed scores:', { currentScore, maxScore, percentage });
       
-      // Process control scores from the API response (not improvementActions)
-      const controlScores = (secureScore.controlScores || []).map((control: any, index: number) => ({
-        controlName: getReadableControlName(control.controlName, control.description, control.title),
-        category: control.category || 'General',
-        currentScore: Number(control.currentScore) || 0,
-        maxScore: Number(control.maxScore) || calculateMaxScore(Number(control.currentScore) || 0, control.controlName),
-        implementationStatus: getStandardizedStatus(control.implementationStatus || '').displayStatus,
-        actionType: control.actionType || determineActionType(control.controlName, control.description),
-        remediation: control.remediation || generateRemediationText(control.controlName, control.description || '', control.implementationStatus || ''),
-        scoreGap: Math.max(0, (Number(control.maxScore) || calculateMaxScore(Number(control.currentScore) || 0, control.controlName)) - (Number(control.currentScore) || 0))
-      }));
+      // Process control scores from the API response (not improvementActions) with enhanced control names
+      const rawControlScores = secureScore.controlScores || [];
+      const controlScores = [];
+      
+      // Use enhanced control name resolution with fallback to existing logic
+      for (const control of rawControlScores) {
+        // Use the enhanced getReadableControlName which has been improved with better validation
+        const enhancedControlName = getReadableControlName(control.controlName, control.description, control.title);
+        
+        controlScores.push({
+          controlName: enhancedControlName,
+          category: control.category || 'General',  
+          currentScore: Number(control.currentScore) || 0,
+          maxScore: Number(control.maxScore) || calculateMaxScore(Number(control.currentScore) || 0, control.controlName),
+          implementationStatus: getStandardizedStatus(control.implementationStatus || '').displayStatus,
+          actionType: control.actionType || determineActionType(control.controlName, control.description),
+          remediation: control.remediation || generateRemediationText(control.controlName, control.description || '', control.implementationStatus || ''),
+          scoreGap: Math.max(0, (Number(control.maxScore) || calculateMaxScore(Number(control.currentScore) || 0, control.controlName)) - (Number(control.currentScore) || 0))
+        });
+      }
+      
+      // Log the enhanced processing for debugging  
+      console.log(`Enhanced control name processing completed for ${controlScores.length} controls`);
+      
+      // Start async background enhancement of control names (non-blocking)
+      enhanceControlNamesAsync(controlScores, rawControlScores);
       
       console.log('Processed control scores count:', controlScores.length);
       
@@ -1474,6 +1497,46 @@ const Reports: React.FC = () => {
     console.log('Reports generated:', reports.length);
     console.log('Report categories:', reports.map(r => r.category));
     setReportData(reports);
+  };
+
+  // Helper function to enhance control names asynchronously (non-blocking)
+  const enhanceControlNamesAsync = async (controlScores: any[], rawControlScores: any[]) => {
+    try {
+      console.log('Starting background enhancement of control names...');
+      let enhancementsMade = 0;
+      
+      for (let i = 0; i < controlScores.length && i < rawControlScores.length; i++) {
+        const control = rawControlScores[i];
+        const currentName = controlScores[i].controlName;
+        
+        try {
+          // Try to get enhanced name from the service
+          const enhancedName = await secureScoreControlService.getEnhancedControlName(
+            control.controlName, 
+            control.description || control.title
+          );
+          
+          // Only update if we got a different (better) name
+          if (enhancedName !== currentName && enhancedName.length > currentName.length) {
+            controlScores[i].controlName = enhancedName;
+            enhancementsMade++;
+          }
+        } catch (error) {
+          // Silently continue if individual control enhancement fails
+          console.warn(`Failed to enhance control name for ${control.controlName}:`, error);
+        }
+      }
+      
+      if (enhancementsMade > 0) {
+        console.log(`Background enhancement completed: ${enhancementsMade} control names improved`);
+        // Trigger a re-render with the enhanced names
+        setReportData(prevReports => [...prevReports]);
+      } else {
+        console.log('Background enhancement completed: no improvements found');
+      }
+    } catch (error) {
+      console.warn('Background control name enhancement failed:', error);
+    }
   };
 
   // REMOVED: generateFallbackData (no more mockup/fallback data)
@@ -2074,6 +2137,16 @@ const Reports: React.FC = () => {
               {createAssessmentResult}
             </div>
           )}
+          <button 
+            onClick={() => {
+              const stats = secureScoreControlService.getCacheStats();
+              console.log('Control Service Stats:', stats);
+              alert(`Control Service Stats:\nCache Size: ${stats.size} profiles\nLast Updated: ${stats.lastUpdated.toLocaleString()}\nCache Valid: ${stats.isValid}`);
+            }} 
+            style={{ padding: '0.5em 1em', fontWeight: 'bold', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}
+          >
+            Control Service Status
+          </button>
         </div>
       )}
 
