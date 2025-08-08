@@ -1448,6 +1448,30 @@ const Reports: React.FC = () => {
     console.log('Identity skipped?', identityMetrics.skipped);
     console.log('Identity error?', identityMetrics.error);
     console.log('Identity totalUsers?', identityMetrics.totalUsers);
+    console.log('Assessment realData keys:', Object.keys(assessment.metrics?.realData || {}));
+    console.log('Assessment metrics keys:', Object.keys(assessment.metrics || {}));
+    
+    // FORCE ADD IDENTITY REPORT FOR DEBUGGING
+    console.log('🔥 FORCING IDENTITY REPORT CREATION');
+    reports.push({
+      category: 'identity',
+      metrics: {
+        debug: true,
+        identityMetrics: identityMetrics,
+        hasData: !!identityMetrics && Object.keys(identityMetrics).length > 0,
+        message: 'Debug: Identity report forced for troubleshooting'
+      },
+      charts: [],
+      insights: [
+        'DEBUG: This is a forced identity report to troubleshoot the issue',
+        `Identity metrics found: ${Object.keys(identityMetrics).length} properties`,
+        `Identity data: ${JSON.stringify(identityMetrics).substring(0, 100)}...`
+      ],
+      recommendations: [
+        'This is a debug report to understand why identity data is not showing',
+        'Check browser console for full identity metrics object'
+      ]
+    });
     
     // Check if identity assessment was skipped or has errors
     if (identityMetrics.skipped) {
