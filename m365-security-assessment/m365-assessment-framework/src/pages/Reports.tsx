@@ -1441,6 +1441,14 @@ const Reports: React.FC = () => {
     // Identity & Access Report
     const identityMetrics = assessment.metrics?.realData?.identityMetrics || assessment.metrics?.identityMetrics || {};
     
+    // Debug: Log identity metrics to understand what data we have
+    console.log('=== IDENTITY METRICS DEBUG ===');
+    console.log('Identity metrics object:', identityMetrics);
+    console.log('Identity metrics keys:', Object.keys(identityMetrics));
+    console.log('Identity skipped?', identityMetrics.skipped);
+    console.log('Identity error?', identityMetrics.error);
+    console.log('Identity totalUsers?', identityMetrics.totalUsers);
+    
     // Check if identity assessment was skipped or has errors
     if (identityMetrics.skipped) {
       reports.push({
