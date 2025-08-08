@@ -145,6 +145,20 @@ const Reports: React.FC = () => {
     direction: 'asc' | 'desc';
   } | null>(null);
 
+  // Security categories selection state
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(['license', 'secureScore', 'identity']);
+
+  // Function to handle category selection
+  const handleCategoryChange = (categoryId: string, isChecked: boolean) => {
+    setSelectedCategories(prev => {
+      if (isChecked) {
+        return [...prev, categoryId];
+      } else {
+        return prev.filter(id => id !== categoryId);
+      }
+    });
+  };
+
   // Function to get effective license cost (custom or estimated)
   const getEffectiveLicenseCost = (licenseName: string): number => {
     const formattedName = formatLicenseName(licenseName);
@@ -566,7 +580,7 @@ const Reports: React.FC = () => {
         customerId: selectedCustomer.id,
         tenantId: selectedCustomer.tenantId,
         assessmentName: `Test Assessment ${new Date().toISOString()}`,
-        includedCategories: ['license', 'secureScore'],
+        includedCategories: selectedCategories,
         notificationEmail: '', // No email property on Customer, use empty string
         autoSchedule: false,
         scheduleFrequency: 'monthly',
@@ -2122,6 +2136,37 @@ const Reports: React.FC = () => {
           </select>
         </div>
       </div>
+
+      {/* Security Categories Selection */}
+      {selectedCustomer && (
+        <div className="categories-selection-section">
+          <div className="form-group">
+            <label className="categories-label">Security Categories to Include:</label>
+            <div className="categories-checkboxes">
+              {securityCategories
+                .filter(category => category.id !== 'error') // Exclude error category from selection
+                .map(category => (
+                <div key={category.id} className="category-checkbox">
+                  <input
+                    type="checkbox"
+                    id={`category-${category.id}`}
+                    checked={selectedCategories.includes(category.id)}
+                    onChange={(e) => handleCategoryChange(category.id, e.target.checked)}
+                  />
+                  <label htmlFor={`category-${category.id}`} className="checkbox-label">
+                    <span className="category-icon">{category.icon}</span>
+                    <span className="category-name">{category.name}</span>
+                    <span className="category-description">{category.description}</span>
+                  </label>
+                </div>
+              ))}
+            </div>
+            <div className="categories-info">
+              <p>✅ {selectedCategories.length} categories selected for next assessment</p>
+            </div>
+          </div>
+        </div>
+      )}
 
 
       {/* Production mode: Debug buttons are hidden */}
