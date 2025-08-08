@@ -4,6 +4,13 @@ import IdentityAccessService, { IdentityAccessReport, UserRegistrationDetails } 
 import { LicenseReport } from '../LicenseReport';
 import './BasicAssessment.css';
 
+interface SecurityCategory {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+}
+
 interface BasicAssessmentProps {
   customerId?: string;
   tenantId: string;
@@ -30,6 +37,60 @@ export const BasicAssessment: React.FC<BasicAssessmentProps> = ({
   const [appRegistration, setAppRegistration] = useState<any>(null);
   const [assessmentResult, setAssessmentResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Security categories selection state
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(['license', 'secureScore', 'identity']);
+
+  // Function to handle category selection
+  const handleCategoryChange = (categoryId: string, isChecked: boolean) => {
+    setSelectedCategories(prev => {
+      if (isChecked) {
+        return [...prev, categoryId];
+      } else {
+        return prev.filter(id => id !== categoryId);
+      }
+    });
+  };
+
+  // Security categories definition
+  const securityCategories: SecurityCategory[] = [
+    {
+      id: 'license',
+      name: 'License Management',
+      icon: '📊',
+      description: 'License utilization, costs, and optimization opportunities'
+    },
+    {
+      id: 'secureScore',
+      name: 'Secure Score',
+      icon: '🛡️',
+      description: 'Security posture analysis and improvement recommendations'
+    },
+    {
+      id: 'identity',
+      name: 'Identity & Access',
+      icon: '👤',
+      description: 'User management, MFA coverage, and access policies'
+    },
+    {
+      id: 'dataProtection',
+      name: 'Data Protection',
+      icon: '🔒',
+      description: 'DLP policies, encryption, and data governance'
+    },
+    {
+      id: 'compliance',
+      name: 'Compliance',
+      icon: '📋',
+      description: 'Regulatory compliance and audit readiness'
+    },
+    {
+      id: 'threatProtection',
+      name: 'Threat Protection',
+      icon: '🛡️',
+      description: 'Advanced threat detection and response capabilities'
+    }
+  ];
 
   const [steps, setSteps] = useState<AssessmentStep[]>([
     {
@@ -77,6 +138,8 @@ export const BasicAssessment: React.FC<BasicAssessmentProps> = ({
     setIsRunning(true);
     setError(null);
     setCurrentStep(0);
+
+    console.log('Starting assessment with selected categories:', selectedCategories);
 
     try {
       // Step 1: Create multi-tenant app registration
@@ -205,17 +268,47 @@ export const BasicAssessment: React.FC<BasicAssessmentProps> = ({
 
       {!isRunning && !assessmentResult && (
         <div className="assessment-start">
-          <p>This assessment will:</p>
-          <ul>
-            <li>Create a secure Azure app registration for authentication</li>
-            <li>Fetch the current Microsoft Secure Score</li>
-            <li>Retrieve license and subscription information</li>
-            <li>Generate a basic security overview</li>
-          </ul>
+          <div className="assessment-info">
+            <p>This assessment will:</p>
+            <ul>
+              <li>Create a secure Azure app registration for authentication</li>
+              <li>Fetch the current Microsoft Secure Score</li>
+              <li>Retrieve license and subscription information</li>
+              <li>Generate a basic security overview</li>
+            </ul>
+          </div>
+
+          {/* Security Categories Selection */}
+          <div className="categories-selection-section">
+            <div className="form-group">
+              <label className="categories-label">Security Categories to Include:</label>
+              <div className="categories-checkboxes">
+                {securityCategories.map(category => (
+                  <div key={category.id} className="category-checkbox">
+                    <input
+                      type="checkbox"
+                      id={`category-${category.id}`}
+                      checked={selectedCategories.includes(category.id)}
+                      onChange={(e) => handleCategoryChange(category.id, e.target.checked)}
+                    />
+                    <label htmlFor={`category-${category.id}`} className="checkbox-label">
+                      <span className="category-icon">{category.icon}</span>
+                      <span className="category-name">{category.name}</span>
+                      <span className="category-description">{category.description}</span>
+                    </label>
+                  </div>
+                ))}
+              </div>
+              <div className="categories-info">
+                <p>✅ {selectedCategories.length} categories selected for assessment</p>
+              </div>
+            </div>
+          </div>
+
           <button 
             className="btn-primary assessment-start-btn"
             onClick={startAssessment}
-            disabled={!tenantId}
+            disabled={!tenantId || selectedCategories.length === 0}
           >
             Start Assessment
           </button>
