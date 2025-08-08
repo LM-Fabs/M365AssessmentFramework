@@ -2138,35 +2138,38 @@ const Reports: React.FC = () => {
       </div>
 
       {/* Security Categories Selection */}
-      {selectedCustomer && (
-        <div className="categories-selection-section">
-          <div className="form-group">
-            <label className="categories-label">Security Categories to Include:</label>
-            <div className="categories-checkboxes">
-              {securityCategories
-                .filter(category => category.id !== 'error') // Exclude error category from selection
-                .map(category => (
-                <div key={category.id} className="category-checkbox">
-                  <input
-                    type="checkbox"
-                    id={`category-${category.id}`}
-                    checked={selectedCategories.includes(category.id)}
-                    onChange={(e) => handleCategoryChange(category.id, e.target.checked)}
-                  />
-                  <label htmlFor={`category-${category.id}`} className="checkbox-label">
-                    <span className="category-icon">{category.icon}</span>
-                    <span className="category-name">{category.name}</span>
-                    <span className="category-description">{category.description}</span>
-                  </label>
-                </div>
-              ))}
-            </div>
-            <div className="categories-info">
-              <p>✅ {selectedCategories.length} categories selected for next assessment</p>
+      {selectedCustomer && (() => {
+        console.log('Rendering categories selection - selectedCustomer:', selectedCustomer?.tenantName, 'selectedCategories:', selectedCategories);
+        return (
+          <div className="categories-selection-section" style={{ backgroundColor: '#ffeb3b', border: '2px solid red', padding: '20px', margin: '20px 0' }}>
+            <div className="form-group">
+              <label className="categories-label">Security Categories to Include:</label>
+              <div className="categories-checkboxes">
+                {securityCategories
+                  .filter(category => category.id !== 'error') // Exclude error category from selection
+                  .map(category => (
+                  <div key={category.id} className="category-checkbox">
+                    <input
+                      type="checkbox"
+                      id={`category-${category.id}`}
+                      checked={selectedCategories.includes(category.id)}
+                      onChange={(e) => handleCategoryChange(category.id, e.target.checked)}
+                    />
+                    <label htmlFor={`category-${category.id}`} className="checkbox-label">
+                      <span className="category-icon">{category.icon}</span>
+                      <span className="category-name">{category.name}</span>
+                      <span className="category-description">{category.description}</span>
+                    </label>
+                  </div>
+                ))}
+              </div>
+              <div className="categories-info">
+                <p>✅ {selectedCategories.length} categories selected for next assessment</p>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
 
       {/* Production mode: Debug buttons are hidden */}
