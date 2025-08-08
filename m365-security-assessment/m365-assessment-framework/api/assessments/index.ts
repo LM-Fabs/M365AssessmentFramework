@@ -275,14 +275,7 @@ async function createAssessment(request: HttpRequest, context: InvocationContext
                         licenseInfo: licenseInfo,
                         secureScore: secureScoreData,
                         assessmentScope: "Security Metrics (Identity, Device Compliance, Secure Score) + License Analysis",
-                        identityMetrics: {
-                            adminUsers: 0, // Would need additional Graph API calls
-                            guestUsers: 0,
-                            totalUsers: 0,
-                            mfaCoverage: 0,
-                            mfaEnabledUsers: 0,
-                            conditionalAccessPolicies: 0
-                        },
+                        identityMetrics: await collectIdentityMetrics(graphService, context),
                         securityMetrics: {
                             alertsCount: 0,
                             secureScore: secureScorePercentage,
@@ -354,7 +347,8 @@ async function createAssessment(request: HttpRequest, context: InvocationContext
                             mfaCoverage: 0,
                             adminUsers: 0,
                             guestUsers: 0,
-                            conditionalAccessPolicies: 0
+                            conditionalAccessPolicies: 0,
+                            error: 'Graph API unavailable - authentication required'
                         },
                         licenseInfo: {
                             totalLicenses: 0,
@@ -420,6 +414,108 @@ async function createAssessment(request: HttpRequest, context: InvocationContext
                 message: error.message,
                 troubleshooting: 'Check Azure configuration and Microsoft Graph API permissions'
             })
+        };
+    }
+}
+
+/**
+ * Collect comprehensive identity metrics using Microsoft Graph API
+ * Implements secure data collection with proper error handling
+ */
+async function collectIdentityMetrics(graphService: MultiTenantGraphService, context: InvocationContext): Promise<any> {
+    context.log('🔍 Collecting identity metrics...');
+    
+    try {
+        // Collect data in parallel for better performance
+        const [
+            userCount,
+            conditionalAccessPolicies,
+            userRegistrationDetails,
+            privilegedUsers
+        ] = await Promise.all([
+            graphService.getUserCount().catch(error => {
+                context.log('⚠️ User count failed:', error.message);
+                return 0;
+            }),
+            graphService.getConditionalAccessPolicies().catch(error => {
+                context.log('⚠️ Conditional access policies failed:', error.message);
+                return [];
+            }),
+            graphService.getUserRegistrationDetails().catch(error => {
+                context.log('⚠️ User registration details failed:', error.message);
+                return [];
+            }),
+            graphService.getPrivilegedUsers().catch(error => {
+                context.log('⚠️ Privileged users failed:', error.message);
+                return [];
+            })
+        ]);
+
+        // Get additional user details for guest count and MFA status
+        let guestUsers = 0;
+        let mfaEnabledUsers = 0;
+        let totalUsersFromDetails = userRegistrationDetails.length;
+
+        // Process user registration details for MFA and guest user analysis
+        if (userRegistrationDetails && userRegistrationDetails.length > 0) {
+            // Count MFA enabled users based on registration details
+            mfaEnabledUsers = userRegistrationDetails.filter((user: any) => {
+                // Check if user has any MFA methods registered
+                const hasMFA = user.isMfaRegistered === true || 
+                             user.methodsRegistered?.some((method: string) => 
+                                method.toLowerCase().includes('authenticator') ||
+                                method.toLowerCase().includes('phone') ||
+                                method.toLowerCase().includes('sms')
+                             );
+                return hasMFA;
+            }).length;
+
+            // Count guest users from user details
+            guestUsers = userRegistrationDetails.filter((user: any) => {
+                return user.userType === 'Guest' || 
+                       user.userPrincipalName?.includes('#ext#') ||
+                       user.isGuest === true;
+            }).length;
+        }
+
+        // Use the higher count between API call and registration details
+        const finalUserCount = Math.max(userCount, totalUsersFromDetails);
+        
+        // Calculate MFA coverage percentage
+        const mfaCoverage = finalUserCount > 0 ? Math.round((mfaEnabledUsers / finalUserCount) * 100) : 0;
+
+        const identityMetrics = {
+            totalUsers: finalUserCount,
+            mfaEnabledUsers: mfaEnabledUsers,
+            mfaCoverage: mfaCoverage,
+            adminUsers: privilegedUsers.length,
+            guestUsers: guestUsers,
+            conditionalAccessPolicies: conditionalAccessPolicies.length
+        };
+
+        context.log('✅ Identity metrics collected successfully:', {
+            totalUsers: identityMetrics.totalUsers,
+            mfaEnabledUsers: identityMetrics.mfaEnabledUsers,
+            mfaCoverage: `${identityMetrics.mfaCoverage}%`,
+            adminUsers: identityMetrics.adminUsers,
+            guestUsers: identityMetrics.guestUsers,
+            conditionalAccessPolicies: identityMetrics.conditionalAccessPolicies
+        });
+
+        return identityMetrics;
+
+    } catch (error: any) {
+        context.log('❌ Failed to collect identity metrics:', error.message);
+        
+        // Return safe defaults on error
+        return {
+            totalUsers: 0,
+            mfaEnabledUsers: 0,
+            mfaCoverage: 0,
+            adminUsers: 0,
+            guestUsers: 0,
+            conditionalAccessPolicies: 0,
+            error: error.message
         };
     }
 }
