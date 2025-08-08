@@ -1440,7 +1440,50 @@ const Reports: React.FC = () => {
 
     // Identity & Access Report
     const identityMetrics = assessment.metrics?.realData?.identityMetrics || assessment.metrics?.identityMetrics || {};
-    if (
+    
+    // Check if identity assessment was skipped or has errors
+    if (identityMetrics.skipped) {
+      reports.push({
+        category: 'identity',
+        metrics: {
+          hasError: false,
+          skipped: true,
+          reason: identityMetrics.reason || 'Identity assessment was not selected',
+          message: 'This assessment category was not included in the current scan.'
+        },
+        charts: [],
+        insights: [
+          'Identity assessment was not requested for this scan',
+          'To collect identity data, run a new assessment with "Identity & Access Management" selected',
+          'Identity metrics include user counts, MFA coverage, admin users, and guest users'
+        ],
+        recommendations: [
+          'Include Identity & Access Management in your next assessment',
+          'Review user access patterns and privileged accounts regularly',
+          'Implement Multi-Factor Authentication for all users'
+        ]
+      });
+    } else if (identityMetrics.error) {
+      reports.push({
+        category: 'identity',
+        metrics: {
+          hasError: true,
+          errorMessage: identityMetrics.error,
+          reason: 'Unable to collect identity data from Microsoft Graph API'
+        },
+        charts: [],
+        insights: [
+          'Identity data collection failed due to API access issues',
+          'This may be related to permissions or connectivity problems',
+          'Check Microsoft Graph API permissions and tenant access'
+        ],
+        recommendations: [
+          'Verify Microsoft Graph API permissions are granted',
+          'Ensure app registration has User.Read.All and Directory.Read.All permissions',
+          'Check tenant connectivity and authentication status'
+        ]
+      });
+    } else if (
       identityMetrics &&
       (identityMetrics.totalUsers !== undefined || identityMetrics.mfaEnabledUsers !== undefined || identityMetrics.adminUsers !== undefined)
     ) {
@@ -2352,13 +2395,47 @@ const Reports: React.FC = () => {
                     {renderSecureScoreTable(currentTabData.metrics, currentTabData.controlScores)}
                   </div>
                 ) : activeTab === 'identity' ? (
-                  // Show the new Identity & Access Report component
-                  <div className="identity-access-report-container">
-                    <IdentityAccessReportComponent 
-                      customerId={selectedCustomer.id}
-                      assessmentId={selectedAssessmentId || undefined}
-                    />
-                  </div>
+                  // Handle identity assessment status
+                  currentTabData.metrics?.skipped ? (
+                    <div className="assessment-not-requested">
+                      <div className="info-card">
+                        <h3>⚙️ Identity Assessment Not Requested</h3>
+                        <p>{currentTabData.metrics.reason}</p>
+                        <div className="recommendations">
+                          <h4>To include identity data in future assessments:</h4>
+                          <ul>
+                            {currentTabData.recommendations.map((rec, index) => (
+                              <li key={index}>{rec}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  ) : currentTabData.metrics?.hasError ? (
+                    <div className="assessment-error">
+                      <div className="error-card">
+                        <h3>❌ Identity Data Collection Failed</h3>
+                        <p><strong>Error:</strong> {currentTabData.metrics.errorMessage}</p>
+                        <p>{currentTabData.metrics.reason}</p>
+                        <div className="troubleshooting">
+                          <h4>Troubleshooting Steps:</h4>
+                          <ul>
+                            {currentTabData.recommendations.map((rec, index) => (
+                              <li key={index}>{rec}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    // Show the new Identity & Access Report component
+                    <div className="identity-access-report-container">
+                      <IdentityAccessReportComponent 
+                        customerId={selectedCustomer.id}
+                        assessmentId={selectedAssessmentId || undefined}
+                      />
+                    </div>
+                  )
                 ) : (
                   // Show charts for other tabs
                   currentTabData.charts.length > 0 && (

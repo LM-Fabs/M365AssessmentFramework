@@ -150,20 +150,43 @@ async function createAssessment(request: HttpRequest, context: InvocationContext
             context.log('📊 Fetching organization profile...');
             const orgProfile = await graphService.getOrganization();
             
-            context.log('📊 Fetching license details...');
-            const licenseDetails = await graphService.getLicenseDetails();
+            // Check which categories are requested
+            const includedCategories = assessmentData.includedCategories || ['license', 'secureScore', 'identity'];
+            context.log('📊 Collecting data for categories:', includedCategories);
             
-            context.log('📊 Fetching secure score...');
-            let secureScore;
-            try {
-                secureScore = await graphService.getSecureScore();
-                context.log('✅ Secure score data retrieved successfully');
-            } catch (secureScoreError: any) {
-                context.log('⚠️ Secure score retrieval failed:', secureScoreError.message);
+            // Conditionally fetch license details
+            let licenseDetails = null;
+            if (includedCategories.includes('license')) {
+                context.log('📊 Fetching license details...');
+                licenseDetails = await graphService.getLicenseDetails();
+            } else {
+                context.log('⏭️ Skipping license details (not requested)');
+            }
+            
+            // Conditionally fetch secure score
+            let secureScore = null;
+            if (includedCategories.includes('secureScore')) {
+                context.log('📊 Fetching secure score...');
+                try {
+                    secureScore = await graphService.getSecureScore();
+                    context.log('✅ Secure score data retrieved successfully');
+                } catch (secureScoreError: any) {
+                    context.log('⚠️ Secure score data unavailable:', secureScoreError.message);
+                    secureScore = {
+                        unavailable: true,
+                        error: secureScoreError.message,
+                        currentScore: 0,
+                        maxScore: 100,
+                        percentage: 0
+                    };
+                }
+            } else {
+                context.log('⏭️ Skipping secure score (not requested)');
                 secureScore = {
-                    unavailable: true,
-                    error: secureScoreError.message,
-                    summary: 'Secure Score data unavailable due to permissions or API access issue'
+                    skipped: true,
+                    currentScore: 0,
+                    maxScore: 100,
+                    percentage: 0
                 };
             }
             
@@ -174,7 +197,7 @@ async function createAssessment(request: HttpRequest, context: InvocationContext
                 secureScore: secureScore?.unavailable ? 'Unavailable' : 'Retrieved'
             });
 
-            // Calculate metrics from real data
+            // Calculate metrics from collected data
             const licenseInfo = licenseDetails && Array.isArray(licenseDetails) ? {
                 summary: `${licenseDetails.length} license types found`,
                 licenses: licenseDetails,
@@ -197,7 +220,9 @@ async function createAssessment(request: HttpRequest, context: InvocationContext
                 }, 0),
                 licenseDetails: licenseDetails
             } : {
-                summary: "License data not available in current assessment scope",
+                summary: includedCategories.includes('license') 
+                    ? "License data not available due to permissions or API access issue"
+                    : "License assessment not requested",
                 licenses: [],
                 utilization: 0,
                 totalLicenses: 0,
@@ -216,6 +241,15 @@ async function createAssessment(request: HttpRequest, context: InvocationContext
                 controlScores: [],
                 totalControlsFound: 0,
                 error: secureScore.error
+            } : secureScore?.skipped ? {
+                summary: "Microsoft Secure Score: Assessment not requested",
+                maxScore: 100,
+                percentage: 0,
+                lastUpdated: new Date().toISOString(),
+                skipped: true,
+                currentScore: 0,
+                controlScores: [],
+                totalControlsFound: 0
             } : {
                 summary: `Microsoft Secure Score: ${secureScore?.currentScore || 0} / ${secureScore?.maxScore || 100}`,
                 maxScore: secureScore?.maxScore || 100,
@@ -275,7 +309,18 @@ async function createAssessment(request: HttpRequest, context: InvocationContext
                         licenseInfo: licenseInfo,
                         secureScore: secureScoreData,
                         assessmentScope: "Security Metrics (Identity, Device Compliance, Secure Score) + License Analysis",
-                        identityMetrics: await collectIdentityMetrics(graphService, context),
+                        identityMetrics: includedCategories.includes('identity') 
+                            ? await collectIdentityMetrics(graphService, context)
+                            : {
+                                totalUsers: 0,
+                                mfaEnabledUsers: 0,
+                                mfaCoverage: 0,
+                                adminUsers: 0,
+                                guestUsers: 0,
+                                conditionalAccessPolicies: 0,
+                                skipped: true,
+                                reason: 'Identity assessment not requested'
+                            },
                         securityMetrics: {
                             alertsCount: 0,
                             secureScore: secureScorePercentage,
