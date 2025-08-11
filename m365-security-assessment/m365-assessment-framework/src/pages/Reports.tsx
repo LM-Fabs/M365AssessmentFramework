@@ -1018,24 +1018,136 @@ const Reports: React.FC = () => {
     // Identity & Access Report
     const identityMetrics = assessment.metrics?.realData?.identityMetrics || assessment.metrics?.identityMetrics || {};
     
-    // Debug: Log identity metrics to understand what data we have
-    console.log('=== IDENTITY METRICS DEBUG ===');
+    // Debug: Log ALL assessment data to find identity information
+    console.log('=== COMPLETE ASSESSMENT DEBUG ===');
+    console.log('Full assessment object:', JSON.stringify(assessment, null, 2));
+    console.log('Assessment.metrics keys:', Object.keys(assessment.metrics || {}));
+    console.log('Assessment.metrics.realData keys:', Object.keys(assessment.metrics?.realData || {}));
+    console.log('Assessment.metrics.realData full object:', JSON.stringify(assessment.metrics?.realData || {}, null, 2));
+    
+    // Look for identity data in various possible locations
+    const possibleIdentityFields = [
+      'identityMetrics',
+      'identityData', 
+      'authenticationMethods',
+      'userRegistration',
+      'identityAccessData',
+      'identity',
+      'users',
+      'mfaData',
+      'authMethods'
+    ];
+    
+    console.log('=== SEARCHING FOR IDENTITY DATA ===');
+    possibleIdentityFields.forEach(field => {
+      const realDataValue = assessment.metrics?.realData?.[field];
+      const metricsValue = assessment.metrics?.[field];
+      console.log(`Field "${field}":`, {
+        inRealData: realDataValue ? Object.keys(realDataValue) : 'not found',
+        inMetrics: metricsValue ? Object.keys(metricsValue) : 'not found',
+        realDataValue: realDataValue ? JSON.stringify(realDataValue).substring(0, 200) + '...' : 'none',
+        metricsValue: metricsValue ? JSON.stringify(metricsValue).substring(0, 200) + '...' : 'none'
+      });
+    });
+    
+    // Also check if there are any fields containing "user" in their name
+    console.log('=== CHECKING FOR USER-RELATED FIELDS ===');
+    const allRealDataKeys = Object.keys(assessment.metrics?.realData || {});
+    const allMetricsKeys = Object.keys(assessment.metrics || {});
+    
+    const userRelatedRealData = allRealDataKeys.filter(key => 
+      key.toLowerCase().includes('user') || 
+      key.toLowerCase().includes('auth') || 
+      key.toLowerCase().includes('identity') ||
+      key.toLowerCase().includes('mfa') ||
+      key.toLowerCase().includes('registration')
+    );
+    const userRelatedMetrics = allMetricsKeys.filter(key => 
+      key.toLowerCase().includes('user') || 
+      key.toLowerCase().includes('auth') || 
+      key.toLowerCase().includes('identity') ||
+      key.toLowerCase().includes('mfa') ||
+      key.toLowerCase().includes('registration')
+    );
+    
+    console.log('User-related fields in realData:', userRelatedRealData);
+    console.log('User-related fields in metrics:', userRelatedMetrics);
+    
+    userRelatedRealData.forEach(key => {
+      console.log(`realData.${key}:`, assessment.metrics?.realData?.[key]);
+    });
+    
+    userRelatedMetrics.forEach(key => {
+      console.log(`metrics.${key}:`, assessment.metrics?.[key]);
+    });
+    
+    // Enhanced identity data detection - check multiple levels
+    let foundIdentityData = null;
+    let identityDataSource = '';
+    
+    // Check all possible locations for identity data
+    for (const field of possibleIdentityFields) {
+      if (assessment.metrics?.realData?.[field]) {
+        foundIdentityData = assessment.metrics.realData[field];
+        identityDataSource = `realData.${field}`;
+        console.log(`✅ Found identity data in: ${identityDataSource}`);
+        break;
+      } else if (assessment.metrics?.[field]) {
+        foundIdentityData = assessment.metrics[field];
+        identityDataSource = `metrics.${field}`;
+        console.log(`✅ Found identity data in: ${identityDataSource}`);
+        break;
+      }
+    }
+    
+    // If not found, check user-related fields
+    if (!foundIdentityData) {
+      for (const key of userRelatedRealData) {
+        const data = assessment.metrics?.realData?.[key];
+        if (data && typeof data === 'object' && (data.totalUsers !== undefined || data.length > 0 || data.users !== undefined)) {
+          foundIdentityData = data;
+          identityDataSource = `realData.${key}`;
+          console.log(`✅ Found user data in: ${identityDataSource}`);
+          break;
+        }
+      }
+    }
+    
+    if (!foundIdentityData) {
+      for (const key of userRelatedMetrics) {
+        const data = assessment.metrics?.[key];
+        if (data && typeof data === 'object' && (data.totalUsers !== undefined || data.length > 0 || data.users !== undefined)) {
+          foundIdentityData = data;
+          identityDataSource = `metrics.${key}`;
+          console.log(`✅ Found user data in: ${identityDataSource}`);
+          break;
+        }
+      }
+    }
+    
+    console.log('=== IDENTITY METRICS FINAL DEBUG ===');
     console.log('Identity metrics object:', identityMetrics);
     console.log('Identity metrics keys:', Object.keys(identityMetrics));
+    console.log('Found identity data:', foundIdentityData);
+    console.log('Identity data source:', identityDataSource);
     console.log('Identity skipped?', identityMetrics.skipped);
     console.log('Identity error?', identityMetrics.error);
     console.log('Identity totalUsers?', identityMetrics.totalUsers);
-    console.log('Assessment realData keys:', Object.keys(assessment.metrics?.realData || {}));
-    console.log('Assessment metrics keys:', Object.keys(assessment.metrics || {}));
+    
+    // Use found identity data or fall back to original approach
+    const finalIdentityData = foundIdentityData || identityMetrics;
+    console.log('=== USING IDENTITY DATA ===');
+    console.log('Final identity data:', finalIdentityData);
+    console.log('Final identity data keys:', Object.keys(finalIdentityData || {}));
     
     // Check if identity assessment was skipped or has errors
-    if (identityMetrics.skipped) {
+    if (finalIdentityData?.skipped) {
       reports.push({
         category: 'identity',
         metrics: {
           hasError: false,
           skipped: true,
-          reason: identityMetrics.reason || 'Identity assessment was not selected',
+          reason: finalIdentityData.reason || 'Identity assessment was not selected',
           message: 'This assessment category was not included in the current scan.'
         },
         charts: [],
@@ -1050,12 +1162,12 @@ const Reports: React.FC = () => {
           'Implement Multi-Factor Authentication for all users'
         ]
       });
-    } else if (identityMetrics.error) {
+    } else if (finalIdentityData?.error) {
       reports.push({
         category: 'identity',
         metrics: {
           hasError: true,
-          errorMessage: identityMetrics.error,
+          errorMessage: finalIdentityData.error,
           reason: 'Unable to collect identity data from Microsoft Graph API'
         },
         charts: [],
@@ -1071,17 +1183,36 @@ const Reports: React.FC = () => {
         ]
       });
     } else if (
-      identityMetrics &&
-      (identityMetrics.totalUsers !== undefined || identityMetrics.mfaEnabledUsers !== undefined || identityMetrics.adminUsers !== undefined)
+      finalIdentityData &&
+      (finalIdentityData.totalUsers !== undefined || 
+       finalIdentityData.mfaEnabledUsers !== undefined || 
+       finalIdentityData.adminUsers !== undefined ||
+       finalIdentityData.summary?.totalUsers !== undefined ||
+       finalIdentityData.users !== undefined ||
+       finalIdentityData.authenticationMethods !== undefined)
     ) {
-      const totalUsers = Number(identityMetrics.totalUsers) || 0;
-      const mfaEnabledUsers = Number(identityMetrics.mfaEnabledUsers) || 0;
+      // Try to extract user data from various possible structures
+      const totalUsers = Number(finalIdentityData.totalUsers) || 
+                        Number(finalIdentityData.summary?.totalUsers) || 
+                        (finalIdentityData.users ? finalIdentityData.users.length : 0) || 0;
+      const mfaEnabledUsers = Number(finalIdentityData.mfaEnabledUsers) || 
+                             Number(finalIdentityData.summary?.mfaCapableUsers) || 0;
       const mfaDisabledUsers = totalUsers - mfaEnabledUsers;
-      const mfaCoverage = identityMetrics.mfaCoverage !== undefined ? Number(identityMetrics.mfaCoverage) : (totalUsers > 0 ? Math.round((mfaEnabledUsers / totalUsers) * 100) : 0);
-      const adminUsers = Number(identityMetrics.adminUsers) || 0;
-      const guestUsers = Number(identityMetrics.guestUsers) || 0;
+      const mfaCoverage = finalIdentityData.mfaCoverage !== undefined ? 
+                         Number(finalIdentityData.mfaCoverage) : 
+                         (finalIdentityData.summary?.mfaCapablePercentage !== undefined ? 
+                          Number(finalIdentityData.summary.mfaCapablePercentage) :
+                          (totalUsers > 0 ? Math.round((mfaEnabledUsers / totalUsers) * 100) : 0));
+      const adminUsers = Number(finalIdentityData.adminUsers) || 
+                        Number(finalIdentityData.summary?.privilegedUsers) || 0;
+      const guestUsers = Number(finalIdentityData.guestUsers) || 0;
       const regularUsers = totalUsers - adminUsers - guestUsers;
-      const conditionalAccessPolicies = Number(identityMetrics.conditionalAccessPolicies) || 0;
+      const conditionalAccessPolicies = Number(finalIdentityData.conditionalAccessPolicies) || 0;
+      
+      console.log('=== PROCESSED IDENTITY METRICS ===');
+      console.log('Processed values:', {
+        totalUsers, mfaEnabledUsers, mfaCoverage, adminUsers, guestUsers, regularUsers
+      });
       
       // Create user breakdown data for table
       const userBreakdown = [
