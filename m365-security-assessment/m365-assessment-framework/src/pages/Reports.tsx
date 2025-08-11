@@ -1015,6 +1015,139 @@ const Reports: React.FC = () => {
       console.log('📊 Report controlScores length:', controlScores.length);
     }
 
+    // Identity & Access Report
+    const identityMetrics = assessment.metrics?.realData?.identityMetrics || assessment.metrics?.identityMetrics || {};
+    
+    // Debug: Log identity metrics to understand what data we have
+    console.log('=== IDENTITY METRICS DEBUG ===');
+    console.log('Identity metrics object:', identityMetrics);
+    console.log('Identity metrics keys:', Object.keys(identityMetrics));
+    console.log('Identity skipped?', identityMetrics.skipped);
+    console.log('Identity error?', identityMetrics.error);
+    console.log('Identity totalUsers?', identityMetrics.totalUsers);
+    console.log('Assessment realData keys:', Object.keys(assessment.metrics?.realData || {}));
+    console.log('Assessment metrics keys:', Object.keys(assessment.metrics || {}));
+    
+    // Check if identity assessment was skipped or has errors
+    if (identityMetrics.skipped) {
+      reports.push({
+        category: 'identity',
+        metrics: {
+          hasError: false,
+          skipped: true,
+          reason: identityMetrics.reason || 'Identity assessment was not selected',
+          message: 'This assessment category was not included in the current scan.'
+        },
+        charts: [],
+        insights: [
+          'Identity assessment was not requested for this scan',
+          'To collect identity data, run a new assessment with "Identity & Access Management" selected',
+          'Identity metrics include user counts, MFA coverage, admin users, and guest users'
+        ],
+        recommendations: [
+          'Include Identity & Access Management in your next assessment',
+          'Review user access patterns and privileged accounts regularly',
+          'Implement Multi-Factor Authentication for all users'
+        ]
+      });
+    } else if (identityMetrics.error) {
+      reports.push({
+        category: 'identity',
+        metrics: {
+          hasError: true,
+          errorMessage: identityMetrics.error,
+          reason: 'Unable to collect identity data from Microsoft Graph API'
+        },
+        charts: [],
+        insights: [
+          'Identity data collection failed due to API access issues',
+          'This may be related to permissions or connectivity problems',
+          'Check Microsoft Graph API permissions and tenant access'
+        ],
+        recommendations: [
+          'Verify Microsoft Graph API permissions are granted',
+          'Ensure app registration has User.Read.All and Directory.Read.All permissions',
+          'Check tenant connectivity and authentication status'
+        ]
+      });
+    } else if (
+      identityMetrics &&
+      (identityMetrics.totalUsers !== undefined || identityMetrics.mfaEnabledUsers !== undefined || identityMetrics.adminUsers !== undefined)
+    ) {
+      const totalUsers = Number(identityMetrics.totalUsers) || 0;
+      const mfaEnabledUsers = Number(identityMetrics.mfaEnabledUsers) || 0;
+      const mfaDisabledUsers = totalUsers - mfaEnabledUsers;
+      const mfaCoverage = identityMetrics.mfaCoverage !== undefined ? Number(identityMetrics.mfaCoverage) : (totalUsers > 0 ? Math.round((mfaEnabledUsers / totalUsers) * 100) : 0);
+      const adminUsers = Number(identityMetrics.adminUsers) || 0;
+      const guestUsers = Number(identityMetrics.guestUsers) || 0;
+      const regularUsers = totalUsers - adminUsers - guestUsers;
+      const conditionalAccessPolicies = Number(identityMetrics.conditionalAccessPolicies) || 0;
+      
+      // Create user breakdown data for table
+      const userBreakdown = [
+        { type: 'Regular Users', count: regularUsers, percentage: totalUsers > 0 ? Math.round((regularUsers / totalUsers) * 100) : 0, risk: 'Low' },
+        { type: 'Admin Users', count: adminUsers, percentage: totalUsers > 0 ? Math.round((adminUsers / totalUsers) * 100) : 0, risk: 'High' },
+        { type: 'Guest Users', count: guestUsers, percentage: totalUsers > 0 ? Math.round((guestUsers / totalUsers) * 100) : 0, risk: 'Medium' }
+      ];
+      
+      reports.push({
+        category: 'identity',
+        metrics: {
+          totalUsers,
+          mfaEnabledUsers,
+          mfaDisabledUsers,
+          mfaCoverage,
+          adminUsers,
+          guestUsers,
+          regularUsers,
+          conditionalAccessPolicies,
+          userBreakdown,
+          mfaGap: mfaDisabledUsers,
+          securityRisk: mfaCoverage < 50 ? 'High' : mfaCoverage < 80 ? 'Medium' : 'Low'
+        },
+        charts: [], // No charts needed - we use table view
+        insights: [
+          `${mfaCoverage}% of users have MFA enabled (${mfaEnabledUsers} out of ${totalUsers} users)`,
+          `${mfaDisabledUsers} users are at risk due to missing MFA protection`,
+          `${adminUsers} admin users require special attention and should have MFA enabled`,
+          `${conditionalAccessPolicies} conditional access policies are configured`,
+          `${guestUsers} guest users need regular access review`
+        ],
+        recommendations: [
+          'Enable MFA for all users, especially administrators',
+          'Implement conditional access policies for high-risk scenarios',
+          'Regularly review admin user permissions and access',
+          'Monitor and audit guest user access quarterly',
+          'Consider implementing privileged identity management (PIM)',
+          'Enforce strong password policies'
+        ]
+      });
+    } else {
+      // No identity data found - create a default "not available" report
+      console.log('⚠️ No identity data found - creating default report');
+      reports.push({
+        category: 'identity',
+        metrics: {
+          hasError: false,
+          skipped: true,
+          reason: 'Identity data was not collected during this assessment',
+          message: 'No identity metrics were found in the assessment data.'
+        },
+        charts: [],
+        insights: [
+          'Identity assessment data was not collected for this scan',
+          'Identity metrics include user counts, MFA coverage, admin users, and guest users',
+          'To collect identity data, ensure "Identity & Access Management" is selected during assessment creation'
+        ],
+        recommendations: [
+          'Include Identity & Access Management in your next assessment',
+          'Review user access patterns and privileged accounts regularly',
+          'Implement Multi-Factor Authentication for all users',
+          'Consider enabling Azure AD Premium features for advanced identity protection'
+        ]
+      });
+    }
+
     // Endpoint / Device Compliance Report
     const endpointMetrics = assessment.metrics?.realData?.endpointMetrics || assessment.metrics?.endpointMetrics;
     if (endpointMetrics && (endpointMetrics.totalDevices !== undefined)) {
