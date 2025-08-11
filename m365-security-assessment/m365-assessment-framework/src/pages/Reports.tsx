@@ -566,7 +566,7 @@ const Reports: React.FC = () => {
         customerId: selectedCustomer.id,
         tenantId: selectedCustomer.tenantId,
         assessmentName: `Test Assessment ${new Date().toISOString()}`,
-        includedCategories: ['license', 'secureScore', 'identity'], // Default categories for debug
+        includedCategories: ['license', 'secureScore', 'identity', 'endpoint'], // include endpoint for debug
         notificationEmail: '', // No email property on Customer, use empty string
         autoSchedule: false,
         scheduleFrequency: 'monthly',
@@ -606,6 +606,12 @@ const Reports: React.FC = () => {
       name: 'Identity & Access',
       icon: '👤',
       description: 'User management, MFA coverage, and access policies'
+    },
+    {
+      id: 'endpoint',
+      name: 'Endpoint Protection',
+      icon: '💻',
+      description: 'Device compliance and endpoint protection status'
     },
     {
       id: 'dataProtection',
@@ -1009,6 +1015,40 @@ const Reports: React.FC = () => {
       console.log('📊 Report controlScores length:', controlScores.length);
     }
 
+    // Endpoint / Device Compliance Report
+    const endpointMetrics = assessment.metrics?.realData?.endpointMetrics || assessment.metrics?.endpointMetrics;
+    if (endpointMetrics && (endpointMetrics.totalDevices !== undefined)) {
+      const totalDevices = Number(endpointMetrics.totalDevices) || 0;
+      const compliantDevices = Number(endpointMetrics.compliantDevices) || 0;
+      const nonCompliantDevices = Number(endpointMetrics.nonCompliantDevices) || Math.max(0, totalDevices - compliantDevices);
+      const complianceRate = Number(endpointMetrics.complianceRate) || (totalDevices > 0 ? Math.round((compliantDevices / totalDevices) * 100) : 0);
+      const platformBreakdown = endpointMetrics.platformBreakdown || {};
+      const sampleDevices = endpointMetrics.sample || endpointMetrics.sampleDevices || [];
+
+      reports.push({
+        category: 'endpoint',
+        metrics: {
+          totalDevices,
+          compliantDevices,
+          nonCompliantDevices,
+          complianceRate,
+          platformBreakdown,
+          sampleCount: Array.isArray(sampleDevices) ? sampleDevices.length : 0
+        },
+        charts: [],
+        insights: [
+          `${complianceRate}% of devices are compliant (${compliantDevices}/${totalDevices})`,
+          nonCompliantDevices > 0 ? `${nonCompliantDevices} devices are non-compliant` : 'All devices are compliant',
+          Object.keys(platformBreakdown).length > 0 ? `Platforms: ${Object.entries(platformBreakdown).map(([k,v]) => `${k}: ${v}`).join(', ')}` : 'No platform breakdown available'
+        ],
+        recommendations: [
+          complianceRate < 95 ? 'Review and remediate non-compliant devices' : 'Maintain device compliance',
+          'Ensure device compliance policies are enforced via Intune',
+          'Enable Microsoft Defender for Endpoint for advanced protection'
+        ]
+      });
+    }
+
     console.log('=== FINAL REPORTS ARRAY ===');
     console.log('Reports generated:', reports.length);
     console.log('Report categories:', reports.map(r => r.category));
@@ -1166,413 +1206,55 @@ const Reports: React.FC = () => {
         // Don't set error state if we have multiple assessments - let user choose different one
         if (customerAssessments.length === 1) {
           setError(errorMessage);
+          const errorReport: ReportData = {
+            category: 'error',
+            metrics: {
+              hasError: true,
+              errorMessage: recentErrorAssessment.metrics?.error || recentErrorAssessment.metrics?.dataIssue?.reason || 'Unknown error',
+              troubleshooting: recentErrorAssessment.metrics?.dataIssue?.troubleshooting || [],
+              assessmentDate: recentErrorAssessment.date || recentErrorAssessment.assessmentDate
+            },
+            charts: [],
+            insights: [
+              recentErrorAssessment.metrics?.dataIssue?.reason || 'Assessment encountered an error during data collection',
+              'This may be due to authentication issues or missing permissions',
+              'Please check the troubleshooting steps below'
+            ],
+            recommendations: recentErrorAssessment.metrics?.dataIssue?.troubleshooting || [
+              'Verify app registration credentials',
+              'Ensure admin consent is granted',
+              'Check required permissions are configured'
+            ]
+          };
+          setReportData([errorReport]);
+          return;
         }
-        setCustomerAssessment(recentErrorAssessment);
-        setReportData([]);
-        return;
+        
+        // If multiple assessments available, set error but continue
+        setError(errorMessage);
+        latestAssessment = recentErrorAssessment;
+        setSelectedAssessmentId(recentErrorAssessment.id);
       } else {
-        setError(`Found ${customerAssessments.length} assessments but none have valid data. This may indicate API authentication issues.`);
+        setError('No assessments found for this customer.');
         setCustomerAssessment(null);
         setReportData([]);
         return;
       }
 
-      // Set assessment date for consistency
-      if (!latestAssessment.assessmentDate) {
-        latestAssessment.assessmentDate = latestAssessment.date || latestAssessment.lastModified;
-      }
-
+      // Store all available assessments for the selector
+      setAvailableAssessments(customerAssessments);
       setCustomerAssessment(latestAssessment);
+      setSelectedAssessmentId(latestAssessment.id);
+
+      // Generate reports for the selected assessment
       await generateReportsForAssessment(latestAssessment);
 
     } catch (error) {
       console.error('Error loading customer assessment:', error);
-      setError('Failed to load customer assessment data');
+      setError('Failed to load customer assessment');
     } finally {
       setLoading(false);
     }
-  };
-
-  const generateReportData = (assessment: any) => {
-    console.log('=== GENERATING REPORT DATA ===');
-    console.log('Full assessment object:', assessment);
-    console.log('Assessment metrics:', assessment.metrics);
-    console.log('Assessment realData:', assessment.metrics?.realData);
-    
-    const reports: ReportData[] = [];
-
-    // Check if assessment has data issues
-    if (assessment.metrics?.error || assessment.metrics?.dataIssue) {
-      const errorReport: ReportData = {
-        category: 'error',
-        metrics: {
-          hasError: true,
-          errorMessage: assessment.metrics.error || assessment.metrics.dataIssue?.reason || 'Unknown error',
-          troubleshooting: assessment.metrics.dataIssue?.troubleshooting || [],
-          assessmentDate: assessment.date || assessment.assessmentDate
-        },
-        charts: [],
-        insights: [
-          assessment.metrics.dataIssue?.reason || 'Assessment encountered an error during data collection',
-          'This may be due to authentication issues or missing permissions',
-          'Please check the troubleshooting steps below'
-        ],
-        recommendations: assessment.metrics.dataIssue?.troubleshooting || [
-          'Verify app registration credentials',
-          'Ensure admin consent is granted',
-          'Check required permissions are configured'
-        ]
-      };
-      reports.push(errorReport);
-      setReportData(reports);
-      return;
-    }
-
-    // License Management Report
-    const licenseInfo =
-      assessment.metrics?.realData?.licenseInfo ||
-      assessment.metrics?.license ||
-      assessment.metrics?.licenses;
-
-    if (licenseInfo && (Array.isArray(licenseInfo) ? licenseInfo.length > 0 : typeof licenseInfo === 'object')) {
-      const info = Array.isArray(licenseInfo) ? licenseInfo[0] : licenseInfo;
-      if (info && typeof info === 'object' && (info.totalLicenses !== undefined || info.assignedLicenses !== undefined)) {
-        const totalLicenses = Number(info.totalLicenses) || 0;
-        const assignedLicenses = Number(info.assignedLicenses) || 0;
-        const utilizationRate = info.utilizationRate !== undefined
-          ? Number(info.utilizationRate)
-          : (totalLicenses > 0 ? (assignedLicenses / totalLicenses) * 100 : 0);
-
-        // Process license details from the API response structure
-        const licenseDetails = info.licenseDetails || [];
-        console.log('Processing license details:', licenseDetails);
-
-        // Group license details by SKU and sum up the values
-        const licenseTypeMap = new Map<string, { name: string; assigned: number; total: number; skuPartNumber: string; cost: number }>();
-        
-        licenseDetails.forEach((license: any) => {
-          const skuName = license.skuPartNumber || license.skuDisplayName || license.servicePlanName || 'Unknown License';
-          
-          // Handle Microsoft Graph API license structure from /subscribedSkus endpoint
-          const assignedUnits = Number(license.assignedUnits) || 
-                               Number(license.consumedUnits) || 
-                               Number(license.prepaidUnits?.consumed) || 0;
-          
-          const totalUnits = Number(license.totalUnits) || 
-                           Number(license.prepaidUnits?.enabled) || 
-                           Number(license.prepaidUnits?.total) || 0;
-          
-          console.log(`Processing license: ${skuName}, assigned: ${assignedUnits}, total: ${totalUnits}`);
-          console.log(`License structure:`, {
-            skuPartNumber: license.skuPartNumber,
-            consumedUnits: license.consumedUnits,
-            prepaidUnits: license.prepaidUnits
-          });
-          
-          if (licenseTypeMap.has(skuName)) {
-            const existing = licenseTypeMap.get(skuName)!;
-            existing.assigned += assignedUnits;
-            existing.total += totalUnits;
-          } else {
-            licenseTypeMap.set(skuName, {
-              name: skuName,
-              assigned: assignedUnits,
-              total: totalUnits,
-              skuPartNumber: skuName,
-              cost: getEffectiveLicenseCost(skuName)
-            });
-          }
-        });
-
-        // Convert to array and show all licenses with any units (total > 0)
-        const processedLicenseTypes = Array.from(licenseTypeMap.values())
-          .filter(license => license.total > 0) // Show all licenses with any units
-          .sort((a, b) => b.assigned - a.assigned)
-          .slice(0, 20); // Show top 20 license types for better overview
-
-        console.log('Processed license types:', processedLicenseTypes);
-
-        reports.push({
-          category: 'license',
-          metrics: {
-            totalLicenses,
-            assignedLicenses,
-            unutilizedLicenses: totalLicenses - assignedLicenses,
-            utilizationRate: Math.round(utilizationRate),
-            costData: info.costData || null,
-            licenseTypes: processedLicenseTypes,
-            summary: info.summary || `${assignedLicenses} of ${totalLicenses} licenses assigned (${Math.round(utilizationRate)}% utilization)`
-          },
-          charts: [], // No charts needed - we use table view
-          insights: [
-            `License utilization is at ${Math.round(utilizationRate)}%`,
-            `${totalLicenses - assignedLicenses} licenses are currently unused`,
-            utilizationRate < 60 ? 'Consider optimizing license allocation to reduce costs' : 'License utilization is within acceptable range',
-            `Top license type: ${processedLicenseTypes[0] ? formatLicenseName(processedLicenseTypes[0].name) : 'None'} with ${processedLicenseTypes[0]?.assigned || 0} assignments`
-          ],
-          recommendations: [
-            utilizationRate < 60 ? 'Review and reallocate unused licenses' : 'Monitor for capacity planning',
-            'Implement regular license usage reviews',
-            'Consider upgrading high-usage users to premium licenses'
-          ]
-        });
-      }
-    }
-
-    // Secure Score Report
-    const secureScore = assessment.metrics?.realData?.secureScore || assessment.metrics?.secureScore;
-    console.log('=== SECURE SCORE PROCESSING ===');
-    console.log('Secure score raw data:', secureScore);
-    console.log('Secure score type:', typeof secureScore);
-    console.log('Has currentScore:', secureScore?.currentScore !== undefined);
-    console.log('Has maxScore:', secureScore?.maxScore !== undefined);
-    console.log('Has improvementActions:', secureScore?.improvementActions);
-    console.log('Is unavailable:', secureScore?.unavailable);
-    console.log('Assessment date:', assessment.date || assessment.assessmentDate);
-    console.log('Assessment ID:', assessment.id);
-    
-    if (secureScore && typeof secureScore === 'object' && !secureScore.unavailable && (secureScore.currentScore !== undefined || secureScore.maxScore !== undefined)) {
-      console.log('=== SECURE SCORE FOUND - PROCESSING ===');
-      const currentScore = Number(secureScore.currentScore) || 0;
-      const maxScore = Number(secureScore.maxScore) || 100;
-      const percentage = secureScore.percentage || (maxScore > 0 ? Math.round((currentScore / maxScore) * 100) : 0);
-      
-      console.log('Processed scores:', { currentScore, maxScore, percentage });
-      
-      // Process control scores from the API response (not improvementActions) with enhanced control names
-      const rawControlScores = secureScore.controlScores || [];
-      const controlScores = [];
-      
-      // Use enhanced control name resolution with fallback to existing logic
-      for (const control of rawControlScores) {
-        // Use the enhanced getReadableControlName which has been improved with better validation
-        const enhancedControlName = getReadableControlName(control.controlName, control.description, control.title);
-        
-        controlScores.push({
-          controlName: enhancedControlName,
-          category: control.category || 'General',  
-          currentScore: Number(control.currentScore) || 0,
-          maxScore: Number(control.maxScore) || calculateMaxScore(Number(control.currentScore) || 0, control.controlName),
-          implementationStatus: getStandardizedStatus(control.implementationStatus || '').displayStatus,
-          actionType: control.actionType || determineActionType(control.controlName, control.description),
-          remediation: control.remediation || generateRemediationText(control.controlName, control.description || '', control.implementationStatus || ''),
-          scoreGap: Math.max(0, (Number(control.maxScore) || calculateMaxScore(Number(control.currentScore) || 0, control.controlName)) - (Number(control.currentScore) || 0))
-        });
-      }
-      
-      // Log the enhanced processing for debugging  
-      console.log(`Enhanced control name processing completed for ${controlScores.length} controls`);
-      
-      // Start async background enhancement of control names (non-blocking)
-      enhanceControlNamesAsync(controlScores, rawControlScores);
-      
-      console.log('Processed control scores count:', controlScores.length);
-      
-      // Calculate summary metrics
-      const totalImplemented = controlScores.filter((c: any) => c.implementationStatus === 'Implemented' || c.currentScore > 0).length;
-      const totalControls = controlScores.length;
-      const controlsRemaining = totalControls - totalImplemented;
-      const potentialScoreIncrease = controlScores.reduce((sum: number, control: any) => sum + control.scoreGap, 0);
-      
-      console.log('=== ADDING SECURE SCORE REPORT ===');
-      console.log('Report object to be added:', {
-        category: 'secureScore',
-        metricsKeys: Object.keys({
-          currentScore,
-          maxScore,
-          percentage,
-          controlsImplemented: totalImplemented,
-          totalControls,
-          controlsRemaining,
-          controlScores: controlScores,
-          potentialScoreIncrease,
-          averageControlScore: totalControls > 0 ? Math.round(controlScores.reduce((sum: number, control: any) => sum + control.currentScore, 0) / totalControls) : 0,
-          implementationRate: totalControls > 0 ? Math.round((totalImplemented / totalControls) * 100) : 0
-        })
-      });
-      
-      reports.push({
-        category: 'secureScore',
-        metrics: {
-          currentScore,
-          maxScore,
-          percentage,
-          controlsImplemented: totalImplemented,
-          totalControls,
-          controlsRemaining,
-          potentialScoreIncrease,
-          averageControlScore: totalControls > 0 ? Math.round(controlScores.reduce((sum: number, control: any) => sum + control.currentScore, 0) / totalControls) : 0,
-          implementationRate: totalControls > 0 ? Math.round((totalImplemented / totalControls) * 100) : 0,
-          // Only keep essential fields - removed: controlsStoredCount, compressed, summary, etc.
-          totalControlsFound: secureScore.totalControlsFound
-        },
-        // Store ALL controlScores for the table (no limit)
-        controlScores: controlScores,
-        charts: [], // No charts needed - we use table view
-        insights: [
-          `Current secure score: ${currentScore} out of ${maxScore} points (${percentage}%)`,
-          `${totalImplemented} out of ${totalControls} security controls are implemented`,
-          `${controlsRemaining} security controls remaining to implement`,
-          `Potential score increase: ${potentialScoreIncrease.toFixed(1)} points available`,
-          percentage < 40 ? 'Security posture needs immediate attention' : 
-          percentage < 70 ? 'Security posture needs significant improvement' : 
-          percentage < 85 ? 'Good security posture with room for improvement' : 
-          'Excellent security posture - maintain current practices'
-        ],
-        recommendations: [
-          // Generic recommendations
-          'Focus on high-impact security controls first',
-          'Prioritize controls with low implementation complexity',
-          'Implement Multi-Factor Authentication for all users',
-          'Enable Conditional Access policies',
-          'Configure security defaults and advanced threat protection',
-          'Regularly review and update security settings',
-          // Add specific recommended actions from the secure score data
-          ...(secureScore.recommendedActions || []).map((action: any) => 
-            `${action.title}: ${action.action}` 
-          )
-        ]
-      });
-    } else {
-      console.log('=== NO SECURE SCORE DATA FOUND ===');
-      console.log('Secure score object:', secureScore);
-    }
-
-    // Identity & Access Report
-    const identityMetrics = assessment.metrics?.realData?.identityMetrics || assessment.metrics?.identityMetrics || {};
-    
-    // Debug: Log identity metrics to understand what data we have
-    console.log('=== IDENTITY METRICS DEBUG ===');
-    console.log('Identity metrics object:', identityMetrics);
-    console.log('Identity metrics keys:', Object.keys(identityMetrics));
-    console.log('Identity skipped?', identityMetrics.skipped);
-    console.log('Identity error?', identityMetrics.error);
-    console.log('Identity totalUsers?', identityMetrics.totalUsers);
-    console.log('Assessment realData keys:', Object.keys(assessment.metrics?.realData || {}));
-    console.log('Assessment metrics keys:', Object.keys(assessment.metrics || {}));
-    
-    // FORCE ADD IDENTITY REPORT FOR DEBUGGING
-    console.log('🔥 FORCING IDENTITY REPORT CREATION');
-    reports.push({
-      category: 'identity',
-      metrics: {
-        debug: true,
-        identityMetrics: identityMetrics,
-        hasData: !!identityMetrics && Object.keys(identityMetrics).length > 0,
-        message: 'Debug: Identity report forced for troubleshooting'
-      },
-      charts: [],
-      insights: [
-        'DEBUG: This is a forced identity report to troubleshoot the issue',
-        `Identity metrics found: ${Object.keys(identityMetrics).length} properties`,
-        `Identity data: ${JSON.stringify(identityMetrics).substring(0, 100)}...`
-      ],
-      recommendations: [
-        'This is a debug report to understand why identity data is not showing',
-        'Check browser console for full identity metrics object'
-      ]
-    });
-    
-    // Check if identity assessment was skipped or has errors
-    if (identityMetrics.skipped) {
-      reports.push({
-        category: 'identity',
-        metrics: {
-          hasError: false,
-          skipped: true,
-          reason: identityMetrics.reason || 'Identity assessment was not selected',
-          message: 'This assessment category was not included in the current scan.'
-        },
-        charts: [],
-        insights: [
-          'Identity assessment was not requested for this scan',
-          'To collect identity data, run a new assessment with "Identity & Access Management" selected',
-          'Identity metrics include user counts, MFA coverage, admin users, and guest users'
-        ],
-        recommendations: [
-          'Include Identity & Access Management in your next assessment',
-          'Review user access patterns and privileged accounts regularly',
-          'Implement Multi-Factor Authentication for all users'
-        ]
-      });
-    } else if (identityMetrics.error) {
-      reports.push({
-        category: 'identity',
-        metrics: {
-          hasError: true,
-          errorMessage: identityMetrics.error,
-          reason: 'Unable to collect identity data from Microsoft Graph API'
-        },
-        charts: [],
-        insights: [
-          'Identity data collection failed due to API access issues',
-          'This may be related to permissions or connectivity problems',
-          'Check Microsoft Graph API permissions and tenant access'
-        ],
-        recommendations: [
-          'Verify Microsoft Graph API permissions are granted',
-          'Ensure app registration has User.Read.All and Directory.Read.All permissions',
-          'Check tenant connectivity and authentication status'
-        ]
-      });
-    } else if (
-      identityMetrics &&
-      (identityMetrics.totalUsers !== undefined || identityMetrics.mfaEnabledUsers !== undefined || identityMetrics.adminUsers !== undefined)
-    ) {
-      const totalUsers = Number(identityMetrics.totalUsers) || 0;
-      const mfaEnabledUsers = Number(identityMetrics.mfaEnabledUsers) || 0;
-      const mfaDisabledUsers = totalUsers - mfaEnabledUsers;
-      const mfaCoverage = identityMetrics.mfaCoverage !== undefined ? Number(identityMetrics.mfaCoverage) : (totalUsers > 0 ? Math.round((mfaEnabledUsers / totalUsers) * 100) : 0);
-      const adminUsers = Number(identityMetrics.adminUsers) || 0;
-      const guestUsers = Number(identityMetrics.guestUsers) || 0;
-      const regularUsers = totalUsers - adminUsers - guestUsers;
-      const conditionalAccessPolicies = Number(identityMetrics.conditionalAccessPolicies) || 0;
-      
-      // Create user breakdown data for table
-      const userBreakdown = [
-        { type: 'Regular Users', count: regularUsers, percentage: totalUsers > 0 ? Math.round((regularUsers / totalUsers) * 100) : 0, risk: 'Low' },
-        { type: 'Admin Users', count: adminUsers, percentage: totalUsers > 0 ? Math.round((adminUsers / totalUsers) * 100) : 0, risk: 'High' },
-        { type: 'Guest Users', count: guestUsers, percentage: totalUsers > 0 ? Math.round((guestUsers / totalUsers) * 100) : 0, risk: 'Medium' }
-      ];
-      
-      reports.push({
-        category: 'identity',
-        metrics: {
-          totalUsers,
-          mfaEnabledUsers,
-          mfaDisabledUsers,
-          mfaCoverage,
-          adminUsers,
-          guestUsers,
-          regularUsers,
-          conditionalAccessPolicies,
-          userBreakdown,
-          mfaGap: mfaDisabledUsers,
-          securityRisk: mfaCoverage < 50 ? 'High' : mfaCoverage < 80 ? 'Medium' : 'Low'
-        },
-        charts: [], // No charts needed - we use table view
-        insights: [
-          `${mfaCoverage}% of users have MFA enabled (${mfaEnabledUsers} out of ${totalUsers} users)`,
-          `${mfaDisabledUsers} users are at risk due to missing MFA protection`,
-          `${adminUsers} admin users require special attention and should have MFA enabled`,
-          `${conditionalAccessPolicies} conditional access policies are configured`,
-          `${guestUsers} guest users need regular access review`
-        ],
-        recommendations: [
-          'Enable MFA for all users, especially administrators',
-          'Implement conditional access policies for high-risk scenarios',
-          'Regularly review admin user permissions and access',
-          'Monitor and audit guest user access quarterly',
-          'Consider implementing privileged identity management (PIM)',
-          'Enforce strong password policies'
-        ]
-      });
-    }
-
-    console.log('=== FINAL REPORTS ARRAY ===');
-    console.log('Reports generated:', reports.length);
-    console.log('Report categories:', reports.map(r => r.category));
-    setReportData(reports);
   };
 
   // Helper function to enhance control names asynchronously (non-blocking)

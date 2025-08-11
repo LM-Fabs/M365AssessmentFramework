@@ -5,6 +5,7 @@
 
 /**
  * Map of cryptic control names to human-readable titles
+ * This mapping includes common Microsoft Secure Score control identifiers
  */
 export const CONTROL_NAME_MAPPING: Record<string, string> = {
   // Identity Controls - Enhanced with actual Microsoft Secure Score control names
@@ -27,7 +28,48 @@ export const CONTROL_NAME_MAPPING: Record<string, string> = {
   'guest_user_access_review': 'Regular Guest User Access Reviews',
   'password_writeback': 'Enable Password Writeback',
 
-  // SCID Controls (Secure Score Control IDs)
+  // Common Microsoft Secure Score Control Names (frequently cryptic)
+  'TurnOnAzureAdPasswordProtection': 'Enable Azure AD Password Protection',
+  'EnableAzureAdPasswordProtection': 'Enable Azure AD Password Protection',
+  'RequireMFAForAdmins': 'Require Multi-Factor Authentication for Administrators',
+  'RequireMFAForAllUsers': 'Require Multi-Factor Authentication for All Users',
+  'BlockLegacyAuthentication': 'Block Legacy Authentication Protocols',
+  'EnableSecurityDefaults': 'Enable Security Defaults in Azure AD',
+  'ConfigureSelfServicePasswordReset': 'Configure Self-Service Password Reset',
+  'EnablePrivilegedIdentityManagement': 'Enable Privileged Identity Management (PIM)',
+  'ConfigureConditionalAccess': 'Configure Conditional Access Policies',
+  'EnableIdentityProtection': 'Enable Azure AD Identity Protection',
+  'ConfigureRiskBasedPolicies': 'Configure Risk-Based Conditional Access Policies',
+  'MonitorRiskySignIns': 'Monitor and Respond to Risky Sign-ins',
+  'ReviewPrivilegedAccess': 'Regular Review of Privileged Access',
+  'SecureWorkstations': 'Secure Administrative Workstations',
+  'ConfigureApplicationProxy': 'Configure Azure AD Application Proxy',
+
+  // Office 365 Security Controls
+  'EnableSafeAttachments': 'Enable Safe Attachments in Office 365',
+  'EnableSafeLinks': 'Enable Safe Links in Office 365',
+  'ConfigureAntiPhishing': 'Configure Anti-Phishing Policies',
+  'EnableATP': 'Enable Advanced Threat Protection',
+  'ConfigureDLP': 'Configure Data Loss Prevention Policies',
+  'EnableMailboxAuditing': 'Enable Mailbox Auditing',
+  'ConfigureRetentionPolicies': 'Configure Email Retention Policies',
+  'EnableEncryption': 'Enable Email Encryption',
+  'ConfigureMobileDeviceManagement': 'Configure Mobile Device Management',
+  'EnableCloudAppSecurity': 'Enable Microsoft Cloud App Security',
+
+  // Device and Endpoint Controls  
+  'EnableDefenderATP': 'Enable Microsoft Defender for Endpoint',
+  'ConfigureDeviceCompliance': 'Configure Device Compliance Policies',
+  'EnableBitLocker': 'Enable BitLocker Drive Encryption',
+  'ConfigureWindowsHello': 'Configure Windows Hello for Business',
+  'EnableDeviceGuard': 'Enable Windows Defender Device Guard',
+  'ConfigureFirewall': 'Configure Windows Defender Firewall',
+  'EnableAutomaticUpdates': 'Enable Automatic System Updates',
+  'ConfigureAppControlPolicies': 'Configure Application Control Policies',
+  'EnableTamperProtection': 'Enable Tamper Protection',
+  'ConfigureAttackSurfaceReduction': 'Configure Attack Surface Reduction Rules',
+
+  // SCID Controls (Secure Score Control IDs) - Common ones
   'scid_16': 'Multi-Factor Authentication for Admin Users',
   'scid_24': 'Block Legacy Authentication Protocols',
   'scid_34': 'Enable Azure AD Identity Protection',
@@ -113,52 +155,95 @@ export const CONTROL_NAME_MAPPING: Record<string, string> = {
  * Validates if a title from Microsoft Graph API is usable as a display name
  */
 function isValidTitle(title: string, controlName: string): boolean {
-  return !!(title && 
-         title.length > 3 && 
-         title !== 'N/A' && 
-         title !== controlName &&
-         !title.includes('Microsoft.') &&
-         !title.startsWith('SCID_') &&
-         !title.includes('undefined') &&
-         title.trim().length > 0);
+  if (!title || title.trim().length === 0) return false;
+  
+  const trimmedTitle = title.trim();
+  
+  // Reject invalid or cryptic titles
+  if (trimmedTitle.length < 4 || 
+      trimmedTitle === 'N/A' || 
+      trimmedTitle === controlName ||
+      trimmedTitle.includes('Microsoft.') ||
+      trimmedTitle.startsWith('SCID_') ||
+      trimmedTitle.includes('undefined') ||
+      trimmedTitle.match(/^[A-Z_]+$/)) { // All caps with underscores = likely internal ID
+    return false;
+  }
+  
+  // Accept titles that look like proper human-readable text
+  return true;
 }
 
 /**
  * Validates if a description is usable as a display name
  */
 function isValidDescription(description: string, controlName: string): boolean {
-  return !!(description && 
-         description.length > 10 && 
-         description.length < 200 && // Avoid overly long descriptions
-         description !== controlName &&
-         !description.includes('Microsoft.') &&
-         !description.includes('undefined') &&
-         description.trim().length > 0);
+  if (!description || description.trim().length === 0) return false;
+  
+  const trimmedDesc = description.trim();
+  
+  return !!(trimmedDesc.length > 10 && 
+         trimmedDesc.length < 300 && // Avoid overly long descriptions
+         trimmedDesc !== controlName &&
+         !trimmedDesc.includes('Microsoft.') &&
+         !trimmedDesc.includes('undefined') &&
+         !trimmedDesc.match(/^[A-Z_]+$/) && // Avoid cryptic IDs
+         trimmedDesc.split(' ').length > 2); // Must be at least 3 words
 }
 
 /**
  * Cleans up description text to make it more readable
  */
 function cleanDescription(description: string): string {
-  return description
+  let cleaned = description
     .replace(/^Microsoft\s+/i, '') // Remove Microsoft prefix
-    .replace(/\s+\(.*?\)$/, '') // Remove parenthetical info at end
+    .replace(/\s+\(.*?\)$/, '') // Remove parenthetical info at end  
     .replace(/\s+$/, '') // Remove trailing whitespace
     .replace(/\.$/, '') // Remove trailing period
+    .replace(/\s*-\s*$/, '') // Remove trailing dash
     .trim();
+  
+  // If the description starts with "Enable" or "Configure", it's likely a good title
+  if (cleaned.match(/^(Enable|Configure|Set|Implement|Use|Turn on|Block|Allow|Require|Deploy)/i)) {
+    return cleaned;
+  }
+  
+  // If it's a sentence, try to make it more title-like
+  if (cleaned.includes('.') && cleaned.split('.').length > 2) {
+    // Take the first sentence if it's a multi-sentence description
+    cleaned = cleaned.split('.')[0].trim();
+  }
+  
+  // Capitalize first letter if needed
+  if (cleaned.length > 0) {
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+  
+  return cleaned;
 }
 
 /**
  * Get human-readable control name with enhanced API-first approach
  */
 export function getReadableControlName(controlName: string, description?: string, title?: string): string {
+  // Debug logging to understand what data we're working with
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 getReadableControlName inputs:', { controlName, title, description: description?.substring(0, 100) });
+  }
+  
   // Primary: Use official Microsoft Graph API title (most reliable)
   if (isValidTitle(title || '', controlName)) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✅ Using API title:', title);
+    }
     return title!;
   }
   
   // Secondary: Check static mapping (curated and tested)
   if (CONTROL_NAME_MAPPING[controlName]) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✅ Using static mapping:', CONTROL_NAME_MAPPING[controlName]);
+    }
     return CONTROL_NAME_MAPPING[controlName];
   }
   
@@ -166,6 +251,9 @@ export function getReadableControlName(controlName: string, description?: string
   if (isValidDescription(description || '', controlName)) {
     const cleanDesc = cleanDescription(description!);
     if (cleanDesc.length > 5) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Using cleaned description:', cleanDesc);
+      }
       return cleanDesc;
     }
   }
@@ -174,12 +262,19 @@ export function getReadableControlName(controlName: string, description?: string
   const lowerName = controlName.toLowerCase();
   for (const [key, value] of Object.entries(CONTROL_NAME_MAPPING)) {
     if (lowerName.includes(key.toLowerCase()) || key.toLowerCase().includes(lowerName)) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Using partial match:', value);
+      }
       return value;
     }
   }
   
   // Fallback: Format the control name to be more readable
-  return formatControlName(controlName);
+  const formatted = formatControlName(controlName);
+  if (process.env.NODE_ENV === 'development') {
+    console.log('⚠️ Using fallback formatting:', formatted);
+  }
+  return formatted;
 }
 
 /**
@@ -190,16 +285,16 @@ function formatControlName(controlName: string): string {
   
   let formatted = controlName;
   
-  // Handle specific control ID prefixes
+  // Handle specific control ID prefixes with better formatting
   if (formatted.startsWith('scid_')) {
-    // SCID (Secure Score Control ID) - try to make it more descriptive
+    // SCID (Secure Score Control ID) - make it more descriptive
     const idNumber = formatted.replace('scid_', '');
-    return `Security Control ${idNumber}`;
+    return `Security Control #${idNumber}`;
   }
   
+  // Handle Microsoft service prefixes
   if (formatted.startsWith('AATP_')) {
-    // Azure Advanced Threat Protection / Microsoft Defender for Identity
-    formatted = formatted.replace('AATP_', 'Microsoft Defender for Identity: ');
+    formatted = formatted.replace('AATP_', 'Defender for Identity: ');
   } else if (formatted.startsWith('aad_')) {
     formatted = formatted.replace('aad_', 'Azure AD: ');
   } else if (formatted.startsWith('defender_')) {
@@ -212,6 +307,14 @@ function formatControlName(controlName: string): string {
     formatted = formatted.replace('sharepoint_', 'SharePoint: ');
   } else if (formatted.startsWith('exchange_')) {
     formatted = formatted.replace('exchange_', 'Exchange: ');
+  } else if (formatted.startsWith('intune_')) {
+    formatted = formatted.replace('intune_', 'Microsoft Intune: ');
+  } else if (formatted.startsWith('mdatp_')) {
+    formatted = formatted.replace('mdatp_', 'Defender for Endpoint: ');
+  } else if (formatted.startsWith('mcas_')) {
+    formatted = formatted.replace('mcas_', 'Cloud App Security: ');
+  } else if (formatted.startsWith('azure_')) {
+    formatted = formatted.replace('azure_', 'Azure: ');
   }
   
   // Replace underscores and hyphens with spaces
@@ -220,46 +323,109 @@ function formatControlName(controlName: string): string {
   // Split camelCase
   formatted = formatted.replace(/([a-z])([A-Z])/g, '$1 $2');
   
-  // Handle common abbreviations and technical terms
-  formatted = formatted.replace(/\bmfa\b/gi, 'MFA');
-  formatted = formatted.replace(/\bpim\b/gi, 'PIM');
-  formatted = formatted.replace(/\bdlp\b/gi, 'DLP');
-  formatted = formatted.replace(/\batp\b/gi, 'ATP');
-  formatted = formatted.replace(/\bapi\b/gi, 'API');
-  formatted = formatted.replace(/\bsso\b/gi, 'SSO');
-  formatted = formatted.replace(/\bvm\b/gi, 'VM');
-  formatted = formatted.replace(/\brad\b/gi, 'RAD');
-  formatted = formatted.replace(/\bunassigned\b/gi, 'Unassigned');
-  formatted = formatted.replace(/\bcloud only\b/gi, 'Cloud-Only');
-  formatted = formatted.replace(/\badmin\b/gi, 'Administrator');
-  formatted = formatted.replace(/\baccounts\b/gi, 'Accounts');
-  formatted = formatted.replace(/\bseparate\b/gi, 'Separate');
-  formatted = formatted.replace(/\bconsent\b/gi, 'Consent');
-  formatted = formatted.replace(/\bworkflow\b/gi, 'Workflow');
-  formatted = formatted.replace(/\bbanned\b/gi, 'Banned');
-  formatted = formatted.replace(/\bpasswords\b/gi, 'Passwords');
-  formatted = formatted.replace(/\blinkedin\b/gi, 'LinkedIn');
-  formatted = formatted.replace(/\bconnection\b/gi, 'Connection');
-  formatted = formatted.replace(/\bdisables\b/gi, 'Disable');
-  formatted = formatted.replace(/\bprotection\b/gi, 'Protection');
-  formatted = formatted.replace(/\bphishing\b/gi, 'Phishing');
-  formatted = formatted.replace(/\bstrength\b/gi, 'Strength');
-  formatted = formatted.replace(/\bclear text\b/gi, 'Clear Text');
-  formatted = formatted.replace(/\bdormant\b/gi, 'Dormant');
-  formatted = formatted.replace(/\bkerberos\b/gi, 'Kerberos');
-  formatted = formatted.replace(/\bdelegations\b/gi, 'Delegations');
-  formatted = formatted.replace(/\bhoney token\b/gi, 'Honey Token');
-  formatted = formatted.replace(/\bpath risk\b/gi, 'Path Risk');
-  formatted = formatted.replace(/\bprint spooler\b/gi, 'Print Spooler');
-  formatted = formatted.replace(/\bpwd laps\b/gi, 'Password LAPS');
-  formatted = formatted.replace(/\bsid history\b/gi, 'SID History');
-  formatted = formatted.replace(/\bunsecure account\b/gi, 'Unsecure Account');
-  formatted = formatted.replace(/\bvpn\b/gi, 'VPN');
+  // Handle common abbreviations and technical terms more comprehensively
+  const abbreviations = {
+    'mfa': 'Multi-Factor Authentication',
+    'pim': 'Privileged Identity Management',
+    'dlp': 'Data Loss Prevention',
+    'atp': 'Advanced Threat Protection',
+    'api': 'API',
+    'sso': 'Single Sign-On',
+    'vm': 'Virtual Machine',
+    'vms': 'Virtual Machines',
+    'rad': 'RAD',
+    'ca': 'Conditional Access',
+    'adfs': 'Active Directory Federation Services',
+    'saml': 'SAML',
+    'oauth': 'OAuth',
+    'openid': 'OpenID',
+    'rbac': 'Role-Based Access Control',
+    'tls': 'TLS',
+    'ssl': 'SSL',
+    'vpn': 'VPN',
+    'wan': 'WAN',
+    'lan': 'LAN',
+    'dns': 'DNS',
+    'dhcp': 'DHCP',
+    'ip': 'IP Address',
+    'tcp': 'TCP',
+    'udp': 'UDP',
+    'http': 'HTTP',
+    'https': 'HTTPS',
+    'ftp': 'FTP',
+    'smtp': 'SMTP',
+    'pop': 'POP',
+    'imap': 'IMAP'
+  };
   
-  // Capitalize first letter of each word
+  // Apply abbreviation replacements
+  for (const [abbr, full] of Object.entries(abbreviations)) {
+    const regex = new RegExp(`\\b${abbr}\\b`, 'gi');
+    formatted = formatted.replace(regex, full);
+  }
+  
+  // Handle common words and improve readability
+  const wordReplacements = {
+    'unassigned': 'Unassigned',
+    'cloud only': 'Cloud-Only',
+    'admin': 'Administrator',
+    'admins': 'Administrators',
+    'accounts': 'Accounts',
+    'separate': 'Separate',
+    'consent': 'Consent',
+    'workflow': 'Workflow',
+    'banned': 'Banned',
+    'passwords': 'Passwords',
+    'linkedin': 'LinkedIn',
+    'connection': 'Connection',
+    'disables': 'Disable',
+    'protection': 'Protection',
+    'phishing': 'Phishing',
+    'strength': 'Strength',
+    'clear text': 'Clear Text',
+    'dormant': 'Dormant',
+    'kerberos': 'Kerberos',
+    'delegations': 'Delegations',
+    'honey token': 'Honey Token',
+    'path risk': 'Path Risk',
+    'print spooler': 'Print Spooler',
+    'pwd laps': 'Password LAPS',
+    'sid history': 'SID History',
+    'unsecure account': 'Unsecure Account',
+    'baseline': 'Baseline',
+    'legacy': 'Legacy',
+    'auth': 'Authentication',
+    'authz': 'Authorization',
+    'signin': 'Sign-in',
+    'signins': 'Sign-ins',
+    'login': 'Login',
+    'logon': 'Logon',
+    'logoff': 'Logoff',
+    'logout': 'Logout',
+    'config': 'Configuration',
+    'configs': 'Configurations'
+  };
+  
+  // Apply word replacements
+  for (const [word, replacement] of Object.entries(wordReplacements)) {
+    const regex = new RegExp(`\\b${word}\\b`, 'gi');
+    formatted = formatted.replace(regex, replacement);
+  }
+  
+  // Capitalize first letter of each word (proper title case)
   formatted = formatted.replace(/\b\w/g, l => l.toUpperCase());
   
-  // Clean up extra spaces
+  // Handle special cases for articles and prepositions (more natural title case)
+  const lowercaseWords = ['a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'if', 'in', 'of', 'on', 'or', 'the', 'to', 'up', 'via', 'with'];
+  lowercaseWords.forEach(word => {
+    const regex = new RegExp(`\\b${word}\\b`, 'g');
+    formatted = formatted.replace(regex, word.toLowerCase());
+  });
+  
+  // Always capitalize the first word
+  formatted = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  
+  // Clean up extra spaces and trim
   formatted = formatted.replace(/\s+/g, ' ').trim();
   
   return formatted;
