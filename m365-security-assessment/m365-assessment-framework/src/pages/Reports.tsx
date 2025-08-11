@@ -1229,11 +1229,39 @@ const Reports: React.FC = () => {
       console.log('- finalIdentityData.summary?.privilegedUsers:', finalIdentityData.summary?.privilegedUsers);
       console.log('- finalIdentityData.users length:', finalIdentityData.users ? finalIdentityData.users.length : 'no users array');
       
-      // Create user breakdown data for table
+      // Calculate dynamic risk levels based on actual conditions
+      const adminPercentage = totalUsers > 0 ? Math.round((adminUsers / totalUsers) * 100) : 0;
+      const guestPercentage = totalUsers > 0 ? Math.round((guestUsers / totalUsers) * 100) : 0;
+      const regularPercentage = totalUsers > 0 ? Math.round((regularUsers / totalUsers) * 100) : 0;
+      
+      // Dynamic risk assessment based on security best practices
+      const adminRisk = adminPercentage > 10 ? 'High' : adminPercentage > 5 ? 'Medium' : 'Low';
+      const guestRisk = guestPercentage > 20 ? 'High' : guestPercentage > 10 ? 'Medium' : 'Low';
+      const regularRisk = mfaCoverage < 30 ? 'High' : mfaCoverage < 70 ? 'Medium' : 'Low';
+      
+      // Create user breakdown data for table with dynamic risk assessment
       const userBreakdown = [
-        { type: 'Regular Users', count: regularUsers, percentage: totalUsers > 0 ? Math.round((regularUsers / totalUsers) * 100) : 0, risk: 'Low' },
-        { type: 'Admin Users', count: adminUsers, percentage: totalUsers > 0 ? Math.round((adminUsers / totalUsers) * 100) : 0, risk: 'High' },
-        { type: 'Guest Users', count: guestUsers, percentage: totalUsers > 0 ? Math.round((guestUsers / totalUsers) * 100) : 0, risk: 'Medium' }
+        { 
+          type: 'Regular Users', 
+          count: regularUsers, 
+          percentage: regularPercentage, 
+          risk: regularRisk,
+          riskReason: mfaCoverage < 30 ? 'Low MFA coverage' : mfaCoverage < 70 ? 'Moderate MFA coverage' : 'Good MFA coverage'
+        },
+        { 
+          type: 'Admin Users', 
+          count: adminUsers, 
+          percentage: adminPercentage, 
+          risk: adminRisk,
+          riskReason: adminPercentage > 10 ? 'Too many admins' : adminPercentage > 5 ? 'High admin ratio' : 'Appropriate admin ratio'
+        },
+        { 
+          type: 'Guest Users', 
+          count: guestUsers, 
+          percentage: guestPercentage, 
+          risk: guestRisk,
+          riskReason: guestPercentage > 20 ? 'Excessive guest access' : guestPercentage > 10 ? 'Significant guest presence' : 'Managed guest access'
+        }
       ];
       
       console.log('Generated userBreakdown:', userBreakdown);
@@ -2094,6 +2122,7 @@ const Reports: React.FC = () => {
                   <th>Count</th>
                   <th>Percentage</th>
                   <th>Risk Level</th>
+                  <th>Risk Assessment</th>
                   <th>MFA Required</th>
                 </tr>
               </thead>
@@ -2121,6 +2150,9 @@ const Reports: React.FC = () => {
                       <span className={`risk-badge ${userType.risk.toLowerCase()}`}>
                         {userType.risk}
                       </span>
+                    </td>
+                    <td className="risk-reason-cell">
+                      <span className="risk-reason-text">{userType.riskReason}</span>
                     </td>
                     <td className="mfa-required-cell">
                       <span className={`mfa-badge ${userType.type === 'Admin Users' ? 'mandatory' : 'recommended'}`}>
