@@ -189,12 +189,41 @@ async function createAssessment(request: HttpRequest, context: InvocationContext
                     percentage: 0
                 };
             }
+
+            // Conditionally fetch endpoint/device data
+            let endpointMetrics: any = null;
+            if (includedCategories.includes('endpoint')) {
+                context.log('📊 Fetching managed devices for endpoint metrics...');
+                const devices = await graphService.getManagedDevices();
+                const totalDevices = Array.isArray(devices) ? devices.length : 0;
+                const compliantDevices = totalDevices > 0 ? devices.filter((d: any) => (d.complianceState || '').toLowerCase() === 'compliant').length : 0;
+                const nonCompliantDevices = Math.max(0, totalDevices - compliantDevices);
+                const complianceRate = totalDevices > 0 ? Math.round((compliantDevices / totalDevices) * 100) : 0;
+                const platformBreakdown = devices.reduce((acc: any, d: any) => {
+                    const os = (d.operatingSystem || 'Unknown').toLowerCase();
+                    acc[os] = (acc[os] || 0) + 1;
+                    return acc;
+                }, {} as Record<string, number>);
+
+                endpointMetrics = {
+                    totalDevices,
+                    compliantDevices,
+                    nonCompliantDevices,
+                    complianceRate,
+                    platformBreakdown,
+                    sample: devices.slice(0, 10).map((d: any) => ({ id: d.id, name: d.deviceName, os: d.operatingSystem, compliance: d.complianceState, lastSync: d.lastSyncDateTime }))
+                };
+                context.log('✅ Endpoint metrics computed:', endpointMetrics);
+            } else {
+                context.log('⏭️ Skipping endpoint metrics (not requested)');
+            }
             
             context.log('✅ Graph API data collection completed successfully');
             context.log('📊 Data summary:', {
                 orgProfile: orgProfile ? 'Retrieved' : 'Not available',
                 licenseDetails: licenseDetails ? `${Array.isArray(licenseDetails) ? licenseDetails.length : 'N/A'} items` : 'Not available',
-                secureScore: secureScore?.unavailable ? 'Unavailable' : 'Retrieved'
+                secureScore: secureScore?.unavailable ? 'Unavailable' : 'Retrieved',
+                endpointDevices: endpointMetrics ? endpointMetrics.totalDevices : 'Not requested'
             });
 
             // Calculate metrics from collected data
@@ -268,6 +297,7 @@ async function createAssessment(request: HttpRequest, context: InvocationContext
             const licenseUtilization = licenseInfo.totalLicenses > 0 ? 
                 Math.round((licenseInfo.assignedLicenses / licenseInfo.totalLicenses) * 100) : 0;
             const secureScorePercentage = secureScoreData.percentage || 0;
+            const deviceComplianceScore = endpointMetrics ? endpointMetrics.complianceRate : 100; // default 100 if not requested
             
             // Weighted scoring: 40% secure score, 30% license optimization, 30% baseline security
             const overallScore = Math.round(
@@ -321,13 +351,15 @@ async function createAssessment(request: HttpRequest, context: InvocationContext
                                 skipped: true,
                                 reason: 'Identity assessment not requested'
                             },
+                        // New: endpoint / device metrics when requested
+                        ...(endpointMetrics ? { endpointMetrics } : {}),
                         securityMetrics: {
                             alertsCount: 0,
                             secureScore: secureScorePercentage,
                             identityScore: 0,
                             dataProtectionScore: 0,
                             recommendationsCount: 0,
-                            deviceComplianceScore: 100
+                            deviceComplianceScore: deviceComplianceScore
                         },
                         authenticationMethod: "Azure Multi-Tenant App (Customer Tenant Access)"
                     }
@@ -339,7 +371,8 @@ async function createAssessment(request: HttpRequest, context: InvocationContext
             // Add recommendations based on collected data
             realAssessmentData.recommendations = [
                 secureScorePercentage < 50 ? 'Improve Microsoft Secure Score' : 'Maintain good security posture',
-                licenseDetails.length > 0 ? 'Optimize license utilization' : 'Configure license monitoring',
+                licenseDetails && Array.isArray(licenseDetails) && licenseDetails.length > 0 ? 'Optimize license utilization' : 'Configure license monitoring',
+                ...(endpointMetrics ? [endpointMetrics.complianceRate < 90 ? 'Increase device compliance by enforcing policies' : 'Maintain device compliance'] : []),
                 'Regular security assessments recommended'
             ];
             realAssessmentData.status = 'completed';

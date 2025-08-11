@@ -445,4 +445,22 @@ export class MultiTenantGraphService {
             throw new Error(`Failed to get privileged users: ${error.message}`);
         }
     }
+
+    // === Endpoint / Device compliance ===
+    async getManagedDevices(): Promise<any[]> {
+        try {
+            console.log('💻 MultiTenantGraphService: Fetching managed devices for tenant:', this.targetTenantId);
+            const response = await this.graphClient
+                .api('/deviceManagement/managedDevices')
+                .select('id,deviceName,complianceState,operatingSystem,lastSyncDateTime')
+                .top(999)
+                .get();
+            console.log('✅ MultiTenantGraphService: Managed devices retrieved successfully');
+            return response.value || [];
+        } catch (error: any) {
+            console.error('❌ MultiTenantGraphService: Failed to get managed devices:', error);
+            // Do not throw to avoid failing whole assessment; return empty to indicate unavailable
+            return [];
+        }
+    }
 }

@@ -28,11 +28,13 @@ export const SCORE_THRESHOLDS = {
 export const SECURITY_CATEGORIES = {
   license: 'License Usage & Management',
   secureScore: 'Microsoft Secure Score',
-  identity: 'Identity & Access Management'
+  identity: 'Identity & Access Management',
+  endpoint: 'Endpoint Protection & Compliance' // Added endpoint category
 } as const;
 
 export const METRIC_WEIGHTS = {
   license: 0.3,
   secureScore: 0.4,
-  identity: 0.3
+  identity: 0.2,
+  endpoint: 0.1 // Added endpoint weight
 } as const;
