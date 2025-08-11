@@ -1213,12 +1213,30 @@ const Reports: React.FC = () => {
         totalUsers, mfaEnabledUsers, mfaCoverage, adminUsers, guestUsers, regularUsers
       });
       
+      // Debug: Check if we're getting real values
+      if (totalUsers === 0) {
+        console.log('⚠️ WARNING: totalUsers is 0 - this might be why table shows no data');
+      }
+      if (adminUsers === 0 && guestUsers === 0 && regularUsers === 0) {
+        console.log('⚠️ WARNING: All user categories are 0 - data might not be processing correctly');
+      }
+      
+      console.log('Original finalIdentityData structure:');
+      console.log('- finalIdentityData.totalUsers:', finalIdentityData.totalUsers);
+      console.log('- finalIdentityData.adminUsers:', finalIdentityData.adminUsers);
+      console.log('- finalIdentityData.guestUsers:', finalIdentityData.guestUsers);
+      console.log('- finalIdentityData.summary?.totalUsers:', finalIdentityData.summary?.totalUsers);
+      console.log('- finalIdentityData.summary?.privilegedUsers:', finalIdentityData.summary?.privilegedUsers);
+      console.log('- finalIdentityData.users length:', finalIdentityData.users ? finalIdentityData.users.length : 'no users array');
+      
       // Create user breakdown data for table
       const userBreakdown = [
         { type: 'Regular Users', count: regularUsers, percentage: totalUsers > 0 ? Math.round((regularUsers / totalUsers) * 100) : 0, risk: 'Low' },
         { type: 'Admin Users', count: adminUsers, percentage: totalUsers > 0 ? Math.round((adminUsers / totalUsers) * 100) : 0, risk: 'High' },
         { type: 'Guest Users', count: guestUsers, percentage: totalUsers > 0 ? Math.round((guestUsers / totalUsers) * 100) : 0, risk: 'Medium' }
       ];
+      
+      console.log('Generated userBreakdown:', userBreakdown);
       
       reports.push({
         category: 'identity',
@@ -2014,7 +2032,15 @@ const Reports: React.FC = () => {
   };
 
   const renderIdentityTable = (metrics: any) => {
+    console.log('=== RENDER IDENTITY TABLE DEBUG ===');
+    console.log('Metrics received:', metrics);
+    console.log('Metrics keys:', Object.keys(metrics || {}));
+    console.log('totalUsers:', metrics?.totalUsers);
+    console.log('userBreakdown:', metrics?.userBreakdown);
+    console.log('Has userBreakdown array?', Array.isArray(metrics?.userBreakdown));
+    
     if (!metrics || metrics.totalUsers === undefined) {
+      console.log('❌ No metrics or totalUsers undefined - showing no data message');
       return (
         <div className="no-identity-data">
           <p>No identity data available</p>
@@ -2407,7 +2433,12 @@ const Reports: React.FC = () => {
                   ) : (
                     // Show the identity table directly
                     <div className="charts-grid">
-                      {renderIdentityTable(currentTabData.metrics)}
+                      {(() => {
+                        console.log('=== ABOUT TO RENDER IDENTITY TABLE ===');
+                        console.log('currentTabData.metrics:', currentTabData.metrics);
+                        console.log('currentTabData.metrics keys:', Object.keys(currentTabData.metrics || {}));
+                        return renderIdentityTable(currentTabData.metrics);
+                      })()}
                     </div>
                   )
                 ) : (
