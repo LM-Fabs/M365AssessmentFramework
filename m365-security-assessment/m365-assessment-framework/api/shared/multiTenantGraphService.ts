@@ -296,7 +296,44 @@ export class MultiTenantGraphService {
     }
 
     /**
+     * Get complete user list from the customer tenant
+     * This provides actual user data instead of relying on potentially unreliable $count endpoint
+     */
+    async getAllUsers(): Promise<any[]> {
+        try {
+            console.log('👥 MultiTenantGraphService: Fetching all users for tenant:', this.targetTenantId);
+            const users: any[] = [];
+            let nextLink = '/users?$select=id,userPrincipalName,userType,accountEnabled,displayName&$top=999';
+            
+            while (nextLink) {
+                const response = await this.graphClient.api(nextLink).get();
+                const pageUsers = response.value || [];
+                users.push(...pageUsers);
+                
+                nextLink = response['@odata.nextLink'] ? 
+                    response['@odata.nextLink'].replace('https://graph.microsoft.com/v1.0', '') : 
+                    null;
+                
+                console.log(`📄 Fetched ${pageUsers.length} users (total: ${users.length})`);
+                
+                // Safety limit to prevent excessive API calls
+                if (users.length > 50000) {
+                    console.log('⚠️ Reached safety limit of 50,000 users, stopping pagination');
+                    break;
+                }
+            }
+            
+            console.log(`✅ MultiTenantGraphService: Retrieved ${users.length} users successfully`);
+            return users;
+        } catch (error: any) {
+            console.error('❌ MultiTenantGraphService: Failed to get users:', error);
+            throw new Error(`Failed to get users: ${error.message}`);
+        }
+    }
+
+    /**
      * Get user count from the customer tenant
+     * @deprecated Use getAllUsers() for more reliable results
      */
     async getUserCount(): Promise<number> {
         try {

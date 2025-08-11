@@ -1191,21 +1191,22 @@ const Reports: React.FC = () => {
        finalIdentityData.authenticationMethods !== undefined)
     ) {
       // Try to extract user data from various possible structures
-      const totalUsers = Number(finalIdentityData.totalUsers) || 
-                        Number(finalIdentityData.summary?.totalUsers) || 
-                        (finalIdentityData.users ? finalIdentityData.users.length : 0) || 0;
+      let totalUsers = Number(finalIdentityData.totalUsers) || 
+                      Number(finalIdentityData.summary?.totalUsers) || 
+                      (finalIdentityData.users ? finalIdentityData.users.length : 0) || 0;
+      
       const mfaEnabledUsers = Number(finalIdentityData.mfaEnabledUsers) || 
                              Number(finalIdentityData.summary?.mfaCapableUsers) || 0;
+      const adminUsers = Number(finalIdentityData.adminUsers) || 
+                        Number(finalIdentityData.summary?.privilegedUsers) || 0;
+      const guestUsers = Number(finalIdentityData.guestUsers) || 0;
+      const regularUsers = Number(finalIdentityData.regularUsers) || Math.max(0, totalUsers - adminUsers - guestUsers);
       const mfaDisabledUsers = totalUsers - mfaEnabledUsers;
       const mfaCoverage = finalIdentityData.mfaCoverage !== undefined ? 
                          Number(finalIdentityData.mfaCoverage) : 
                          (finalIdentityData.summary?.mfaCapablePercentage !== undefined ? 
                           Number(finalIdentityData.summary.mfaCapablePercentage) :
                           (totalUsers > 0 ? Math.round((mfaEnabledUsers / totalUsers) * 100) : 0));
-      const adminUsers = Number(finalIdentityData.adminUsers) || 
-                        Number(finalIdentityData.summary?.privilegedUsers) || 0;
-      const guestUsers = Number(finalIdentityData.guestUsers) || 0;
-      const regularUsers = totalUsers - adminUsers - guestUsers;
       const conditionalAccessPolicies = Number(finalIdentityData.conditionalAccessPolicies) || 0;
       
       console.log('=== PROCESSED IDENTITY METRICS ===');
@@ -1213,21 +1214,24 @@ const Reports: React.FC = () => {
         totalUsers, mfaEnabledUsers, mfaCoverage, adminUsers, guestUsers, regularUsers
       });
       
-      // Debug: Check if we're getting real values
+      // Check data quality - no estimations needed with new backend
+      const dataSource = finalIdentityData.dataSource || {};
+      const isEstimated = dataSource.dataQuality !== 'complete';
+      
       if (totalUsers === 0) {
-        console.log('⚠️ WARNING: totalUsers is 0 - this might be why table shows no data');
+        console.log('⚠️ WARNING: totalUsers is 0 - this might indicate a data collection issue');
+        console.log('Data source:', dataSource);
       }
-      if (adminUsers === 0 && guestUsers === 0 && regularUsers === 0) {
+      if (adminUsers === 0 && guestUsers === 0 && totalUsers === 0) {
         console.log('⚠️ WARNING: All user categories are 0 - data might not be processing correctly');
       }
       
+      console.log('Data source information:', dataSource);
       console.log('Original finalIdentityData structure:');
       console.log('- finalIdentityData.totalUsers:', finalIdentityData.totalUsers);
       console.log('- finalIdentityData.adminUsers:', finalIdentityData.adminUsers);
       console.log('- finalIdentityData.guestUsers:', finalIdentityData.guestUsers);
-      console.log('- finalIdentityData.summary?.totalUsers:', finalIdentityData.summary?.totalUsers);
-      console.log('- finalIdentityData.summary?.privilegedUsers:', finalIdentityData.summary?.privilegedUsers);
-      console.log('- finalIdentityData.users length:', finalIdentityData.users ? finalIdentityData.users.length : 'no users array');
+      console.log('- finalIdentityData.regularUsers:', finalIdentityData.regularUsers);
       
       // Calculate dynamic risk levels based on actual conditions
       const adminPercentage = totalUsers > 0 ? Math.round((adminUsers / totalUsers) * 100) : 0;
