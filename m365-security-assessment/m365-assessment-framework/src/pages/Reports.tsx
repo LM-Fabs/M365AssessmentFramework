@@ -1853,7 +1853,7 @@ const Reports: React.FC = () => {
                           className="utilization-bar-fill" 
                           style={{ 
                             width: `${utilization}%`,
-                            backgroundColor: utilization >= 80 ? '#dc3545' : utilization >= 60 ? '#fd7e14' : '#28a745'
+                            backgroundColor: utilization >= 80 ? '#28a745' : utilization >= 60 ? '#ffc107' : utilization >= 40 ? '#fd7e14' : '#dc3545'
                           }}
                         />
                         <span className="utilization-text">{utilization}%</span>

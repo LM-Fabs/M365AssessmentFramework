@@ -35,19 +35,19 @@ export const LicenseReport: React.FC<LicenseReportProps> = ({
     (licenseInfo.totalLicenses > 0 ? (licenseInfo.assignedLicenses / licenseInfo.totalLicenses) * 100 : 0);
 
   const getUtilizationColor = (rate: number): string => {
-    if (rate >= 90) return '#dc3545'; // Red - Very high usage
-    if (rate >= 80) return '#fd7e14'; // Orange - High usage  
-    if (rate >= 60) return '#ffc107'; // Yellow - Moderate usage
-    if (rate >= 40) return '#20c997'; // Teal - Good usage
-    return '#6c757d'; // Gray - Low usage
+    if (rate >= 90) return '#28a745'; // Green - Excellent utilization (high usage is good)
+    if (rate >= 80) return '#20c997'; // Teal - Good utilization
+    if (rate >= 60) return '#ffc107'; // Yellow - Moderate utilization
+    if (rate >= 40) return '#fd7e14'; // Orange - Fair utilization (some waste)
+    return '#dc3545'; // Red - Poor utilization (significant waste)
   };
 
   const getUtilizationStatus = (rate: number): string => {
-    if (rate >= 90) return 'Critical - Consider purchasing additional licenses';
-    if (rate >= 80) return 'High - Monitor closely for capacity planning';
-    if (rate >= 60) return 'Moderate - Good utilization level';
-    if (rate >= 40) return 'Fair - Room for optimization';
-    return 'Low - Significant unused capacity';
+    if (rate >= 90) return 'Excellent - High license utilization';
+    if (rate >= 80) return 'Good - Efficient license usage';
+    if (rate >= 60) return 'Moderate - Acceptable utilization level';
+    if (rate >= 40) return 'Fair - Some unused licenses';
+    return 'Poor - Significant unused capacity, consider reducing licenses';
   };
 
   const getLicenseCategory = (skuPartNumber: string): string => {
