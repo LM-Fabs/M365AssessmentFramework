@@ -31,8 +31,49 @@ export const LicenseReport: React.FC<LicenseReportProps> = ({
   tenantName,
   assessmentDate
 }) => {
-  const utilizationRate = licenseInfo.utilizationRate || 
-    (licenseInfo.totalLicenses > 0 ? (licenseInfo.assignedLicenses / licenseInfo.totalLicenses) * 100 : 0);
+  // Function to identify free licenses
+  const isFreeLicense = (skuPartNumber: string): boolean => {
+    const freeLicenses = [
+      'POWER_BI_STANDARD',
+      'TEAMS_EXPLORATORY',
+      'MICROSOFT_BUSINESS_CENTER',
+      'FLOW_FREE',
+      'POWERAPPS_VIRAL',
+      'STREAM',
+      'WHITEBOARD_PLAN1',
+      'FORMS_PLAN_E1',
+      'SWAY',
+      'MCOPSTNC', // Microsoft 365 Phone System
+      'TEAMS_FREE',
+      'POWER_VIRTUAL_AGENTS_VIRAL'
+    ];
+    
+    return freeLicenses.includes(skuPartNumber) || 
+           skuPartNumber.toLowerCase().includes('free') ||
+           skuPartNumber.toLowerCase().includes('trial') ||
+           skuPartNumber.toLowerCase().includes('viral');
+  };
+
+  // Filter out free licenses for utilization calculation
+  const paidLicenseDetails = licenseInfo.licenseDetails.filter(license => !isFreeLicense(license.skuPartNumber));
+  const freeLicenseDetails = licenseInfo.licenseDetails.filter(license => isFreeLicense(license.skuPartNumber));
+  
+  // Calculate totals for paid licenses only
+  const paidTotalLicenses = paidLicenseDetails.reduce((sum, license) => sum + license.totalUnits, 0);
+  const paidAssignedLicenses = paidLicenseDetails.reduce((sum, license) => sum + license.assignedUnits, 0);
+  const paidAvailableLicenses = paidTotalLicenses - paidAssignedLicenses;
+  
+  // Calculate totals for free licenses
+  const freeTotalLicenses = freeLicenseDetails.reduce((sum, license) => sum + license.totalUnits, 0);
+  const freeAssignedLicenses = freeLicenseDetails.reduce((sum, license) => sum + license.assignedUnits, 0);
+  
+  // Overall totals (for display purposes)
+  const overallTotalLicenses = licenseInfo.totalLicenses;
+  const overallAssignedLicenses = licenseInfo.assignedLicenses;
+  const overallAvailableLicenses = licenseInfo.availableLicenses;
+  
+  // Utilization rate based on PAID licenses only
+  const utilizationRate = paidTotalLicenses > 0 ? (paidAssignedLicenses / paidTotalLicenses) * 100 : 0;
 
   const getUtilizationColor = (rate: number): string => {
     if (rate >= 90) return '#28a745'; // Green - Excellent utilization (high usage is good)
@@ -90,11 +131,16 @@ export const LicenseReport: React.FC<LicenseReportProps> = ({
 
     let totalMonthlyCost = 0;
     licenseInfo.licenseDetails.forEach(license => {
-      const unitCost = costMap[license.skuPartNumber] || 15; // Default $15/month
+      // Free licenses have 0 cost
+      if (isFreeLicense(license.skuPartNumber)) {
+        return; // Skip free licenses
+      }
+      
+      const unitCost = costMap[license.skuPartNumber] || 15; // Default €15/month for paid licenses
       totalMonthlyCost += license.assignedUnits * unitCost;
     });
 
-    return totalMonthlyCost.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+    return totalMonthlyCost.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
   };
 
   const groupedLicenses = licenseInfo.licenseDetails.reduce((groups, license) => {
@@ -118,37 +164,40 @@ export const LicenseReport: React.FC<LicenseReportProps> = ({
           <div className="summary-card">
             <div className="card-header">
               <h3>Total Licenses</h3>
-              <div className="card-value">{licenseInfo.totalLicenses.toLocaleString()}</div>
+              <div className="card-value">{overallTotalLicenses.toLocaleString()}</div>
+              <small>{freeTotalLicenses > 0 ? `(${freeTotalLicenses.toLocaleString()} free)` : ''}</small>
             </div>
           </div>
           
           <div className="summary-card">
             <div className="card-header">
               <h3>Assigned</h3>
-              <div className="card-value assigned">{licenseInfo.assignedLicenses.toLocaleString()}</div>
+              <div className="card-value assigned">{overallAssignedLicenses.toLocaleString()}</div>
+              <small>{freeAssignedLicenses > 0 ? `(${freeAssignedLicenses.toLocaleString()} free)` : ''}</small>
             </div>
           </div>
           
           <div className="summary-card">
             <div className="card-header">
               <h3>Available</h3>
-              <div className="card-value available">{licenseInfo.availableLicenses.toLocaleString()}</div>
+              <div className="card-value available">{overallAvailableLicenses.toLocaleString()}</div>
             </div>
           </div>
           
           <div className="summary-card">
             <div className="card-header">
-              <h3>Utilization</h3>
+              <h3>Paid License Utilization</h3>
               <div className="card-value" style={{ color: getUtilizationColor(utilizationRate) }}>
                 {utilizationRate.toFixed(1)}%
               </div>
+              <small>Excludes free licenses</small>
             </div>
           </div>
         </div>
 
         <div className="utilization-bar">
           <div className="utilization-label">
-            <span>License Utilization</span>
+            <span>Paid License Utilization</span>
             <span className="utilization-status">{getUtilizationStatus(utilizationRate)}</span>
           </div>
           <div className="progress-bar">
@@ -160,11 +209,14 @@ export const LicenseReport: React.FC<LicenseReportProps> = ({
               }}
             />
           </div>
+          <small style={{ marginTop: '8px', display: 'block', color: '#666' }}>
+            Based on {paidTotalLicenses.toLocaleString()} paid licenses ({paidAssignedLicenses.toLocaleString()} assigned)
+          </small>
         </div>
 
         <div className="cost-estimate">
-          <h4>💰 Estimated Monthly Cost: {getTotalCost()}</h4>
-          <small>*Based on approximate list prices. Actual costs may vary based on your Microsoft agreement.</small>
+          <h4>💰 Estimated Monthly Cost (Paid Licenses): {getTotalCost()}</h4>
+          <small>*Based on approximate list prices for paid licenses only. Free licenses excluded. Actual costs may vary based on your Microsoft agreement.</small>
         </div>
       </div>
 
@@ -190,11 +242,15 @@ export const LicenseReport: React.FC<LicenseReportProps> = ({
                 const licenseUtilization = license.totalUnits > 0 
                   ? (license.assignedUnits / license.totalUnits) * 100 
                   : 0;
+                const isFree = isFreeLicense(license.skuPartNumber);
                 
                 return (
-                  <div key={`${license.skuId}-${index}`} className="table-row">
+                  <div key={`${license.skuId}-${index}`} className={`table-row ${isFree ? 'free-license' : ''}`}>
                     <div className="col-license">
-                      <div className="license-name">{formatLicenseName(license.skuPartNumber)}</div>
+                      <div className="license-name">
+                        {formatLicenseName(license.skuPartNumber)}
+                        {isFree && <span className="free-badge">FREE</span>}
+                      </div>
                       <div className="license-sku">{license.skuPartNumber}</div>
                     </div>
                     <div className="col-total">{license.totalUnits.toLocaleString()}</div>

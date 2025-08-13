@@ -415,3 +415,29 @@
     font-size: 1.5rem;
   }
 }
+
+/* Free License Styles */
+.free-license {
+  background-color: #f8f9fa !important;
+  opacity: 0.8;
+}
+
+.free-badge {
+  display: inline-block;
+  background-color: #28a745;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.summary-card small {
+  display: block;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: 4px;
+  font-weight: 400;
+}
