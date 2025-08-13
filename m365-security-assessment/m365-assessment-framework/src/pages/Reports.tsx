@@ -144,6 +144,14 @@ const Reports: React.FC = () => {
     direction: 'asc' | 'desc';
   } | null>(null);
 
+  // Identity vulnerability table state
+  const [identitySearchTerm, setIdentitySearchTerm] = useState('');
+  const [identitySortField, setIdentitySortField] = useState('userPrincipalName');
+  const [identitySortDirection, setIdentitySortDirection] = useState<'asc' | 'desc'>('asc');
+  const [identityVulnerabilityFilter, setIdentityVulnerabilityFilter] = useState('all');
+  const [identityShowPrivilegedOnly, setIdentityShowPrivilegedOnly] = useState(false);
+  const [identityShowExternalUsers, setIdentityShowExternalUsers] = useState(true);
+
   // Function to get effective license cost (custom or estimated)
   const getEffectiveLicenseCost = (licenseName: string): number => {
     const formattedName = formatLicenseName(licenseName);
@@ -2082,29 +2090,21 @@ const Reports: React.FC = () => {
       );
     }
 
-    // State for user vulnerability table
-    const [searchTerm, setSearchTerm] = React.useState('');
-    const [sortField, setSortField] = React.useState('userPrincipalName');
-    const [sortDirection, setSortDirection] = React.useState('asc');
-    const [vulnerabilityFilter, setVulnerabilityFilter] = React.useState('all');
-    const [showPrivilegedOnly, setShowPrivilegedOnly] = React.useState(false);
-    const [showExternalUsers, setShowExternalUsers] = React.useState(true);
-
     // Process user details for vulnerability table
     const userDetails = metrics.userDetails || [];
     
     // Filter and sort users
     let filteredUsers = userDetails.filter((user: any) => {
-      if (searchTerm && !user.userPrincipalName?.toLowerCase().includes(searchTerm.toLowerCase())) {
+      if (identitySearchTerm && !user.userPrincipalName?.toLowerCase().includes(identitySearchTerm.toLowerCase())) {
         return false;
       }
-      if (vulnerabilityFilter !== 'all' && user.vulnerabilityLevel?.toLowerCase() !== vulnerabilityFilter) {
+      if (identityVulnerabilityFilter !== 'all' && user.vulnerabilityLevel?.toLowerCase() !== identityVulnerabilityFilter) {
         return false;
       }
-      if (showPrivilegedOnly && !user.isPrivileged) {
+      if (identityShowPrivilegedOnly && !user.isPrivileged) {
         return false;
       }
-      if (!showExternalUsers && user.isExternalUser) {
+      if (!identityShowExternalUsers && user.isExternalUser) {
         return false;
       }
       return true;
@@ -2112,33 +2112,33 @@ const Reports: React.FC = () => {
 
     // Sort users
     filteredUsers.sort((a: any, b: any) => {
-      let aValue = a[sortField];
-      let bValue = b[sortField];
+      let aValue = a[identitySortField];
+      let bValue = b[identitySortField];
       
       if (typeof aValue === 'string') {
         aValue = aValue.toLowerCase();
         bValue = bValue?.toLowerCase() || '';
       }
       
-      if (sortDirection === 'asc') {
+      if (identitySortDirection === 'asc') {
         return aValue > bValue ? 1 : -1;
       } else {
         return aValue < bValue ? 1 : -1;
       }
     });
 
-    const handleSort = (field: string) => {
-      if (sortField === field) {
-        setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    const handleIdentitySort = (field: string) => {
+      if (identitySortField === field) {
+        setIdentitySortDirection(identitySortDirection === 'asc' ? 'desc' : 'asc');
       } else {
-        setSortField(field);
-        setSortDirection('asc');
+        setIdentitySortField(field);
+        setIdentitySortDirection('asc');
       }
     };
 
-    const getSortIcon = (field: string) => {
-      if (sortField !== field) return '↕️';
-      return sortDirection === 'asc' ? '↑' : '↓';
+    const getIdentitySortIcon = (field: string) => {
+      if (identitySortField !== field) return '↕️';
+      return identitySortDirection === 'asc' ? '↑' : '↓';
     };
 
     const getVulnerabilityBadgeColor = (level: string) => {
@@ -2267,7 +2267,7 @@ const Reports: React.FC = () => {
         </div>
 
         {/* Detailed User Vulnerability Table */}
-        {userDetails.length > 0 && (
+        {userDetails.length > 0 ? (
           <div className="user-vulnerability-section">
             <h4>User Vulnerability Analysis</h4>
             
@@ -2277,16 +2277,16 @@ const Reports: React.FC = () => {
                 <input
                   type="text"
                   placeholder="Search by User Principal Name..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={identitySearchTerm}
+                  onChange={(e) => setIdentitySearchTerm(e.target.value)}
                   className="search-input"
                 />
               </div>
               
               <div className="filter-controls">
                 <select
-                  value={vulnerabilityFilter}
-                  onChange={(e) => setVulnerabilityFilter(e.target.value)}
+                  value={identityVulnerabilityFilter}
+                  onChange={(e) => setIdentityVulnerabilityFilter(e.target.value)}
                   className="filter-select"
                 >
                   <option value="all">All Vulnerability Levels</option>
@@ -2299,8 +2299,8 @@ const Reports: React.FC = () => {
                 <label className="filter-checkbox">
                   <input
                     type="checkbox"
-                    checked={showPrivilegedOnly}
-                    onChange={(e) => setShowPrivilegedOnly(e.target.checked)}
+                    checked={identityShowPrivilegedOnly}
+                    onChange={(e) => setIdentityShowPrivilegedOnly(e.target.checked)}
                   />
                   Privileged Users Only
                 </label>
@@ -2308,8 +2308,8 @@ const Reports: React.FC = () => {
                 <label className="filter-checkbox">
                   <input
                     type="checkbox"
-                    checked={showExternalUsers}
-                    onChange={(e) => setShowExternalUsers(e.target.checked)}
+                    checked={identityShowExternalUsers}
+                    onChange={(e) => setIdentityShowExternalUsers(e.target.checked)}
                   />
                   Include External Users
                 </label>
@@ -2321,24 +2321,24 @@ const Reports: React.FC = () => {
               <table className="user-vulnerability-table">
                 <thead>
                   <tr>
-                    <th onClick={() => handleSort('userPrincipalName')} style={{ cursor: 'pointer' }}>
-                      User Principal Name {getSortIcon('userPrincipalName')}
+                    <th onClick={() => handleIdentitySort('userPrincipalName')} style={{ cursor: 'pointer' }}>
+                      User Principal Name {getIdentitySortIcon('userPrincipalName')}
                     </th>
-                    <th onClick={() => handleSort('vulnerabilityLevel')} style={{ cursor: 'pointer' }}>
-                      Vulnerability Level {getSortIcon('vulnerabilityLevel')}
+                    <th onClick={() => handleIdentitySort('vulnerabilityLevel')} style={{ cursor: 'pointer' }}>
+                      Vulnerability Level {getIdentitySortIcon('vulnerabilityLevel')}
                     </th>
                     <th>Vulnerability Reason</th>
-                    <th onClick={() => handleSort('isMfaCapable')} style={{ cursor: 'pointer' }}>
-                      MFA Capable {getSortIcon('isMfaCapable')}
+                    <th onClick={() => handleIdentitySort('isMfaCapable')} style={{ cursor: 'pointer' }}>
+                      MFA Capable {getIdentitySortIcon('isMfaCapable')}
                     </th>
-                    <th onClick={() => handleSort('isPasswordlessCapable')} style={{ cursor: 'pointer' }}>
-                      Passwordless {getSortIcon('isPasswordlessCapable')}
+                    <th onClick={() => handleIdentitySort('isPasswordlessCapable')} style={{ cursor: 'pointer' }}>
+                      Passwordless {getIdentitySortIcon('isPasswordlessCapable')}
                     </th>
-                    <th onClick={() => handleSort('authMethodsCount')} style={{ cursor: 'pointer' }}>
-                      Auth Methods {getSortIcon('authMethodsCount')}
+                    <th onClick={() => handleIdentitySort('authMethodsCount')} style={{ cursor: 'pointer' }}>
+                      Auth Methods {getIdentitySortIcon('authMethodsCount')}
                     </th>
-                    <th onClick={() => handleSort('strongMethodsCount')} style={{ cursor: 'pointer' }}>
-                      Strong Methods {getSortIcon('strongMethodsCount')}
+                    <th onClick={() => handleIdentitySort('strongMethodsCount')} style={{ cursor: 'pointer' }}>
+                      Strong Methods {getIdentitySortIcon('strongMethodsCount')}
                     </th>
                     <th>User Type</th>
                     <th>Registered Methods</th>
@@ -2415,8 +2415,32 @@ const Reports: React.FC = () => {
             {/* Results Summary */}
             <div className="results-summary">
               <p>Showing {filteredUsers.length} of {userDetails.length} users</p>
-              {searchTerm && <p>Filtered by: "{searchTerm}"</p>}
-              {vulnerabilityFilter !== 'all' && <p>Vulnerability level: {vulnerabilityFilter}</p>}
+              {identitySearchTerm && <p>Filtered by: "{identitySearchTerm}"</p>}
+              {identityVulnerabilityFilter !== 'all' && <p>Vulnerability level: {identityVulnerabilityFilter}</p>}
+            </div>
+          </div>
+        ) : (
+          <div className="user-vulnerability-unavailable">
+            <h4>Detailed User Vulnerability Analysis</h4>
+            <div className="info-message">
+              <div className="info-icon">ℹ️</div>
+              <div className="info-content">
+                <h5>Detailed User Data Not Available</h5>
+                <p>This assessment was created before the enhanced user vulnerability analysis feature was implemented. 
+                   To see the detailed user vulnerability table with individual user MFA methods and security status, 
+                   please create a new assessment.</p>
+                <div className="info-actions">
+                  <p><strong>The enhanced vulnerability analysis includes:</strong></p>
+                  <ul>
+                    <li>Individual user vulnerability levels (Critical, High, Medium, Low)</li>
+                    <li>Detailed MFA and passwordless authentication status per user</li>
+                    <li>Authentication methods breakdown for each user</li>
+                    <li>Privileged user security analysis</li>
+                    <li>Sortable and filterable user table</li>
+                    <li>Export capabilities for security reporting</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
         )}
