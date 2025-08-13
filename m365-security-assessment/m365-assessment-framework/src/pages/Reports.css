@@ -1659,6 +1659,115 @@
   color: #0c5460;
 }
 
+/* MFA Status Cell */
+.mfa-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.mfa-badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.mfa-badge.enabled {
+  background: #d4edda;
+  color: #155724;
+}
+
+.mfa-badge.disabled {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.passwordless-badge {
+  display: inline-block;
+  padding: 0.15rem 0.4rem;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  background: #e2e3f3;
+  color: #6f42c1;
+  text-transform: uppercase;
+}
+
+/* Authentication Summary Cell */
+.auth-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.auth-count {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.strong-methods,
+.total-methods {
+  display: inline-block;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.strong-methods {
+  background: #d4edda;
+  color: #155724;
+}
+
+.total-methods {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.methods-details {
+  margin-top: 0.25rem;
+}
+
+.methods-details summary {
+  font-size: 0.75rem;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  background: #f8f9fa;
+}
+
+.methods-details summary:hover {
+  background: #e9ecef;
+}
+
+.methods-list {
+  margin: 0.25rem 0 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.method-item {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.25rem;
+  margin: 0.1rem 0;
+  background: #f8f9fa;
+  border-radius: 3px;
+  color: #495057;
+}
+
+/* Type Tags - Updated */
+.type-tag.sync {
+  background: #17a2b8;
+  color: white;
+}
+
 /* User Type Tags */
 .user-type-info {
   display: flex;

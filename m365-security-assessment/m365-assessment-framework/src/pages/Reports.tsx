@@ -2356,26 +2356,17 @@ const Reports: React.FC = () => {
                 <thead>
                   <tr>
                     <th onClick={() => handleIdentitySort('userPrincipalName')} style={{ cursor: 'pointer' }}>
-                      User Principal Name {getIdentitySortIcon('userPrincipalName')}
+                      User {getIdentitySortIcon('userPrincipalName')}
                     </th>
                     <th onClick={() => handleIdentitySort('vulnerabilityLevel')} style={{ cursor: 'pointer' }}>
-                      Vulnerability Level {getIdentitySortIcon('vulnerabilityLevel')}
+                      Security Risk {getIdentitySortIcon('vulnerabilityLevel')}
                     </th>
-                    <th>Vulnerability Reason</th>
+                    <th>Risk Reason</th>
                     <th onClick={() => handleIdentitySort('isMfaCapable')} style={{ cursor: 'pointer' }}>
-                      MFA Capable {getIdentitySortIcon('isMfaCapable')}
-                    </th>
-                    <th onClick={() => handleIdentitySort('isPasswordlessCapable')} style={{ cursor: 'pointer' }}>
-                      Passwordless {getIdentitySortIcon('isPasswordlessCapable')}
-                    </th>
-                    <th onClick={() => handleIdentitySort('authMethodsCount')} style={{ cursor: 'pointer' }}>
-                      Auth Methods {getIdentitySortIcon('authMethodsCount')}
-                    </th>
-                    <th onClick={() => handleIdentitySort('strongMethodsCount')} style={{ cursor: 'pointer' }}>
-                      Strong Methods {getIdentitySortIcon('strongMethodsCount')}
+                      MFA Status {getIdentitySortIcon('isMfaCapable')}
                     </th>
                     <th>User Type</th>
-                    <th>Registered Methods</th>
+                    <th>Authentication Summary</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2399,44 +2390,40 @@ const Reports: React.FC = () => {
                       <td className="vulnerability-reason-cell">
                         <span className="vulnerability-reason">{user.vulnerabilityReason}</span>
                       </td>
-                      <td className="mfa-capability-cell">
-                        <span className={`capability-icon ${user.isMfaCapable ? 'enabled' : 'disabled'}`}>
-                          {user.isMfaCapable ? '✓' : '✗'}
-                        </span>
-                      </td>
-                      <td className="passwordless-capability-cell">
-                        <span className={`capability-icon ${user.isPasswordlessCapable ? 'enabled' : 'disabled'}`}>
-                          {user.isPasswordlessCapable ? '✓' : '✗'}
-                        </span>
-                      </td>
-                      <td className="auth-methods-count-cell">
-                        <span className="methods-count">{user.authMethodsCount || 0}</span>
-                      </td>
-                      <td className="strong-methods-count-cell">
-                        <span className="strong-methods-count">{user.strongMethodsCount || 0}</span>
+                      <td className="mfa-status-cell">
+                        <div className="mfa-status">
+                          <span className={`mfa-badge ${user.isMfaCapable ? 'enabled' : 'disabled'}`}>
+                            {user.isMfaCapable ? 'MFA Enabled' : 'No MFA'}
+                          </span>
+                          {user.isPasswordlessCapable && (
+                            <span className="passwordless-badge">Passwordless</span>
+                          )}
+                        </div>
                       </td>
                       <td className="user-type-cell">
                         <div className="user-type-info">
                           {user.isPrivileged && <span className="type-tag privileged">Privileged</span>}
                           {user.isExternalUser && <span className="type-tag external">External</span>}
-                          {user.isSyncUser && <span className="type-tag sync">Sync</span>}
+                          {user.isSyncUser && <span className="type-tag sync">Service Account</span>}
                           {!user.isPrivileged && !user.isExternalUser && !user.isSyncUser && 
-                           <span className="type-tag regular">Regular</span>}
+                           <span className="type-tag regular">Regular User</span>}
                         </div>
                       </td>
-                      <td className="registered-methods-cell">
-                        <div className="methods-list">
-                          {user.methodsRegistered?.length > 0 ? (
-                            <details>
-                              <summary>{user.methodsRegistered.length} method(s)</summary>
-                              <ul className="methods-details">
+                      <td className="auth-summary-cell">
+                        <div className="auth-summary">
+                          <div className="auth-count">
+                            <span className="strong-methods">{user.strongMethodsCount || 0} Strong</span>
+                            <span className="total-methods">{user.authMethodsCount || 0} Total</span>
+                          </div>
+                          {user.methodsRegistered?.length > 0 && (
+                            <details className="methods-details">
+                              <summary>View Methods</summary>
+                              <ul className="methods-list">
                                 {user.methodsRegistered.map((method: string, methodIndex: number) => (
                                   <li key={methodIndex} className="method-item">{method}</li>
                                 ))}
                               </ul>
                             </details>
-                          ) : (
-                            <span className="no-methods">No methods registered</span>
                           )}
                         </div>
                       </td>
@@ -2455,23 +2442,30 @@ const Reports: React.FC = () => {
           </div>
         ) : (
           <div className="user-vulnerability-unavailable">
-            <h4>Detailed User Vulnerability Analysis</h4>
+            <h4>User Security Analysis</h4>
             <div className="info-message">
-              <div className="info-icon">ℹ️</div>
+              <div className="info-icon">⚠️</div>
               <div className="info-content">
-                <h5>Detailed User Data Not Available</h5>
-                <p>This assessment was created before the enhanced user vulnerability analysis feature was implemented. 
-                   To see the detailed user vulnerability table with individual user MFA methods and security status, 
-                   please create a new assessment.</p>
+                <h5>Limited User Data Available</h5>
+                <p>This assessment has basic user statistics but detailed individual user analysis isn't available. 
+                   This could be due to insufficient Microsoft Graph API permissions or the assessment was created 
+                   before enhanced user analysis was implemented.</p>
+                
                 <div className="info-actions">
-                  <p><strong>The enhanced vulnerability analysis includes:</strong></p>
+                  <p><strong>To get detailed user vulnerability analysis:</strong></p>
                   <ul>
-                    <li>Individual user vulnerability levels (Critical, High, Medium, Low)</li>
-                    <li>Detailed MFA and passwordless authentication status per user</li>
+                    <li>Ensure the Azure app registration has <code>UserAuthenticationMethod.Read.All</code> permission</li>
+                    <li>Verify <code>User.Read.All</code> and <code>Directory.Read.All</code> permissions are granted</li>
+                    <li>Run a new assessment after permissions are updated</li>
+                  </ul>
+                  
+                  <p><strong>The enhanced analysis would include:</strong></p>
+                  <ul>
+                    <li>Individual user security risk levels (Critical, High, Medium, Low)</li>
+                    <li>MFA and passwordless authentication status per user</li>
                     <li>Authentication methods breakdown for each user</li>
                     <li>Privileged user security analysis</li>
                     <li>Sortable and filterable user table</li>
-                    <li>Export capabilities for security reporting</li>
                   </ul>
                 </div>
               </div>

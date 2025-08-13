@@ -589,71 +589,127 @@ async function collectIdentityMetrics(graphService: MultiTenantGraphService, con
         const mfaCoverage = totalUsers > 0 ? Math.round((mfaEnabledUsers / totalUsers) * 100) : 0;
 
         // Enhance user registration details with additional analysis for vulnerability assessment
-        const enhancedUserDetails = userRegistrationDetails.map((user: any) => {
-            const isPrivileged = privilegedUsers.some((privUser: any) => 
-                privUser.userPrincipalName === user.userPrincipalName || 
-                privUser.id === user.id
-            );
-            
-            const isExternalUser = user.userPrincipalName?.includes('#EXT#') || 
-                                  user.userType === 'Guest';
-            
-            const isSyncUser = user.userPrincipalName?.startsWith('Sync_') || 
-                              user.userPrincipalName?.startsWith('ADToAADSyncServiceAccount');
-            
-            // Classify authentication methods by strength
-            const strongMethods = ['microsoftAuthenticatorPasswordless', 'fido2SecurityKey', 
-                                 'passKeyDeviceBound', 'windowsHelloForBusiness', 'hardwareOneTimePasscode'];
-            const weakMethods = ['sms', 'voiceCall', 'email', 'alternateMobilePhone', 'securityQuestion'];
-            
-            const registeredMethods = user.methodsRegistered || [];
-            const hasStrongMethods = registeredMethods.some((method: string) => 
-                strongMethods.some(strong => method.toLowerCase().includes(strong.toLowerCase()))
-            );
-            const hasWeakMethods = registeredMethods.some((method: string) => 
-                weakMethods.some(weak => method.toLowerCase().includes(weak.toLowerCase()))
-            );
-            
-            // Calculate vulnerability level
-            let vulnerabilityLevel = 'Low';
-            let vulnerabilityReason = 'Strong authentication methods configured';
-            
-            if (isPrivileged && !hasStrongMethods) {
-                vulnerabilityLevel = 'Critical';
-                vulnerabilityReason = 'Privileged user without strong authentication';
-            } else if (isPrivileged && hasWeakMethods) {
-                vulnerabilityLevel = 'High';
-                vulnerabilityReason = 'Privileged user with weak authentication methods';
-            } else if (!user.isMfaRegistered && !user.isMfaCapable) {
-                vulnerabilityLevel = 'High';
-                vulnerabilityReason = 'No MFA configured';
-            } else if (hasWeakMethods && !hasStrongMethods) {
-                vulnerabilityLevel = 'Medium';
-                vulnerabilityReason = 'Only weak authentication methods';
-            } else if (isExternalUser && !hasStrongMethods) {
-                vulnerabilityLevel = 'Medium';
-                vulnerabilityReason = 'External user without strong authentication';
-            }
-            
-            return {
-                ...user,
-                isPrivileged,
-                isExternalUser,
-                isSyncUser,
-                hasStrongMethods,
-                hasWeakMethods,
-                hasMixedMethods: hasStrongMethods && hasWeakMethods,
-                vulnerabilityLevel,
-                vulnerabilityReason,
-                authMethodsCount: registeredMethods.length,
-                strongMethodsCount: registeredMethods.filter((method: string) => 
+        let enhancedUserDetails = [];
+        
+        if (userRegistrationDetails && userRegistrationDetails.length > 0) {
+            // We have detailed registration data - use it for comprehensive analysis
+            enhancedUserDetails = userRegistrationDetails.map((user: any) => {
+                const isPrivileged = privilegedUsers.some((privUser: any) => 
+                    privUser.userPrincipalName === user.userPrincipalName || 
+                    privUser.id === user.id
+                );
+                
+                const isExternalUser = user.userPrincipalName?.includes('#EXT#') || 
+                                      user.userType === 'Guest';
+                
+                const isSyncUser = user.userPrincipalName?.startsWith('Sync_') || 
+                                  user.userPrincipalName?.startsWith('ADToAADSyncServiceAccount');
+                
+                // Classify authentication methods by strength
+                const strongMethods = ['microsoftAuthenticatorPasswordless', 'fido2SecurityKey', 
+                                     'passKeyDeviceBound', 'windowsHelloForBusiness', 'hardwareOneTimePasscode'];
+                const weakMethods = ['sms', 'voiceCall', 'email', 'alternateMobilePhone', 'securityQuestion'];
+                
+                const registeredMethods = user.methodsRegistered || [];
+                const hasStrongMethods = registeredMethods.some((method: string) => 
                     strongMethods.some(strong => method.toLowerCase().includes(strong.toLowerCase()))
-                ).length,
-                weakMethodsCount: registeredMethods.filter((method: string) => 
+                );
+                const hasWeakMethods = registeredMethods.some((method: string) => 
                     weakMethods.some(weak => method.toLowerCase().includes(weak.toLowerCase()))
-                ).length
-            };
-        });
+                );
+                
+                // Calculate vulnerability level
+                let vulnerabilityLevel = 'Low';
+                let vulnerabilityReason = 'Strong authentication methods configured';
+                
+                if (isPrivileged && !hasStrongMethods) {
+                    vulnerabilityLevel = 'Critical';
+                    vulnerabilityReason = 'Privileged user without strong authentication';
+                } else if (isPrivileged && hasWeakMethods) {
+                    vulnerabilityLevel = 'High';
+                    vulnerabilityReason = 'Privileged user with weak authentication methods';
+                } else if (!user.isMfaRegistered && !user.isMfaCapable) {
+                    vulnerabilityLevel = 'High';
+                    vulnerabilityReason = 'No MFA configured';
+                } else if (hasWeakMethods && !hasStrongMethods) {
+                    vulnerabilityLevel = 'Medium';
+                    vulnerabilityReason = 'Only weak authentication methods';
+                } else if (isExternalUser && !hasStrongMethods) {
+                    vulnerabilityLevel = 'Medium';
+                    vulnerabilityReason = 'External user without strong authentication';
+                }
+                
+                return {
+                    ...user,
+                    isPrivileged,
+                    isExternalUser,
+                    isSyncUser,
+                    hasStrongMethods,
+                    hasWeakMethods,
+                    hasMixedMethods: hasStrongMethods && hasWeakMethods,
+                    vulnerabilityLevel,
+                    vulnerabilityReason,
+                    authMethodsCount: registeredMethods.length,
+                    strongMethodsCount: registeredMethods.filter((method: string) => 
+                        strongMethods.some(strong => method.toLowerCase().includes(strong.toLowerCase()))
+                    ).length,
+                    weakMethodsCount: registeredMethods.filter((method: string) => 
+                        weakMethods.some(weak => method.toLowerCase().includes(weak.toLowerCase()))
+                    ).length
+                };
+            });
+        } else {
+            // Fallback: Create simplified user data from basic user list when registration details aren't available
+            context.log('⚠️ User registration details not available, creating fallback user data');
+            enhancedUserDetails = enabledUsers.slice(0, 50).map((user: any) => {
+                const isPrivileged = privilegedUsers.some((privUser: any) => 
+                    privUser.userPrincipalName === user.userPrincipalName || 
+                    privUser.id === user.id
+                );
+                
+                const isExternalUser = user.userPrincipalName?.includes('#EXT#') || 
+                                      user.userType === 'Guest';
+                
+                const isSyncUser = user.userPrincipalName?.startsWith('Sync_') || 
+                                  user.userPrincipalName?.startsWith('ADToAADSyncServiceAccount');
+                
+                // For fallback data, make reasonable assumptions
+                let vulnerabilityLevel = 'Medium';
+                let vulnerabilityReason = 'Detailed authentication data not available';
+                
+                if (isPrivileged) {
+                    vulnerabilityLevel = 'High';
+                    vulnerabilityReason = 'Privileged user - authentication details need verification';
+                } else if (isExternalUser) {
+                    vulnerabilityLevel = 'Medium';
+                    vulnerabilityReason = 'External user - access should be reviewed';
+                } else if (isSyncUser) {
+                    vulnerabilityLevel = 'Low';
+                    vulnerabilityReason = 'Service account - typically secure';
+                }
+                
+                return {
+                    id: user.id,
+                    userPrincipalName: user.userPrincipalName,
+                    userType: user.userType || 'Member',
+                    isPrivileged,
+                    isExternalUser,
+                    isSyncUser,
+                    vulnerabilityLevel,
+                    vulnerabilityReason,
+                    isMfaCapable: null, // Unknown without registration data
+                    isMfaRegistered: null, // Unknown without registration data
+                    isPasswordlessCapable: null, // Unknown without registration data
+                    methodsRegistered: [],
+                    authMethodsCount: 0,
+                    strongMethodsCount: 0,
+                    weakMethodsCount: 0,
+                    hasStrongMethods: false,
+                    hasWeakMethods: false,
+                    hasMixedMethods: false
+                };
+            });
+        }
 
         const identityMetrics = {
             totalUsers: totalUsers,
