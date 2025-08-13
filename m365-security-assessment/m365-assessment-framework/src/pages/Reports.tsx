@@ -1278,6 +1278,20 @@ const Reports: React.FC = () => {
       
       console.log('Generated userBreakdown:', userBreakdown);
       
+      // Check for enhanced user vulnerability data
+      console.log('=== CHECKING FOR USER VULNERABILITY DATA ===');
+      console.log('finalIdentityData.userDetails:', finalIdentityData.userDetails);
+      console.log('finalIdentityData.vulnerabilitySummary:', finalIdentityData.vulnerabilitySummary);
+      console.log('userDetails type:', typeof finalIdentityData.userDetails);
+      console.log('userDetails length:', Array.isArray(finalIdentityData.userDetails) ? finalIdentityData.userDetails.length : 'not array');
+      
+      if (finalIdentityData.userDetails && Array.isArray(finalIdentityData.userDetails) && finalIdentityData.userDetails.length > 0) {
+        console.log('✅ Found userDetails with', finalIdentityData.userDetails.length, 'users');
+        console.log('Sample user data:', finalIdentityData.userDetails[0]);
+      } else {
+        console.log('⚠️ No userDetails found or empty array');
+      }
+      
       reports.push({
         category: 'identity',
         metrics: {
@@ -1291,7 +1305,10 @@ const Reports: React.FC = () => {
           conditionalAccessPolicies,
           userBreakdown,
           mfaGap: mfaDisabledUsers,
-          securityRisk: mfaCoverage < 50 ? 'High' : mfaCoverage < 80 ? 'Medium' : 'Low'
+          securityRisk: mfaCoverage < 50 ? 'High' : mfaCoverage < 80 ? 'Medium' : 'Low',
+          // Include the detailed user vulnerability data from the backend
+          userDetails: finalIdentityData.userDetails || [],
+          vulnerabilitySummary: finalIdentityData.vulnerabilitySummary || {}
         },
         charts: [], // No charts needed - we use table view
         insights: [
