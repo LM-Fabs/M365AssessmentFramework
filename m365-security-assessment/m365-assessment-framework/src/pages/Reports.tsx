@@ -1146,6 +1146,11 @@ const Reports: React.FC = () => {
     console.log('=== USING IDENTITY DATA ===');
     console.log('Final identity data:', finalIdentityData);
     console.log('Final identity data keys:', Object.keys(finalIdentityData || {}));
+    console.log('foundIdentityData (from search):', foundIdentityData);
+    console.log('identityMetrics (original location):', identityMetrics);
+    console.log('Raw assessment structure check:');
+    console.log('- assessment.metrics?.realData?.identityMetrics?.userDetails:', assessment.metrics?.realData?.identityMetrics?.userDetails);
+    console.log('- assessment.metrics?.identityMetrics?.userDetails:', assessment.metrics?.identityMetrics?.userDetails);
     
     // Check if identity assessment was skipped or has errors
     if (finalIdentityData?.skipped) {
@@ -1278,14 +1283,26 @@ const Reports: React.FC = () => {
       
       console.log('Generated userBreakdown:', userBreakdown);
       
-      // Check for enhanced user vulnerability data
-      console.log('=== CHECKING FOR USER VULNERABILITY DATA ===');
-      console.log('finalIdentityData.userDetails:', finalIdentityData.userDetails);
-      console.log('finalIdentityData.vulnerabilitySummary:', finalIdentityData.vulnerabilitySummary);
-      console.log('userDetails type:', typeof finalIdentityData.userDetails);
-      console.log('userDetails length:', Array.isArray(finalIdentityData.userDetails) ? finalIdentityData.userDetails.length : 'not array');
-      
-      if (finalIdentityData.userDetails && Array.isArray(finalIdentityData.userDetails) && finalIdentityData.userDetails.length > 0) {
+    // Check for enhanced user vulnerability data
+    console.log('=== CHECKING FOR USER VULNERABILITY DATA ===');
+    console.log('Complete finalIdentityData object:', finalIdentityData);
+    console.log('finalIdentityData keys:', Object.keys(finalIdentityData || {}));
+    console.log('finalIdentityData.userDetails:', finalIdentityData.userDetails);
+    console.log('finalIdentityData.vulnerabilitySummary:', finalIdentityData.vulnerabilitySummary);
+    console.log('userDetails type:', typeof finalIdentityData.userDetails);
+    console.log('userDetails length:', Array.isArray(finalIdentityData.userDetails) ? finalIdentityData.userDetails.length : 'not array');
+    
+    // Deep inspection of the data structure for debugging
+    if (finalIdentityData) {
+      console.log('=== DEEP DATA INSPECTION ===');
+      const keys = Object.keys(finalIdentityData);
+      keys.forEach(key => {
+        const value = finalIdentityData[key];
+        console.log(`Key "${key}":`, typeof value === 'object' && value !== null ? 
+          (Array.isArray(value) ? `Array(${value.length})` : `Object with keys: ${Object.keys(value).join(', ')}`) : 
+          value);
+      });
+    }      if (finalIdentityData.userDetails && Array.isArray(finalIdentityData.userDetails) && finalIdentityData.userDetails.length > 0) {
         console.log('✅ Found userDetails with', finalIdentityData.userDetails.length, 'users');
         console.log('Sample user data:', finalIdentityData.userDetails[0]);
       } else {
