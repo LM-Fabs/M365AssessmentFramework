@@ -2069,7 +2069,9 @@ const Reports: React.FC = () => {
     console.log('Metrics keys:', Object.keys(metrics || {}));
     console.log('totalUsers:', metrics?.totalUsers);
     console.log('userBreakdown:', metrics?.userBreakdown);
+    console.log('userDetails:', metrics?.userDetails);
     console.log('Has userBreakdown array?', Array.isArray(metrics?.userBreakdown));
+    console.log('Has userDetails array?', Array.isArray(metrics?.userDetails));
     
     if (!metrics || metrics.totalUsers === undefined) {
       console.log('❌ No metrics or totalUsers undefined - showing no data message');
@@ -2079,6 +2081,75 @@ const Reports: React.FC = () => {
         </div>
       );
     }
+
+    // State for user vulnerability table
+    const [searchTerm, setSearchTerm] = React.useState('');
+    const [sortField, setSortField] = React.useState('userPrincipalName');
+    const [sortDirection, setSortDirection] = React.useState('asc');
+    const [vulnerabilityFilter, setVulnerabilityFilter] = React.useState('all');
+    const [showPrivilegedOnly, setShowPrivilegedOnly] = React.useState(false);
+    const [showExternalUsers, setShowExternalUsers] = React.useState(true);
+
+    // Process user details for vulnerability table
+    const userDetails = metrics.userDetails || [];
+    
+    // Filter and sort users
+    let filteredUsers = userDetails.filter((user: any) => {
+      if (searchTerm && !user.userPrincipalName?.toLowerCase().includes(searchTerm.toLowerCase())) {
+        return false;
+      }
+      if (vulnerabilityFilter !== 'all' && user.vulnerabilityLevel?.toLowerCase() !== vulnerabilityFilter) {
+        return false;
+      }
+      if (showPrivilegedOnly && !user.isPrivileged) {
+        return false;
+      }
+      if (!showExternalUsers && user.isExternalUser) {
+        return false;
+      }
+      return true;
+    });
+
+    // Sort users
+    filteredUsers.sort((a: any, b: any) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+      
+      if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue?.toLowerCase() || '';
+      }
+      
+      if (sortDirection === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+
+    const handleSort = (field: string) => {
+      if (sortField === field) {
+        setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+      } else {
+        setSortField(field);
+        setSortDirection('asc');
+      }
+    };
+
+    const getSortIcon = (field: string) => {
+      if (sortField !== field) return '↕️';
+      return sortDirection === 'asc' ? '↑' : '↓';
+    };
+
+    const getVulnerabilityBadgeColor = (level: string) => {
+      switch (level?.toLowerCase()) {
+        case 'critical': return '#dc3545';
+        case 'high': return '#fd7e14';
+        case 'medium': return '#ffc107';
+        case 'low': return '#28a745';
+        default: return '#6c757d';
+      }
+    };
 
     return (
       <div className="identity-container">
@@ -2114,6 +2185,31 @@ const Reports: React.FC = () => {
             </span>
           </div>
         </div>
+
+        {/* Vulnerability Summary */}
+        {metrics.vulnerabilitySummary && (
+          <div className="vulnerability-summary">
+            <h4>User Vulnerability Summary</h4>
+            <div className="vulnerability-metrics">
+              <div className="vulnerability-metric critical">
+                <span className="metric-label">Critical</span>
+                <span className="metric-value">{metrics.vulnerabilitySummary.critical || 0}</span>
+              </div>
+              <div className="vulnerability-metric high">
+                <span className="metric-label">High</span>
+                <span className="metric-value">{metrics.vulnerabilitySummary.high || 0}</span>
+              </div>
+              <div className="vulnerability-metric medium">
+                <span className="metric-label">Medium</span>
+                <span className="metric-value">{metrics.vulnerabilitySummary.medium || 0}</span>
+              </div>
+              <div className="vulnerability-metric low">
+                <span className="metric-label">Low</span>
+                <span className="metric-value">{metrics.vulnerabilitySummary.low || 0}</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* User Types Breakdown */}
         <div className="user-types-table">
@@ -2169,6 +2265,161 @@ const Reports: React.FC = () => {
             </table>
           </div>
         </div>
+
+        {/* Detailed User Vulnerability Table */}
+        {userDetails.length > 0 && (
+          <div className="user-vulnerability-section">
+            <h4>User Vulnerability Analysis</h4>
+            
+            {/* Search and Filters */}
+            <div className="user-filters">
+              <div className="search-container">
+                <input
+                  type="text"
+                  placeholder="Search by User Principal Name..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="search-input"
+                />
+              </div>
+              
+              <div className="filter-controls">
+                <select
+                  value={vulnerabilityFilter}
+                  onChange={(e) => setVulnerabilityFilter(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="all">All Vulnerability Levels</option>
+                  <option value="critical">Critical</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+                
+                <label className="filter-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={showPrivilegedOnly}
+                    onChange={(e) => setShowPrivilegedOnly(e.target.checked)}
+                  />
+                  Privileged Users Only
+                </label>
+                
+                <label className="filter-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={showExternalUsers}
+                    onChange={(e) => setShowExternalUsers(e.target.checked)}
+                  />
+                  Include External Users
+                </label>
+              </div>
+            </div>
+
+            {/* User Vulnerability Table */}
+            <div className="table-wrapper">
+              <table className="user-vulnerability-table">
+                <thead>
+                  <tr>
+                    <th onClick={() => handleSort('userPrincipalName')} style={{ cursor: 'pointer' }}>
+                      User Principal Name {getSortIcon('userPrincipalName')}
+                    </th>
+                    <th onClick={() => handleSort('vulnerabilityLevel')} style={{ cursor: 'pointer' }}>
+                      Vulnerability Level {getSortIcon('vulnerabilityLevel')}
+                    </th>
+                    <th>Vulnerability Reason</th>
+                    <th onClick={() => handleSort('isMfaCapable')} style={{ cursor: 'pointer' }}>
+                      MFA Capable {getSortIcon('isMfaCapable')}
+                    </th>
+                    <th onClick={() => handleSort('isPasswordlessCapable')} style={{ cursor: 'pointer' }}>
+                      Passwordless {getSortIcon('isPasswordlessCapable')}
+                    </th>
+                    <th onClick={() => handleSort('authMethodsCount')} style={{ cursor: 'pointer' }}>
+                      Auth Methods {getSortIcon('authMethodsCount')}
+                    </th>
+                    <th onClick={() => handleSort('strongMethodsCount')} style={{ cursor: 'pointer' }}>
+                      Strong Methods {getSortIcon('strongMethodsCount')}
+                    </th>
+                    <th>User Type</th>
+                    <th>Registered Methods</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUsers.map((user: any, index: number) => (
+                    <tr key={index} className={`vulnerability-${user.vulnerabilityLevel?.toLowerCase()}`}>
+                      <td className="user-name-cell">
+                        <div className="user-info">
+                          <span className="user-principal-name">{user.userPrincipalName}</span>
+                          {user.isPrivileged && <span className="privilege-badge">ADMIN</span>}
+                          {user.isExternalUser && <span className="external-badge">EXTERNAL</span>}
+                        </div>
+                      </td>
+                      <td className="vulnerability-cell">
+                        <span 
+                          className="vulnerability-badge"
+                          style={{ backgroundColor: getVulnerabilityBadgeColor(user.vulnerabilityLevel) }}
+                        >
+                          {user.vulnerabilityLevel}
+                        </span>
+                      </td>
+                      <td className="vulnerability-reason-cell">
+                        <span className="vulnerability-reason">{user.vulnerabilityReason}</span>
+                      </td>
+                      <td className="mfa-capability-cell">
+                        <span className={`capability-icon ${user.isMfaCapable ? 'enabled' : 'disabled'}`}>
+                          {user.isMfaCapable ? '✓' : '✗'}
+                        </span>
+                      </td>
+                      <td className="passwordless-capability-cell">
+                        <span className={`capability-icon ${user.isPasswordlessCapable ? 'enabled' : 'disabled'}`}>
+                          {user.isPasswordlessCapable ? '✓' : '✗'}
+                        </span>
+                      </td>
+                      <td className="auth-methods-count-cell">
+                        <span className="methods-count">{user.authMethodsCount || 0}</span>
+                      </td>
+                      <td className="strong-methods-count-cell">
+                        <span className="strong-methods-count">{user.strongMethodsCount || 0}</span>
+                      </td>
+                      <td className="user-type-cell">
+                        <div className="user-type-info">
+                          {user.isPrivileged && <span className="type-tag privileged">Privileged</span>}
+                          {user.isExternalUser && <span className="type-tag external">External</span>}
+                          {user.isSyncUser && <span className="type-tag sync">Sync</span>}
+                          {!user.isPrivileged && !user.isExternalUser && !user.isSyncUser && 
+                           <span className="type-tag regular">Regular</span>}
+                        </div>
+                      </td>
+                      <td className="registered-methods-cell">
+                        <div className="methods-list">
+                          {user.methodsRegistered?.length > 0 ? (
+                            <details>
+                              <summary>{user.methodsRegistered.length} method(s)</summary>
+                              <ul className="methods-details">
+                                {user.methodsRegistered.map((method: string, methodIndex: number) => (
+                                  <li key={methodIndex} className="method-item">{method}</li>
+                                ))}
+                              </ul>
+                            </details>
+                          ) : (
+                            <span className="no-methods">No methods registered</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Results Summary */}
+            <div className="results-summary">
+              <p>Showing {filteredUsers.length} of {userDetails.length} users</p>
+              {searchTerm && <p>Filtered by: "{searchTerm}"</p>}
+              {vulnerabilityFilter !== 'all' && <p>Vulnerability level: {vulnerabilityFilter}</p>}
+            </div>
+          </div>
+        )}
       </div>
     );
   };

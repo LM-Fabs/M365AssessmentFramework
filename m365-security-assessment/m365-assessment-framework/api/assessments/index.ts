@@ -588,6 +588,73 @@ async function collectIdentityMetrics(graphService: MultiTenantGraphService, con
         // Calculate MFA coverage percentage
         const mfaCoverage = totalUsers > 0 ? Math.round((mfaEnabledUsers / totalUsers) * 100) : 0;
 
+        // Enhance user registration details with additional analysis for vulnerability assessment
+        const enhancedUserDetails = userRegistrationDetails.map((user: any) => {
+            const isPrivileged = privilegedUsers.some((privUser: any) => 
+                privUser.userPrincipalName === user.userPrincipalName || 
+                privUser.id === user.id
+            );
+            
+            const isExternalUser = user.userPrincipalName?.includes('#EXT#') || 
+                                  user.userType === 'Guest';
+            
+            const isSyncUser = user.userPrincipalName?.startsWith('Sync_') || 
+                              user.userPrincipalName?.startsWith('ADToAADSyncServiceAccount');
+            
+            // Classify authentication methods by strength
+            const strongMethods = ['microsoftAuthenticatorPasswordless', 'fido2SecurityKey', 
+                                 'passKeyDeviceBound', 'windowsHelloForBusiness', 'hardwareOneTimePasscode'];
+            const weakMethods = ['sms', 'voiceCall', 'email', 'alternateMobilePhone', 'securityQuestion'];
+            
+            const registeredMethods = user.methodsRegistered || [];
+            const hasStrongMethods = registeredMethods.some((method: string) => 
+                strongMethods.some(strong => method.toLowerCase().includes(strong.toLowerCase()))
+            );
+            const hasWeakMethods = registeredMethods.some((method: string) => 
+                weakMethods.some(weak => method.toLowerCase().includes(weak.toLowerCase()))
+            );
+            
+            // Calculate vulnerability level
+            let vulnerabilityLevel = 'Low';
+            let vulnerabilityReason = 'Strong authentication methods configured';
+            
+            if (isPrivileged && !hasStrongMethods) {
+                vulnerabilityLevel = 'Critical';
+                vulnerabilityReason = 'Privileged user without strong authentication';
+            } else if (isPrivileged && hasWeakMethods) {
+                vulnerabilityLevel = 'High';
+                vulnerabilityReason = 'Privileged user with weak authentication methods';
+            } else if (!user.isMfaRegistered && !user.isMfaCapable) {
+                vulnerabilityLevel = 'High';
+                vulnerabilityReason = 'No MFA configured';
+            } else if (hasWeakMethods && !hasStrongMethods) {
+                vulnerabilityLevel = 'Medium';
+                vulnerabilityReason = 'Only weak authentication methods';
+            } else if (isExternalUser && !hasStrongMethods) {
+                vulnerabilityLevel = 'Medium';
+                vulnerabilityReason = 'External user without strong authentication';
+            }
+            
+            return {
+                ...user,
+                isPrivileged,
+                isExternalUser,
+                isSyncUser,
+                hasStrongMethods,
+                hasWeakMethods,
+                hasMixedMethods: hasStrongMethods && hasWeakMethods,
+                vulnerabilityLevel,
+                vulnerabilityReason,
+                authMethodsCount: registeredMethods.length,
+                strongMethodsCount: registeredMethods.filter((method: string) => 
+                    strongMethods.some(strong => method.toLowerCase().includes(strong.toLowerCase()))
+                ).length,
+                weakMethodsCount: registeredMethods.filter((method: string) => 
+                    weakMethods.some(weak => method.toLowerCase().includes(weak.toLowerCase()))
+                ).length
+            };
+        });
+
         const identityMetrics = {
             totalUsers: totalUsers,
             enabledUsers: enabledUsers.length,
@@ -597,6 +664,14 @@ async function collectIdentityMetrics(graphService: MultiTenantGraphService, con
             guestUsers: guestUsers,
             regularUsers: regularUsers,
             conditionalAccessPolicies: conditionalAccessPolicies.length,
+            // Add detailed user vulnerability data
+            userDetails: enhancedUserDetails,
+            vulnerabilitySummary: {
+                critical: enhancedUserDetails.filter((u: any) => u.vulnerabilityLevel === 'Critical').length,
+                high: enhancedUserDetails.filter((u: any) => u.vulnerabilityLevel === 'High').length,
+                medium: enhancedUserDetails.filter((u: any) => u.vulnerabilityLevel === 'Medium').length,
+                low: enhancedUserDetails.filter((u: any) => u.vulnerabilityLevel === 'Low').length
+            },
             // Add source information for transparency
             dataSource: {
                 usersFromApi: allUsers.length,
