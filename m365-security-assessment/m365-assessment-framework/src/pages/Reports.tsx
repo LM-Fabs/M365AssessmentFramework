@@ -2300,6 +2300,127 @@ const Reports: React.FC = () => {
           </div>
         </div>
 
+        {/* Privileged Roles Section */}
+        {userDetails.length > 0 && (
+          <div className="privileged-roles-section">
+            <h4>👑 Privileged Roles Analysis</h4>
+            
+            {/* Privileged Users Summary */}
+            <div className="privileged-summary">
+              <div className="privileged-metric">
+                <span className="metric-label">Total Privileged Users</span>
+                <span className="metric-value">
+                  {userDetails.filter((user: any) => user.isPrivileged).length}
+                </span>
+              </div>
+              <div className="privileged-metric">
+                <span className="metric-label">Global Admins</span>
+                <span className="metric-value">
+                  {userDetails.filter((user: any) => 
+                    user.isPrivileged && user.roles?.includes('Global Administrator')
+                  ).length}
+                </span>
+              </div>
+              <div className="privileged-metric">
+                <span className="metric-label">Security Admins</span>
+                <span className="metric-value">
+                  {userDetails.filter((user: any) => 
+                    user.isPrivileged && user.roles?.includes('Security Administrator')
+                  ).length}
+                </span>
+              </div>
+              <div className="privileged-metric">
+                <span className="metric-label">User Admins</span>
+                <span className="metric-value">
+                  {userDetails.filter((user: any) => 
+                    user.isPrivileged && user.roles?.includes('User Administrator')
+                  ).length}
+                </span>
+              </div>
+            </div>
+
+            {/* Privileged Users Table */}
+            {userDetails.filter((user: any) => user.isPrivileged).length > 0 ? (
+              <div className="privileged-table-wrapper">
+                <table className="privileged-roles-table">
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Roles</th>
+                      <th>MFA Status</th>
+                      <th>Last Sign-in</th>
+                      <th>Risk Level</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {userDetails
+                      .filter((user: any) => user.isPrivileged)
+                      .slice(0, 20) // Show top 20 privileged users
+                      .map((user: any, index: number) => (
+                        <tr key={index}>
+                          <td className="user-cell">
+                            <div className="user-info">
+                              <span className="user-name">{user.userPrincipalName}</span>
+                              <span className="user-type">
+                                {user.isExternalUser ? 'External' : 'Internal'}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="roles-cell">
+                            <div className="roles-list">
+                              {user.roles ? (
+                                user.roles.split(', ').map((role: string, roleIndex: number) => (
+                                  <span key={roleIndex} className={`role-badge ${role.toLowerCase().replace(/\s+/g, '-')}`}>
+                                    {role}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="role-badge unknown">Privileged User</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="mfa-cell">
+                            <span className={`mfa-status ${user.mfaEnabled ? 'enabled' : 'disabled'}`}>
+                              {user.mfaEnabled ? '✅ Enabled' : '❌ Disabled'}
+                            </span>
+                          </td>
+                          <td className="signin-cell">
+                            <span className="signin-date">
+                              {user.lastSignIn ? new Date(user.lastSignIn).toLocaleDateString() : 'N/A'}
+                            </span>
+                          </td>
+                          <td className="risk-cell">
+                            <span className={`risk-badge ${user.vulnerabilityLevel?.toLowerCase() || 'medium'}`}>
+                              {user.vulnerabilityLevel || 'Medium'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="no-privileged-users">
+                <p>ℹ️ No privileged users detected or insufficient permissions to access role data.</p>
+                <p>Ensure the app has Directory.Read.All permissions to view role assignments.</p>
+              </div>
+            )}
+
+            {/* Privileged Roles Recommendations */}
+            <div className="privileged-recommendations">
+              <h5>🛡️ Privileged Access Recommendations</h5>
+              <ul>
+                <li>Enable MFA for all privileged accounts (mandatory requirement)</li>
+                <li>Implement Privileged Identity Management (PIM) for just-in-time access</li>
+                <li>Regularly review and audit privileged role assignments</li>
+                <li>Use separate accounts for administrative tasks</li>
+                <li>Monitor privileged user sign-in activities</li>
+                <li>Limit the number of Global Administrators (recommended: 2-4 accounts)</li>
+              </ul>
+            </div>
+          </div>
+        )}
+
         {/* Detailed User Vulnerability Table */}
         {userDetails.length > 0 ? (
           <div className="user-vulnerability-section">
