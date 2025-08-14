@@ -376,9 +376,16 @@ export class AdminConsentService {
 
       // Check required API permissions
       const requiredPermissions = [
-        'User.Read',
-        'Directory.Read.All',
-        'Reports.Read.All'
+        'User.Read.All',                    // Read user profiles
+        'Directory.Read.All',               // Read directory data
+        'Reports.Read.All',                 // Read usage reports
+        'Policy.Read.All',                  // Read security policies
+        'SecurityEvents.Read.All',          // Read security events
+        'IdentityRiskEvent.Read.All',       // Read identity risk events
+        'Agreement.Read.All',               // Read terms of use agreements
+        'AuditLog.Read.All',                // Read audit logs
+        'Organization.Read.All',            // Read organization info
+        'RoleManagement.Read.Directory'     // Read role assignments - CRITICAL for privileged roles
       ];
 
       const grantedPermissions = application.requiredResourceAccess
