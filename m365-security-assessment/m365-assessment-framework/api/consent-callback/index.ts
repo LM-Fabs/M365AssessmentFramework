@@ -215,17 +215,23 @@ async function consentCallbackHandler(request: HttpRequest, context: InvocationC
                         context.log(`🚀 PHASE 1: Creating new app registration for customer: ${customer.tenantName}`);
                         
                         try {
-                            // Create app registration using Graph API
+                            // Create app registration using Graph API with COMPLETE permission set
                             const appRegistration = await graphService.createMultiTenantAppRegistration({
                                 tenantName: customer.tenantName || 'Unknown',
                                 tenantDomain: customer.tenantDomain || 'unknown.onmicrosoft.com',
                                 targetTenantId: customer.tenantId,
                                 contactEmail: customer.contactEmail,
                                 requiredPermissions: [
-                                    'Organization.Read.All',
-                                    'Directory.Read.All',
-                                    'AuditLog.Read.All',
-                                    'SecurityEvents.Read.All'
+                                    'User.Read.All',                    // Read user profiles
+                                    'Directory.Read.All',               // Read directory data
+                                    'Reports.Read.All',                 // Read usage reports
+                                    'Policy.Read.All',                  // Read security policies - CRITICAL for CA policies
+                                    'SecurityEvents.Read.All',          // Read security events
+                                    'IdentityRiskEvent.Read.All',       // Read identity risk events
+                                    'Agreement.Read.All',               // Read terms of use agreements
+                                    'AuditLog.Read.All',                // Read audit logs
+                                    'Organization.Read.All',            // Read organization info
+                                    'RoleManagement.Read.Directory'     // Read role assignments - CRITICAL for privileged roles
                                 ]
                             });
                             
@@ -241,10 +247,16 @@ async function consentCallbackHandler(request: HttpRequest, context: InvocationC
                                     clientId: appRegistration.clientId,
                                     servicePrincipalId: appRegistration.servicePrincipalId,
                                     permissions: [
-                                        'Organization.Read.All',
-                                        'Directory.Read.All',
-                                        'AuditLog.Read.All',
-                                        'SecurityEvents.Read.All'
+                                        'User.Read.All',                    // Read user profiles
+                                        'Directory.Read.All',               // Read directory data
+                                        'Reports.Read.All',                 // Read usage reports
+                                        'Policy.Read.All',                  // Read security policies - CRITICAL for CA policies
+                                        'SecurityEvents.Read.All',          // Read security events
+                                        'IdentityRiskEvent.Read.All',       // Read identity risk events
+                                        'Agreement.Read.All',               // Read terms of use agreements
+                                        'AuditLog.Read.All',                // Read audit logs
+                                        'Organization.Read.All',            // Read organization info
+                                        'RoleManagement.Read.Directory'     // Read role assignments - CRITICAL for privileged roles
                                     ],
                                     consentUrl: appRegistration.consentUrl,
                                     redirectUri: appRegistration.redirectUri,

@@ -153,12 +153,18 @@ export class GraphApiService {
                 throw new Error('Target tenant ID is required and cannot be empty');
             }
 
-            // Define required permissions for security assessment
+            // Define required permissions for security assessment - COMPLETE SET
             const permissions = customerData.requiredPermissions || [
-                'Organization.Read.All',
-                'Directory.Read.All',
-                'AuditLog.Read.All',
-                'SecurityEvents.Read.All'
+                'User.Read.All',                    // Read user profiles
+                'Directory.Read.All',               // Read directory data
+                'Reports.Read.All',                 // Read usage reports
+                'Policy.Read.All',                  // Read security policies - CRITICAL for CA policies
+                'SecurityEvents.Read.All',          // Read security events
+                'IdentityRiskEvent.Read.All',       // Read identity risk events
+                'Agreement.Read.All',               // Read terms of use agreements
+                'AuditLog.Read.All',                // Read audit logs
+                'Organization.Read.All',            // Read organization info
+                'RoleManagement.Read.Directory'     // Read role assignments - CRITICAL for privileged roles
             ];
 
             // Check if we should create individual apps per customer
