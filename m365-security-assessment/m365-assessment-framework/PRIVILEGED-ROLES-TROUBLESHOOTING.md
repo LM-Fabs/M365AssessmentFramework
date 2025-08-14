@@ -1,14 +1,24 @@
-# 🔍 Privileged Roles Missing - Troubleshooting Guide
+# 🔍 Security Assessment Issues - Troubleshooting Guide
 
-## 📋 Issue: New assessments are missing privileged roles despite adding RoleManagement.Read.Directory permission
+## 📋 Issue 1: New assessments are missing privileged roles despite adding RoleManagement.Read.Directory permission
 
-### ✅ What We've Confirmed:
-1. **Permission Configuration**: `RoleManagement.Read.Directory` is properly added to the required permissions list
-2. **Backend Implementation**: Privileged user detection code is working and includes PIM API calls with directory roles fallback
-3. **Data Storage**: Assessment data is being stored correctly in PostgreSQL including identity metrics
+## 📋 Issue 2: Conditional access policies not showing despite 19+ policies present in tenant
+
+### ✅ What We've Confirmed for Both Issues:
+1. **Permission Configuration**: Required permissions are properly added to the configuration
+2. **Backend Implementation**: Both privileged users and CA policies detection code is working
+3. **Data Storage**: Assessment data is being stored correctly in PostgreSQL
 4. **Permission Mapping**: Graph API permission IDs are correctly mapped in the backend
 
-### 🎯 Most Likely Root Causes:
+### 🎯 Root Causes:
+
+#### **Problem**: Admin Consent Missing Required Permissions
+Both issues likely stem from the same root cause: **incomplete admin consent**.
+
+**For Privileged Roles**: Missing `RoleManagement.Read.Directory`
+**For Conditional Access**: Missing `Policy.Read.All`
+
+**Solution**: Re-grant admin consent with complete permission set
 
 #### 1. **Admin Consent Not Re-Granted** (Most Common)
 **Problem**: After adding new permissions to the app registration, existing customer tenants need fresh admin consent.

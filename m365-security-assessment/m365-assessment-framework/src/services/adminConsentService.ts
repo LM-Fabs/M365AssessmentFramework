@@ -473,11 +473,20 @@ export class AdminConsentService {
   }
 
   private hasPermission(permissionName: string, grantedPermissionIds: string[]): boolean {
-    // Map permission names to IDs (simplified - in production, use Microsoft Graph permission reference)
+    // Complete mapping of permission names to Graph API permission IDs
+    // Based on Microsoft Graph permissions reference
     const permissionMap: Record<string, string> = {
       'User.Read': 'e1fe6dd8-ba31-4d61-89e7-88639da4683d',
+      'User.Read.All': 'df021288-bdef-4463-88db-98f22de89214',
       'Directory.Read.All': '7ab1d382-f21e-4acd-a863-ba3e13f7da61',
-      'Reports.Read.All': '02e97553-ed7b-43d0-ab3c-f8bace0d040c'
+      'Reports.Read.All': '230c1aed-a721-4c5d-9cb4-a90514e508ef',
+      'Policy.Read.All': '246dd0d5-5bd0-4def-940b-0421030a5b68',
+      'SecurityEvents.Read.All': 'bf394140-e372-4bf9-a898-299cfc7564e5',
+      'IdentityRiskEvent.Read.All': '6e472fd1-ad78-48da-a0f0-97ab2c6b769e',
+      'Agreement.Read.All': 'ef4b5d93-3104-4867-9b0b-5cd61b5ffb6f',
+      'AuditLog.Read.All': 'b0afded3-3588-46d8-8b3d-9842eff778da',
+      'Organization.Read.All': '498476ce-e0fe-48b0-b801-37ba7e2685c6',
+      'RoleManagement.Read.Directory': '483bed4a-2ad3-4361-a73b-c83ccdbdc53c'
     };
 
     const permissionId = permissionMap[permissionName];
