@@ -415,6 +415,401 @@ export class AdminConsentService {
   }
 
   /**
+   * Feature-based permission groups for least privilege approach
+   * Each group represents a specific assessment feature and its required permissions
+   */
+  public static readonly FEATURE_PERMISSION_GROUPS = {
+    // Core user and directory information - Always required
+    core: {
+      name: 'Core Assessment',
+      description: 'Basic user and directory information',
+      permissions: [
+        'User.Read.All',           // Read user profiles
+        'Directory.Read.All',      // Read directory data
+        'Organization.Read.All'    // Read organization info
+      ],
+      required: true
+    },
+    
+    // Security reports and compliance data
+    reports: {
+      name: 'Security Reports',
+      description: 'Access to security reports and compliance data',
+      permissions: [
+        'Reports.Read.All',        // Read usage reports
+        'SecurityEvents.Read.All'  // Read security events
+      ],
+      required: false
+    },
+    
+    // Conditional Access Policies - CRITICAL for your issue
+    policies: {
+      name: 'Security Policies',
+      description: 'Access to conditional access and security policies',
+      permissions: [
+        'Policy.Read.All'          // Read security policies - FIXES CA policies issue
+      ],
+      required: false
+    },
+    
+    // Privileged Identity Management - CRITICAL for your issue
+    privilegedRoles: {
+      name: 'Privileged Roles',
+      description: 'Access to privileged role assignments and PIM data',
+      permissions: [
+        'RoleManagement.Read.Directory'  // Read role assignments - FIXES privileged roles issue
+      ],
+      required: false
+    },
+    
+    // Risk and threat intelligence
+    riskIntelligence: {
+      name: 'Risk Intelligence',
+      description: 'Identity risk events and threat intelligence',
+      permissions: [
+        'IdentityRiskEvent.Read.All'  // Read identity risk events
+      ],
+      required: false
+    },
+    
+    // Compliance and audit logs
+    compliance: {
+      name: 'Compliance & Audit',
+      description: 'Audit logs and compliance agreements',
+      permissions: [
+        'AuditLog.Read.All',       // Read audit logs
+        'Agreement.Read.All'       // Read terms of use agreements
+      ],
+      required: false
+    }
+  } as const;
+
+  /**
+   * Gets the current permissions granted to the app registration
+   */
+  public async getCurrentAppPermissions(
+    clientId: string,
+    accessToken: string
+  ): Promise<{ success: boolean; permissions?: string[]; error?: string }> {
+    try {
+      // Get current app registration
+      const appResponse = await fetch(
+        `https://graph.microsoft.com/v1.0/applications?$filter=appId eq '${clientId}'`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!appResponse.ok) {
+        throw new Error(`Failed to get app registration: ${appResponse.statusText}`);
+      }
+
+      const appData = await appResponse.json();
+      if (!appData.value || appData.value.length === 0) {
+        throw new Error('App registration not found');
+      }
+
+      const application = appData.value[0];
+      
+      // Get current Microsoft Graph permissions
+      const currentGraphPermissions = application.requiredResourceAccess?.find(
+        (ra: any) => ra.resourceAppId === '00000003-0000-0000-c000-000000000000'
+      );
+
+      const currentPermissionIds = currentGraphPermissions?.resourceAccess?.map(
+        (access: any) => access.id
+      ) || [];
+
+      // Map permission IDs back to permission names
+      const permissionMapping = this.getPermissionMapping();
+      const reverseMapping = Object.fromEntries(
+        Object.entries(permissionMapping).map(([name, id]) => [id, name])
+      );
+
+      const currentPermissionNames = currentPermissionIds
+        .map((id: string) => reverseMapping[id])
+        .filter(Boolean);
+
+      return {
+        success: true,
+        permissions: currentPermissionNames
+      };
+
+    } catch (error) {
+      console.error('❌ Error getting current app permissions:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
+    }
+  }
+
+  /**
+   * Analyzes which feature groups are currently enabled based on granted permissions
+   */
+  public analyzeEnabledFeatures(currentPermissions: string[]): FeatureAnalysis {
+    const enabledFeatures: string[] = [];
+    const partialFeatures: string[] = [];
+    const missingFeatures: string[] = [];
+
+    for (const [groupKey, group] of Object.entries(AdminConsentService.FEATURE_PERMISSION_GROUPS)) {
+      const hasAllPermissions = group.permissions.every(perm => 
+        currentPermissions.includes(perm)
+      );
+      const hasSomePermissions = group.permissions.some(perm => 
+        currentPermissions.includes(perm)
+      );
+
+      if (hasAllPermissions) {
+        enabledFeatures.push(groupKey);
+      } else if (hasSomePermissions) {
+        partialFeatures.push(groupKey);
+      } else {
+        missingFeatures.push(groupKey);
+      }
+    }
+
+    return {
+      enabledFeatures,
+      partialFeatures,
+      missingFeatures,
+      currentPermissions
+    };
+  }
+
+  /**
+   * Updates app registration permissions with specific feature groups (LEAST PRIVILEGE APPROACH)
+   * Only adds the permissions for the selected features, maintaining existing permissions
+   */
+  public async updateAppRegistrationPermissions(
+    clientId: string,
+    accessToken: string,
+    options: {
+      featureGroups?: string[];           // Feature groups to enable (e.g., ['policies', 'privilegedRoles'])
+      additionalPermissions?: string[];   // Individual permissions to add
+      replaceAll?: boolean;               // If true, replaces all permissions; if false, adds to existing
+    } = {}
+  ): Promise<PermissionUpdateResult> {
+    try {
+      console.log('🔄 Updating app registration permissions...');
+      console.log('📋 Client ID:', clientId);
+      console.log('📋 Feature groups:', options.featureGroups);
+      console.log('📋 Additional permissions:', options.additionalPermissions);
+
+      // Step 1: Get current app registration
+      const appResponse = await fetch(
+        `https://graph.microsoft.com/v1.0/applications?$filter=appId eq '${clientId}'`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!appResponse.ok) {
+        throw new Error(`Failed to get app registration: ${appResponse.statusText}`);
+      }
+
+      const appData = await appResponse.json();
+      if (!appData.value || appData.value.length === 0) {
+        throw new Error('App registration not found');
+      }
+
+      const application = appData.value[0];
+      const objectId = application.id;
+
+      // Step 2: Get current permissions (if not replacing all)
+      let existingPermissions: string[] = [];
+      if (!options.replaceAll) {
+        const currentPermsResult = await this.getCurrentAppPermissions(clientId, accessToken);
+        if (currentPermsResult.success) {
+          existingPermissions = currentPermsResult.permissions || [];
+        }
+      }
+
+      // Step 3: Collect permissions from selected feature groups
+      const featurePermissions: string[] = [];
+      if (options.featureGroups) {
+        for (const groupKey of options.featureGroups) {
+          const group = AdminConsentService.FEATURE_PERMISSION_GROUPS[groupKey as keyof typeof AdminConsentService.FEATURE_PERMISSION_GROUPS];
+          if (group) {
+            featurePermissions.push(...group.permissions);
+          }
+        }
+      }
+
+      // Step 4: Always include core permissions (required for basic functionality)
+      const corePermissions = AdminConsentService.FEATURE_PERMISSION_GROUPS.core.permissions;
+
+      // Step 5: Combine all permissions
+      const allPermissions = [
+        ...existingPermissions,           // Keep existing (unless replaceAll is true)
+        ...corePermissions,              // Always include core
+        ...featurePermissions,           // Add selected feature permissions
+        ...(options.additionalPermissions || [])  // Add any additional permissions
+      ];
+
+      // Remove duplicates
+      const uniquePermissions = Array.from(new Set(allPermissions));
+
+      // Step 6: Map permissions to Graph API resource access format
+      const permissionMapping = this.getPermissionMapping();
+      const resourceAccess = uniquePermissions.map(permission => {
+        const permissionId = permissionMapping[permission];
+        if (!permissionId) {
+          throw new Error(`Unknown permission: ${permission}`);
+        }
+        return {
+          id: permissionId,
+          type: 'Role' // Application permissions
+        };
+      });
+
+      // Step 7: Preserve other existing resource access (non-Graph APIs)
+      const otherResourceAccess = application.requiredResourceAccess?.filter(
+        (ra: any) => ra.resourceAppId !== '00000003-0000-0000-c000-000000000000'
+      ) || [];
+
+      // Step 8: Update app registration
+      const updatePayload = {
+        requiredResourceAccess: [
+          {
+            resourceAppId: '00000003-0000-0000-c000-000000000000', // Microsoft Graph
+            resourceAccess: resourceAccess
+          },
+          ...otherResourceAccess
+        ]
+      };
+
+      console.log('📋 Updating app registration with permissions:', uniquePermissions);
+
+      const updateResponse = await fetch(
+        `https://graph.microsoft.com/v1.0/applications/${objectId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(updatePayload)
+        }
+      );
+
+      if (!updateResponse.ok) {
+        const errorData = await updateResponse.json();
+        throw new Error(`Failed to update app registration: ${errorData.error?.message || updateResponse.statusText}`);
+      }
+
+      // Step 9: Analyze what changed
+      const newPermissions = uniquePermissions.filter(p => !existingPermissions.includes(p));
+      const enabledFeatures = this.analyzeEnabledFeatures(uniquePermissions);
+
+      console.log('✅ App registration updated successfully');
+      console.log('📋 Total permissions:', uniquePermissions.length);
+      console.log('📋 New permissions added:', newPermissions);
+      console.log('⚠️  IMPORTANT: Admin consent is required for new permissions');
+      console.log('🔗 Grant admin consent in Azure Portal: API permissions > Grant admin consent');
+
+      return {
+        success: true,
+        permissions: uniquePermissions,
+        newPermissions,
+        enabledFeatures: enabledFeatures.enabledFeatures,
+        partialFeatures: enabledFeatures.partialFeatures,
+        consentsRequired: newPermissions.length > 0
+      };
+
+    } catch (error) {
+      console.error('❌ Error updating app registration permissions:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
+    }
+  }
+
+  /**
+   * Generates a consent URL for specific feature groups
+   * This allows customers to consent only to the permissions they need
+   */
+  public async generateFeatureBasedConsentUrl(
+    clientId: string,
+    redirectUri: string,
+    customerId: string,
+    featureGroups: string[]
+  ): Promise<{ url: string | null; permissions: string[]; features: string[] }> {
+    // Collect permissions for selected features
+    const permissions: string[] = [];
+    const corePermissions = AdminConsentService.FEATURE_PERMISSION_GROUPS.core.permissions;
+    permissions.push(...corePermissions); // Always include core
+
+    for (const groupKey of featureGroups) {
+      const group = AdminConsentService.FEATURE_PERMISSION_GROUPS[groupKey as keyof typeof AdminConsentService.FEATURE_PERMISSION_GROUPS];
+      if (group) {
+        permissions.push(...group.permissions);
+      }
+    }
+
+    const uniquePermissions = Array.from(new Set(permissions));
+
+    // Create state with feature information
+    const stateData = {
+      customerId,
+      featureGroups,
+      permissions: uniquePermissions,
+      timestamp: Date.now(),
+      requestId: this.generateRequestId()
+    };
+
+    const consentResult = await this.generateConsentUrlWithAutoTenant(
+      clientId,
+      redirectUri,
+      customerId,
+      'https://graph.microsoft.com/.default'
+    );
+
+    if (consentResult.url) {
+      // Add our feature state to the URL
+      const url = new URL(consentResult.url);
+      url.searchParams.set('state', encodeURIComponent(JSON.stringify(stateData)));
+      
+      return {
+        url: url.toString(),
+        permissions: uniquePermissions,
+        features: featureGroups
+      };
+    }
+
+    return {
+      url: null,
+      permissions: uniquePermissions,
+      features: featureGroups
+    };
+  }
+
+  /**
+   * Gets the complete permission mapping for Microsoft Graph API
+   */
+  private getPermissionMapping(): Record<string, string> {
+    return {
+      'User.Read.All': 'df021288-bdef-4463-88db-98f22de89214',
+      'Directory.Read.All': '7ab1d382-f21e-4acd-a863-ba3e13f7da61',
+      'Reports.Read.All': '230c1aed-a721-4c5d-9cb4-a90514e508ef',
+      'Policy.Read.All': '246dd0d5-5bd0-4def-940b-0421030a5b68',
+      'SecurityEvents.Read.All': 'bf394140-e372-4bf9-a898-299cfc7564e5',
+      'IdentityRiskEvent.Read.All': '6e472fd1-ad78-48da-a0f0-97ab2c6b769e',
+      'Agreement.Read.All': 'ef4b5d93-3104-4867-9b0b-5cd61b5ffb6f',
+      'AuditLog.Read.All': 'b0afded3-3588-46d8-8b3d-9842eff778da',
+      'Organization.Read.All': '498476ce-e0fe-48b0-b801-37ba7e2685c6',
+      'RoleManagement.Read.Directory': '483bed4a-2ad3-4361-a73b-c83ccdbdc53c'
+    };
+  }
+
+  /**
    * Creates an enterprise application in the customer tenant after consent
    * This is called from the backend after successful admin consent
    */
@@ -500,6 +895,30 @@ export class AdminConsentService {
 }
 
 // Types and interfaces
+
+/**
+ * Result of analyzing which features are enabled based on current permissions
+ */
+export interface FeatureAnalysis {
+  enabledFeatures: string[];        // Feature groups that have all required permissions
+  partialFeatures: string[];       // Feature groups with some but not all permissions
+  missingFeatures: string[];       // Feature groups with no permissions granted
+  currentPermissions: string[];    // All currently granted permissions
+}
+
+/**
+ * Result of updating app registration permissions
+ */
+export interface PermissionUpdateResult {
+  success: boolean;
+  error?: string;
+  permissions?: string[];          // All permissions after update
+  newPermissions?: string[];       // Permissions that were newly added
+  enabledFeatures?: string[];      // Feature groups now fully enabled
+  partialFeatures?: string[];     // Feature groups partially enabled
+  consentsRequired?: boolean;      // Whether admin consent is needed for new permissions
+}
+
 export interface AdminValidationResult {
   isValid: boolean;
   errors: string[];
