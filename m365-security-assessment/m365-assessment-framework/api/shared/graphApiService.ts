@@ -273,17 +273,18 @@ export class GraphApiService {
             'Directory.Read.All': '7ab1d382-f21e-4acd-a863-ba3e13f7da61',
             'Policy.Read.All': '246dd0d5-5bd0-4def-940b-0421030a5b68',
             'SecurityEvents.Read.All': 'bf394140-e372-4bf9-a898-299cfc7564e5',
-            'IdentityRiskyUser.Read.All': 'dc5007c0-2d7d-4c42-879c-2dab87571379',
+            'IdentityRiskEvent.Read.All': '6e472fd1-ad78-48da-a0f0-97ab2c6b769e',
             'DeviceManagementManagedDevices.Read.All': '2f51be20-0bb4-4fed-bf7b-db946066c75e',
             'AuditLog.Read.All': 'b0afded3-3588-46d8-8b3d-9842eff778da',
             'User.Read.All': 'df021288-bdef-4463-88db-98f22de89214',
-            'IdentityRiskEvent.Read.All': '6e472fd1-ad78-48da-a0f0-97ab2c6b769e',
             'Agreement.Read.All': 'ef4b5d93-3104-4867-9b0b-5cd61b5ffb6f',
             'RoleManagement.Read.Directory': '483bed4a-2ad3-4361-a73b-c83ccdbdc53c'
         };
 
         const permissionId = permissionMap[permissionName];
         if (!permissionId) {
+            console.error(`❌ Unknown permission: ${permissionName}`);
+            console.error(`📋 Available permissions:`, Object.keys(permissionMap));
             throw new Error(`Unknown permission: ${permissionName}`);
         }
         return permissionId;

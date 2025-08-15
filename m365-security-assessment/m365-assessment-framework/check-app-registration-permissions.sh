@@ -1,0 +1,53 @@
+#!/bin/bash
+
+echo "🔍 Checking App Registration Permissions in Azure AD"
+echo "===================================================="
+
+echo ""
+echo "📋 This script will help you verify that your app registration"
+echo "   has all 10 required permissions configured in Azure AD."
+
+echo ""
+echo "🚀 Steps to verify:"
+echo "   1. Go to Azure Portal (portal.azure.com)"
+echo "   2. Navigate to 'Azure Active Directory' > 'App registrations'"
+echo "   3. Find your app: 'M365-Assessment-Framework_LM-IT'"
+echo "   4. Click on 'API permissions'"
+echo "   5. Check that ALL these permissions are listed:"
+
+echo ""
+echo "✅ Required Microsoft Graph Application Permissions:"
+echo "   1. User.Read.All (Read all users' full profiles)"
+echo "   2. Directory.Read.All (Read directory data)"
+echo "   3. Reports.Read.All (Read all usage reports)"
+echo "   4. Policy.Read.All (Read your organization's policies)"
+echo "   5. SecurityEvents.Read.All (Read your organization's security events)"
+echo "   6. IdentityRiskEvent.Read.All (Read all identity risk event information)"
+echo "   7. Agreement.Read.All (Read all terms of use agreements)"
+echo "   8. AuditLog.Read.All (Read all audit log data)"
+echo "   9. Organization.Read.All (Read organization information)"
+echo "   10. RoleManagement.Read.Directory (Read all directory RBAC settings)"
+
+echo ""
+echo "⚠️  IMPORTANT NOTES:"
+echo "   - If you see fewer than 10 permissions, the app registration needs to be updated"
+echo "   - Admin consent dialog may consolidate similar permissions for display"
+echo "   - The actual permissions granted are what matters, not the display count"
+echo "   - After updating permissions, users may need to re-consent"
+
+echo ""
+echo "🔧 If permissions are missing:"
+echo "   1. Click 'Add a permission' in the Azure Portal"
+echo "   2. Select 'Microsoft Graph' > 'Application permissions'"
+echo "   3. Add any missing permissions from the list above"
+echo "   4. Click 'Grant admin consent' after adding permissions"
+echo "   5. Test with a new consent URL generation"
+
+echo ""
+echo "🏃‍♂️ To create a new app registration with all permissions:"
+echo "   - Create a new customer record in the system"
+echo "   - This will trigger the updated app registration process"
+echo "   - The new registration should include all 10 permissions"
+
+echo ""
+echo "✅ Verification complete!"
